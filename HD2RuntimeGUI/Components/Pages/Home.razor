@@ -1,0 +1,121 @@
+@page "/"
+@inject BuilderWorkspace Workspace
+
+<div class="desktop-shell" inert="@(Dialog != null)">
+    <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">H<span>2</span></span><div>HD2Runtime<small>MOD BUILDER</small></div></div>
+        <button class="nav-item @(Page == "library" ? "selected" : "")" @onclick="ShowLibrary">▦ <span>Project library</span></button>
+        @if (Workspace.Project is { } project)
+        {
+            <div class="nav-caption">WORKSPACE</div><div class="project-label">@project.DisplayName</div>
+            <button class="nav-item @(Page == "overview" ? "selected" : "")" @onclick='() => Navigate("overview")'>◈ <span>Overview</span></button>
+            @foreach (var kind in Workspace.Metadata!.Builders.Keys)
+            { <button class="nav-item @(Page == kind ? "selected" : "")" @onclick="() => SelectCategory(kind)">◇ <span>@Workspace.Metadata.CategoryName(kind)</span><small>@Workspace.Metadata.Resources.Values.Count(r => r.Kind == kind)</small></button> }
+            <button class="nav-item @(Page == "changes" ? "selected" : "")" @onclick='() => Navigate("changes")'>≡ <span>Changes</span><small>@project.Changes.Count</small></button>
+            <button class="nav-item @(Page == "export" ? "selected" : "")" @onclick="ShowExport">↗ <span>Build / Export</span></button>
+        }
+        <div class="sidebar-bottom"><button class="nav-item @(Page == "settings" ? "selected" : "")" @onclick='() => Navigate("settings")'>⚙ <span>Settings &amp; SDK</span></button><div class="sdk-mini"><span class="status-dot @(Workspace.SdkStatus?.VerifiedOnline == true ? "online" : "")"></span><div>SDK @(Workspace.SdkStatus?.Installed.Version ?? "loading")<small>@(Workspace.SdkStatus?.VerifiedOnline == true ? "Release verified" : "Offline / not verified")</small></div></div></div>
+    </aside>
+    <main class="workspace">
+        <header class="titlebar"><span>HD2Runtime Mod Builder <span class="crumb">/ @PageTitle</span></span><span class="subtle">@(Workspace.Project is null ? "LOCAL WORKSPACE" : "SDK " + Workspace.Project.SdkVersion + " · API " + Workspace.Project.RuntimeApi)</span></header>
+        @if (Busy) { <div class="activity" role="status">@BusyMessage</div> }
+        @if (Error != null) { <div class="notice error" role="alert">@Error <button @onclick="() => Error = null" aria-label="Dismiss error">×</button></div> }
+        @if (Notice != null) { <div class="notice success" role="status">@Notice <button @onclick="() => Notice = null" aria-label="Dismiss notification">×</button></div> }
+        <fieldset class="workspace-content" disabled="@Busy">
+        @if (Page == "library")
+        {
+            <div class="page-heading"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>Project library</h1><p>Build your next drop. No Lua required.</p></div><div class="actions"><button @onclick="ImportProject">Open project…</button><button class="primary" @onclick="BeginCreate">+ Create New Mod</button></div></div>
+            @if (Workspace.SdkStatus?.UpdateAvailable == true) { <div class="notice warning"><div><strong>SDK update available · @Workspace.SdkStatus.Latest!.Version</strong><p>Your projects stay pinned to their original SDK.</p></div><button @onclick='() => Navigate("settings")'>Review update →</button></div> }
+            @if (Workspace.Library.Count == 0)
+            { <section class="empty-state"><div class="empty-icon">◇</div><h2>A new mod starts here</h2><p>Create a project, explore mapped resources, and turn your changes into a ready-to-install gameplay ZIP.</p><button class="primary" @onclick="BeginCreate">+ Create your first mod</button><small>HD2Runtime and Bingus are installed separately.</small></section> }
+            else
+            {
+                <div class="section-label">PROJECTS <span>@Workspace.Library.Count</span></div><div class="project-grid">
+                @foreach (var item in Workspace.Library)
+                {
+                    <article class="project-card"><button class="project-open" @onclick="() => OpenProject(item.Id)"><div class="project-monogram">@Initials(item.DisplayName)</div><span class="badge">SDK @item.SdkVersion</span><h2>@item.DisplayName</h2><code>@item.ResourceId</code><p>Modified @item.ModifiedAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p></button><div class="card-actions"><button @onclick="() => OpenProject(item.Id)">Open →</button><details><summary aria-label="Project actions">•••</summary><div class="menu"><button @onclick="() => BeginRename(item)">Rename</button><button @onclick="() => BeginDuplicate(item)">Duplicate</button><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(item.Id))">Open project folder</button><button @onclick="() => ExportFromLibrary(item.Id)">Export project</button><button class="danger-text" @onclick="() => BeginRemove(item)">Remove from library</button></div></details></div></article>
+                }
+                </div>
+            }
+            <div class="library-footnote"><span>01 &nbsp; Create a project</span><span>02 &nbsp; Configure changes</span><span>03 &nbsp; Export your mod</span></div>
+        }
+        else if (Page == "settings")
+        {
+            <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>Settings &amp; SDK</h1><p>Your local authoring environment.</p></div></div>
+            <section class="panel"><div class="panel-heading"><h2>HD2Runtime SDK</h2><span class="badge">@(Workspace.SdkStatus?.VerifiedOnline == true ? "Verified online" : "Offline / not verified")</span></div><div class="stats"><div><small>INSTALLED SDK</small><strong>@Workspace.SdkStatus?.Installed.Version</strong></div><div><small>LATEST RELEASE</small><strong>@(Workspace.SdkStatus?.Latest?.Version ?? "Unknown")</strong></div><div><small>RUNTIME API / SCHEMA</small><strong>@Workspace.SdkStatus?.Installed.ApiVersion / 1</strong></div></div><p>@Workspace.SdkStatus?.Message</p><p class="subtle">Source: github.com/SkyeShade/HD2Runtime · Public access, no token required.</p><div class="actions"><button @onclick="CheckUpdates">Check for SDK updates</button>@if (Workspace.SdkStatus?.UpdateAvailable == true) { <button class="primary" @onclick="InstallUpdate">Install Update</button> }</div></section>
+            <section class="panel"><h2>Project storage</h2><code class="path">@Workspace.StorageLocation</code><p>Projects and the library index are human-readable JSON. Removing a project from the library keeps its files. Open project restores it to the library.</p></section>
+            <section class="panel"><h2>About this builder</h2><p>HD2RuntimeGUI 0.1.0 · .NET 10 · MAUI Blazor Hybrid</p><p>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</p></section>
+        }
+        else if (Workspace.Project is { } active)
+        {
+            <div class="page-heading"><div><div class="eyebrow">@PageTitle.ToUpperInvariant()</div><h1>@active.DisplayName</h1><code class="subtle">@active.ResourceId</code></div><button class="primary" @onclick="BuildExport">↗ Build / Export Mod</button></div>
+            @if (Page == "overview")
+            {
+                <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@active.Changes.Count</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
+                <section class="panel"><h2>Choose a category to start</h2><div class="category-grid">@foreach (var kind in Workspace.Metadata!.Builders.Keys) { <button @onclick="() => SelectCategory(kind)">◇ &nbsp; @Workspace.Metadata.CategoryName(kind) <span>→</span></button> }</div><p class="subtle">Categories, resources and controls come from SDK @active.SdkVersion metadata.</p></section>
+                <section class="panel"><h2>Project details</h2><form @onsubmit="SaveDetails" @onsubmit:preventDefault><label for="overview-name">Mod name</label><input id="overview-name" @bind="OverviewName" required maxlength="120" /><div class="form-grid"><div><label for="overview-author">Author</label><input id="overview-author" @bind="OverviewAuthor" required maxlength="120" /></div><div><label for="overview-version">Version</label><input id="overview-version" @bind="OverviewVersion" required /></div></div><label for="overview-description">Description</label><textarea id="overview-description" @bind="OverviewDescription" maxlength="8000" rows="3"></textarea><div class="actions end"><button class="primary" type="submit">Save project details</button></div></form></section>
+            }
+            else if (Page == "changes")
+            {
+                <section class="panel"><div class="panel-heading"><h2>Configured modifications</h2><span class="badge">@active.Changes.Count(c => c.Enabled) enabled</span></div>
+                    @if (active.Changes.Count == 0) { <p>No changes yet. Choose a category in the sidebar to add your first modification.</p> }
+                    @foreach (var group in active.Changes.GroupBy(c => c.Group))
+                    {
+                        <h3 class="group-title">@group.Key</h3>
+                        @foreach (var change in group)
+                        { <div class="change-row @(change.Enabled ? "" : "disabled-row")"><label class="switch-label"><input type="checkbox" role="switch" checked="@change.Enabled" @onchange="() => Run(() => Workspace.ToggleChangeAsync(change.Id))" aria-label="Enable modification" /></label><div class="change-name"><strong>@Workspace.Metadata!.Resources[change.Target].Label</strong><small>@Workspace.Metadata.Resources[change.Target].Fields[change.Field].Label · @(change.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div><div class="change-value">@change.ExpectedValue <span>→</span> <strong>@change.NewValue</strong></div><button @onclick="() => EditChange(change)">Edit</button><button class="quiet danger-text" @onclick="() => Run(() => Workspace.RemoveChangeAsync(change.Id))" aria-label="Remove modification">×</button></div> }
+                    }
+                </section><LuaPreview Source="@Workspace.LuaPreview" />
+            }
+            else if (Page == "export")
+            {
+                <section class="panel"><h2>Build your gameplay mod</h2><p>The ZIP contains your mod's archive, Lua source and dependency metadata. Install Bingus v15+ / API 1 and HD2Runtime @active.SdkVersion+ / API @active.RuntimeApi separately.</p><label for="export-directory">Export directory</label><div class="input-action"><input id="export-directory" @bind="ExportDirectory" /><button @onclick="SaveExportDirectory">Save directory</button></div><p class="subtle">Repeated exports of the same project produce identical ZIP content.</p><button class="primary" @onclick="BuildExport">↗ Build / Export Mod</button></section>
+                @if (Workspace.LastExport != null) { <section class="panel export-success" role="status"><span class="badge green">BUILD SUCCEEDED</span><h2>Export complete</h2><code class="path">@Workspace.LastExport</code><button @onclick="() => Run(Workspace.OpenExportAsync)">Open Export Folder ↗</button></section> }
+                <LuaPreview Source="@Workspace.LuaPreview" />
+            }
+            else if (Workspace.Metadata!.Builders.ContainsKey(Page))
+            {
+                <div class="editor-grid"><section class="panel resource-panel"><h2>@Workspace.Metadata.CategoryName(Page)</h2><input aria-label="Search resources" placeholder="Search resources…" @bind="Search" @bind:event="oninput" /><div class="resource-list">@foreach (var resource in VisibleResources) { <button class="resource-item @(TargetKey == resource.Key ? "active" : "")" @onclick="() => SelectResource(resource.Key)"><strong>@resource.Label</strong><small>@resource.Fields.Values.Count(f => f.Writable) writable fields</small></button> }</div></section>
+                <section class="panel field-panel">
+                    @if (SelectedResource is { } selected)
+                    {
+                        <div class="eyebrow">MAPPED RESOURCE</div><h2>@selected.Label</h2><label for="field">Field</label><select id="field" value="@FieldKey" @onchange="OnFieldChanged">@foreach (var itemField in selected.Fields.Values.OrderByDescending(f => f.Writable)) { <option value="@itemField.Name">@itemField.Label @(itemField.Writable ? "" : "· read-only")</option> }</select>
+                        @if (SelectedField is { } field)
+                        {
+                            <div class="field-title"><h3>@field.Label</h3><span class="badge @(field.Confidence == "Gameplay proven" ? "green" : "")">@field.Confidence</span></div><div class="value-grid"><div class="baseline"><small>VANILLA / EXPECTED</small><strong>@(field.Expected?.ToJsonString() ?? "Unknown")</strong></div><div><label for="modified-value">Modified value</label>
+                                @if (!field.Writable) { <div class="readonly-value">Read-only</div> }
+                                else if (field.ControlType == "enum") { <select id="modified-value" @bind="NewValue">@foreach (var option in field.EnumValues) { <option value="@option.Value?.ToJsonString()">@option.Key (@option.Value)</option> }</select> }
+                                else if (field.ControlType is "bool" or "boolean") { <input id="modified-value" type="checkbox" role="switch" checked='@(NewValue == "true")' @onchange='e => NewValue = (bool)e.Value! ? "true" : "false"' /> }
+                                else { <input id="modified-value" type="number" step='@(field.ValueType == "integer" ? "1" : "any")' @bind="NewValue" /> }
+                            </div></div>
+                            @if (field.Writable)
+                            { <label class="switch-label"><input type="checkbox" role="switch" @bind="EnsureEnabled" /><span>Keep applied with hd2.ensure()<small>Uses HD2Runtime's standard 60-second behavior.</small></span></label><label for="change-group">Change group</label><input id="change-group" @bind="ChangeGroup" maxlength="120" /><p class="subtle">Supported by SDK: @SupportedValues. The runtime checks each request.</p><button class="primary" @onclick="AddChange">@(EditingChange is null ? "+ Add Modification" : "Save modification")</button> }
+                            <details class="provenance"><summary>Evidence &amp; provenance</summary><p>@field.Provenance</p><p>@Workspace.Metadata.EvidenceNote</p></details>
+                        }
+                    }
+                    else { <h2>Select a resource</h2><p>This category has no mapped resources in the current SDK.</p> }
+                </section></div><LuaPreview Source="@Workspace.LuaPreview" />
+            }
+        }
+        </fieldset>
+        <footer class="statusbar"><span><span class="status-dot online"></span> Local project workspace</span><span>@(Workspace.Project is null ? "HD2RuntimeGUI 0.1.0" : "Changes saved automatically · SDK " + Workspace.Project.SdkVersion)</span></footer>
+    </main>
+</div>
+
+@if (Dialog != null)
+{
+    <div class="modal-backdrop" @onkeydown="DialogKey"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" tabindex="-1" @ref="DialogElement"><fieldset disabled="@Busy">
+    @if (Dialog == "update")
+    { <span class="badge amber">UPDATE AVAILABLE</span><h2 id="dialog-title">HD2Runtime SDK update available</h2><div class="stats"><div><small>INSTALLED</small><strong>@Ticket!.Status.Installed.Version</strong></div><div><small>LATEST</small><strong>@Ticket.Status.Latest!.Version</strong></div></div><p>Creating mods with an older SDK is not recommended.</p><p class="subtle">Install validates compatibility before switching SDKs. Ignore applies to this create-project action only.</p><div class="actions"><button @onclick="() => ResolveSdk(UpdateDecision.IgnoreThisTime)">Ignore This Time</button><button class="primary" @onclick="() => ResolveSdk(UpdateDecision.InstallUpdate)">Install Update</button></div> }
+    else if (Dialog is "create" or "duplicate")
+    {
+        <div class="eyebrow">@(Dialog == "duplicate" ? "DUPLICATE PROJECT" : "NEW PROJECT") · SDK @CreationSdk?.Version</div><h2 id="dialog-title">@(Dialog == "duplicate" ? "Make it your own" : "Create New Mod")</h2><p>A resource ID is your mod's permanent identity.</p><form @onsubmit="SubmitProject" @onsubmit:preventDefault><label for="mod-name">Mod Name</label><input id="mod-name" @bind="ModName" required maxlength="120" placeholder="My gameplay mod" /><div class="form-grid"><div><label for="author">Author</label><input id="author" @bind="Author" required maxlength="120" /></div><div><label for="version">Version</label><input id="version" @bind="ModVersion" required placeholder="0.1.0" /></div></div><label for="resource-id">Resource ID</label><input id="resource-id" @bind="ResourceId" required placeholder="mods/your_name/my_mod" /><small class="hint">ASCII letters, digits and underscores. A unique ID creates a unique manager GUID.</small><label for="description">Description <span class="subtle">(optional)</span></label><textarea id="description" @bind="Description" rows="3" maxlength="8000"></textarea><div class="actions end"><button type="button" @onclick="CloseDialog">Cancel</button><button type="submit" class="primary">@(Dialog == "duplicate" ? "Duplicate project" : "Create project →")</button></div></form>
+    }
+    else if (Dialog == "rename")
+    { <h2 id="dialog-title">Rename project</h2><label for="rename">Display name</label><input id="rename" @bind="ModName" maxlength="120" /><p>The resource ID and manager GUID stay the same.</p><div class="actions end"><button @onclick="CloseDialog">Cancel</button><button class="primary" @onclick="SubmitRename">Save name</button></div> }
+    else if (Dialog == "remove")
+    { <h2 id="dialog-title">Remove @ModName?</h2><p>This removes the project from your GUI library. Project files and exported ZIPs are kept. Use Open project to add it again.</p><div class="actions end"><button @onclick="CloseDialog">Cancel</button><button class="danger" @onclick="SubmitRemove">Remove from library</button></div> }
+    @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+    @if (Busy) { <p role="status">@BusyMessage</p> }
+    </fieldset></section></div>
+}

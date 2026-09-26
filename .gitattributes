@@ -1,0 +1,12 @@
+* text=auto
+*.cs text eol=lf
+*.razor text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.md text eol=lf
+*.lua text eol=lf
+*.png binary
+*.zip binary
+# Preserve the exact verified upstream release metadata bytes.
+HD2RuntimeGUI.Core/Metadata/Bundled/metadata.json -text

@@ -1,0 +1,49 @@
+using Microsoft.Extensions.Logging;
+using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.GitHub;
+using HD2RuntimeGUI.Core.Metadata;
+using HD2RuntimeGUI.Core.Projects;
+using HD2RuntimeGUI.Core.Services;
+using HD2RuntimeGUI.Core.Storage;
+using HD2RuntimeGUI.Services;
+
+namespace HD2RuntimeGUI;
+
+public static class MauiProgram
+{
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiApp<App>()
+            .ConfigureFonts(fonts => { fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular"); });
+
+        builder.Services.AddMauiBlazorWebView();
+        var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HD2RuntimeGUI");
+#if DEBUG
+        // Isolate desktop smoke tests from the user's actual project library.
+        dataRoot = Environment.GetEnvironmentVariable("HD2RUNTIMEGUI_DATA_ROOT") ?? dataRoot;
+#endif
+        builder.Services.AddSingleton(new AppPaths(dataRoot));
+        builder.Services.AddSingleton(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(25) });
+        builder.Services.AddSingleton<IGitHubReleaseClient, GitHubReleaseClient>();
+        builder.Services.AddSingleton<IMetadataReader, MetadataReader>();
+        builder.Services.AddSingleton<ISdkCache, SdkCache>();
+        builder.Services.AddSingleton<ISdkUpdateService, SdkUpdateService>();
+        builder.Services.AddSingleton<IProjectStore, JsonProjectStore>();
+        builder.Services.AddSingleton<IProjectService, ProjectService>();
+        builder.Services.AddSingleton<IChangeService, ChangeService>();
+        builder.Services.AddSingleton<ILuaGenerator, LuaGenerator>();
+        builder.Services.AddSingleton<IModExporter, ModExporter>();
+        builder.Services.AddSingleton<IFolderOpener, WindowsFolderOpener>();
+        builder.Services.AddSingleton<IProjectFilePicker, ProjectFilePicker>();
+        builder.Services.AddSingleton<BuilderWorkspace>();
+
+#if DEBUG
+        builder.Services.AddBlazorWebViewDeveloperTools();
+        builder.Logging.AddDebug();
+#endif
+
+        return builder.Build();
+    }
+}
