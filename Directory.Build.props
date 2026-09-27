@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Hd2RuntimeGuiVersion>0.2.0</Hd2RuntimeGuiVersion>
+    <Hd2RuntimeGuiVersion>0.2.1</Hd2RuntimeGuiVersion>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(Hd2RuntimeGuiVersion)</VersionPrefix>
     <Version Condition="'$(Version)' == ''">$(Hd2RuntimeGuiVersion)</Version>
     <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">$(Hd2RuntimeGuiVersion).0</AssemblyVersion>
