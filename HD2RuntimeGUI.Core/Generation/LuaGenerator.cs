@@ -10,12 +10,15 @@ public interface ILuaGenerator { string Generate(ModProject project, SdkMetadata
 
 public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
 {
+    private readonly IWeaponChangeService weaponChanges = new WeaponChangeService();
+    public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges) : this(changes) => this.weaponChanges = weaponChanges;
     public string Generate(ModProject project, SdkMetadata sdk)
     {
         ProjectIdentity.Validate(project);
         if (project.SdkVersion != sdk.Version || project.RuntimeApi != sdk.ApiVersion) throw new InvalidDataException("Project SDK mismatch.");
         var active = project.Changes.Where(c => c.Enabled).OrderBy(c => c.Target, StringComparer.Ordinal).ThenBy(c => c.Group, StringComparer.Ordinal).ThenBy(c => c.Field, StringComparer.Ordinal).ToArray();
         foreach (var change in active) changes.Validate(sdk, change);
+        if (active.Any(c => sdk.Resources[c.Target].Kind == "weapon" && project.WeaponChanges.Any(w => w.Enabled && w.Weapon == sdk.Resources[c.Target].Label))) throw new InvalidDataException("Remove legacy weapon modifications before using semantic overrides for the same weapon.");
         if (active.GroupBy(c => (c.Target, c.Field)).Any(g => g.Count() > 1)) throw new InvalidDataException("A target field may only be modified once.");
         var operations = new List<string>();
         foreach (var group in active.GroupBy(c => (c.Target, c.Group, c.EnsureEnabled)))
@@ -41,6 +44,7 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             var operation = patch ? "patch" : "transaction";
             operations.Add(group.Key.EnsureEnabled ? $"hd2.ensure({{\n    {operation}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{operation}({body})");
         }
+        operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
         return prefix + (operations.Count == 1 ? "return " + operations[0] : "return {\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}") + "\n";

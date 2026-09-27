@@ -1,0 +1,49 @@
+@inject BuilderWorkspace Workspace
+
+@if (Workspace.Metadata?.PlayerWeapons is { } catalog)
+{
+    <div class="weapon-editor">
+        <section class="panel weapon-browser"><h2>Player Weapons <span class="badge">@catalog.Weapons.Count</span></h2>
+            <label for="weapon-search">Search weapons</label><input id="weapon-search" placeholder="Name or category…" @bind="Search" @bind:event="oninput" />
+            <div class="filter-grid"><label>Slot<select aria-label="Weapon slot" @bind="Slot"><option value="">All slots</option><option value="primary">Primary</option><option value="secondary">Secondary</option></select></label>
+            <label>Family<select aria-label="Implementation family" @bind="Family"><option value="">All families</option>@foreach (var f in catalog.Weapons.SelectMany(w => w.ImplementationFamilies).Distinct().Order()) { <option value="@f">@f.Replace('_', ' ')</option> }</select></label></div>
+            <label>Category<select aria-label="Weapon category" @bind="Category"><option value="">All categories</option>@foreach (var c in catalog.Weapons.Select(w => w.Category).Distinct().Order()) { <option>@c</option> }</select></label>
+            <div class="filter-grid"><label class="switch-label"><input type="checkbox" @bind="EditableOnly" />Editable only</label><label class="switch-label"><input type="checkbox" @bind="SharedOnly" />Shared settings</label></div>
+            <div class="weapon-list">@foreach (var w in Visible(catalog))
+            { <button class="resource-item @(Selected == w.Name ? "active" : "")" data-weapon="@w.Name" @onclick="() => Selected = w.Name"><strong>@w.Name</strong><small>@w.Slot · @w.Category @(w.OrdinaryWritesBlocked ? "· Writes blocked" : "")</small></button> }</div>
+        </section>
+        <div class="weapon-detail">
+        @if (catalog.Weapons.FirstOrDefault(w => w.Name == Selected) is { } weapon)
+        {
+            <section class="panel weapon-heading"><div class="panel-heading"><h2>@weapon.Name</h2><button @onclick="() => Reset(weapon.Name)">Reset weapon</button></div><div class="field-badges"><span class="badge">@weapon.Slot</span><span class="badge">@weapon.Category</span>@foreach (var family in weapon.ImplementationFamilies) { <span class="badge">@family.Replace('_', ' ')</span> }</div>
+                @if (weapon.OrdinaryWritesBlocked) { <div class="notice warning"><div><strong>Ordinary writes unavailable</strong><p>@weapon.BlockReason</p></div></div> }
+            </section>
+            @foreach (var section in weapon.Fields.GroupBy(Section).OrderBy(g => SectionOrder(g.Key)))
+            { <section class="semantic-section" data-section="@section.Key"><h2>@section.Key</h2><div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(weapon.Name, field.SemanticFieldId)" Weapon="weapon" Field="field" Changed="Changed" /> }</div></section> }
+        }
+        else { <section class="panel empty-state"><h2>Choose a player weapon</h2><p>Search by name, then edit its supported semantic values.</p><p>SDK @catalog.Hd2RuntimeVersion · @catalog.Summary.WritableSemanticFieldDefinitions writable field definitions</p></section> }
+        </div>
+    </div>
+    @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public string? InitialWeapon { get; set; }
+    private string Search = "", Slot = "", Category = "", Family = "", Selected = "";
+    private bool EditableOnly, SharedOnly;
+    private string? Error;
+    protected override void OnInitialized() => Selected = InitialWeapon ?? "";
+    private IEnumerable<PlayerWeapon> Visible(PlayerWeaponCatalog c) => c.Weapons.Where(w =>
+        (w.Name.Contains(Search, StringComparison.OrdinalIgnoreCase) || w.Category.Contains(Search, StringComparison.OrdinalIgnoreCase)) &&
+        (Slot == "" || w.Slot == Slot) && (Category == "" || w.Category == Category) && (Family == "" || w.ImplementationFamilies.Contains(Family)) &&
+        (!EditableOnly || w.Fields.Any(f => f.Editable)) && (!SharedOnly || w.Fields.Any(f => f.AffectsMultipleWeapons)));
+    private async Task Reset(string name) { try { await Workspace.ResetWeaponsAsync(name); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+    private static string Section(WeaponCapability f)
+    {
+        if (!f.Editable) return "Advanced / Read-only";
+        if (f.Domain == "weapon") return f.SemanticFieldId.Contains("capacity") ? "Ammo / Feed" : f.SemanticFieldId.Contains("recoil") || f.SemanticFieldId.Contains("spread") || f.SemanticFieldId.Contains("sway") || f.SemanticFieldId.Contains("ergonomics") ? "Handling" : "Weapon";
+        if (f.Domain == "damage") return f.SemanticFieldId.Contains(".ap_") ? "Penetration" : f.SemanticFieldId.Contains("status_") ? "Special Effects" : "Damage";
+        return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(f.Domain.Replace('_', ' '));
+    }
+    private static int SectionOrder(string name) => name switch { "Weapon" => 0, "Handling" => 1, "Ammo / Feed" => 2, "Projectile" => 3, "Damage" => 4, "Penetration" => 5, "Special Effects" => 6, "Advanced / Read-only" => 99, _ => 7 };
+}

@@ -24,3 +24,12 @@ public sealed class ProjectFilePicker : IProjectFilePicker
         return result?.FullPath;
     }
 }
+
+public sealed class ResearchFilePicker : IResearchFilePicker
+{
+    public async Task<string?> PickAsync(bool report)
+    {
+        var file = await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = report ? "Link Runtime snapshot weapon-map report" : "Load or relink HD2SNAP", FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>> { [DevicePlatform.WinUI] = [report ? ".json" : ".hd2snap"] }) });
+        return file?.FullPath;
+    }
+}

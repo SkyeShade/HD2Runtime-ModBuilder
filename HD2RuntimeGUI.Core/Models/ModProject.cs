@@ -4,7 +4,7 @@ namespace HD2RuntimeGUI.Core.Models;
 
 public sealed class ModProject
 {
-    public int FormatVersion { get; set; } = 1;
+    public int FormatVersion { get; set; } = 2;
     public Guid Id { get; set; } = Guid.NewGuid();
     public string DisplayName { get; set; } = "";
     public string Author { get; set; } = "";
@@ -18,6 +18,27 @@ public sealed class ModProject
     public int RuntimeApi { get; set; } = 1;
     public string ExportDirectory { get; set; } = "";
     public List<ModChange> Changes { get; set; } = [];
+    public List<WeaponChange> WeaponChanges { get; set; } = [];
+}
+
+// Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.
+public sealed class WeaponChange
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Weapon { get; set; } = "";
+    public string SemanticFieldId { get; set; } = "";
+    public string FieldType { get; set; } = "";
+    public System.Text.Json.JsonElement ExpectedValue { get; set; }
+    public System.Text.Json.JsonElement DesiredValue { get; set; }
+    public bool SharedAcknowledged { get; set; }
+    public string? AcknowledgedWriteScope { get; set; }
+    public int? AcknowledgedConsumerCount { get; set; }
+    public List<string> AcknowledgedAffectedWeapons { get; set; } = [];
+    public string BaselineSdkVersion { get; set; } = "";
+    public bool Enabled { get; set; } = true;
+    public bool EnsureEnabled { get; set; } = true;
+    public string Group { get; set; } = "Gameplay";
+    public string? Notes { get; set; }
 }
 
 public sealed class ModChange

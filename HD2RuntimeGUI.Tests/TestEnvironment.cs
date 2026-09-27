@@ -27,11 +27,15 @@ public sealed class TestEnvironment : IDisposable
     public FakeDesktop Desktop { get; } = new();
     public TestEnvironment()
     {
-        Metadata = Reader.Read(SdkCache.BundledMetadata());
+        Metadata = Reader.Read(LegacyMetadata());
+        Directory.CreateDirectory(Path.GetDirectoryName(Paths.SdkFile(Metadata.Version))!);
+        File.WriteAllBytes(Paths.SdkFile(Metadata.Version), LegacyMetadata());
+        File.WriteAllText(Paths.CachePath("current.json"), "{\"version\":\"0.5.1\"}");
         Cache = new(Paths, Reader, GitHub); Store = new(Paths); Projects = new(Store, Paths); Updates = new(Cache, GitHub, Paths);
         Generator = new(Changes); Exporter = new(Generator);
     }
     public BuilderWorkspace Workspace() => new(Store, Projects, Cache, Updates, Changes, Generator, Exporter, Desktop, Desktop, Paths);
+    public static byte[] LegacyMetadata() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "legacy-metadata.json"));
     public Task<ModProject> Project() => Projects.CreateAsync(new("JAR-5 AP4", "SkyeShade", "mods/skyeshade/jar5_ap4", "0.1.0"), Metadata);
     public ModChange Jar5(bool ensure = true) => Changes.Create(Metadata, "jar5", "armor_penetration", "4", ensure, "Gameplay");
     public void Dispose() { if (Directory.Exists(Paths.Root)) Directory.Delete(Paths.Root, true); }
@@ -61,7 +65,7 @@ public sealed class FakeGitHub : IGitHubReleaseClient
         "sha256:" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), $"https://github.com/SkyeShade/HD2Runtime/releases/tag/v{version}");
     public static byte[] MakeArchive(string version, string? maliciousEntry = null, int schema = 1)
     {
-        var json = JsonNode.Parse(SdkCache.BundledMetadata())!; json["runtime_version"] = version; json["schema_version"] = schema;
+        var json = JsonNode.Parse(TestEnvironment.LegacyMetadata())!; json["runtime_version"] = version; json["schema_version"] = schema;
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
         {

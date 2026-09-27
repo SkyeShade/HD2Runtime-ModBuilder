@@ -1,9 +1,18 @@
-# JAR-5 AP4
+# Player-weapon samples
 
-`JAR-5-AP4-0.1.0.zip` is a generated gameplay mod using the published HD2Runtime 0.5.1 SDK's JAR-5 armor-penetration contract: expected 3, requested 4, standard `hd2.ensure()` behavior.
+`player-weapons.json` contains three sample requests, not a gameplay catalog. Defaults, types and permissions are looked up in the installed SDK. The developer helper uses the same `WeaponChangeService`, project storage, generator and exporter as the GUI:
 
-Resource: `mods/skyeshade/jar5_ap4`. Dependencies: separately installed Bingus Shared Loader release 15+/API 1 and HD2Runtime 0.5.1+/API 1.
+```powershell
+dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/sample-workspace-0.13
+dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/live-release-0.13 --online
+```
 
-The ZIP includes its generated source as `src/addon.lua`. A copy is available as `addon.lua` here. No runtime implementation or SDK tooling is bundled. This artifact was generated and inspected but not deployed or run in game.
+`--online` explicitly verifies and installs the latest compatible public SDK. No Runtime or mod is deployed.
 
-Regenerate with `dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/sample-workspace`; output is in that workspace's `Exports` directory.
+Golden gameplay source:
+
+- [Concussive1100](../HD2RuntimeGUI.Tests/Golden/Concussive1100.lua): 400 → 1100 RPM.
+- [VerdictFlatTrajectory](../HD2RuntimeGUI.Tests/Golden/VerdictFlatTrajectory.lua): drag 1.2 → 0.1; gravity 1 → 0.2.
+- [ReprimandFlatTrajectory](../HD2RuntimeGUI.Tests/Golden/ReprimandFlatTrajectory.lua): the same two projectile edits.
+
+The three manually exercised desktop workflows exported to `artifacts/player-weapons-ui/Exports/`. This isolated smoke-test library also retains the GUI-created projects. ZIPs and screenshots are local artifacts, excluded from commits. `addon.lua` is the historical JAR-5 sample retained for legacy reference.

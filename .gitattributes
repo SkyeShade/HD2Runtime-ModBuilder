@@ -8,5 +8,6 @@
 *.lua text eol=lf
 *.png binary
 *.zip binary
-# Preserve the exact verified upstream release metadata bytes.
-HD2RuntimeGUI.Core/Metadata/Bundled/metadata.json -text
+# Preserve the exact verified upstream release metadata bytes, including the
+# capability catalog. The cache treats each SDK version as immutable.
+HD2RuntimeGUI.Core/Metadata/Bundled/*.json -text

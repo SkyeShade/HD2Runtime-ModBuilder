@@ -5,7 +5,12 @@ using HD2RuntimeGUI.Core.Models;
 
 namespace HD2RuntimeGUI.Core.GitHub;
 
-public sealed record SdkRelease(string Version, string AssetName, string DownloadUrl, long Size, string? Sha256, string ReleaseUrl);
+public enum ReleaseArtifactKind { Runtime, Sdk, Template, Examples }
+public sealed record ReleaseArtifact(ReleaseArtifactKind Kind, string Name, string DownloadUrl, long Size, string? Sha256);
+public sealed record SdkRelease(string Version, string AssetName, string DownloadUrl, long Size, string? Sha256, string ReleaseUrl)
+{
+    public IReadOnlyList<ReleaseArtifact> Artifacts { get; init; } = [];
+}
 public interface IGitHubReleaseClient
 {
     Task<SdkRelease> GetLatestAsync(CancellationToken ct = default);
@@ -53,14 +58,25 @@ public sealed class GitHubReleaseClient(HttpClient http) : IGitHubReleaseClient
             var releaseUrl = release.GetProperty("html_url").GetString()!;
             if (releaseUrl != $"https://github.com/{Repository}/releases/tag/{tag}") throw new InvalidDataException("Unexpected release repository.");
             var name = $"HD2Runtime-{version}-sdk.zip";
+            var artifacts = new List<ReleaseArtifact>();
+            var allowed = new Dictionary<string, ReleaseArtifactKind> {
+                [name] = ReleaseArtifactKind.Sdk, [$"HD2Runtime-{version}-runtime.zip"] = ReleaseArtifactKind.Runtime,
+                [$"HD2Runtime-ModTemplate-{version}.zip"] = ReleaseArtifactKind.Template, [$"HD2Runtime-{version}-example-projects.zip"] = ReleaseArtifactKind.Examples };
             foreach (var asset in release.GetProperty("assets").EnumerateArray())
             {
-                if (asset.GetProperty("name").GetString() != name) continue;
+                var assetName = asset.GetProperty("name").GetString()!;
+                if (!allowed.TryGetValue(assetName, out var kind)) continue;
                 var url = asset.GetProperty("browser_download_url").GetString()!;
                 var digest = asset.TryGetProperty("digest", out var d) ? d.GetString() : null;
-                var item = new SdkRelease(version.ToString(), name, url, asset.GetProperty("size").GetInt64(), digest, releaseUrl);
-                Validate(item); result.Add(item);
+                var size = asset.GetProperty("size").GetInt64();
+                if (url != $"https://github.com/{Repository}/releases/download/{tag}/{assetName}" || size <= 0 || size > MaxDownloadBytes || (digest != null && !Regex.IsMatch(digest, @"\Asha256:[a-fA-F0-9]{64}\z")) || artifacts.Any(a => a.Name == assetName)) throw new InvalidDataException("Invalid release artifact.");
+                if (asset.TryGetProperty("content_type", out var type) && type.GetString() is not ("application/zip" or "application/x-zip-compressed" or "application/octet-stream")) throw new InvalidDataException("Unexpected release artifact type.");
+                artifacts.Add(new(kind, assetName, url, size, digest));
             }
+            var sdk = artifacts.SingleOrDefault(a => a.Kind == ReleaseArtifactKind.Sdk);
+            if (sdk == null) continue;
+            var item = new SdkRelease(version.ToString(), name, sdk.DownloadUrl, sdk.Size, sdk.Sha256, releaseUrl) { Artifacts = artifacts };
+            Validate(item); result.Add(item);
         }
         return result;
     }
@@ -111,7 +127,7 @@ public sealed class GitHubReleaseClient(HttpClient http) : IGitHubReleaseClient
     private static HttpRequestMessage Request(string url)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.UserAgent.ParseAdd("HD2RuntimeGUI/0.1.0");
+        request.Headers.UserAgent.ParseAdd("HD2RuntimeGUI/0.2.0");
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
         return request;

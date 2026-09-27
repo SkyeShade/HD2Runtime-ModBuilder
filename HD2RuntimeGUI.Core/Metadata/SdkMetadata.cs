@@ -18,6 +18,7 @@ public sealed record SdkTransition(string Resource, string Field, JsonNode? Expe
 public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<string, SdkType> Types,
     Dictionary<string, string> Builders, Dictionary<string, SdkResource> Resources, List<SdkTransition> Transitions, string EvidenceNote)
 {
+    public PlayerWeaponCatalog? PlayerWeapons { get; init; }
     public string CategoryName(string key)
     {
         var name = Types[key].Name;
@@ -134,7 +135,7 @@ public sealed class MetadataReader : IMetadataReader
     private static string Text(JsonNode node, string key)
     { var s = node[key]!.GetValue<string>(); if (string.IsNullOrWhiteSpace(s) || s.Length > 4096) throw new InvalidDataException("Invalid " + key); return s; }
     private static JsonObject Object(JsonNode node, string key) => node[key]!.AsObject();
-    private static void RejectDuplicates(JsonElement node)
+    internal static void RejectDuplicates(JsonElement node)
     {
         if (node.ValueKind == JsonValueKind.Object)
         {

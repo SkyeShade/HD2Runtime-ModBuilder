@@ -1,62 +1,56 @@
-# Verification
+# 0.13 player-weapon authoring verification
 
-Verified on Windows with .NET SDK 10.0.300 and MAUI 10.0.20.
+Upstream authority: [HD2Runtime v0.13.0](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.13.0), commit `2d1be38a1830bb973140b0b431e58d3c2fa9e081`. The SDK and ModTemplate assets were downloaded from the public release and checked against its published SHA-256 digests:
+
+| Asset | SHA-256 |
+| --- | --- |
+| HD2Runtime-0.13.0-sdk.zip | `22078a02bb3a573da1d35f4f3692e17e18c085c02a26d16e3dd7d3f9f7cbdf56` |
+| HD2Runtime-ModTemplate-0.13.0.zip | `5459aef0e882ba8630f5c79b3be45a792406f69019f4c1b0685fd367439494aa` |
+| HD2Runtime-0.13.0-example-projects.zip | `6803d88ae4099560138abcc674a3469f5f327995c67123abf91ac6b0bfef629a` |
+
+The bundled catalog is the unmodified SDK asset: 80 identities, 73 uniquely writable identities, seven fail-closed duplicate identities, 2,667 entries, 1,772 editable entries, and 48 definitions (38 writable, 10 read-only, three derived). Fifteen distinct backing groups contain editable shared fields; the catalog also describes one group only in blocked/read-only entries. Some shared damage consumers are unnamed; the UI still requires approval.
 
 ## Automated tests
 
-60 xUnit cases pass without network access or a running game. Coverage includes:
+84 tests pass with no game dependency. Coverage includes:
 
-- Public GitHub release parsing, filtering, semantic-version ordering, request headers/no token, repository validation, bounded streams, redirect rejection before contact.
-- Current versus newer SDK, latest compatible selection, one-time ignore semantics, repeated checks, successful installation, retained historical SDK, failed download/digest/schema/version preserving the previous SDK, offline cached release and offline first launch.
-- Unsupported schema/API, malformed/duplicate JSON, unsafe Lua identifiers, SDK path traversal and malicious ZIP entries.
-- Resource ID validation, project creation, JSON persistence/reload, duplicate identity, rename, removal preserving files and reopening removed projects.
-- Metadata-derived JAR-5 change, patch generation, transaction generation, transaction-only single fields, ensure defaults, disabled changes, duplicate fields and unsupported/injected values.
-- Deterministic ZIP bytes, exact ZIP inventory, dependency declarations, gameplay archive header/resource identity, no runtime implementation/stubs, and folder-opening abstraction.
-- Complete create/change/preview/export/open-folder/reload sequence through application services.
+- Existing release parsing, semver comparison, current/newer SDK decisions, Ignore This Time, safe install, failed-update preservation, offline fallback, unsupported/malformed schemas, archive traversal and cache-path rejection.
+- Actual published capability parsing/counts, field lookup, derived/read-only/duplicate handling, shared acknowledgement and changed scope, conflicting shared changes, duplicate overrides and SDK baseline/missing-field review.
+- Every one of the 1,772 writable capability entries generates a semantic constant checked against the published SDK API stub. The stub is a test fixture only.
+- Project creation, identity/GUID validation, format persistence/reload, folder-opening abstraction, Lua patch/transaction/ensure behavior and deterministic exports.
+- Golden Lua and deterministic ZIP tests for all three requested mods, correct expected baselines and Runtime dependency metadata, package inventory and absence of Runtime implementation.
+- HD2SNAP header/index validation, bounded read-only raw reads, malformed headers, persisted/relinked paths, and mapper report fingerprint/read-only checks.
 
-`dotnet test HD2RuntimeGUI.Tests/HD2RuntimeGUI.Tests.csproj`
+## Desktop validation
 
-## Live release check
+The actual Debug MAUI app was launched with an isolated library at `artifacts/player-weapons-ui`. WebView2 UI actions exercised project creation, SDK status, weapon search/selection, field controls, saving, Changes, Lua Preview, Build/Export and Open Export Folder for:
 
-The real C# GitHub and SDK services successfully discovered and installed public release 0.5.1 using no token. The published SDK asset is `HD2Runtime-0.5.1-sdk.zip`, 26,610 bytes, SHA-256:
+- `Concussive1100`: AR-23C fire rate 400 → 1100.
+- `VerdictFlatTrajectory`: drag 1.2 → 0.1 and gravity 1 → 0.2.
+- `ReprimandFlatTrajectory`: drag 1.2 → 0.1 and gravity 1 → 0.2.
 
-`2b92d12a7f97f87b4e24babb715aa7a60f7954900a82bd6ea08b2e009b54b1e7`
+Both trajectory projects leave velocity/mass untouched. The exported source from each actual GUI ZIP was compared exactly with its golden Lua. Closing/relaunching restored all three project cards.
 
-The embedded `metadata.json` is the byte-for-byte metadata from that verified release. Its SHA-256:
+The gameplay archive in each GUI ZIP was rebuilt using the archive codec from the downloaded, digest-verified 0.13 ModTemplate; all three were byte-identical to that reference codec's output.
 
-`8f259710d63a3333800e3ea9ec129772e20c4814fd582a0557e1ba9f2cc971d5`
+Additional desktop checks covered ARC-12 Blitzer, LAS-13 Trident, FLAM-66 Torcher, CQC-19 Stun Lance and SG-8 Punisher. Arc and Beam did not show conventional projectile-drag controls. Shared AR-23 Liberator drag blocked generation until explicitly approved; approved output contained `allow_shared=true`. Reset removed that test change. LAS-5 Scythe showed its ambiguity explanation and no editable numeric controls.
 
-## Desktop verification
+The Snapshot Research page is integrated. File-format and relink/report behavior are tested with synthetic files; no game capture was taken. A full native snapshot-picker/report inspection with a real capture was not performed. The report lacks addresses, so automatic semantic-to-byte navigation remains unavailable.
 
-The actual Debug MAUI application was driven through its WebView2 debugging protocol using an isolated data root under `artifacts/ui-smoke`. The following passed:
+Reproducible developer UI helpers are `tools/player-weapons-smoke.mjs` with normal, `--families`, `--relaunch` and `--safety` modes. They require a running Debug app with an isolated WebView2 CDP profile. Node is developer tooling only. Local screenshots are in ignored `docs/screenshots/`, including the three editors/Changes views, family views, shared approval, duplicate blocking and restored library.
 
-1. Launch and public release check.
-2. Create JAR-5 AP4 and persist the project.
-3. Select Weapons, JAR-5 Dominator and metadata-supplied Armor Penetration.
-4. Enter 4 for the SDK baseline of 3 and add the modification.
-5. Inspect the saved summary and generated Lua.
-6. Build the gameplay ZIP and invoke Open Export Folder successfully.
-7. Close/relaunch the executable, find the project card, reopen it, and verify the persisted modification.
+## Outputs and builds
 
-A second isolated desktop library used a metadata fixture labelled 0.5.0 to exercise the update screen against the real 0.5.1 release. The UI showed the warning, **Ignore This Time** continued with 0.5.0, the next create action warned again, and **Install Update** verified/installed 0.5.1 and continued into its creation form. The 0.5.0 fixture is synthetic; no claim is made that it is a published SDK.
+GUI-generated test ZIPs:
 
-Screenshots are captures from the actual MAUI WebView, rather than design mockups:
+```text
+artifacts/player-weapons-ui/Exports/Concussive1100-0.1.0.zip
+artifacts/player-weapons-ui/Exports/VerdictFlatTrajectory-0.1.0.zip
+artifacts/player-weapons-ui/Exports/ReprimandFlatTrajectory-0.1.0.zip
+```
 
-- [Library](screenshots/library.png)
-- [Create project](screenshots/create-project.png)
-- [Weapon editor](screenshots/weapon-editor.png)
-- [Changes and Lua](screenshots/changes.png)
-- [Export complete](screenshots/export.png)
-- [SDK update warning](screenshots/sdk-update.png)
+The final public-release integration run (`tools/HD2RuntimeGUI.Sample --online`) successfully discovered, downloaded, digest-validated, installed and parsed SDK 0.13.0, then generated all three mods in `artifacts/live-release-0.13/Exports/`.
 
-The restricted agent launch did not initialize the embedded UI. A normal launch outside that restriction did. Rider was attached during triage and then detached without changing user breakpoints or application startup behavior. No app runtime defect was established from that restricted launch.
+The Windows Debug build passed without compiler warnings/errors. Self-contained Windows x64 publish succeeded at `artifacts/publish/win-x64`; NuGet reported NU1900 because its vulnerability-data endpoint was unavailable during restore. This did not prevent package restore or publishing.
 
-To reproduce the optional desktop smoke with Node 22+ (not needed by the application): set `HD2RUNTIMEGUI_DATA_ROOT` to an isolated empty directory, `WEBVIEW2_USER_DATA_FOLDER` to an isolated browser profile, and `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` before launching a Debug build. Run `node tools/ui-smoke.mjs`, optionally `node tools/ui-smoke.mjs --open-export`, then close/relaunch and run `node tools/ui-smoke.mjs --relaunch`. `HD2GUI_CDP_PORT` changes the smoke script's port. Never set the debugging port in a distributed build. The data-root override is compiled only in Debug.
-
-## Packaging parity and limitations
-
-The C# gameplay archive writer was compared against `starter/build.ps1` from the adjacent read-only HD2Runtime checkout at commit `361a7c5d056cbcee72300ab857c87de882badea0`. A temporary copy of that standalone script generated identical archive bytes for the same Lua payload. Its `guid="auto"` build independently produced the same manager GUID, `707295c4-83e8-5c66-ad03-a648c82fb693`, for `mods/skyeshade/jar5_ap4`; this is now a regression assertion. The upstream repository was not changed. No Python was used.
-
-Both the Windows Debug build and a self-contained Windows x64 Release publish were produced. The publish includes .NET and Windows App SDK. WebView2 Evergreen Runtime is an end-user prerequisite. There is no installer, code signing or auto-update system for the GUI itself in this milestone.
-
-Game execution, deployment and live-memory behavior were intentionally outside verification. Runtime compatibility is grounded in published metadata and starter packaging contracts; no claim of in-game execution is made. Future schema/API versions are rejected or skipped until a compatible GUI adapter is added. Existing projects require their pinned metadata version in the local cache; moving a project between machines may require copying that version's `Sdk/<version>/metadata.json` alongside the project library.
+No game was launched, no mods were installed/deployed, and the HD2Runtime working tree was left unchanged. Runtime behavior during gameplay remains for the user's manual validation.

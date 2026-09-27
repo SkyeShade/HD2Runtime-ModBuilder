@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "runtime_version": "0.13.0",
+  "runtime_version": "0.5.1",
   "api_version": 1,
   "evidence_categories": [
     "structural_candidate",
@@ -2730,20 +2730,6 @@
         "on_result?": "fun(result: table): string?",
         "on_error?": "fun(reason: string, detail: table): string?"
       },
-      "HD2PrimaryWeaponMapRequest": {
-        "startup_delay?": "number",
-        "on_result?": "fun(result: table)",
-        "on_error?": "fun(reason: string, detail: table)"
-      },
-      "HD2SnapshotCaptureRequest": {
-        "capture_delay_seconds?": "number",
-        "output_directory?": "string",
-        "output_path?": "string",
-        "bytes_per_tick?": "integer",
-        "chunk_bytes?": "integer",
-        "on_result?": "fun(result: table)",
-        "on_error?": "fun(reason: string, detail: table)"
-      },
       "HD2PatchRequest": {
         "id": "string",
         "target": "HD2DamageProfile",
@@ -2800,36 +2786,6 @@
         ],
         "returns": "HD2Watch",
         "doc": "Runtime-scheduled read observation; default 60 update seconds."
-      },
-      "enumerate_primary_weapons": {
-        "params": [
-          [
-            "request",
-            "HD2PrimaryWeaponMapRequest"
-          ]
-        ],
-        "returns": "HD2ReadJob",
-        "doc": "Enumerate structurally owned weapon resources through one bounded shared discovery pass."
-      },
-      "map_primary_weapons": {
-        "params": [
-          [
-            "request",
-            "HD2PrimaryWeaponMapRequest"
-          ]
-        ],
-        "returns": "HD2Watch",
-        "doc": "Schedule one read-only primary weapon enumeration after a startup delay."
-      },
-      "capture_snapshot": {
-        "params": [
-          [
-            "request",
-            "HD2SnapshotCaptureRequest"
-          ]
-        ],
-        "returns": "HD2Watch",
-        "doc": "Incrementally capture committed readable current-process regions to a build-bound HD2SNAP file."
       },
       "format": {
         "params": [

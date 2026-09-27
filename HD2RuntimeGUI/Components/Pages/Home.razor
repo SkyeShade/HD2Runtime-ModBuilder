@@ -9,11 +9,14 @@
         {
             <div class="nav-caption">WORKSPACE</div><div class="project-label">@project.DisplayName</div>
             <button class="nav-item @(Page == "overview" ? "selected" : "")" @onclick='() => Navigate("overview")'>◈ <span>Overview</span></button>
-            @foreach (var kind in Workspace.Metadata!.Builders.Keys)
+            @if (Workspace.Metadata!.PlayerWeapons != null) { <button class="nav-item @(Page == "player-weapons" ? "selected" : "")" @onclick='() => Navigate("player-weapons")'><span>Player Weapons</span><small>@Workspace.Metadata.PlayerWeapons.Weapons.Count</small></button> }
+            @foreach (var kind in Workspace.Metadata!.Builders.Keys.Where(k => k != "weapon" || Workspace.Metadata.PlayerWeapons == null))
             { <button class="nav-item @(Page == kind ? "selected" : "")" @onclick="() => SelectCategory(kind)">◇ <span>@Workspace.Metadata.CategoryName(kind)</span><small>@Workspace.Metadata.Resources.Values.Count(r => r.Kind == kind)</small></button> }
-            <button class="nav-item @(Page == "changes" ? "selected" : "")" @onclick='() => Navigate("changes")'>≡ <span>Changes</span><small>@project.Changes.Count</small></button>
+            <button class="nav-item @(Page == "changes" ? "selected" : "")" @onclick='() => Navigate("changes")'>≡ <span>Changes</span><small>@(project.Changes.Count + project.WeaponChanges.Count)</small></button>
+            <button class="nav-item @(Page == "lua" ? "selected" : "")" @onclick='() => Navigate("lua")'><span>Lua Preview</span></button>
             <button class="nav-item @(Page == "export" ? "selected" : "")" @onclick="ShowExport">↗ <span>Build / Export</span></button>
         }
+        <button class="nav-item @(Page == "research" ? "selected" : "")" @onclick='() => Navigate("research")'><span>Snapshot Research</span></button>
         <div class="sidebar-bottom"><button class="nav-item @(Page == "settings" ? "selected" : "")" @onclick='() => Navigate("settings")'>⚙ <span>Settings &amp; SDK</span></button><div class="sdk-mini"><span class="status-dot @(Workspace.SdkStatus?.VerifiedOnline == true ? "online" : "")"></span><div>SDK @(Workspace.SdkStatus?.Installed.Version ?? "loading")<small>@(Workspace.SdkStatus?.VerifiedOnline == true ? "Release verified" : "Offline / not verified")</small></div></div></div>
     </aside>
     <main class="workspace">
@@ -39,24 +42,32 @@
             }
             <div class="library-footnote"><span>01 &nbsp; Create a project</span><span>02 &nbsp; Configure changes</span><span>03 &nbsp; Export your mod</span></div>
         }
+        else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
             <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>Settings &amp; SDK</h1><p>Your local authoring environment.</p></div></div>
             <section class="panel"><div class="panel-heading"><h2>HD2Runtime SDK</h2><span class="badge">@(Workspace.SdkStatus?.VerifiedOnline == true ? "Verified online" : "Offline / not verified")</span></div><div class="stats"><div><small>INSTALLED SDK</small><strong>@Workspace.SdkStatus?.Installed.Version</strong></div><div><small>LATEST RELEASE</small><strong>@(Workspace.SdkStatus?.Latest?.Version ?? "Unknown")</strong></div><div><small>RUNTIME API / SCHEMA</small><strong>@Workspace.SdkStatus?.Installed.ApiVersion / 1</strong></div></div><p>@Workspace.SdkStatus?.Message</p><p class="subtle">Source: github.com/SkyeShade/HD2Runtime · Public access, no token required.</p><div class="actions"><button @onclick="CheckUpdates">Check for SDK updates</button>@if (Workspace.SdkStatus?.UpdateAvailable == true) { <button class="primary" @onclick="InstallUpdate">Install Update</button> }</div></section>
+            @if (Workspace.SdkStatus?.Installed.PlayerWeapons is { } capabilities) { <section class="panel"><h2>Player weapon capability catalog</h2><p>@capabilities.Summary.Weapons weapons ? @capabilities.Summary.FieldInstances entries ? @capabilities.Summary.WritableSemanticFieldDefinitions writable / @capabilities.Summary.ReadOnlySemanticFieldDefinitions read-only definitions ? @capabilities.Summary.DerivedSemanticFieldDefinitions derived definitions</p><p>@capabilities.Summary.DuplicateWeapons ambiguous identities fail closed. Shared settings require explicit approval.</p></section> }
             <section class="panel"><h2>Project storage</h2><code class="path">@Workspace.StorageLocation</code><p>Projects and the library index are human-readable JSON. Removing a project from the library keeps its files. Open project restores it to the library.</p></section>
-            <section class="panel"><h2>About this builder</h2><p>HD2RuntimeGUI 0.1.0 · .NET 10 · MAUI Blazor Hybrid</p><p>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</p></section>
+            <section class="panel"><h2>About this builder</h2><p>HD2RuntimeGUI 0.2.0 · .NET 10 · MAUI Blazor Hybrid</p><p>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</p></section>
         }
         else if (Workspace.Project is { } active)
         {
             <div class="page-heading"><div><div class="eyebrow">@PageTitle.ToUpperInvariant()</div><h1>@active.DisplayName</h1><code class="subtle">@active.ResourceId</code></div><button class="primary" @onclick="BuildExport">↗ Build / Export Mod</button></div>
-            @if (Page == "overview")
+            @if (Workspace.BuildError != null) { <div class="notice warning" role="alert"><span>Build requires review: @Workspace.BuildError</span><button @onclick='() => Navigate("changes")'>Review changes</button></div> }
+            @if (Page == "player-weapons") { <PlayerWeaponsEditor InitialWeapon="@EditingWeapon" Changed="RefreshWeaponUI" /> }
+            else if (Page == "lua") { <LuaPreview Source="@Workspace.LuaPreview" /> }
+            else if (Page == "overview")
             {
-                <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@active.Changes.Count</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
-                <section class="panel"><h2>Choose a category to start</h2><div class="category-grid">@foreach (var kind in Workspace.Metadata!.Builders.Keys) { <button @onclick="() => SelectCategory(kind)">◇ &nbsp; @Workspace.Metadata.CategoryName(kind) <span>→</span></button> }</div><p class="subtle">Categories, resources and controls come from SDK @active.SdkVersion metadata.</p></section>
+                <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@(active.Changes.Count + active.WeaponChanges.Count)</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
+                @if (Workspace.SdkStatus?.Installed.Version != active.SdkVersion) { <section class="panel"><h2>New SDK available for this project</h2><p>Rebind semantic identifiers to SDK @Workspace.SdkStatus?.Installed.Version. Your desired values and saved baselines are preserved. Any changed capabilities must be reviewed before building.</p><button @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">Rebind to installed SDK</button></section> }
+                @if (Workspace.Metadata!.PlayerWeapons != null) { <section class="panel"><h2>Author player weapons</h2><p>@Workspace.Metadata.PlayerWeapons.Weapons.Count weapons ? @Workspace.Metadata.PlayerWeapons.Summary.FieldInstances capability entries</p><button class="primary" @onclick='() => Navigate("player-weapons")'>Browse Player Weapons</button></section> }
+                <section class="panel"><h2>Other mapped resources</h2><div class="category-grid">@foreach (var kind in Workspace.Metadata!.Builders.Keys.Where(k => k != "weapon" || Workspace.Metadata.PlayerWeapons == null)) { <button @onclick="() => SelectCategory(kind)">◇ &nbsp; @Workspace.Metadata.CategoryName(kind) <span>→</span></button> }</div><p class="subtle">Categories, resources and controls come from SDK @active.SdkVersion metadata.</p></section>
                 <section class="panel"><h2>Project details</h2><form @onsubmit="SaveDetails" @onsubmit:preventDefault><label for="overview-name">Mod name</label><input id="overview-name" @bind="OverviewName" required maxlength="120" /><div class="form-grid"><div><label for="overview-author">Author</label><input id="overview-author" @bind="OverviewAuthor" required maxlength="120" /></div><div><label for="overview-version">Version</label><input id="overview-version" @bind="OverviewVersion" required /></div></div><label for="overview-description">Description</label><textarea id="overview-description" @bind="OverviewDescription" maxlength="8000" rows="3"></textarea><div class="actions end"><button class="primary" type="submit">Save project details</button></div></form></section>
             }
             else if (Page == "changes")
             {
+                <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
                 <section class="panel"><div class="panel-heading"><h2>Configured modifications</h2><span class="badge">@active.Changes.Count(c => c.Enabled) enabled</span></div>
                     @if (active.Changes.Count == 0) { <p>No changes yet. Choose a category in the sidebar to add your first modification.</p> }
                     @foreach (var group in active.Changes.GroupBy(c => c.Group))
@@ -98,7 +109,7 @@
             }
         }
         </fieldset>
-        <footer class="statusbar"><span><span class="status-dot online"></span> Local project workspace</span><span>@(Workspace.Project is null ? "HD2RuntimeGUI 0.1.0" : "Changes saved automatically · SDK " + Workspace.Project.SdkVersion)</span></footer>
+        <footer class="statusbar"><span><span class="status-dot online"></span> Local project workspace</span><span>@(Workspace.Project is null ? "HD2RuntimeGUI 0.2.0" : "Changes saved automatically · SDK " + Workspace.Project.SdkVersion)</span></footer>
     </main>
 </div>
 

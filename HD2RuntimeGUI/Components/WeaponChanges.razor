@@ -1,0 +1,29 @@
+@inject BuilderWorkspace Workspace
+<section class="panel"><div class="panel-heading"><h2>Player weapon changes</h2><button @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button></div>
+@foreach (var group in Workspace.Project!.WeaponChanges.GroupBy(c => (c.Weapon, c.Group)))
+{
+    <h3>@group.Key.Weapon <span class="badge">@group.Key.Group</span></h3>
+    @foreach (var c in group)
+    {
+        var f = Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == c.Weapon)?.Fields.FirstOrDefault(f => f.SemanticFieldId == c.SemanticFieldId);
+        <div class="weapon-change" data-change="@c.SemanticFieldId"><div class="change-row">
+            <input type="checkbox" checked="@c.Enabled" aria-label="Enable weapon change" @onchange="() => Run(() => Workspace.ToggleWeaponChangeAsync(c.Id))" />
+            <div class="change-name"><strong>@(f?.DisplayName ?? c.SemanticFieldId)</strong><small>@(c.EnsureEnabled ? "Ensure · 60 s" : "Apply once") @(f?.AffectsMultipleWeapons == true ? c.SharedAcknowledged ? "· Shared approved" : "· Shared approval required" : "")</small></div>
+            <div class="change-value">@(f?.Format(c.ExpectedValue) ?? c.ExpectedValue.ToString()) → <strong>@(f?.Format(c.DesiredValue) ?? c.DesiredValue.ToString())</strong></div>
+            <button @onclick="() => Edit.InvokeAsync(c.Weapon)">Edit</button><button @onclick="() => Run(() => Workspace.ResetWeaponsAsync(c.Weapon, c.SemanticFieldId))">Remove</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(c.Notes)) { <p>@c.Notes</p> }
+        @foreach (var issue in Workspace.WeaponIssues.Where(i => i.ChangeId == c.Id))
+        { <div class="notice warning"><span>@issue.Message</span>@if (f != null && f.Format(c.ExpectedValue) != f.Format(f.CurrentDefault)) { <button @onclick="() => Run(() => Workspace.AcceptWeaponBaselineAsync(c.Id))">Accept baseline @f.Format(f.CurrentDefault)</button> }</div> }
+        </div>
+    }
+}
+@if (Workspace.Project.WeaponChanges.Count == 0) { <p>No player-weapon overrides yet.</p> }
+@if (Error != null) { <p class="dialog-error">@Error</p> }
+</section>
+@code {
+    [Parameter] public EventCallback<string> Edit { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private async Task Run(Func<Task> action) { Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

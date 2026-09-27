@@ -25,3 +25,7 @@ webview-*/
 
 # Generated sample/export archives; keep samples/README.md and samples/addon.lua
 samples/*.zip
+
+# Local snapshot captures and mapper research output
+*.hd2snap
+*.weapon-map*.json

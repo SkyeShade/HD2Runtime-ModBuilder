@@ -13,6 +13,9 @@ public partial class Home
     private string Page = "library", Search = "", TargetKey = "", FieldKey = "", NewValue = "", ChangeGroup = "Gameplay", ExportDirectory = "";
     private string ModName = "", Author = "", ResourceId = "", ModVersion = "0.1.0", Description = "";
     private string OverviewName = "", OverviewAuthor = "", OverviewVersion = "", OverviewDescription = "";
+    private string? EditingWeapon;
+    private void RefreshWeaponUI() => StateHasChanged();
+    private void EditWeapon(string weapon) { EditingWeapon = weapon; Navigate("player-weapons"); }
     private bool HadDialog;
     private bool Busy, EnsureEnabled = true, FocusDialog;
     private string BusyMessage = "";
@@ -22,7 +25,7 @@ public partial class Home
     private CreationTicket? Ticket;
     private SdkMetadata? CreationSdk;
     private ElementReference DialogElement;
-    private string PageTitle => Page switch { "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
+    private string PageTitle => Page switch { "player-weapons" => "Player Weapons", "lua" => "Lua Preview", "research" => "Snapshot Research", "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
     private IEnumerable<SdkResource> VisibleResources => Workspace.Metadata!.Resources.Values.Where(r => r.Kind == Page && r.Label.Contains(Search, StringComparison.OrdinalIgnoreCase));
     private SdkResource? SelectedResource => Workspace.Metadata?.Resources.GetValueOrDefault(TargetKey);
     private SdkField? SelectedField => SelectedResource?.Fields.GetValueOrDefault(FieldKey);

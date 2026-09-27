@@ -33,11 +33,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<IProjectStore, JsonProjectStore>();
         builder.Services.AddSingleton<IProjectService, ProjectService>();
         builder.Services.AddSingleton<IChangeService, ChangeService>();
+        builder.Services.AddSingleton<IWeaponChangeService, WeaponChangeService>();
+        builder.Services.AddSingleton<IPlayerWeaponCatalogReader, PlayerWeaponCatalogReader>();
         builder.Services.AddSingleton<ILuaGenerator, LuaGenerator>();
         builder.Services.AddSingleton<IModExporter, ModExporter>();
         builder.Services.AddSingleton<IFolderOpener, WindowsFolderOpener>();
         builder.Services.AddSingleton<IProjectFilePicker, ProjectFilePicker>();
         builder.Services.AddSingleton<BuilderWorkspace>();
+        builder.Services.AddSingleton<ISnapshotReader, SnapshotReader>();
+        builder.Services.AddSingleton<IResearchFilePicker, ResearchFilePicker>();
+        builder.Services.AddSingleton<SnapshotWorkspace>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

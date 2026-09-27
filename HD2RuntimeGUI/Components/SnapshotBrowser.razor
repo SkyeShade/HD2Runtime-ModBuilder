@@ -1,0 +1,37 @@
+@inject SnapshotWorkspace Research
+@inject BuilderWorkspace Workspace
+<div class="page-heading"><div><div class="eyebrow">READ-ONLY RESEARCH</div><h1>Snapshot Browser</h1><p>Inspect a selected capture independently of mod authoring.</p></div><button class="primary" @onclick="() => Run(Research.PickSnapshotAsync)">Load / relink .hd2snap</button></div>
+@if (Busy) { <p role="status">Reading snapshot…</p> }
+@if (Error != null) { <div class="notice error" role="alert">@Error</div> }
+@if (Research.Status != null) { <p>@Research.Status</p> }
+@if (Research.Snapshot is { } snapshot)
+{
+    <section class="panel"><h2>Capture metadata</h2><code class="path">@snapshot.Path</code><p>@snapshot.CapturedAt · Runtime @snapshot.RuntimeVersion · Game @snapshot.GameVersion</p><p>@snapshot.Regions.Count regions · @snapshot.CapturedBytes.ToString("N0") captured bytes · architecture 0x@snapshot.Architecture.ToString("X")</p>
+        <div class="metadata-row"><span>Executable SHA-256</span><code class="path">@snapshot.Fingerprints.Exe</code></div><div class="metadata-row"><span>game.dll SHA-256</span><code class="path">@snapshot.Fingerprints.Dll</code></div>
+        <span class="badge">@(snapshot.Fingerprints == Workspace.SdkStatus?.Installed.PlayerWeapons?.BuildFingerprints ? "Matches selected SDK build" : "Historical / different SDK build")</span>
+    </section>
+    <section class="panel"><div class="panel-heading"><h2>Resources → components → fields</h2><button @onclick="() => Run(Research.PickReportAsync)">Link Runtime weapon-map.json</button></div><p class="subtle">Link an existing read-only report from HD2Runtime's snapshot scanner. This GUI does not execute downloaded tools.</p>
+        @if (Research.Map is { } map)
+        {
+            <input aria-label="Search snapshot resources" placeholder="Resource hash, weapon name or component…" @bind="Search" @bind:event="oninput" />
+            @foreach (var resource in map.RuntimeCandidates.Where(r => r.ResourceHash.Contains(Search, StringComparison.OrdinalIgnoreCase) || r.CredibleWikiIdentities.Any(n => n.Contains(Search, StringComparison.OrdinalIgnoreCase)) || r.Ownership.Keys.Any(n => n.Contains(Search, StringComparison.OrdinalIgnoreCase))).Take(100))
+            { <details class="provenance"><summary>@resource.ResourceHash · @string.Join(", ", resource.CredibleWikiIdentities)</summary><p>Entity row @resource.EntityRow</p>
+                @foreach (var component in resource.Ownership) { <details><summary>@component.Key</summary><pre>@component.Value.ToString()</pre></details> }
+                <details><summary>Resolved fields</summary>@foreach (var field in resource.ResolvedFields) { <p><strong>@field.Key</strong> <code>@field.Value.ToString()</code></p> }</details>
+                <details><summary>Attack settings</summary>@foreach (var attack in resource.Attacks) { <pre>@attack.ToString()</pre> }</details>
+            </details> }
+        }
+    </section>
+    <section class="panel"><h2>Raw captured bytes</h2><p>Read-only, 256 bytes per view. The published semantic report contains record identities, not addresses; automatic field-to-byte navigation is unavailable.</p><label for="snapshot-address">Snapshot address (hexadecimal)</label><div class="input-action"><input id="snapshot-address" @bind="Address" /><button @onclick="() => Run(() => Research.InspectAsync(Address))">Inspect bytes</button></div>
+        <details><summary>Captured regions</summary>@foreach (var region in snapshot.Regions.Where(r => r.Status == 1 && r.Size >= 256).Take(100)) { <button @onclick="() => Region(region)">0x@region.Base.ToString("X") · @region.Size bytes</button> }</details>
+        <pre>@Research.RawText</pre>
+    </section>
+}
+@code {
+    private string Search = "", Address = "";
+    private bool Busy;
+    private string? Error;
+    protected override async Task OnInitializedAsync() { if (Research.Snapshot == null) await Run(Research.RestoreAsync); }
+    private async Task Region(SnapshotRegion region) { Address = region.Base.ToString("X"); await Run(() => Research.InspectAsync(Address)); }
+    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; } }
+}

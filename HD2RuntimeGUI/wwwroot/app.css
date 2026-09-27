@@ -12,6 +12,30 @@
     font-family:'Segoe UI Variable','Segoe UI',sans-serif;
     font-size:14px
 }
+.weapon-editor { display:grid; grid-template-columns:280px minmax(0,1fr); gap:20px; align-items:start }
+.weapon-browser { position:sticky; top:0; max-height:calc(100vh - 220px); display:flex; flex-direction:column; overflow:auto }
+.weapon-list { overflow:auto; min-height:160px; margin-top:16px }
+.weapon-detail { min-width:0 }
+.weapon-heading h2 { margin:0 }
+.filter-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px }
+.field-badges { display:flex; gap:6px; flex-wrap:wrap }
+.stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px }
+.stat-card { padding:18px; background:var(--surface); border:1px solid var(--border); border-radius:12px; min-width:0 }
+.stat-card.modified { border-color:#796934; box-shadow:inset 3px 0 var(--accent) }
+.stat-card h3 { font-size:15px; margin:0 }
+.stat-card .panel-heading { align-items:flex-start; flex-wrap:wrap; gap:8px }
+.stat-baseline { display:flex; justify-content:space-between; gap:10px; color:var(--muted); margin:14px 0 }
+.stat-baseline strong { color:var(--text); text-align:right }
+.stat-baseline small { font-weight:400; font-size:11px }
+.field-evidence { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:16px; color:var(--muted); overflow-wrap:anywhere }
+.shared-warning { background:#e9c8690d; border:1px solid #e9c86942; border-radius:8px; padding:12px; margin:12px 0 }
+.shared-warning p { margin:8px 0 }
+.field-options { color:var(--muted); margin:12px 0 }
+.semantic-section { margin-bottom:24px }
+.semantic-section>h2 { font-size:16px; color:var(--muted); margin:14px 0 }
+.weapon-change { border-bottom:1px solid var(--border); padding:6px 0 }
+@media(max-width:1050px) { .weapon-editor { grid-template-columns:240px minmax(0,1fr) } .stat-grid { grid-template-columns:1fr } }
+@media(max-width:800px) { .weapon-editor { grid-template-columns:1fr } .weapon-browser { position:static; max-height:340px } }
 * {
     box-sizing:border-box
 }

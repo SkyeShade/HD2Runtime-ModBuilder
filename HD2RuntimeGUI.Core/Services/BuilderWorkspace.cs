@@ -14,6 +14,13 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     ISdkUpdateService updates, IChangeService changes, ILuaGenerator generator, IModExporter exporter,
     IFolderOpener folders, IProjectFilePicker picker, AppPaths paths)
 {
+    private readonly IWeaponChangeService weaponChanges = new WeaponChangeService();
+    public BuilderWorkspace(IProjectStore store, IProjectService projects, ISdkCache cache, ISdkUpdateService updates,
+        IChangeService changes, ILuaGenerator generator, IModExporter exporter, IFolderOpener folders,
+        IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges)
+        : this(store, projects, cache, updates, changes, generator, exporter, folders, picker, paths) => this.weaponChanges = weaponChanges;
+    public string? BuildError { get; private set; }
+    public IReadOnlyList<WeaponChangeIssue> WeaponIssues => Project == null || Metadata == null ? [] : weaponChanges.Review(Metadata, Project.WeaponChanges);
     public IReadOnlyList<ProjectSummary> Library { get; private set; } = [];
     public SdkStatus? SdkStatus { get; private set; }
     public ModProject? Project { get; private set; }
@@ -44,8 +51,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     private async Task OpenCreatedAsync(ModProject project)
     {
         var sdk = await cache.GetVersionAsync(project.SdkVersion);
-        var preview = generator.Generate(project, sdk);
-        Project = project; Metadata = sdk; LuaPreview = preview; LastExport = null;
+        Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
         Library = await store.ListAsync();
     }
     public async Task ImportAsync()
@@ -75,7 +81,43 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         try { await SaveChangesAsync(); } catch { Project.Changes = previous; throw; }
     }
     private async Task SaveChangesAsync()
-    { var preview = generator.Generate(Project!, Metadata!); await store.SaveAsync(Project!); LuaPreview = preview; LastExport = null; Library = await store.ListAsync(); }
+    { await store.SaveAsync(Project!); RefreshPreview(); LastExport = null; Library = await store.ListAsync(); }
+    private void RefreshPreview()
+    {
+        try { LuaPreview = generator.Generate(Project!, Metadata!); BuildError = null; }
+        catch (InvalidDataException e) { LuaPreview = "-- Build blocked: review the Changes page.\n"; BuildError = e.Message; }
+    }
+    public async Task SetWeaponChangeAsync(string weapon, string field, string value, bool acknowledge, string group = "Gameplay", string? notes = null)
+    {
+        var next = weaponChanges.Create(Metadata!, weapon, field, value, acknowledge); var previous = Project!.WeaponChanges.ToList();
+        var old = previous.SingleOrDefault(c => c.Weapon == weapon && c.SemanticFieldId == field);
+        if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; }
+        next.Group = string.IsNullOrWhiteSpace(group) ? "Gameplay" : group.Trim(); next.Notes = notes;
+        Project.WeaponChanges.RemoveAll(c => c.Weapon == weapon && c.SemanticFieldId == field); Project.WeaponChanges.Add(next);
+        try { await SaveChangesAsync(); } catch { Project.WeaponChanges = previous; throw; }
+    }
+    public async Task ResetWeaponsAsync(string? weapon = null, string? field = null)
+    {
+        var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field));
+        try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; throw; }
+    }
+    public async Task ToggleWeaponChangeAsync(Guid id)
+    {
+        var c = Project!.WeaponChanges.Single(c => c.Id == id); c.Enabled = !c.Enabled;
+        try { await SaveChangesAsync(); } catch { c.Enabled = !c.Enabled; throw; }
+    }
+    public async Task AcceptWeaponBaselineAsync(Guid id)
+    {
+        var c = Project!.WeaponChanges.Single(c => c.Id == id); var f = WeaponChangeService.Catalog(Metadata!).Field(c.Weapon, c.SemanticFieldId);
+        var old = (c.ExpectedValue, c.BaselineSdkVersion); c.ExpectedValue = f.CurrentDefault.Clone(); c.BaselineSdkVersion = Metadata!.Version;
+        try { await SaveChangesAsync(); } catch { (c.ExpectedValue, c.BaselineSdkVersion) = old; throw; }
+    }
+    public async Task RebindToInstalledSdkAsync()
+    {
+        var sdk = await cache.GetCurrentAsync(); var old = (Project!.SdkVersion, Metadata);
+        Project.SdkVersion = sdk.Version; Metadata = sdk;
+        try { await SaveChangesAsync(); } catch { (Project.SdkVersion, Metadata) = old; throw; }
+    }
     public async Task SaveExportDirectoryAsync(string path)
     {
         var previous = Project!.ExportDirectory; Project.ExportDirectory = path.Trim();

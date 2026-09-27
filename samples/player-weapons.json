@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Concussive1100",
+    "description": "AR-23C Liberator Concussive fire rate: 400 to 1100 RPM.",
+    "weapon": "AR-23C Liberator Concussive",
+    "changes": [{ "field": "weapon.fire_rate", "value": 1100 }]
+  },
+  {
+    "name": "VerdictFlatTrajectory",
+    "description": "P-113 Verdict drag 1.2 to 0.1 and gravity 1 to 0.2; velocity and mass unchanged.",
+    "weapon": "P-113 Verdict",
+    "changes": [{ "field": "projectile.drag", "value": 0.1 }, { "field": "projectile.gravity", "value": 0.2 }]
+  },
+  {
+    "name": "ReprimandFlatTrajectory",
+    "description": "SMG-32 Reprimand drag 1.2 to 0.1 and gravity 1 to 0.2; velocity and mass unchanged.",
+    "weapon": "SMG-32 Reprimand",
+    "changes": [{ "field": "projectile.drag", "value": 0.1 }, { "field": "projectile.gravity", "value": 0.2 }]
+  }
+]

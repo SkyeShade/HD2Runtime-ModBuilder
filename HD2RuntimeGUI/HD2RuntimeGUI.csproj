@@ -11,8 +11,8 @@
     <MauiXamlInflator>SourceGen</MauiXamlInflator>
     <ApplicationTitle>HD2RuntimeGUI</ApplicationTitle>
     <ApplicationId>dev.skyeshade.hd2runtimegui</ApplicationId>
-    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
-    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
     <WindowsPackageType>None</WindowsPackageType>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
