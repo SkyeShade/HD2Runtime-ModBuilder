@@ -46,8 +46,13 @@
                 </div>
             }
         }
-        <ProjectileChanges Weapon="@weaponName" Changed="AliasResolved" />
-        <CompositionChanges Weapon="@weaponName" Changed="AliasResolved" />
+        @if (Workspace.Project.ProjectileChanges.Any(c => c.Weapon == weaponName) || Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName))
+        {
+            <section data-composition-changes="@weaponName"><h3 class="summary-section">Composition</h3>
+                <ProjectileChanges Weapon="@weaponName" Changed="AliasResolved" />
+                <CompositionChanges Weapon="@weaponName" Changed="AliasResolved" />
+            </section>
+        }
         @if (showAll && Workspace.Metadata?.Advanced == null) { <WeaponComposition Weapon="@weaponName" Changed="AliasResolved" /> }
         @if (!rows.Any() && !Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weaponName) && !Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName)) { <p class="subtle">No values differ from the SDK baseline. Enable Show all fields to inspect this weapon.</p> }
         </div>

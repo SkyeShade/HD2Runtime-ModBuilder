@@ -5,11 +5,17 @@
     var target = Workspace.EffectiveProjectile(Weapon, attack.Role);
     <section class="panel composition-attack" data-attack="@attack.Role"><h3>Attack: @attack.Role.Replace('_', ' ')</h3>
         <ProjectileSelector @key="(Weapon, attack.Role)" Weapon="@Weapon" Attack="attack" Changed="Refresh" />
-        <p class="subtle">Selected projectile object: <strong>@target.Label</strong></p>
-        <details class="composition-inspection"><summary><strong>Projectile Settings</strong><span class="badge">Shared definitions</span></summary>
-            <div class="stat-grid">@foreach (var field in Workspace.ObjectFields(Weapon, attack.Role, "projectile"))
-            { <ObjectFieldEditor @key="(Weapon, attack.Role, target, field.SemanticFieldId)" Weapon="@Weapon" Role="@attack.Role" Field="field" Changed="Refresh" /> }</div>
-        </details>
+        <div class="composition-object" data-projectile-object="@target.Weapon" data-projectile-role="@target.AttackRole">
+            <p class="subtle">Selected projectile object: <strong>@target.Label</strong></p>
+            @foreach (var section in Workspace.ObjectFields(Weapon, attack.Role, "projectile").GroupBy(f => f.Domain))
+            {
+                <section class="composition-object-fields" data-object-section="@section.Key">
+                    <h3>@(section.Key == "projectile" ? "Projectile Settings" : "Damage")</h3>
+                    <div class="stat-grid">@foreach (var field in section)
+                    { <ObjectFieldEditor @key="(Weapon, attack.Role, target, field.SemanticFieldId)" Weapon="@Weapon" Role="@attack.Role" Field="field" Changed="Refresh" /> }</div>
+                </section>
+            }
+        </div>
         <h3>Terminal Actions</h3><div class="stat-grid">
         @foreach (var action in Workspace.Metadata.Composition.TerminalActions.Weapons.Single(w => w.Weapon == target.Weapon).Attacks.Single(a => a.Role == target.AttackRole).Actions)
         { <TerminalEditor @key="(Weapon, attack.Role, target, action.Phase)" Weapon="@Weapon" Role="@attack.Role" Phase="@action.Phase" Changed="Refresh" /> }

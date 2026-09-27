@@ -36,8 +36,66 @@ const create = async name => {
 };
 const build = async () => { await click('↗ Build / Export Mod'); await waitFor("document.body.innerText.includes('Export complete')",'export'); console.log('GUI ZIP: '+await evaluate("document.querySelector('.export-success code').innerText")); };
 const openProject = async name => { await nav('Project library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')",'open '+name); };
+const projectileScalarRegression = async () => {
+    const catalog=JSON.parse(await fs.readFile('HD2RuntimeGUI.Core/Metadata/Bundled/PlayerWeaponAuthoringCapabilities.json','utf8'));
+    const weapon='P-113 Verdict', source='JAR-5 Dominator';
+    const root='[data-attack=primary] [data-projectile-object]';
+    const card=id=>root+' [data-object-field="'+id+'"]';
+    const scalar=(name,id)=>catalog.weapons.find(w=>w.name===name).fields.find(f=>f.semanticFieldId===id);
+    const assertFields=async name=> {
+        assert.equal(await evaluate(`document.querySelector(${JSON.stringify(root)}).dataset.projectileObject`),name);
+        const fields=catalog.weapons.find(w=>w.name===name).fields.filter(f=>f.preferred && f.editable && ['projectile','damage'].includes(f.semanticFieldId.split('.')[0]) && f.backing?.branch==='primary');
+        for(const field of fields) {
+            const selector=card(field.semanticFieldId);
+            const state=await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});const input=el?.querySelector('input[type=number]');return {visible:!!input?.getClientRects().length,editable:!!input&&!input.disabled,value:input?.value,section:el?.closest('[data-object-section]')?.dataset.objectSection};})()`);
+            assert(state.visible && state.editable,field.semanticFieldId+' must be visibly editable without expanding a disclosure');
+            assert.equal(Math.fround(Number(state.value)),Math.fround(field.currentDefault));
+            assert.equal(state.section,field.semanticFieldId.split('.')[0]);
+            assert.equal(await evaluate(`document.querySelectorAll('[data-field="${field.semanticFieldId}"]').length`),0,'no weapon-local duplicate');
+        }
+    };
+    await create('ProjectileScalarRegression'); await choose(weapon); await assertFields(weapon);
+    // An ordinary baseline projectile remains authorable without any reference swap.
+    await fill(card('projectile.velocity')+' input[type=number]','300');
+    await waitFor("document.body.innerText.includes('Build requires review')",'shared projectile gate');
+    await evaluate(`document.querySelector(${JSON.stringify(card('projectile.velocity')+' input[type=checkbox]')}).click()`);
+    await waitFor("!document.body.innerText.includes('Build requires review')",'shared projectile approval');
+    await nav('Changes'); await expand(weapon);
+    assert.equal(await evaluate("document.querySelectorAll('[data-composition-changes] [data-composition-change=\"projectile.velocity\"]').length"),1);
+    await nav('Player Weapons'); await choose(weapon);
+    await evaluate(`document.querySelector(${JSON.stringify(card('projectile.velocity')+' .reset-action')}).click()`); await sleep(200);
+    await assertFields(weapon);
+    await fill('[data-projectile=primary] select',source+'|primary'); await assertFields(source);
+    for(const id of ['projectile.velocity','projectile.drag','damage.standard_damage','damage.ap_direct']) {
+        await fill(card(id)+' input[type=number]',String(scalar(source,id).currentDefault+1));
+        await waitFor("document.body.innerText.includes('Build requires review')",id+' pending approval');
+        await evaluate(`document.querySelector(${JSON.stringify(card(id)+' input[type=checkbox]')}).click()`);
+        await waitFor("!document.body.innerText.includes('Build requires review')",id+' approved');
+    }
+    await nav('Changes'); await expand(weapon);
+    assert.equal(await evaluate("document.querySelectorAll('[data-composition-changes] [data-composition-change]').length"),4);
+    assert((await evaluate("document.querySelector('[data-composition-changes]').innerText")).includes('Damage'));
+    await nav('Lua Preview'); const lua=await evaluate('document.querySelector("pre").innerText');
+    assert(lua.includes("target=hd2.weapon('JAR-5 Dominator'):attack('primary'):projectile()"));
+    assert(!lua.includes("target=hd2.weapon('P-113 Verdict'):attack('primary'):projectile()"));
+    assert(lua.indexOf('field=hd2.fields.attack.projectile')<lua.indexOf("id='gui-object-"));
+    await nav('Player Weapons'); await choose(weapon);
+    for(const id of ['projectile.velocity','projectile.drag','damage.standard_damage','damage.ap_direct'])
+        await fill(card(id)+' input[type=number]',String(scalar(source,id).currentDefault));
+    assert.equal(await evaluate("document.querySelectorAll('[data-object-field].modified').length"),0);
+    await openProject('ProjectileScalarRegression'); await nav('Player Weapons'); await choose(weapon); await assertFields(source);
+    await nav('Changes'); await expand(weapon);
+    assert.equal(await evaluate("document.querySelectorAll('[data-composition-change]').length"),0);
+    assert.equal(await evaluate("document.querySelectorAll('[data-projectile-change]').length"),1);
+    await nav('Player Weapons'); await choose(weapon);
+    await evaluate("document.querySelector('[data-projectile-object]').scrollIntoView({block:'start'})");
+    await screenshot('runtime017-projectile-scalars-visible');
+    console.log('PASS: visible baseline/replacement physics, damage and AP; shared gating; Composition summary; ordered semantic Lua; reset/reload');
+};
 try {
     await waitFor("!!document.querySelector('.desktop-shell') && !document.querySelector('.activity')",'startup');
+    if (process.argv.includes('--projectile-scalars')) { await projectileScalarRegression(); }
+    else {
     if (!process.argv.includes('--relaunch')) {
         await create('FireModeSample'); await choose('AR-23C Liberator Concussive');
         await fill('[data-field="weapon.default_fire_mode"] select','2'); await nav('Changes'); await expand('AR-23C Liberator Concussive');
@@ -60,7 +118,6 @@ try {
         assert(!(await evaluate("[...document.querySelector('[data-projectile=primary] select').options].map(o=>o.text).join('|')")).includes('LAS-58 Talon'));
         await fill('[data-projectile=primary] select','JAR-5 Dominator|primary');
         assert((await evaluate("document.querySelector('[data-projectile=primary]').innerText")).includes('SELF CONTAINED'));
-        await evaluate("document.querySelector('[data-attack=primary] > details > summary').click()");
         await fill('[data-object-field="projectile.velocity"] input[type=number]','350');
         assert((await evaluate('document.body.innerText')).includes('Build requires review'));
         await evaluate("document.querySelector('[data-object-field=\"projectile.velocity\"] input[type=checkbox]').click()");
@@ -120,4 +177,5 @@ try {
     }
     await screenshot('runtime017-support-railgun');
     await nav('Project library'); console.log('PASS: 0.17 authoring samples, shared gating, semantic Lua, read-only attachment/support graphs');
+    }
 } finally { socket.close(); }

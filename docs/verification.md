@@ -1,5 +1,15 @@
 # Runtime 0.17 verification
 
+## Projectile scalar visibility regression fix
+
+The 0.17 presentation moved projectile/damage cards out of the weapon-level editor into a closed `Projectile Settings` disclosure. The capability ingestion and selected-object binding remained intact, but writable physics, damage and AP controls were hidden by default, and damage had no separate heading.
+
+These controls now render openly under Composition → Attack → selected projectile, in **Projectile Settings** and **Damage** groups. Changes/Overview put scalar-only edits under **Composition** even when there is no projectile replacement. Metadata, project formats, shared-write validation, Lua generation and packaging are unchanged.
+
+Validation: **225 tests passed**, including six new regression cases covering the baseline/replacement field sets, source baselines, shared approval, separate ordered operations, reset and reload. Windows build completed with zero warnings/errors. `tools/runtime017-smoke.mjs --projectile-scalars` also passed against the actual desktop app: every writable physics/damage card for Verdict and replacement JAR-5 was visible and enabled without opening a disclosure; velocity/drag/damage/AP edits, acknowledgement gating, Composition summaries, semantic Lua, Reset Field and baseline-reset persistence were exercised. The isolated build is at `artifacts/scalar-regression-build/Debug/net10.0-windows10.0.19041.0/win-x64/HD2RuntimeGUI.exe`.
+
+## Original 0.17 integration verification
+
 Published authority: [HD2Runtime v0.17.0](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.17.0), release build commit `5500113a1c5f7db6678d78fc143eac10b648afb7`.
 
 The production public GitHub release client discovered and installed SDK 0.17.0 into `artifacts/017-online`. It validated release/asset URLs, archive digest, size, paths and metadata contracts. Only SDK data was installed. The eleven bundled JSON files match the published SDK byte for byte.

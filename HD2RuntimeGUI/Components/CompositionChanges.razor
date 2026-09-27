@@ -1,7 +1,7 @@
 @inject BuilderWorkspace Workspace
-@foreach (var group in Workspace.Project!.CompositionChanges.Where(c => c.Weapon == Weapon).GroupBy(c => c.Kind))
+@foreach (var group in Workspace.Project!.CompositionChanges.Where(c => c.Weapon == Weapon).GroupBy(c => (c.Kind, Domain: c.Scalar?.SemanticFieldId.Split('.')[0])))
 {
-    <h3 class="summary-section">@(group.Key == "terminal" ? "Terminal Actions" : group.Key == "explosion" ? "Explosion" : "Projectile Settings")</h3>
+    <h4 class="summary-section">@(group.Key.Kind == "terminal" ? "Terminal Actions" : group.Key.Kind == "explosion" ? "Explosion" : group.Key.Domain == "damage" ? "Damage" : "Projectile Settings")</h4>
     @foreach (var change in group)
     {
         var field = change.Scalar == null ? null : Workspace.Metadata?.PlayerWeapons?.FindCanonicalField(change.Scalar.Weapon, change.Scalar.SemanticFieldId);

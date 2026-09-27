@@ -996,6 +996,8 @@ input[type=checkbox]:checked:before {
 
 .composition-attack { margin-bottom: 1rem; }
 .composition-attack > h3 { margin-bottom: 1rem; }
+.composition-object-fields { margin-top: 1.5rem; }
+.composition-object-fields > h3 { margin-bottom: .8rem; }
 .attachment-option, .support-branch { margin: .8rem 0; padding: .8rem; background: var(--bg); border-radius: 8px; }
 .attachment-option summary, .support-branch summary, .support-runtime summary { cursor: pointer; display: flex; gap: .7rem; align-items: center; flex-wrap: wrap; }
 .evidence-tree { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 2fr); gap: .5rem 1rem; }
