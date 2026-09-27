@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 let pages;
 for (let attempt = 0; attempt < 60; attempt++) {
-    try { pages = await (await fetch(`http://127.0.0.1:${process.env.HD2GUI_CDP_PORT ?? 9223}/json`)).json(); if (pages.length) break; }
+    try { pages = await (await fetch(`http://127.0.0.1:${process.env.HD2GUI_CDP_PORT ?? 9223}/json`)).json(); if (pages.some(p => p.url === 'https://0.0.0.1/')) break; }
     catch { /* WebView2 is still starting. */ }
     await new Promise(resolve => setTimeout(resolve, 500));
 }
@@ -31,8 +31,8 @@ const choose = async weapon => {
 };
 const saveField = async (field,value) => {
     await fill(`[data-field="${field}"] input[type=number]`,value);
-    await evaluate(`[...document.querySelector('[data-field="${field}"]').querySelectorAll('button')].find(b=>b.innerText==='Save change').click()`);
     await waitFor(`document.querySelector('[data-field="${field}"]').classList.contains('modified')`,'saved '+field);
+    await waitFor("!document.querySelector('.stat-card [role=status]')",'autosave complete');
     assert(!await evaluate("!!document.querySelector('.dialog-error')"));
 };
 try {

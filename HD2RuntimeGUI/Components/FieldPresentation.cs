@@ -9,7 +9,7 @@ namespace HD2RuntimeGUI.Components;
 internal static class FieldPresentation
 {
     public static bool Differs(WeaponCapability? field, JsonElement baseline, JsonElement current) =>
-        field != null ? field.Format(baseline) != field.Format(current) : !JsonElement.DeepEquals(baseline, current);
+        field != null ? !HD2RuntimeGUI.Core.Generation.WeaponScalar.Equal(field, baseline, current) : !JsonElement.DeepEquals(baseline, current);
     public static bool Modified(WeaponCapability? field, WeaponChange? change) => change != null &&
         Differs(field, field?.CurrentDefault ?? change.ExpectedValue, change.DesiredValue);
     public static JsonElement? Parse(string text)

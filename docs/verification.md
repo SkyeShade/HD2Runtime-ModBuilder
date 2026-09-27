@@ -60,3 +60,11 @@ The final public-release integration run (`tools/HD2RuntimeGUI.Sample --online`)
 The Windows Debug build passed without compiler warnings/errors. Self-contained Windows x64 publish succeeded at `artifacts/publish/win-x64`; NuGet reported NU1900 because its vulnerability-data endpoint was unavailable during restore. This did not prevent package restore or publishing.
 
 No game was launched, no mods were installed/deployed, and the HD2Runtime working tree was left unchanged. Runtime behavior during gameplay remains for the user's manual validation.
+
+## Field autosave cleanup
+
+Weapon editor controls now commit through the existing workspace/change service on change (numeric inputs on blur, switches on toggle). Save change buttons are removed. Typed comparison is shared by persistence and Modified highlighting: exact booleans/integers and Float32 round-trip values. Committing the SDK baseline or using Reset field removes the override. Older redundant overrides are removed when a project opens; missing/type-changed capabilities remain available for migration review.
+
+The automated suite passes 101 tests, including create/update/remove, equivalent float spellings, boolean toggles, invalid/incomplete input, concurrent field commits, reload cleanup and shared-write gating. Existing Lua/ZIP golden tests pass unchanged. The Windows Debug build passes with no warnings or errors.
+
+Desktop WebView2 checks used the isolated `artifacts/autosave-validation` library and `tools/ux-smoke.mjs` (normal, `--safety`, `--relaunch`). They verified automatic persistence, immediate Modified/count/group updates, invalid input preserving the last saved value, neutral equivalent floats, boolean round trips, field/weapon reset, multiple weapons, explicit shared acknowledgement, duplicate write blocking and application relaunch. Local screenshots remain ignored under `docs/screenshots/`.

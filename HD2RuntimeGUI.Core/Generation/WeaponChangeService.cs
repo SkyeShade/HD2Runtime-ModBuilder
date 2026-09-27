@@ -19,6 +19,7 @@ public sealed class WeaponChangeService : IWeaponChangeService
         JsonElement parsed;
         try { using var document = JsonDocument.Parse(value); parsed = document.RootElement.Clone(); }
         catch (JsonException e) { throw new InvalidDataException("Enter a valid field value.", e); }
+        parsed = WeaponScalar.Normalize(capability, parsed);
         var c = new WeaponChange { Weapon = weapon, SemanticFieldId = field, ExpectedValue = capability.CurrentDefault.Clone(), DesiredValue = parsed,
             FieldType = capability.Type, SharedAcknowledged = sharedAcknowledged && capability.AffectsMultipleWeapons,
             AcknowledgedWriteScope = sharedAcknowledged ? capability.WriteScope : null, AcknowledgedConsumerCount = sharedAcknowledged ? capability.Backing?.ConsumerCount : null,

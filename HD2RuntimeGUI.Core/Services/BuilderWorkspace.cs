@@ -15,6 +15,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     IFolderOpener folders, IProjectFilePicker picker, AppPaths paths)
 {
     private readonly IWeaponChangeService weaponChanges = new WeaponChangeService();
+    private readonly SemaphoreSlim weaponEditGate = new(1);
     public BuilderWorkspace(IProjectStore store, IProjectService projects, ISdkCache cache, ISdkUpdateService updates,
         IChangeService changes, ILuaGenerator generator, IModExporter exporter, IFolderOpener folders,
         IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges)
@@ -51,6 +52,9 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     private async Task OpenCreatedAsync(ModProject project)
     {
         var sdk = await cache.GetVersionAsync(project.SdkVersion);
+        // Clean redundant overrides written by older GUI versions before exposing
+        // the project. Unknown/type-changed fields remain available for review.
+        if (project.WeaponChanges.RemoveAll(c => WeaponScalar.IsNoOp(sdk, c)) > 0) await store.SaveAsync(project);
         Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
         Library = await store.ListAsync();
     }
@@ -81,7 +85,12 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         try { await SaveChangesAsync(); } catch { Project.Changes = previous; throw; }
     }
     private async Task SaveChangesAsync()
-    { await store.SaveAsync(Project!); RefreshPreview(); LastExport = null; Library = await store.ListAsync(); }
+    {
+        var previous = Project!.WeaponChanges.ToList();
+        Project.WeaponChanges.RemoveAll(c => WeaponScalar.IsNoOp(Metadata!, c));
+        try { await store.SaveAsync(Project); } catch { Project.WeaponChanges = previous; throw; }
+        RefreshPreview(); LastExport = null; Library = await store.ListAsync();
+    }
     private void RefreshPreview()
     {
         try { LuaPreview = generator.Generate(Project!, Metadata!); BuildError = null; }
@@ -89,17 +98,36 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     }
     public async Task SetWeaponChangeAsync(string weapon, string field, string value, bool acknowledge, string group = "Gameplay", string? notes = null)
     {
-        var next = weaponChanges.Create(Metadata!, weapon, field, value, acknowledge); var previous = Project!.WeaponChanges.ToList();
-        var old = previous.SingleOrDefault(c => c.Weapon == weapon && c.SemanticFieldId == field);
-        if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; }
-        next.Group = string.IsNullOrWhiteSpace(group) ? "Gameplay" : group.Trim(); next.Notes = notes;
-        Project.WeaponChanges.RemoveAll(c => c.Weapon == weapon && c.SemanticFieldId == field); Project.WeaponChanges.Add(next);
-        try { await SaveChangesAsync(); } catch { Project.WeaponChanges = previous; throw; }
+        var project = Project;
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the edit could be saved.");
+            var next = weaponChanges.Create(Metadata!, weapon, field, value, acknowledge); var previous = Project!.WeaponChanges.ToList();
+            var old = previous.SingleOrDefault(c => c.Weapon == weapon && c.SemanticFieldId == field);
+            if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; }
+            next.Group = string.IsNullOrWhiteSpace(group) ? "Gameplay" : group.Trim(); next.Notes = notes;
+            Project.WeaponChanges.RemoveAll(c => c.Weapon == weapon && c.SemanticFieldId == field);
+            if (!WeaponScalar.IsNoOp(Metadata!, next)) Project.WeaponChanges.Add(next);
+            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = previous; throw; }
+        }
+        finally { weaponEditGate.Release(); }
     }
     public async Task ResetWeaponsAsync(string? weapon = null, string? field = null)
     {
-        var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field));
-        try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; throw; }
+        // A reset of an available field is precisely an edit back to its SDK value.
+        var capability = Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == weapon)?.Fields.FirstOrDefault(f => f.SemanticFieldId == field);
+        if (capability?.Editable == true && field != null)
+        { await SetWeaponChangeAsync(weapon!, field, capability.CurrentDefault.GetRawText(), false); return; }
+        var project = Project;
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the reset could be saved.");
+            var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field));
+            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; throw; }
+        }
+        finally { weaponEditGate.Release(); }
     }
     public async Task ToggleWeaponChangeAsync(Guid id)
     {
