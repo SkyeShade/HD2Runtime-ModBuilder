@@ -12,6 +12,8 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
 {
     private readonly IWeaponChangeService weaponChanges = new WeaponChangeService();
     public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges) : this(changes) => this.weaponChanges = weaponChanges;
+    private readonly IProjectileChangeService projectileChanges = new ProjectileChangeService();
+    public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges) : this(changes, weaponChanges) => this.projectileChanges = projectileChanges;
     public string Generate(ModProject project, SdkMetadata sdk)
     {
         ProjectIdentity.Validate(project);
@@ -45,6 +47,7 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             operations.Add(group.Key.EnsureEnabled ? $"hd2.ensure({{\n    {operation}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{operation}({body})");
         }
         operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
+        operations.AddRange(ProjectileChangeService.Operations(project, sdk, projectileChanges));
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
         return prefix + (operations.Count == 1 ? "return " + operations[0] : "return {\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}") + "\n";

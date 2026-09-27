@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Metadata/Bundled/*Graph.json" />
     <EmbeddedResource Include="Metadata/Bundled/metadata.json" />
     <EmbeddedResource Include="Metadata/Bundled/PlayerWeaponAuthoringCapabilities.json" />
     <EmbeddedResource Include="Metadata/Bundled/PlayerWeaponAmmoCapabilities.json" />

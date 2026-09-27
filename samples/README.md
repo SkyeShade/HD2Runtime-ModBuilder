@@ -30,3 +30,9 @@ dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/ammo-online --onlin
 - [PunisherDualFeed](../HD2RuntimeGUI.Tests/Golden/PunisherDualFeed.lua): feeds 8 + 8 ? 10 + 10, spare/supply rounds 60 ? 80, starting rounds 32 ? 40.
 
 Both use guarded semantic transactions with `hd2.ensure`, expected SDK baselines, and an HD2Runtime 0.14.0 dependency. Derived total/ammo-box fields are never written. Desktop-generated ZIPs are in `artifacts/ammo-ui/Exports/`; install and gameplay-test them manually.
+
+## Guarded projectile swap (SDK 0.15)
+
+Create `Jar5VerdictProjectile` with resource ID `mods/skyeshade/jar5_verdict_projectile`. In Player Weapons choose JAR-5 Dominator, then Composition -> primary Projectile -> P-113 Verdict primary projectile. The semantic replacement autosaves. Review Changes / Lua Preview, then Build / Export Mod.
+
+The verified desktop sample is at `artifacts/composition-ui/Exports/Jar5VerdictProjectile-0.1.0.zip`. Install HD2Runtime 0.15.0 and Bingus separately before manually testing it. The GUI does not deploy it. `HD2RuntimeGUI.Tests/Golden/projectile-swap.lua` covers equivalent semantic output using the test resource ID.

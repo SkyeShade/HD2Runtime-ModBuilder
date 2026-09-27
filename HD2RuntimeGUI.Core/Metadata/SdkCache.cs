@@ -21,9 +21,12 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader) : this(paths, reader, github) => this.catalogReader = catalogReader;
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader)
         : this(paths, reader, github, catalogReader) => this.ammoReader = ammoReader;
+    private readonly IPlayerWeaponCompositionReader compositionReader = new PlayerWeaponCompositionReader();
+    public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader)
+        : this(paths, reader, github, catalogReader, ammoReader) => this.compositionReader = compositionReader;
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
-    private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo);
+    private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
     private sealed record CurrentSdk(string Version);
     public static byte[] BundledMetadata()
     {
@@ -40,6 +43,11 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("HD2RuntimeGUI.Core.Metadata.Bundled." + PlayerWeaponAmmoCatalogReader.FileName)!;
         using var buffer = new MemoryStream(); stream.CopyTo(buffer); return buffer.ToArray();
     }
+    public static IReadOnlyDictionary<string, byte[]> BundledComposition() => PlayerWeaponCompositionReader.FileNames.ToDictionary(n => n, n =>
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("HD2RuntimeGUI.Core.Metadata.Bundled." + n)!;
+        using var buffer = new MemoryStream(); stream.CopyTo(buffer); return buffer.ToArray();
+    });
     private SdkMetadata ReadPayload(SdkPayload payload)
     {
         var sdk = reader.Read(payload.Metadata);
@@ -47,6 +55,8 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             sdk = sdk with { PlayerWeapons = catalogReader.Read(payload.Capabilities ?? throw new InvalidDataException("SDK is missing its player-weapon capability catalog."), sdk.Version) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.14.0")) >= 0)
             sdk = sdk with { PlayerAmmo = ammoReader.Read(payload.Ammo ?? throw new InvalidDataException("SDK is missing its player-weapon ammo capability catalog."), sdk.PlayerWeapons!) };
+        if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.15.0")) >= 0)
+            sdk = sdk with { Composition = compositionReader.Read(payload.Composition ?? throw new InvalidDataException("SDK is missing composition metadata."), sdk.PlayerWeapons!) };
         return sdk;
     }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)
@@ -56,7 +66,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         {
             var pointer = paths.CachePath("current.json");
             if (File.Exists(pointer)) return await GetVersionAsync((await JsonStorage.ReadAsync<CurrentSdk>(pointer, ct)).Version, ct);
-            var payload = new SdkPayload(BundledMetadata(), BundledCapabilities(), BundledAmmoCapabilities()); var sdk = ReadPayload(payload);
+            var payload = new SdkPayload(BundledMetadata(), BundledCapabilities(), BundledAmmoCapabilities(), BundledComposition()); var sdk = ReadPayload(payload);
             await SavePayloadAsync(sdk.Version, payload, ct);
             await JsonStorage.WriteAtomicAsync(pointer, new CurrentSdk(sdk.Version), ct);
             return sdk;
@@ -72,8 +82,16 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         if (File.Exists(capabilityPath) && new FileInfo(capabilityPath).Length > PlayerWeaponCatalogReader.MaxBytes) throw new InvalidDataException("Capability catalog too large.");
         var ammoPath = paths.CachePath(version, PlayerWeaponAmmoCatalogReader.FileName);
         if (File.Exists(ammoPath) && new FileInfo(ammoPath).Length > PlayerWeaponAmmoCatalogReader.MaxBytes) throw new InvalidDataException("Ammo catalog too large.");
+        var graphs = new Dictionary<string, byte[]>();
+        foreach (var name in PlayerWeaponCompositionReader.FileNames)
+        {
+            var graph = paths.CachePath(version, name);
+            if (!File.Exists(graph)) continue;
+            if (new FileInfo(graph).Length > PlayerWeaponCompositionReader.MaxBytes) throw new InvalidDataException("Composition graph too large.");
+            graphs.Add(name, await File.ReadAllBytesAsync(graph, ct));
+        }
         var sdk = ReadPayload(new(await File.ReadAllBytesAsync(file, ct), File.Exists(capabilityPath) ? await File.ReadAllBytesAsync(capabilityPath, ct) : null,
-            File.Exists(ammoPath) ? await File.ReadAllBytesAsync(ammoPath, ct) : null));
+            File.Exists(ammoPath) ? await File.ReadAllBytesAsync(ammoPath, ct) : null, graphs));
         if (sdk.Version != version) throw new InvalidDataException("Cached SDK identity mismatch.");
         return sdk;
     }
@@ -115,6 +133,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         var files = new Dictionary<string, byte[]> { ["metadata.json"] = payload.Metadata };
         if (payload.Capabilities != null) files.Add(PlayerWeaponCatalogReader.FileName, payload.Capabilities);
         if (payload.Ammo != null) files.Add(PlayerWeaponAmmoCatalogReader.FileName, payload.Ammo);
+        if (payload.Composition != null) foreach (var (name, bytes) in payload.Composition) files.Add(name, bytes);
         if (Directory.Exists(destination))
         {
             foreach (var (name, bytes) in files)
@@ -161,7 +180,8 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         var catalog = archive.GetEntry(PlayerWeaponCatalogReader.FileName);
         var ammo = archive.GetEntry(PlayerWeaponAmmoCatalogReader.FileName);
         return new(Read(metadata, MetadataReader.MaxBytes), catalog == null ? null : Read(catalog, PlayerWeaponCatalogReader.MaxBytes),
-            ammo == null ? null : Read(ammo, PlayerWeaponAmmoCatalogReader.MaxBytes));
+            ammo == null ? null : Read(ammo, PlayerWeaponAmmoCatalogReader.MaxBytes),
+            PlayerWeaponCompositionReader.FileNames.Where(n => archive.GetEntry(n) != null).ToDictionary(n => n, n => Read(archive.GetEntry(n)!, PlayerWeaponCompositionReader.MaxBytes)));
     }
     public static void ValidateEntryPath(string name)
     {

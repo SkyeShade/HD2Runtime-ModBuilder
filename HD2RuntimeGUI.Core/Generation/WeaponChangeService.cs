@@ -56,6 +56,7 @@ public sealed class WeaponChangeService : IWeaponChangeService
     public static PlayerWeaponCatalog Catalog(SdkMetadata sdk) => sdk.PlayerWeapons ?? throw new InvalidDataException("Select SDK 0.13.0 or newer for player-weapon authoring.");
     public static void ValidateValue(WeaponCapability f, JsonElement value)
     {
+        if (f.Type == "projectile_reference") throw new InvalidDataException("Projectile references require semantic composition overrides.");
         if (f.Type == "boolean")
         { if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException("Expected a boolean."); return; }
         if (f.Type == "enum")

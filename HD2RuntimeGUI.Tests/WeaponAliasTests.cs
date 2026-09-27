@@ -13,8 +13,13 @@ namespace HD2RuntimeGUI.Tests;
 
 public sealed class WeaponAliasTests
 {
-    private static readonly PlayerWeaponCatalog Catalog = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.14.1");
-    private static readonly SdkMetadata Sdk = new MetadataReader().Read(SdkCache.BundledMetadata()) with { PlayerWeapons = Catalog };
+    private static byte[] Release0141(string name)
+    {
+        using var zip = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.14.1.zip"));
+        using var input = zip.GetEntry(name)!.Open(); using var output = new MemoryStream(); input.CopyTo(output); return output.ToArray();
+    }
+    private static readonly PlayerWeaponCatalog Catalog = new PlayerWeaponCatalogReader().Read(Release0141(PlayerWeaponCatalogReader.FileName), "0.14.1");
+    private static readonly SdkMetadata Sdk = new MetadataReader().Read(Release0141("metadata.json")) with { PlayerWeapons = Catalog };
     private static readonly WeaponChangeService Changes = new();
     public static TheoryData<string, string, string> Mappings => new()
     {
@@ -27,8 +32,8 @@ public sealed class WeaponAliasTests
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
         {
-            foreach (var (name, bytes) in new[] { ("metadata.json", SdkCache.BundledMetadata()),
-                (PlayerWeaponCatalogReader.FileName, SdkCache.BundledCapabilities()), (PlayerWeaponAmmoCatalogReader.FileName, SdkCache.BundledAmmoCapabilities()) })
+            foreach (var (name, bytes) in new[] { ("metadata.json", Release0141("metadata.json")),
+                (PlayerWeaponCatalogReader.FileName, Release0141(PlayerWeaponCatalogReader.FileName)), (PlayerWeaponAmmoCatalogReader.FileName, Release0141(PlayerWeaponAmmoCatalogReader.FileName)) })
             { using var stream = zip.CreateEntry(name).Open(); stream.Write(old ? AmmoAuthoringTests.Release014(name) : bytes); }
         }
         env.GitHub.Archive = output.ToArray();
@@ -139,13 +144,13 @@ public sealed class WeaponAliasTests
     }
     [Fact] public void Alias_properties_cannot_bypass_schema_v2_validation_by_claiming_v1()
     {
-        var root = JsonNode.Parse(SdkCache.BundledCapabilities())!; root["schemaVersion"] = 1;
+        var root = JsonNode.Parse(Release0141(PlayerWeaponCatalogReader.FileName))!; root["schemaVersion"] = 1;
         Assert.Throws<InvalidDataException>(() => new PlayerWeaponCatalogReader().Read(Encoding.UTF8.GetBytes(root.ToJsonString()), "0.14.1"));
     }
     [Theory] [InlineData("missing")] [InlineData("cycle")] [InlineData("target")] [InlineData("preferred")] [InlineData("accepted")] [InlineData("summary")] [InlineData("schema")]
     public void Malformed_alias_metadata_fails_closed(string defect)
     {
-        var root = JsonNode.Parse(SdkCache.BundledCapabilities())!;
+        var root = JsonNode.Parse(Release0141(PlayerWeaponCatalogReader.FileName))!;
         var fields = root["weapons"]!.AsArray().Single(w => w!["name"]!.GetValue<string>() == "P-113 Verdict")!["fields"]!.AsArray();
         var alias = fields.Single(f => f!["semanticFieldId"]!.GetValue<string>() == "weapon.capacity")!;
         if (defect == "missing") alias["aliasOf"] = "missing.field";

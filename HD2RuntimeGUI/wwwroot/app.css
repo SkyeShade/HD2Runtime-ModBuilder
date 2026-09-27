@@ -987,3 +987,9 @@ input[type=checkbox]:checked:before {
         transition:none!important
     }
 }
+.composition-inspection { margin-top: 1rem; }
+.composition-inspection summary { cursor: pointer; display: flex; gap: .8rem; align-items: center; }
+.composition-values { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.composition-values dd { margin: 0; }
+[data-projectile] { padding: 1.2rem; }
+[data-projectile] select { width: 100%; }

@@ -20,6 +20,50 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         IChangeService changes, ILuaGenerator generator, IModExporter exporter, IFolderOpener folders,
         IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges)
         : this(store, projects, cache, updates, changes, generator, exporter, folders, picker, paths) => this.weaponChanges = weaponChanges;
+    private readonly IProjectileChangeService projectileChanges = new ProjectileChangeService();
+    public BuilderWorkspace(IProjectStore store, IProjectService projects, ISdkCache cache, ISdkUpdateService updates,
+        IChangeService changes, ILuaGenerator generator, IModExporter exporter, IFolderOpener folders,
+        IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges)
+        : this(store, projects, cache, updates, changes, generator, exporter, folders, picker, paths, weaponChanges) => this.projectileChanges = projectileChanges;
+    public IReadOnlyList<ProjectileReference> ProjectileSources(string weapon, string role) => projectileChanges.Sources(Metadata!, weapon, role);
+    public string? ProjectileIssue(ProjectileChange change)
+    { try { projectileChanges.Validate(Metadata!, change); return null; } catch (InvalidDataException e) { return e.Message; } }
+    public async Task SetProjectileAsync(string weapon, string role, ProjectileReference? replacement, bool acceptBaseline = false)
+    {
+        var project = Project;
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            var previous = project.ProjectileChanges.ToList();
+            var old = previous.SingleOrDefault(c => c.Weapon == weapon && c.AttackRole == role);
+            ProjectileChange? next = null;
+            if (replacement != null)
+            {
+                next = projectileChanges.Create(Metadata!, weapon, role, replacement);
+                if (projectileChanges.IsBaseline(Metadata!, weapon, role, replacement)) next = null;
+                else if (old != null)
+                {
+                    next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
+                    if (!acceptBaseline)
+                    {
+                        next.ExpectedEvidence = old.ExpectedEvidence; next.BaselineSdkVersion = old.BaselineSdkVersion; next.CompatibilityClass = old.CompatibilityClass;
+                        if (old.ReplacementProjectile == replacement) next.ReplacementEvidence = old.ReplacementEvidence;
+                    }
+                }
+            }
+            project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
+            if (next != null) project.ProjectileChanges.Add(next);
+            project.FormatVersion = 3;
+            try { await SaveChangesAsync(); } catch { project.ProjectileChanges = previous; throw; }
+        }
+        finally { weaponEditGate.Release(); }
+    }
+    public async Task ToggleProjectileAsync(Guid id)
+    {
+        var c = Project!.ProjectileChanges.Single(c => c.Id == id); c.Enabled = !c.Enabled;
+        try { await SaveChangesAsync(); } catch { c.Enabled = !c.Enabled; throw; }
+    }
     public string? BuildError { get; private set; }
     public IReadOnlyList<WeaponChangeGroup> WeaponGroups => Project == null || Metadata == null ? [] : WeaponAliasResolver.Group(Metadata, Project.WeaponChanges);
     public IReadOnlyList<WeaponChangeIssue> WeaponIssues => Project == null || Metadata == null ? [] : weaponChanges.Review(Metadata, Project.WeaponChanges);
@@ -55,7 +99,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         var sdk = await cache.GetVersionAsync(project.SdkVersion);
         // Clean redundant overrides written by older GUI versions before exposing
         // the project. Unknown/type-changed fields remain available for review.
-        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) > 0) await store.SaveAsync(project);
+        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) > 0) await store.SaveAsync(project);
         Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
         Library = await store.ListAsync();
     }
@@ -88,10 +132,18 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     private async Task SaveChangesAsync()
     {
         var previous = Project!.WeaponChanges.ToList();
+        var previousReferences = Project.ProjectileChanges.ToList();
         WeaponAliasResolver.RemoveNoOps(Metadata!, Project.WeaponChanges);
-        try { await store.SaveAsync(Project); } catch { Project.WeaponChanges = previous; throw; }
+        RemoveProjectileNoOps(Metadata!, Project);
+        try { await store.SaveAsync(Project); } catch { Project.WeaponChanges = previous; Project.ProjectileChanges = previousReferences; throw; }
         RefreshPreview(); LastExport = null; Library = await store.ListAsync();
     }
+    private int RemoveProjectileNoOps(SdkMetadata sdk, ModProject project) => project.ProjectileChanges.RemoveAll(c =>
+    {
+        // Changed/missing SDK evidence must remain visible for explicit review.
+        try { projectileChanges.Validate(sdk, c); return projectileChanges.IsBaseline(sdk, c.Weapon, c.AttackRole, c.ReplacementProjectile); }
+        catch (InvalidDataException) { return false; }
+    });
     private void RefreshPreview()
     {
         try { LuaPreview = generator.Generate(Project!, Metadata!); BuildError = null; }
@@ -129,7 +181,9 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the reset could be saved.");
             var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field || saved?.Sources.Contains(c) == true));
-            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; throw; }
+            var oldReferences = Project.ProjectileChanges.ToList();
+            if (field == null) Project.ProjectileChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
+            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; throw; }
         }
         finally { weaponEditGate.Release(); }
     }

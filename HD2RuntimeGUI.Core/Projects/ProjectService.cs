@@ -26,7 +26,7 @@ public static class ProjectIdentity
     }
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -37,6 +37,13 @@ public static class ProjectIdentity
         if (p.Changes.Select(c => c.Id).Distinct().Count() != p.Changes.Count) throw new InvalidDataException("Duplicate change IDs.");
         if (p.WeaponChanges == null || p.WeaponChanges.Count > 1000 || p.WeaponChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || string.IsNullOrWhiteSpace(c.SemanticFieldId) || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000 || c.AcknowledgedAffectedWeapons == null || c.ExpectedValue.ValueKind is System.Text.Json.JsonValueKind.Undefined or System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array || c.DesiredValue.ValueKind is System.Text.Json.JsonValueKind.Undefined or System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array)) throw new InvalidDataException("Invalid weapon overrides.");
         if (p.WeaponChanges.Select(c => c.Id).Distinct().Count() != p.WeaponChanges.Count) throw new InvalidDataException("Duplicate weapon change IDs.");
+        if (p.ProjectileChanges == null || p.ProjectileChanges.Count > 1000 || p.ProjectileChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256
+            || !Regex.IsMatch(c.AttackRole, "\\A[a-z][a-z_0-9]{0,63}\\z") || c.SemanticFieldId != "attack.projectile" || c.ExpectedProjectile != new ProjectileReference(c.Weapon, c.AttackRole)
+            || c.ReplacementProjectile == null || string.IsNullOrWhiteSpace(c.ReplacementProjectile.Weapon) || c.ReplacementProjectile.Weapon.Length > 256
+            || !Regex.IsMatch(c.ReplacementProjectile.AttackRole, "\\A[a-z][a-z_0-9]{0,63}\\z") || c.Group.Length > 120 || c.Notes?.Length > 4000
+            || !Regex.IsMatch(c.ExpectedEvidence, "\\A[a-f0-9]{64}\\z") || !Regex.IsMatch(c.ReplacementEvidence, "\\A[a-f0-9]{64}\\z"))) throw new InvalidDataException("Invalid semantic projectile overrides.");
+        if (p.ProjectileChanges.Select(c => c.Id).Distinct().Count() != p.ProjectileChanges.Count) throw new InvalidDataException("Duplicate projectile change IDs.");
+        foreach (var c in p.ProjectileChanges) SemVersion.Parse(c.BaselineSdkVersion);
         if (!Path.IsPathFullyQualified(p.ExportDirectory)) throw new InvalidDataException("Choose an absolute export directory.");
     }
 }
@@ -122,6 +129,8 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         foreach (var change in project.Changes) change.Id = Guid.NewGuid();
         project.WeaponChanges = System.Text.Json.JsonSerializer.Deserialize<List<WeaponChange>>(System.Text.Json.JsonSerializer.Serialize(source.WeaponChanges))!;
         foreach (var change in project.WeaponChanges) change.Id = Guid.NewGuid();
+        project.ProjectileChanges = System.Text.Json.JsonSerializer.Deserialize<List<ProjectileChange>>(System.Text.Json.JsonSerializer.Serialize(source.ProjectileChanges))!;
+        foreach (var change in project.ProjectileChanges) change.Id = Guid.NewGuid();
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

@@ -1,0 +1,25 @@
+@inject BuilderWorkspace Workspace
+@if (Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == Weapon))
+{
+    <h3 class="summary-section">Composition</h3>
+    @foreach (var change in Workspace.Project.ProjectileChanges.Where(c => c.Weapon == Weapon).OrderBy(c => c.AttackRole))
+    {
+        <div class="weapon-change modified" data-projectile-change="@change.AttackRole">
+            <div class="change-row"><div class="change-name"><strong>Projectile · @change.AttackRole.Replace('_', ' ')</strong><span class="badge modified-badge">Modified</span><small>@change.Group · @(change.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div>
+                <div class="modified-value">@change.ExpectedProjectile.Label → <strong>@change.ReplacementProjectile.Label</strong></div>
+                <label class="switch-label"><input type="checkbox" checked="@change.Enabled" @onchange="() => Run(() => Workspace.ToggleProjectileAsync(change.Id))" />Enabled</label>
+                <button class="reset-action" @onclick="() => Run(() => Workspace.SetProjectileAsync(change.Weapon, change.AttackRole, null))">Reset projectile</button>
+            </div>
+            @if (Workspace.ProjectileIssue(change) is { } issue)
+            { <div class="notice warning"><span>@issue</span><button @onclick="() => Run(() => Workspace.SetProjectileAsync(change.Weapon, change.AttackRole, change.ReplacementProjectile, true))">Review: accept current SDK baseline</button></div> }
+            @if (change.Notes != null) { <p>@change.Notes</p> }
+        </div>
+    }
+}
+@if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private async Task Run(Func<Task> action) { Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

@@ -1,20 +1,21 @@
 @inject BuilderWorkspace Workspace
 <section class="panel weapon-summary"><div class="panel-heading"><h2>Player weapon changes</h2>
-    @if (Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
+    @if (Workspace.Project!.ProjectileChanges.Count > 0 || Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
 </div>
-@foreach (var group in Workspace.WeaponGroups.GroupBy(c => c.Weapon).OrderBy(g => g.Key, StringComparer.Ordinal))
+@foreach (var weaponName in Workspace.WeaponGroups.Select(g => g.Weapon).Concat(Workspace.Project!.ProjectileChanges.Select(c => c.Weapon)).Distinct().Order(StringComparer.Ordinal))
 {
-    var weapon = Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == group.Key);
-    var count = group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
-    var showAll = AllFields.Contains(group.Key);
-    var rows = (weapon?.Fields.Where(f => f.IsPreferred).Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
+    var group = Workspace.WeaponGroups.Where(g => g.Weapon == weaponName).ToArray();
+    var weapon = Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == weaponName);
+    var count = Workspace.Project!.ProjectileChanges.Count(c => c.Weapon == weaponName) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
+    var showAll = AllFields.Contains(weaponName);
+    var rows = (weapon?.Fields.Where(f => f.IsPreferred && f.Type != "projectile_reference").Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
         .Concat(group.Where(g => g.Field == null).Select(g => new Row(null, g)))
         .Where(r => showAll || r.Group?.Conflict != null || FieldPresentation.Modified(r.Field, r.Change) || Workspace.WeaponIssues.Any(i => r.Group?.Sources.Any(c => c.Id == i.ChangeId) == true));
-    <details class="weapon-change-group" data-weapon-group="@group.Key" @key="group.Key">
-        <summary><strong>@group.Key</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@count @(count == 1 ? "change" : "changes")</span></summary>
+    <details class="weapon-change-group" data-weapon-group="@weaponName" @key="weaponName">
+        <summary><strong>@weaponName</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@count @(count == 1 ? "change" : "changes")</span></summary>
         <div class="weapon-group-content"><div class="panel-heading">
-            <label class="switch-label"><input type="checkbox" checked="@showAll" @onchange="e => ShowAll(group.Key, (bool)e.Value!)" />Show all fields</label>
-            <div class="actions"><button @onclick="() => Edit.InvokeAsync(group.Key)">Edit weapon</button>@if (count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(group.Key))">Reset weapon</button> }</div>
+            <label class="switch-label"><input type="checkbox" checked="@showAll" @onchange="e => ShowAll(weaponName, (bool)e.Value!)" />Show all fields</label>
+            <div class="actions"><button @onclick="() => Edit.InvokeAsync(weaponName)">Edit weapon</button>@if (count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(weaponName))">Reset weapon</button> }</div>
         </div>
         @foreach (var section in rows.GroupBy(r => r.Field == null ? "Unavailable" : FieldPresentation.Section(r.Field)).OrderBy(g => FieldPresentation.SectionOrder(g.Key)))
         {
@@ -43,11 +44,13 @@
                 </div>
             }
         }
-        @if (!rows.Any()) { <p class="subtle">No values differ from the SDK baseline. Enable Show all fields to inspect this weapon.</p> }
+        <ProjectileChanges Weapon="@weaponName" Changed="AliasResolved" />
+        @if (showAll) { <WeaponComposition Weapon="@weaponName" Changed="AliasResolved" /> }
+        @if (!rows.Any() && !Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weaponName)) { <p class="subtle">No values differ from the SDK baseline. Enable Show all fields to inspect this weapon.</p> }
         </div>
     </details>
 }
-@if (Workspace.Project!.WeaponChanges.Count == 0) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
+@if (Workspace.Project!.WeaponChanges.Count == 0 && Workspace.Project.ProjectileChanges.Count == 0) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
 @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 </section>
 @code {

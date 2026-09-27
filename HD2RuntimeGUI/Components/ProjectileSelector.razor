@@ -1,0 +1,39 @@
+@inject BuilderWorkspace Workspace
+@{ var saved = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Attack.Role);
+   var sources = Workspace.ProjectileSources(Weapon, Attack.Role);
+   var baseline = new ProjectileReference(Weapon, Attack.Role); }
+<article class="stat-card @(saved != null ? "modified" : "")" data-projectile="@Attack.Role">
+    <div class="panel-heading"><h3>Projectile · @Attack.Role.Replace('_', ' ')</h3><span class="badge @(saved != null ? "modified-badge" : "")">@(saved != null ? "Modified" : Attack.WritableReferenceSwap ? "Guarded" : "Read-only")</span></div>
+    <p class="@(saved != null ? "modified-value" : "subtle")">@baseline.Label @if (saved != null) { <span> → <strong>@saved.ReplacementProjectile.Label</strong></span> }</p>
+    @if (sources.Count > 0)
+    {
+        <label>Replacement projectile
+            <select aria-label="Replacement projectile" value="@Key(saved?.ReplacementProjectile ?? baseline)" @onchange="Select">
+                <option value="">Original · @baseline.Label</option>
+                @if (saved != null && !sources.Contains(saved.ReplacementProjectile)) { <option value="@Key(saved.ReplacementProjectile)" disabled>Unavailable · @saved.ReplacementProjectile.Label</option> }
+                @foreach (var source in sources.Where(s => s != baseline)) { <option value="@Key(source)">@source.Label</option> }
+            </select>
+        </label>
+        <p class="subtle">Compatibility: @Attack.CompatibilityClass.Replace('_', ' ')</p>
+    }
+    else { <p class="subtle">@(Attack.Reason ?? "The SDK has not approved a writable projectile selector for this attack.")</p> }
+    @if (saved != null)
+    {
+        <button class="reset-action" @onclick="() => Run(() => Workspace.SetProjectileAsync(Weapon, Attack.Role, null))">Reset projectile</button>
+        @if (Workspace.ProjectileIssue(saved) is { } issue) { <p class="notice warning" role="alert">@issue</p> }
+    }
+    @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+</article>
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter, EditorRequired] public ProjectileAttack Attack { get; set; } = default!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private string Key(ProjectileReference r) => r.Weapon == Weapon && r.AttackRole == Attack.Role ? "" : r.Weapon + "|" + r.AttackRole;
+    private Task Select(ChangeEventArgs e)
+    {
+        var source = Workspace.ProjectileSources(Weapon, Attack.Role).FirstOrDefault(s => Key(s) == e.Value?.ToString());
+        return Run(() => Workspace.SetProjectileAsync(Weapon, Attack.Role, source));
+    }
+    private async Task Run(Func<Task> action) { Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

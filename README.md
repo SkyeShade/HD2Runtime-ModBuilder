@@ -1,10 +1,10 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.14.1 guarded player-weapon and ammo API**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.15.0 guarded player-weapon, ammo and composition API**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
-The published `PlayerWeaponAuthoringCapabilities.json` drives all weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,027 entries, 60 field definitions (47 writable, 13 read-only, 6 derived)**. There is no manually maintained weapon/field catalog in the UI. The six derived definitions are included in the read-only count.
+The published `PlayerWeaponAuthoringCapabilities.json` drives all weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,094 entries, 62 field definitions (48 writable, 14 read-only, 6 derived)**. There is no manually maintained weapon/field catalog in the UI. The six derived definitions are included in the read-only count.
 
 ## Run
 
@@ -36,6 +36,16 @@ The 19 customization-supplied default presets (including Concussive and the shar
 
 Capability schema v2 supplies explicit `aliasOf`, `canonical`, `preferred`, `deprecated`, `acceptedForWrites` and `semanticTarget` metadata. Only preferred canonical fields appear as independent controls. Old project aliases resolve per weapon for display/editing and generated Lua; equal desired values appear once. Conflicting desired values (or different saved baselines) block building until a saved source is explicitly selected or the field is reset. Source records remain intact on opening/rebinding; ordinary edits save the canonical identifier while retaining the saved expected baseline. Fields are never merged merely because they share an offset or semantic target.
 
+## Composition and support visibility
+
+The published projectile, magazine-option, fire-mode and terminal-action graphs drive Composition. Across 80 catalog weapons, 66 expose 67 projectile attacks; 45 guarded selectors accept only the metadata-approved conventional projectile sources. Selecting a replacement autosaves it, highlights the semantic original → replacement, and includes it in grouped Changes and Lua Preview. Returning to the original removes the override. SG-20's status-bearing alternate feed and explosive Crossbow selectors remain blocked with explanations.
+
+Magazine option inspection shows proven default presets and observed identities separately; observed identities are not presented as allowed/default options. The graph contains 52 native option identities and 19 proven defaults, with no writable option-owned ammo records. Existing direct magazine/rounds controls are unchanged. All 80 native fire-mode values remain numeric and read-only: no invented Semi/Auto/Burst labels. Impact/expiry inspection covers 134 descriptors, including 13 impact and 5 expiry ExplosionSettings links. These views show SDK baselines, not a simulated result of overrides.
+
+Support Weapons contains a contract-status panel, **zero catalog entries and no authoring controls**. The 0.15 SDK ships a support snapshot scan tool, but no stable GUI support catalog/map artifact. Internal research output is not imported as a public authoring contract. Snapshot Research remains unchanged.
+
+Projectile overrides store semantic weapon/attack references, expected and replacement references, baseline SDK version, compatibility class, opaque evidence digests and enabled/persistence/group/notes state. Digests detect changed identities without persisting raw IDs or offsets. Rebinding preserves saved evidence and blocks changed/missing/read-only/incompatible references until reviewed; accepting current evidence is explicit. Lua uses semantic `weapon():attack():projectile()` handles with `hd2.fields.attack.projectile`, never numeric projectile IDs. The Runtime resolves and guards these references at startup.
+
 ## Architecture
 
 `HD2RuntimeGUI/` is the MAUI Windows host, with Razor `Components/`, native desktop adapters in `Services/`, and custom dark CSS in `wwwroot/`.
@@ -53,11 +63,11 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 ## SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.14.1 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.15.0 metadata supports first launch offline.
 
-Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only the two fixed metadata files are consumed.
+Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only seven fixed metadata files are consumed (base metadata, authoring/ammo catalogs, and four composition graphs).
 
-The SDK metadata and capability catalog must agree on version and supported schemas/API. Both are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
+The SDK metadata and capability catalog must agree on version and supported schemas/API. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
 
 An update warning offers **Install Update** or **Ignore This Time** before project creation. Ignoring is single-use. Settings also provides manual update checks. Existing projects remain pinned until **Rebind to installed SDK** is explicitly selected in Overview.
 
@@ -77,7 +87,7 @@ Exports/<mod-name>-<version>.zip
 research.json
 ```
 
-Project format 2 retains support for format 1 and legacy reviewed changes. `weaponChanges` stores weapon name, semantic field ID, expected and desired scalar values, scalar type, baseline SDK version, enabled/persistence state, group, notes and explicit shared acknowledgement/scope/affected identities. It stores no resolved addresses. Stable manager GUID generation matches the ModTemplate's resource-ID algorithm.
+Project format 3 retains support for formats 1 and 2 and legacy reviewed changes. `weaponChanges` stores weapon name, semantic field ID, expected and desired scalar values, scalar type, baseline SDK version, enabled/persistence state, group, notes and explicit shared acknowledgement/scope/affected identities. It stores no resolved addresses. Stable manager GUID generation matches the ModTemplate's resource-ID algorithm.
 
 Rebinding keeps desired values and saved baselines. Missing fields, changed types, read-only capabilities, changed shared scope and changed defaults block affected builds and appear in Changes. A changed default requires an explicit **Accept baseline** action; opening or rebinding never silently rewrites it. Older SDK cache entries remain available.
 
@@ -87,7 +97,7 @@ Single semantic changes use `hd2.patch`; multiple related writes use `hd2.transa
 
 Targets are `hd2.weapon(name)` and fields are published `hd2.fields` constants. The generator handles the API's `player_` aliases for collisions with legacy constants. IDs are deterministic per mod/weapon/group. Float32 baselines use their shortest round-trip scalar spelling, so catalog `1.2000000476837158` generates `expect=1.2`. The original project baseline is retained.
 
-The package follows the published 0.14 ModTemplate archive, discovery-header, manager GUID and dependency conventions. It contains `manifest.json`, `hd2runtime.json`, `build-report.json`, `README.md`, `src/addon.lua`, and one gameplay archive plus empty stream/GPU companions under `mod/`. It requires Bingus release 15+/API 1 and the project's HD2Runtime minimum version/API. The template's Bingus check is `loader.version >= 16`.
+The package follows the published ModTemplate archive, discovery-header, manager GUID and dependency conventions. It contains `manifest.json`, `hd2runtime.json`, `build-report.json`, `README.md`, `src/addon.lua`, and one gameplay archive plus empty stream/GPU companions under `mod/`. It requires Bingus release 15+/API 1 and the project's HD2Runtime minimum version/API. The template's Bingus check is `loader.version >= 16`.
 
 No Runtime implementation, SDK stubs, GUI catalog, snapshots or research artifacts enter the package. ZIP inventory and content are reopened and verified before success. Sorted entries, fixed timestamps, deterministic IDs and stable content make unchanged exports byte-identical. Preview shows exactly the gameplay source included as `src/addon.lua`; the archive adds the template dependency/discovery wrapper. Export directory is configurable, and Explorer can select the result.
 

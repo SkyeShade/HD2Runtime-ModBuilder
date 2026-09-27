@@ -15,7 +15,7 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
     public async Task<string> ExportAsync(ModProject project, SdkMetadata sdk)
     {
         var lua = generator.Generate(project, sdk);
-        if (!project.Changes.Any(c => c.Enabled) && !project.WeaponChanges.Any(c => c.Enabled)) throw new InvalidDataException("Add at least one enabled modification before exporting.");
+        if (!project.Changes.Any(c => c.Enabled) && !project.WeaponChanges.Any(c => c.Enabled) && !project.ProjectileChanges.Any(c => c.Enabled)) throw new InvalidDataException("Add at least one enabled modification before exporting.");
         var requires = new { bingus = new { min_release = 15, api = 1 }, hd2runtime = new { module = ProjectIdentity.RuntimeModule, min_version = sdk.Version, api = sdk.ApiVersion } };
         var description = $"Requires Bingus Shared Loader v15+ / API 1 and HD2Runtime {sdk.Version}+ / API {sdk.ApiVersion}; install dependencies separately.";
         byte[] Json(object value) => JsonSerializer.SerializeToUtf8Bytes(value, new JsonSerializerOptions { WriteIndented = true });

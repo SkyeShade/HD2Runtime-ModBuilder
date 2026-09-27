@@ -16,6 +16,7 @@
             <button class="nav-item @(Page == "lua" ? "selected" : "")" @onclick='() => Navigate("lua")'><span>Lua Preview</span></button>
             <button class="nav-item @(Page == "export" ? "selected" : "")" @onclick="ShowExport">↗ <span>Build / Export</span></button>
         }
+        <button class="nav-item @(Page == "support" ? "selected" : "")" @onclick='() => Navigate("support")'><span>Support Weapons</span></button>
         <button class="nav-item @(Page == "research" ? "selected" : "")" @onclick='() => Navigate("research")'><span>Snapshot Research</span></button>
         <div class="sidebar-bottom"><button class="nav-item @(Page == "settings" ? "selected" : "")" @onclick='() => Navigate("settings")'>⚙ <span>Settings &amp; SDK</span></button><div class="sdk-mini"><span class="status-dot @(Workspace.SdkStatus?.VerifiedOnline == true ? "online" : "")"></span><div>SDK @(Workspace.SdkStatus?.Installed.Version ?? "loading")<small>@(Workspace.SdkStatus?.VerifiedOnline == true ? "Release verified" : "Offline / not verified")</small></div></div></div>
     </aside>
@@ -42,6 +43,7 @@
             }
             <div class="library-footnote"><span>01 &nbsp; Create a project</span><span>02 &nbsp; Configure changes</span><span>03 &nbsp; Export your mod</span></div>
         }
+        else if (Page == "support") { <div class="page-heading"><div><div class="eyebrow">READ-ONLY CATALOG</div><h1>Support Weapons</h1></div></div><section class="panel"><h2>Awaiting a published SDK catalog</h2><p>HD2Runtime 0.15 publishes snapshot research tooling for support weapons, but no stable support-weapon catalog or capability graph for GUI consumption.</p><p>No support identities are loaded. Authoring remains unavailable until Runtime publishes the required contract. Snapshot research remains separate from mod generation.</p><span class="badge">0 catalog entries available</span></section> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
