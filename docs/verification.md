@@ -1,5 +1,11 @@
 # 0.13 player-weapon authoring verification
 
+## UX polish validation
+
+The follow-up UI pass uses actual SDK-baseline differences for highlighting and counts, shows numeric/boolean before-and-after values, and shares collapsed weapon summaries between Overview and Changes. Show all fields defaults off; unchanged fields remain neutral. Suppressed retains its SDK label with an explanation of the Runtime flag. Generation, SDK/cache behavior, metadata/project formats, packaging and snapshot logic were not changed.
+
+`tools/ux-smoke.mjs` exercised numeric and boolean edits, unchanged fields, multiple edits on one weapon, multiple weapons, section grouping, Show all fields, field/weapon resets and saving a baseline value. Its `--relaunch` mode verified persisted numeric/boolean edits, collapsed groups and the default-off toggle after restarting the actual desktop app. All 84 automated tests passed, and the final Windows build completed with zero warnings/errors. The build used `artifacts/ux-build/` because the user's running application locked the normal output; that application was left running. UI test libraries and screenshots remain ignored local artifacts.
+
 Upstream authority: [HD2Runtime v0.13.0](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.13.0), commit `2d1be38a1830bb973140b0b431e58d3c2fa9e081`. The SDK and ModTemplate assets were downloaded from the public release and checked against its published SHA-256 digests:
 
 | Asset | SHA-256 |

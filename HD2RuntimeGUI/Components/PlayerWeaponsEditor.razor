@@ -15,11 +15,11 @@
         <div class="weapon-detail">
         @if (catalog.Weapons.FirstOrDefault(w => w.Name == Selected) is { } weapon)
         {
-            <section class="panel weapon-heading"><div class="panel-heading"><h2>@weapon.Name</h2><button @onclick="() => Reset(weapon.Name)">Reset weapon</button></div><div class="field-badges"><span class="badge">@weapon.Slot</span><span class="badge">@weapon.Category</span>@foreach (var family in weapon.ImplementationFamilies) { <span class="badge">@family.Replace('_', ' ')</span> }</div>
+            <section class="panel weapon-heading"><div class="panel-heading"><h2>@weapon.Name</h2>@if (Workspace.Project!.WeaponChanges.Any(c => c.Weapon == weapon.Name && FieldPresentation.Modified(weapon.Fields.FirstOrDefault(f => f.SemanticFieldId == c.SemanticFieldId), c))) { <button class="reset-action" @onclick="() => Reset(weapon.Name)">Reset weapon</button> }</div><div class="field-badges"><span class="badge">@weapon.Slot</span><span class="badge">@weapon.Category</span>@foreach (var family in weapon.ImplementationFamilies) { <span class="badge">@family.Replace('_', ' ')</span> }</div>
                 @if (weapon.OrdinaryWritesBlocked) { <div class="notice warning"><div><strong>Ordinary writes unavailable</strong><p>@weapon.BlockReason</p></div></div> }
             </section>
             @foreach (var section in weapon.Fields.GroupBy(Section).OrderBy(g => SectionOrder(g.Key)))
-            { <section class="semantic-section" data-section="@section.Key"><h2>@section.Key</h2><div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(weapon.Name, field.SemanticFieldId)" Weapon="weapon" Field="field" Changed="Changed" /> }</div></section> }
+            { <section class="semantic-section" data-section="@section.Key"><h2>@section.Key</h2><div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(weapon.Name, field.SemanticFieldId)" Weapon="weapon" Field="field" Changed="FieldChanged" /> }</div></section> }
         }
         else { <section class="panel empty-state"><h2>Choose a player weapon</h2><p>Search by name, then edit its supported semantic values.</p><p>SDK @catalog.Hd2RuntimeVersion · @catalog.Summary.WritableSemanticFieldDefinitions writable field definitions</p></section> }
         </div>
@@ -38,12 +38,7 @@
         (Slot == "" || w.Slot == Slot) && (Category == "" || w.Category == Category) && (Family == "" || w.ImplementationFamilies.Contains(Family)) &&
         (!EditableOnly || w.Fields.Any(f => f.Editable)) && (!SharedOnly || w.Fields.Any(f => f.AffectsMultipleWeapons)));
     private async Task Reset(string name) { try { await Workspace.ResetWeaponsAsync(name); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
-    private static string Section(WeaponCapability f)
-    {
-        if (!f.Editable) return "Advanced / Read-only";
-        if (f.Domain == "weapon") return f.SemanticFieldId.Contains("capacity") ? "Ammo / Feed" : f.SemanticFieldId.Contains("recoil") || f.SemanticFieldId.Contains("spread") || f.SemanticFieldId.Contains("sway") || f.SemanticFieldId.Contains("ergonomics") ? "Handling" : "Weapon";
-        if (f.Domain == "damage") return f.SemanticFieldId.Contains(".ap_") ? "Penetration" : f.SemanticFieldId.Contains("status_") ? "Special Effects" : "Damage";
-        return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(f.Domain.Replace('_', ' '));
-    }
-    private static int SectionOrder(string name) => name switch { "Weapon" => 0, "Handling" => 1, "Ammo / Feed" => 2, "Projectile" => 3, "Damage" => 4, "Penetration" => 5, "Special Effects" => 6, "Advanced / Read-only" => 99, _ => 7 };
+    private async Task FieldChanged() => await Changed.InvokeAsync();
+    private static string Section(WeaponCapability f) => FieldPresentation.Section(f);
+    private static int SectionOrder(string name) => FieldPresentation.SectionOrder(name);
 }

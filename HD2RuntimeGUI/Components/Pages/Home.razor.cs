@@ -29,6 +29,8 @@ public partial class Home
     private IEnumerable<SdkResource> VisibleResources => Workspace.Metadata!.Resources.Values.Where(r => r.Kind == Page && r.Label.Contains(Search, StringComparison.OrdinalIgnoreCase));
     private SdkResource? SelectedResource => Workspace.Metadata?.Resources.GetValueOrDefault(TargetKey);
     private SdkField? SelectedField => SelectedResource?.Fields.GetValueOrDefault(FieldKey);
+    private int ModificationCount => (Workspace.Project?.Changes.Count ?? 0) + (Workspace.Project?.WeaponChanges.Count(c => FieldPresentation.Modified(Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == c.Weapon)?.Fields.FirstOrDefault(f => f.SemanticFieldId == c.SemanticFieldId), c)) ?? 0);
+    private bool LegacyDraftModified => SelectedField?.Expected != null && FieldPresentation.Parse(NewValue) is { } value && !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(SelectedField.Expected), value);
     private string SupportedValues => string.Join(", ", Workspace.Metadata!.Transitions.Where(t => t.Resource == TargetKey && t.Field == FieldKey).Select(t => $"{t.Expected} → {t.Value}"));
     protected override async Task OnInitializedAsync() => await Run(Workspace.InitializeAsync, "Loading projects and checking GitHub releases…");
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -90,7 +92,12 @@ public partial class Home
     { TargetKey = key; EditingChange = null; var field = SelectedResource!.Fields.Values.OrderByDescending(f => f.Writable).FirstOrDefault(); if (field != null) SelectField(field.Name); else FieldKey = ""; }
     private void OnFieldChanged(ChangeEventArgs e) => SelectField(e.Value!.ToString()!);
     private void SelectField(string key)
-    { FieldKey = key; EditingChange = null; NewValue = SelectedField!.Expected?.ToJsonString() ?? "0"; EnsureEnabled = true; ChangeGroup = "Gameplay"; }
+    {
+        FieldKey = key;
+        var change = Workspace.Project!.Changes.FirstOrDefault(c => c.Target == TargetKey && c.Field == key);
+        EditingChange = change?.Id; NewValue = (change?.NewValue ?? SelectedField!.Expected)?.ToJsonString() ?? "0";
+        EnsureEnabled = change?.EnsureEnabled ?? true; ChangeGroup = change?.Group ?? "Gameplay";
+    }
     private async Task AddChange() => await Run(async () =>
     {
         await Workspace.AddOrEditChangeAsync(TargetKey, FieldKey, NewValue, EnsureEnabled, ChangeGroup, EditingChange);

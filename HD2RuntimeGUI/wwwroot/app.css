@@ -34,6 +34,25 @@
 .semantic-section { margin-bottom:24px }
 .semantic-section>h2 { font-size:16px; color:var(--muted); margin:14px 0 }
 .weapon-change { border-bottom:1px solid var(--border); padding:6px 0 }
+.value-comparison { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px; margin:14px 0; font-size:18px; font-variant-numeric:tabular-nums }
+.value-comparison small { font-size:12px; color:var(--muted) }
+.modified-value,.modified-value strong { color:var(--accent) }
+.original-value { color:var(--muted); font-weight:400 }
+.neutral-value { color:var(--muted) }
+.badge.modified-badge { color:var(--accent); border-color:#796934; background:#e9c86910 }
+.reset-action { border-color:#796934; color:var(--accent) }
+.boolean-control { display:flex; align-items:center; gap:10px }
+.boolean-control small,.flag-explanation { color:var(--muted); font-size:12px; line-height:1.5 }
+.weapon-change-group { border:1px solid var(--border); border-radius:10px; margin-top:12px; overflow:hidden }
+.weapon-change-group>summary { padding:18px; background:var(--surface2) }
+.weapon-change-group>summary .badge { margin-left:12px }
+.weapon-group-content { padding:16px }
+.summary-section { color:var(--muted); font-size:13px; margin:20px 0 8px }
+.weapon-change { padding:12px; border-radius:6px }
+.weapon-change.modified { border-left:3px solid var(--accent); background:#e9c86908 }
+.weapon-change .change-row { flex-wrap:wrap; gap:12px }
+.weapon-change .value-comparison { margin:0; min-width:170px }
+.weapon-change .change-name .badge { margin-left:8px }
 @media(max-width:1050px) { .weapon-editor { grid-template-columns:240px minmax(0,1fr) } .stat-grid { grid-template-columns:1fr } }
 @media(max-width:800px) { .weapon-editor { grid-template-columns:1fr } .weapon-browser { position:static; max-height:340px } }
 * {

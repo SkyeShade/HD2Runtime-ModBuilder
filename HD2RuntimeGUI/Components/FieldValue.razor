@@ -1,0 +1,14 @@
+<div class="value-comparison @(Modified ? "modified-value" : "neutral-value")">
+    @if (Modified)
+    { <span class="original-value" title="Vanilla / SDK baseline">@FieldPresentation.Value(Field, Baseline)</span><span aria-label="changed to"> → </span><strong title="Project value">@FieldPresentation.Value(Field, Current)</strong> }
+    else
+    { <strong>@FieldPresentation.Value(Field, Current)</strong> }
+    @if (!string.IsNullOrEmpty(FieldPresentation.Unit(Field))) { <span>@FieldPresentation.Unit(Field)</span> }
+    @if (!Modified) { <small>Unchanged · SDK baseline</small> }
+</div>
+@code {
+    [Parameter] public WeaponCapability? Field { get; set; }
+    [Parameter] public System.Text.Json.JsonElement Baseline { get; set; }
+    [Parameter] public System.Text.Json.JsonElement Current { get; set; }
+    private bool Modified => FieldPresentation.Differs(Field, Baseline, Current);
+}

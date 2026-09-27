@@ -1,21 +1,24 @@
 @inject BuilderWorkspace Workspace
 
-<article class="stat-card @(Change == null ? "" : "modified")" data-field="@Field.SemanticFieldId">
+<article class="stat-card @(Modified ? "modified" : "")" data-field="@Field.SemanticFieldId">
     <div class="panel-heading"><h3>@Field.DisplayName</h3><div class="field-badges">
-        @if (Change != null) { <span class="badge green">Modified</span> }
+        @if (Modified) { <span class="badge modified-badge">Modified</span> }
+        @if (Dirty) { <span class="badge">Unsaved</span> }
+        @if (Change?.Enabled == false) { <span class="badge">Disabled</span> }
         @if (Field.AffectsMultipleWeapons) { <span class="badge amber">Shared</span> }
         <span class="badge">@(Field.DerivedReadOnly ? "Derived" : !Available ? "Unavailable" : CanEdit ? "Editable" : "Read-only")</span>
     </div></div>
-    <div class="stat-baseline"><span>Original / SDK default</span><strong>@Field.Format(Field.CurrentDefault) <small>@Unit</small></strong></div>
+    <FieldValue Field="Field" Baseline="Field.CurrentDefault" Current="CurrentValue" />
+    @if (FieldPresentation.Explanation(Field) is { } explanation) { <p class="flag-explanation">@explanation</p> }
     @if (CanEdit)
     {
         <label for="@InputId">Current project value</label>
         @if (Field.Type == "boolean")
-        { <input id="@InputId" type="checkbox" role="switch" checked='@(Value == "true")' @onchange='e => Value = (bool)e.Value! ? "true" : "false"' /> }
+        { <label class="boolean-control"><input id="@InputId" type="checkbox" role="switch" checked='@(Value == "true")' @onchange='e => Value = (bool)e.Value! ? "true" : "false"' /><span>@(Value == "true" ? "On" : "Off")</span><small>SDK baseline: @FieldPresentation.Value(Field, Field.CurrentDefault)</small></label> }
         else if (Field.Type == "enum")
         { <select id="@InputId" @bind="Value">@foreach (var option in Field.EnumValues!) { <option value="@option.Value.GetRawText()">@option.Key</option> }</select> }
         else
-        { <input id="@InputId" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" /> }
+        { <input id="@InputId" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:event="oninput" /> }
         @if (Field.AffectsMultipleWeapons)
         {
             <div class="shared-warning"><strong>This backing setting is shared.</strong><p>Changing it may also affect:</p>
@@ -25,7 +28,7 @@
             </div>
         }
         <details class="field-options"><summary>Change group &amp; notes</summary><label>Atomic group<input @bind="Group" maxlength="120" /></label><label>Notes<textarea @bind="Notes" maxlength="4000"></textarea></label></details>
-        <div class="actions"><button class="primary" @onclick="Save" disabled="@Busy">Save change</button>@if (Change != null) { <button @onclick="Reset" disabled="@Busy">Reset field</button> }</div>
+        <div class="actions"><button class="@(Modified ? "primary" : "")" @onclick="Save" disabled="@(Busy || (!Modified && Change == null))">Save change</button>@if (Modified || FieldPresentation.Modified(Field, Change)) { <button class="reset-action" @onclick="Reset" disabled="@Busy">Reset field</button> }</div>
     }
     else { <p class="subtle">@(Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)</p> }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
@@ -43,7 +46,9 @@
     [Parameter] public EventCallback Changed { get; set; }
     private WeaponChange? Change => Workspace.Project!.WeaponChanges.SingleOrDefault(c => c.Weapon == Weapon.Name && c.SemanticFieldId == Field.SemanticFieldId);
     private string InputId => "stat-" + Field.SemanticFieldId.Replace('.', '-');
-    private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
+    private System.Text.Json.JsonElement CurrentValue => FieldPresentation.Parse(Value) ?? Change?.DesiredValue ?? Field.CurrentDefault;
+    private bool Modified => FieldPresentation.Differs(Field, Field.CurrentDefault, CurrentValue);
+    private bool Dirty => FieldPresentation.Differs(Field, Change?.DesiredValue ?? Field.CurrentDefault, CurrentValue);
     private bool Available => Field.CurrentDefault.ValueKind is not (System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined);
     private bool CanEdit => Field.Editable && !Weapon.OrdinaryWritesBlocked && !Field.DerivedReadOnly;
     private string Value = "", Group = "Gameplay", Notes = "";
@@ -60,8 +65,10 @@
         Acknowledged = Change?.SharedAcknowledged == true && Change.AcknowledgedWriteScope == Field.WriteScope && Change.AcknowledgedConsumerCount == Field.Backing?.ConsumerCount && Change.AcknowledgedAffectedWeapons.Order().SequenceEqual(Field.SharedWithWeapons.Order());
         Group = Change?.Group ?? "Gameplay"; Notes = Change?.Notes ?? ""; Error = null;
     }
-    private async Task Save() => await Run(() => Workspace.SetWeaponChangeAsync(Weapon.Name, Field.SemanticFieldId, Value, Acknowledged, Group, Notes));
-    private async Task Reset() => await Run(() => Workspace.ResetWeaponsAsync(Weapon.Name, Field.SemanticFieldId));
+    private async Task Save() => await Run(() => FieldPresentation.Parse(Value) != null && !Modified
+        ? Workspace.ResetWeaponsAsync(Weapon.Name, Field.SemanticFieldId)
+        : Workspace.SetWeaponChangeAsync(Weapon.Name, Field.SemanticFieldId, Value, Acknowledged, Group, Notes));
+    private async Task Reset() => await Run(async () => { await Workspace.ResetWeaponsAsync(Weapon.Name, Field.SemanticFieldId); Value = Field.Format(Field.CurrentDefault); });
     private async Task Run(Func<Task> action)
     { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; } }
 }
