@@ -27,7 +27,10 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         : this(paths, reader, github, catalogReader, ammoReader) => this.compositionReader = compositionReader;
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader) => this.advancedReader = advancedReader;
-    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames);
+    private readonly IPlayerWeaponHeatCatalogReader heatReader = new PlayerWeaponHeatCatalogReader();
+    public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader)
+        : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader) => this.heatReader = heatReader;
+    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -63,6 +66,9 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             sdk = sdk with { Composition = compositionReader.Read(payload.Composition ?? throw new InvalidDataException("SDK is missing composition metadata."), sdk.PlayerWeapons!) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.17.0")) >= 0)
             sdk = sdk with { Advanced = advancedReader.Read(payload.Composition!, sdk.PlayerWeapons!, sdk.Composition!) };
+        if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.18.0")) >= 0)
+            sdk = sdk with { PlayerHeat = heatReader.Read(payload.Composition!.GetValueOrDefault(PlayerWeaponHeatCatalogReader.FileName)
+                ?? throw new InvalidDataException("SDK is missing its player-weapon heat capability catalog."), sdk.PlayerWeapons!) };
         return sdk;
     }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)

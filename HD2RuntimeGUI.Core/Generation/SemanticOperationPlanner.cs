@@ -101,20 +101,20 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
             // them in Lua statement order does not establish a completion dependency.
             if (edits.Any(e => sourceOwners.Contains(e.Owner)) || project.CompositionChanges.Any(c => c.Enabled && (c.Weapon == swap.Weapon && c.AttackRole == swap.AttackRole || c.Target == swap.ReplacementProjectile))
                 || project.WeaponChanges.Any(c => c.Enabled && c.Weapon == swap.ReplacementProjectile.Weapon && CompositionChangeService.ProjectileOwned(sdk.PlayerWeapons!.Field(c.Weapon, c.SemanticFieldId))))
-                throw new InvalidDataException("Composition dependency: Runtime 0.17 has no public write-completion dependency API. A projectile replacement and dependent object edits cannot be scheduled safely in one mod; keep the replacement or the object edits enabled, not both.");
+                throw new InvalidDataException("Composition dependency: This Runtime SDK has no public write-completion dependency API. A projectile replacement and dependent object edits cannot be scheduled safely in one mod; keep the replacement or the object edits enabled, not both.");
             var f = sdk.PlayerWeapons!.Weapon(swap.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == swap.AttackRole);
             if (edits.Any(e => e.Owner == SemanticBackingObject.For(sdk, swap.Weapon, f)))
-                throw new InvalidDataException("Composition dependency: projectile replacement and another edit share the selector's backing object. Runtime 0.17 cannot combine these target kinds safely.");
+                throw new InvalidDataException("Composition dependency: projectile replacement and another edit share the selector's backing object. This Runtime SDK cannot combine these target kinds safely.");
         }
         if (swaps.GroupBy(s => SemanticBackingObject.For(sdk, s.Weapon, sdk.PlayerWeapons!.Weapon(s.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == s.AttackRole))).Any(g => g.Count() > 1))
-            throw new InvalidDataException("Composition conflict: multiple projectile selectors share a backing object but Runtime 0.17 supports only one attack target per transaction.");
+            throw new InvalidDataException("Composition conflict: multiple projectile selectors share a backing object but this Runtime SDK supports only one attack target per transaction.");
         var result = new List<PlannedSemanticOperation>();
         foreach (var group in edits.GroupBy(e => e.Owner).OrderBy(g => g.Key.Kind, StringComparer.Ordinal).ThenBy(g => g.Key.Identity, StringComparer.Ordinal))
         {
             if (group.Select(e => e.Ensure).Distinct().Count() != 1)
                 throw new InvalidDataException("One backing object has mixed persistence settings. Use the same persistence setting for all its fields; splitting them would race Runtime guards.");
             if (group.Select(e => e.Family).Distinct().Count() != 1)
-                throw new InvalidDataException("Composition conflict: edits share one backing object but require different semantic targets. Runtime 0.17 transactions have one target. Impact + expiry, or terminal + scalar edits on the same ProjectileSettings, cannot be exported together safely.");
+                throw new InvalidDataException("Composition conflict: edits share one backing object but require different semantic targets. Transactions in this Runtime SDK have one target. Impact + expiry, or terminal + scalar edits on the same ProjectileSettings, cannot be exported together safely.");
             var values = new List<PlannedSemanticChange>();
             foreach (var fields in group.GroupBy(e => e.Semantic).OrderBy(g => g.Key, StringComparer.Ordinal))
             {

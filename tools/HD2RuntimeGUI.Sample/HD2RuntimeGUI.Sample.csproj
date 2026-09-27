@@ -3,4 +3,5 @@
   <ItemGroup><ProjectReference Include="../../HD2RuntimeGUI.Core/HD2RuntimeGUI.Core.csproj" /></ItemGroup>
   <ItemGroup><None Include="../../samples/player-weapons.json" Link="player-weapons.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><None Include="../../samples/player-weapon-ammo.json" Link="player-weapon-ammo.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="../../samples/player-weapon-heat.json" Link="player-weapon-heat.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

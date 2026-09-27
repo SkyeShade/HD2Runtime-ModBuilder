@@ -1,4 +1,4 @@
-# Guarded operation planning for Runtime 0.17
+# Guarded operation planning for Runtime 0.17?0.18
 
 The Composition generator emitted one independent `hd2.ensure({patch=...})` per field. Sibling edits captured the same DamageInfo record independently; the first write invalidated the other jobs' non-target snapshots. Calling asynchronous `ensure` jobs in Lua statement order did not establish an execution dependency. Runtime correctly rejected those jobs.
 
@@ -7,6 +7,8 @@ The Composition generator emitted one independent `hd2.ensure({patch=...})` per 
 One object emits one patch for one field, or one transaction for multiple fields, with one ensure wrapper when persistence is enabled. Fields and operations are sorted deterministically. Multiple handles to a shared object select one published target that accepts all requested fields. Conflicting values/baselines, unsupported target combinations, mixed persistence or more than 32 fields block export instead of splitting an object into racing jobs. Existing pre-0.17 pinned generation remains unchanged.
 
 Shared approval applies to the exact object and affected-consumer/write scope. One acknowledgement covers sibling edits, including later edits. Revoking it revokes that scope's saved approvals. Another backing object or changed SDK consumer evidence requires its own approval. Saved baselines and Runtime's validation remain intact.
+
+SDK 0.18 heat/heatsink fields use this same planner: the published WeaponHeatComponentData owner combines their scalar changes into one transaction. Project persistence and the grouping algorithm are unchanged. The 0.18 SDK still has no multi-target completion/dependency plan API; every composition conflict below remains enforced.
 
 ## Released syntax and limitations
 

@@ -7,12 +7,14 @@ namespace HD2RuntimeGUI.Core.Metadata;
 
 public sealed record MagazineGraphSummary(int Weapons, int NativeOptionIdentities, int WeaponsWithNativeDefaultOption, int DefaultRelationshipsProven, int PerOptionAmmoOwnersProven, int WritableOptionFields, int SimpleMagazineWeapons, int RoundsFeedWeapons, int? PrimaryWeaponsWithAttachments = null, int? AttachmentOptionsMapped = null, int? AttachmentOptionsTotal = null,
     int? MagazineOptionsMapped = null, int? MagazineOptionsTotal = null, int? MagazineOptionsWithNativeIdentity = null, int? WeaponsWithWritablePerOptionFields = null,
-    int? OpticsMapped = null, int? UnderbarrelMapped = null, int? MuzzleMapped = null, int? CompleteCustomizationRecordsCompared = null);
+    int? OpticsMapped = null, int? UnderbarrelMapped = null, int? MuzzleMapped = null, int? CompleteCustomizationRecordsCompared = null,
+    int? CustomizationRecordsScanned = null, int? NativeOptionIdsObservedInCorpus = null, int? NativeAddPathsObservedInCorpus = null,
+    int? WritableAttachmentSelections = null, int? AlternateAllowedRelationshipsProven = null);
 public sealed record ProjectileGraphSummary(int Weapons, int WeaponsWithProjectileAttack, int ProjectileAttacks, int WritableTargetAttacks, int CompatibleSourceAttacks, int? WritableExplosiveSelectors = null, int? SharedProjectileGroups = null, Dictionary<string, int>? CompatibilityClasses = null);
 public sealed record FireModeGraphSummary(int Weapons, int NativePrimaryValueReadable, int AllowedModeListsProven, int WritableWeapons);
 public sealed record TerminalGraphSummary(int Weapons, int ProjectileAttacks, int ReadableActions, int WritableActions, int ImpactExplosionLinks, int ExpiryExplosionLinks, int? WritableImpactRefs = null, int? WritableExpiryRefs = null);
 public sealed record CompositionSummary(MagazineGraphSummary Magazine, ProjectileGraphSummary Projectile,
-    [property: JsonPropertyName("fire_mode")] FireModeGraphSummary FireMode, TerminalGraphSummary Terminal, ExplosionSummary? Explosion = null);
+    [property: JsonPropertyName("fire_mode")] FireModeGraphSummary FireMode, TerminalGraphSummary Terminal, ExplosionSummary? Explosion = null, HeatSummary? Heat = null);
 public sealed record ProjectileSettingsIdentity(int Group, int RecordType, int Row, string SettingsType);
 public sealed record ProjectileBaseline(string Weapon, string Attack, int ProjectileType);
 public sealed record ProjectileSource(string Weapon, string Role, int ProjectileType);

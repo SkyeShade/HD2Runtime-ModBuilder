@@ -14,13 +14,17 @@ public sealed class Runtime017Tests
     private const string Concussive = "AR-23C Liberator Concussive", Eruptor = "R-36 Eruptor", Jar = "JAR-5 Dominator", Verdict = "P-113 Verdict";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e)
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync(); var w = e.Workspace();
+        e.GitHub.Archive = Archive(); var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.17.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new("Runtime017", "Tests", "mods/tests/runtime017", "0.1.0"), sdk); return w;
+    }
+    private static Dictionary<string, byte[]> FixtureFiles()
+    {
+        using var zip = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.17.0.zip"));
+        return zip.Entries.ToDictionary(e => e.FullName, e => { using var input = e.Open(); using var output = new MemoryStream(); input.CopyTo(output); return output.ToArray(); });
     }
     private static byte[] Archive(string? omit = null)
     {
-        var files = SdkCache.BundledComposition().ToDictionary(x => x.Key, x => x.Value);
-        files.Add("metadata.json", SdkCache.BundledMetadata()); files.Add(PlayerWeaponCatalogReader.FileName, SdkCache.BundledCapabilities()); files.Add(PlayerWeaponAmmoCatalogReader.FileName, SdkCache.BundledAmmoCapabilities());
+        var files = FixtureFiles();
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
             foreach (var (name, bytes) in files.Where(x => x.Key != omit)) { using var stream = zip.CreateEntry(name).Open(); stream.Write(bytes); }
@@ -38,7 +42,7 @@ public sealed class Runtime017Tests
     [Theory] [InlineData("schemaVersion", "2")] [InlineData("contract", "\"unpublished.support\"")] [InlineData("weapons", "null")]
     public async Task Invalid_support_contract_is_rejected(string property, string value)
     {
-        using var e = new TestEnvironment(); var w = await Workspace(e); var files = SdkCache.BundledComposition().ToDictionary(x => x.Key, x => x.Value);
+        using var e = new TestEnvironment(); var w = await Workspace(e); var files = FixtureFiles();
         var node = JsonNode.Parse(files["SupportWeaponCapabilities.json"])!; node[property] = JsonNode.Parse(value);
         files["SupportWeaponCapabilities.json"] = System.Text.Encoding.UTF8.GetBytes(node.ToJsonString());
         var error = Record.Exception(() => new AdvancedCapabilitiesReader().Read(files, w.Metadata!.PlayerWeapons!, w.Metadata.Composition!));

@@ -107,16 +107,69 @@ const groupingRegression = async () => {
     await evaluate("document.querySelector('[data-terminal=impact] input[type=checkbox]').click()");
     await waitFor("!document.body.innerText.includes('Build requires review')",'terminal object approval');
     await fill('[data-terminal=expiry] select',source);
-    await waitFor("document.body.innerText.includes('Runtime 0.17 transactions have one target')",'unsupported cross-phase transaction blocked');
+    await waitFor("document.body.innerText.includes('Transactions in this Runtime SDK have one target')",'unsupported cross-phase transaction blocked');
     assert(await evaluate("document.querySelector('[data-terminal=expiry] input[type=checkbox]').checked"));
     await evaluate("document.querySelector('[data-terminal=expiry] .reset-action').click()");
     await waitFor("!document.body.innerText.includes('Build requires review')",'single terminal permitted');
     await nav('Lua Preview'); lua=await evaluate('document.querySelector("pre").innerText'); assert.equal(lua.split('hd2.ensure(').length-1,3);
     console.log('PASS: exact Concussive grouping; one DamageInfo approval; independent terminal scope; impact+expiry fails closed');
 };
+const heatRegression = async () => {
+    const weapon='LAS-16 Sickle', section='[data-section="Heat / Heatsink"]';
+    const catalog=JSON.parse(await fs.readFile('HD2RuntimeGUI.Core/Metadata/Bundled/PlayerWeaponHeatCapabilities.json','utf8'));
+    if(process.argv.includes('--relaunch')) await openProject('SickleHeatTuning');
+    else await create('SickleHeatTuning');
+    await nav('Player Weapons'); await choose(weapon);
+    if(!process.argv.includes('--relaunch')) {
+        await fill('[data-field="heat.capacity"] input[type=number]','140');
+        await waitFor("document.querySelector('[data-field=\"heat.capacity\"]').classList.contains('modified')",'heat autosave');
+        await fill('[data-field="heat.capacity"] input[type=number]','100.0000000');
+        assert.equal((await state('heat.capacity')).modified,false,'equivalent float baseline removes override');
+        await fill('[data-field="heat.capacity"] input[type=number]','140');
+        await fieldClick('heat.capacity','Reset field');
+        assert.equal((await state('heat.capacity')).modified,false);
+        await fill('[data-field="heatsink.starting"] input[type=number]','4');
+        await click('Reset weapon');
+        assert.equal(await evaluate(`document.querySelectorAll('${section} .modified').length`),0);
+        for(const [id,value] of [['heat.capacity','140'],['heat.cool_per_second','12'],['heatsink.spare','5']])
+            await fill(`[data-field="${id}"] input[type=number]`,value);
+    }
+    assert.equal(await evaluate(`document.querySelectorAll('${section} .modified').length`),3);
+    assert.equal(await evaluate(`document.querySelectorAll('${section} input[type=number]').length`),6);
+    assert.equal(await evaluate("document.querySelectorAll('[data-field=\"heat.warmup\"] input').length"),0);
+    assert((await evaluate("document.querySelector('[data-field=\"heat.warmup\"]').innerText")).includes('No owned WeaponHeat scalar'));
+    await screenshot('runtime018-sickle-heat');
+    await nav('Changes'); await expand(weapon);
+    assert.equal(await evaluate("document.querySelectorAll('[data-change]').length"),3);
+    const summary=await evaluate(`document.querySelector(${JSON.stringify(group(weapon))}).innerText`);
+    for(const text of ['Heat','Heatsinks','140','12','5']) assert(summary.includes(text));
+    await screenshot('runtime018-heat-changes');
+    await nav('Lua Preview'); const lua=await evaluate('document.querySelector("pre").innerText');
+    assert.equal(lua.split('hd2.ensure(').length-1,1); assert(lua.includes('transaction={'));
+    for(const id of ['heat.capacity','heat.cool_per_second','heatsink.spare']) assert(lua.includes('hd2.fields.'+id));
+    await build();
+    await nav('Player Weapons'); let writable=0;
+    for(const entry of catalog.weapons.filter(w=>w.heatMechanismPresent)) {
+        await choose(entry.weapon); assert.equal(await evaluate(`document.querySelectorAll('${section}').length`),1);
+        const count=await evaluate(`document.querySelectorAll('${section} input[type=number]').length`);
+        assert.equal(count,entry.fields.filter(f=>f.writable).length); writable+=count;
+        assert.equal(await evaluate("document.querySelectorAll('[data-section=Attachments] input, [data-section=Attachments] select').length"),0);
+        if(entry.weapon==='LAS-5 Scythe') {
+            await evaluate("document.querySelector('[data-attachment-category=Magazine]').open=true");
+            assert((await evaluate('document.body.innerText')).includes('High Capacity Heatsink'));
+        }
+        if(entry.weapon==='LAS-7 Dagger') { assert((await evaluate(`document.querySelector('${section}').innerText`)).includes('scaling/correlation is not proven')); await screenshot('runtime018-dagger-blocked'); }
+    }
+    assert.equal(writable,30); await choose('AR-23 Liberator');
+    assert.equal(await evaluate(`document.querySelectorAll('${section}').length`),0);
+    await openProject('SickleHeatTuning'); await nav('Player Weapons'); await choose(weapon);
+    assert.equal(await evaluate(`document.querySelectorAll('${section} .modified').length`),3);
+    console.log('PASS: seven heat views, 30 writable fields, read-only timing/attachments/duplicates, baseline/reset/autosave, Changes, one transaction, ZIP, reload');
+};
 try {
     await waitFor("!!document.querySelector('.desktop-shell') && !document.querySelector('.activity')",'startup');
-    if (process.argv.includes('--grouping')) { await groupingRegression(); }
+    if (process.argv.includes('--heat')) { await heatRegression(); }
+    else if (process.argv.includes('--grouping')) { await groupingRegression(); }
     else if (process.argv.includes('--projectile-scalars')) { await projectileScalarRegression(); }
     else {
     if (!process.argv.includes('--relaunch')) {

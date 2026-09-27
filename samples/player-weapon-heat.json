@@ -1,0 +1,12 @@
+[
+  {
+    "name": "SickleHeatTuning",
+    "description": "HD2Runtime 0.18 direct heat proof: overheat threshold 100 to 140, cooling 8 to 12, spare heatsinks 3 to 5. Attachment presets are unchanged.",
+    "weapon": "LAS-16 Sickle",
+    "changes": [
+      { "field": "heat.capacity", "value": 140 },
+      { "field": "heat.cool_per_second", "value": 12 },
+      { "field": "heatsink.spare", "value": 5 }
+    ]
+  }
+]

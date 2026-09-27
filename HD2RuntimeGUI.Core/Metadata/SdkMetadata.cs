@@ -20,6 +20,7 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
 {
     public PlayerWeaponCatalog? PlayerWeapons { get; init; }
     public PlayerWeaponAmmoCatalog? PlayerAmmo { get; init; }
+    public PlayerWeaponHeatCatalog? PlayerHeat { get; init; }
     public PlayerWeaponComposition? Composition { get; init; }
     public AdvancedCapabilities? Advanced { get; init; }
     public string CategoryName(string key)
