@@ -13,11 +13,18 @@ public sealed record CapabilitySummary(int Weapons, int UniqueWeapons, int Dupli
     int SemanticFieldDefinitions, int WritableSemanticFieldDefinitions, int ReadOnlySemanticFieldDefinitions,
     int DerivedSemanticFieldDefinitions, int FieldInstances, int WritableFieldInstances,
     int WeaponsWithWritableFields, int WeaponsWithProjectileDamageWrites, int WeaponsRestrictedToWeaponLevelWrites,
-    Dictionary<string, FamilyCoverage> FamilyCoverage, AmmoSummary? Ammo = null);
+    Dictionary<string, FamilyCoverage> FamilyCoverage, AmmoSummary? Ammo = null, int? SemanticAliasRules = null, int? SemanticAliasInstances = null);
 public sealed record CatalogSafety(bool AddressesInPublicMetadata, int Writes, int ProtectionChanges, string FixtureFallback);
 public sealed record SemanticFieldDefinition(string Id,
     [property: JsonPropertyName("display_name")] string DisplayName, string Type, string? Unit,
-    bool Derived, bool Writable, string? Reason, string? Component, int? Offset, string? Storage, string? Settings);
+    bool Derived, bool Writable, string? Reason, string? Component, int? Offset, string? Storage, string? Settings,
+    [property: JsonPropertyName("semantic_target")] string? SemanticTarget = null);
+public sealed record SemanticAliasRule(string Alias, string Canonical,
+    [property: JsonPropertyName("requires_identical_backing")] bool RequiresIdenticalBacking,
+    bool Deprecated, int InstanceCount, int WriteAcceptedInstanceCount);
+public sealed record DistinctSemanticExample(IReadOnlyList<string> Fields, string Reason);
+public sealed record BackingCollisionAudit(int FieldInstancesAudited, int ExactBackingCollisionGroups, int AliasPairInstances,
+    int DistinctSemanticPairInstances, int UnclassifiedCollisionPairs, DistinctSemanticExample DistinctSemanticExample);
 public sealed record FieldProvenance(
     [property: JsonPropertyName("structural_candidate")] bool StructuralCandidate,
     [property: JsonPropertyName("schema_labelled")] bool SchemaLabelled,
@@ -35,9 +42,13 @@ public sealed record FieldBacking(string Kind, string? Component, int Offset, st
 public sealed record WeaponCapability(string DisplayName, string SemanticFieldId, string Type, string? Unit,
     JsonElement CurrentDefault, bool Editable, bool DerivedReadOnly, FieldProvenance Provenance,
     double? Min, double? Max, Dictionary<string, JsonElement>? EnumValues, FieldBacking? Backing,
-    string WriteScope, IReadOnlyList<string> SharedWithWeapons, bool AffectsMultipleWeapons, string? Reason)
+    string WriteScope, IReadOnlyList<string> SharedWithWeapons, bool AffectsMultipleWeapons, string? Reason,
+    string? SemanticTarget = null, bool? Canonical = null, bool? Preferred = null, bool? Deprecated = null,
+    string? AliasOf = null, bool? AcceptedForWrites = null)
 {
     [JsonIgnore] public string Domain => SemanticFieldId.Split('.')[0];
+    [JsonIgnore] public bool IsPreferred => AliasOf == null && Canonical != false && Preferred != false && Deprecated != true;
+    [JsonIgnore] public bool WriteAccepted => AcceptedForWrites ?? Editable;
     public string Format(JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.Null or JsonValueKind.Undefined => "Unavailable",
@@ -51,10 +62,17 @@ public sealed record PlayerWeapon(string Name, string Slot, string Category, str
     IReadOnlyList<string> ImplementationFamilies, IReadOnlyList<WeaponCapability> Fields);
 public sealed record PlayerWeaponCatalog(int SchemaVersion, string Hd2RuntimeVersion, BuildFingerprints BuildFingerprints,
     string SourceSnapshot, CapabilitySummary Summary, IReadOnlyList<SemanticFieldDefinition> FieldDefinitions,
-    IReadOnlyList<PlayerWeapon> Weapons, CatalogSafety Safety)
+    IReadOnlyList<PlayerWeapon> Weapons, CatalogSafety Safety, IReadOnlyList<SemanticAliasRule>? SemanticAliases = null,
+    BackingCollisionAudit? BackingCollisionAudit = null)
 {
     public PlayerWeapon Weapon(string name) => Weapons.SingleOrDefault(w => w.Name == name) ?? throw new InvalidDataException("Weapon no longer exists in this SDK: " + name);
     public WeaponCapability Field(string weapon, string id) => Weapon(weapon).Fields.SingleOrDefault(f => f.SemanticFieldId == id) ?? throw new InvalidDataException("Field no longer exists in this SDK: " + id);
+    public WeaponCapability? FindCanonicalField(string weapon, string id)
+    {
+        var fields = Weapons.FirstOrDefault(w => w.Name == weapon)?.Fields;
+        var field = fields?.FirstOrDefault(f => f.SemanticFieldId == id);
+        return field?.AliasOf is { } canonical ? fields!.Single(f => f.SemanticFieldId == canonical) : field;
+    }
 }
 
 public interface IPlayerWeaponCatalogReader { PlayerWeaponCatalog Read(byte[] bytes, string sdkVersion); }
@@ -69,7 +87,7 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
             if (bytes.Length > MaxBytes) throw new InvalidDataException("Capability catalog exceeds its size limit.");
             using var doc = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 });
             MetadataReader.RejectDuplicates(doc.RootElement);
-            if (doc.RootElement.GetProperty("schemaVersion").GetInt32() != 1) throw new UnsupportedSdkException("Unsupported player-weapon catalog schema.");
+            if (doc.RootElement.GetProperty("schemaVersion").GetInt32() is not (1 or 2)) throw new UnsupportedSdkException("Unsupported player-weapon catalog schema.");
             var c = JsonSerializer.Deserialize<PlayerWeaponCatalog>(bytes, JsonStorage.Options) ?? throw new InvalidDataException("Empty capability catalog.");
             if (c.Hd2RuntimeVersion != sdkVersion || SemVersion.Parse(sdkVersion).CompareTo(SemVersion.Parse("0.13.0")) < 0) throw new InvalidDataException("Capability catalog version mismatch.");
             if (!Regex.IsMatch(c.BuildFingerprints.Exe, "\\A[A-Fa-f0-9]{64}\\z") || !Regex.IsMatch(c.BuildFingerprints.Dll, "\\A[A-Fa-f0-9]{64}\\z")) throw new InvalidDataException("Invalid catalog fingerprints.");
@@ -95,10 +113,44 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
                 }
             }
             var s = c.Summary;
+            if (c.SchemaVersion == 2) ValidateAliases(c);
+            else if (c.SemanticAliases != null || c.BackingCollisionAudit != null || c.Summary.SemanticAliasRules != null
+                || c.Weapons.SelectMany(w => w.Fields).Any(f => f.AliasOf != null || f.SemanticTarget != null || f.Canonical != null || f.Preferred != null || f.Deprecated != null || f.AcceptedForWrites != null))
+                throw new InvalidDataException("Alias metadata requires capability schema v2.");
             if (s.Weapons != c.Weapons.Count || s.FieldInstances != c.Weapons.Sum(w => w.Fields.Count) || s.WritableFieldInstances != c.Weapons.Sum(w => w.Fields.Count(f => f.Editable)) || s.DuplicateWeapons != c.Weapons.Count(w => w.OrdinaryWritesBlocked) || s.UniqueWeapons + s.DuplicateWeapons != s.Weapons || s.SemanticFieldDefinitions != c.FieldDefinitions.Count || s.WritableSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Writable) || s.ReadOnlySemanticFieldDefinitions != c.FieldDefinitions.Count(f => !f.Writable) || s.DerivedSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Derived)) throw new InvalidDataException("Capability catalog summary mismatch.");
             return c;
         }
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or FormatException or ArgumentException)
         { throw new InvalidDataException("Malformed player-weapon capability catalog: " + e.Message, e); }
+    }
+    private static void ValidateAliases(PlayerWeaponCatalog c)
+    {
+        if (SemVersion.Parse(c.Hd2RuntimeVersion).CompareTo(SemVersion.Parse("0.14.1")) < 0 || c.SemanticAliases == null || c.BackingCollisionAudit == null)
+            throw new InvalidDataException("Missing schema-v2 alias contract.");
+        if (c.SemanticAliases.Select(r => r.Alias).Distinct().Count() != c.SemanticAliases.Count) throw new InvalidDataException("Duplicate semantic alias rules.");
+        foreach (var w in c.Weapons)
+        foreach (var f in w.Fields)
+        {
+            if (string.IsNullOrWhiteSpace(f.SemanticTarget) || f.Canonical == null || f.Preferred == null || f.Deprecated == null || f.AcceptedForWrites == null)
+                throw new InvalidDataException("Incomplete schema-v2 field identity.");
+            if (f.AliasOf == null)
+            {
+                if (!f.IsPreferred || f.Editable != f.AcceptedForWrites) throw new InvalidDataException("Invalid canonical field contract.");
+                continue;
+            }
+            var target = w.Fields.SingleOrDefault(t => t.SemanticFieldId == f.AliasOf);
+            var rule = c.SemanticAliases.SingleOrDefault(r => r.Alias == f.SemanticFieldId && r.Canonical == f.AliasOf);
+            if (target == null || rule == null || target.AliasOf != null || !target.IsPreferred || f.Canonical != false || f.Preferred != false
+                || f.Deprecated != true || f.Editable || !rule.Deprecated || f.Type != target.Type || f.SemanticTarget != target.SemanticTarget
+                || f.AcceptedForWrites != target.AcceptedForWrites || (rule.RequiresIdenticalBacking && f.Backing != target.Backing))
+                throw new InvalidDataException("Invalid semantic alias relationship.");
+        }
+        var aliases = c.Weapons.SelectMany(w => w.Fields).Where(f => f.AliasOf != null).ToArray();
+        foreach (var rule in c.SemanticAliases)
+            if (rule.InstanceCount != aliases.Count(f => f.SemanticFieldId == rule.Alias) || rule.WriteAcceptedInstanceCount != aliases.Count(f => f.SemanticFieldId == rule.Alias && f.WriteAccepted))
+                throw new InvalidDataException("Semantic alias rule counts differ.");
+        if (c.Summary.SemanticAliasRules != c.SemanticAliases.Count || c.Summary.SemanticAliasInstances != aliases.Length
+            || c.BackingCollisionAudit.FieldInstancesAudited != c.Summary.FieldInstances || c.BackingCollisionAudit.AliasPairInstances != aliases.Length)
+            throw new InvalidDataException("Semantic alias summary differs.");
     }
 }

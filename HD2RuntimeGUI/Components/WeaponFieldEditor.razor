@@ -4,11 +4,12 @@
     <div class="panel-heading"><h3>@Field.DisplayName</h3><div class="field-badges">
         @if (Modified) { <span class="badge modified-badge">Modified</span> }
         @if (Dirty) { <span class="badge">Unsaved</span> }
-        @if (Change?.Enabled == false) { <span class="badge">Disabled</span> }
+        @if (SavedGroup?.Enabled == false) { <span class="badge">Disabled</span> }
         @if (Field.AffectsMultipleWeapons) { <span class="badge amber">Shared</span> }
-        <span class="badge">@(Field.DerivedReadOnly ? "Derived" : !Available ? "Unavailable" : CanEdit ? "Editable" : "Read-only")</span>
+        <span class="badge">@(SavedGroup?.Conflict != null ? "Resolve conflict" : Field.DerivedReadOnly ? "Derived" : !Available ? "Unavailable" : CanEdit ? "Editable" : "Read-only")</span>
     </div></div>
     <FieldValue Field="Field" Baseline="Field.CurrentDefault" Current="CurrentValue" />
+    @if (SavedGroup?.Conflict != null) { <WeaponAliasConflict Group="SavedGroup" Changed="AliasResolved" /> }
     @if (Field.DerivedReadOnly) { <p class="subtle">Calculated SDK baseline · read-only. This is not a live calculation of project edits.</p> }
     @if (FieldPresentation.Explanation(Field) is { } explanation) { <p class="flag-explanation">@explanation</p> }
     @if (CanEdit)
@@ -45,18 +46,20 @@
     [Parameter, EditorRequired] public PlayerWeapon Weapon { get; set; } = default!;
     [Parameter, EditorRequired] public WeaponCapability Field { get; set; } = default!;
     [Parameter] public EventCallback Changed { get; set; }
-    private WeaponChange? Change => Workspace.Project!.WeaponChanges.SingleOrDefault(c => c.Weapon == Weapon.Name && c.SemanticFieldId == Field.SemanticFieldId);
+    private HD2RuntimeGUI.Core.Generation.WeaponChangeGroup? SavedGroup => Workspace.WeaponGroups.SingleOrDefault(g => g.Weapon == Weapon.Name && g.FieldId == Field.SemanticFieldId);
+    private WeaponChange? Change => SavedGroup?.Representative;
     private string InputId => "stat-" + Field.SemanticFieldId.Replace('.', '-');
     private System.Text.Json.JsonElement CurrentValue => FieldPresentation.Parse(Value) ?? Change?.DesiredValue ?? Field.CurrentDefault;
     private bool Modified => FieldPresentation.Differs(Field, Field.CurrentDefault, CurrentValue);
     private bool Dirty => FieldPresentation.Differs(Field, Change?.DesiredValue ?? Field.CurrentDefault, CurrentValue);
     private bool Available => Field.CurrentDefault.ValueKind is not (System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined);
-    private bool CanEdit => Field.Editable && !Weapon.OrdinaryWritesBlocked && !Field.DerivedReadOnly;
+    private bool CanEdit => Field.IsPreferred && Field.WriteAccepted && Field.Editable && !Weapon.OrdinaryWritesBlocked && !Field.DerivedReadOnly && SavedGroup?.Conflict == null;
     private string Value = "", Group = "Gameplay", Notes = "";
     private string? Error;
     private bool Acknowledged, Busy;
     private WeaponChange? LoadedChange;
     private string LoadedField = "";
+    private async Task AliasResolved() => await Changed.InvokeAsync();
     protected override void OnParametersSet()
     {
         var key = Weapon.Name + Field.SemanticFieldId;

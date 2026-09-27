@@ -13,10 +13,15 @@ namespace HD2RuntimeGUI.Tests;
 
 public sealed class AmmoAuthoringTests
 {
-    private static readonly PlayerWeaponCatalog Catalog = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.14.0");
-    private static readonly PlayerWeaponAmmoCatalog Ammo = new PlayerWeaponAmmoCatalogReader().Read(SdkCache.BundledAmmoCapabilities(), Catalog);
-    private static readonly SdkMetadata Sdk = new MetadataReader().Read(SdkCache.BundledMetadata()) with { PlayerWeapons = Catalog, PlayerAmmo = Ammo };
+    private static readonly PlayerWeaponCatalog Catalog = new PlayerWeaponCatalogReader().Read(Release014(PlayerWeaponCatalogReader.FileName), "0.14.0");
+    private static readonly PlayerWeaponAmmoCatalog Ammo = new PlayerWeaponAmmoCatalogReader().Read(Release014(PlayerWeaponAmmoCatalogReader.FileName), Catalog);
+    private static readonly SdkMetadata Sdk = new MetadataReader().Read(Release014("metadata.json")) with { PlayerWeapons = Catalog, PlayerAmmo = Ammo };
     private static readonly WeaponChangeService Changes = new();
+    internal static byte[] Release014(string name)
+    {
+        using var zip = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.14.0.zip"));
+        using var stream = zip.GetEntry(name)!.Open(); using var output = new MemoryStream(); stream.CopyTo(output); return output.ToArray();
+    }
     private static ModProject Project(string name, params WeaponChange[] changes)
     {
         var resource = "mods/skyeshade/" + name.ToLowerInvariant();
@@ -29,9 +34,9 @@ public sealed class AmmoAuthoringTests
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
         {
             void Add(string name, byte[] bytes) { using var s = zip.CreateEntry(name).Open(); s.Write(bytes); }
-            Add("metadata.json", old ? Fixture("metadata-0.13.0.json") : SdkCache.BundledMetadata());
-            Add(PlayerWeaponCatalogReader.FileName, old ? Fixture("player-weapons-0.13.0.json") : SdkCache.BundledCapabilities());
-            if (!old && !omitAmmo) Add(PlayerWeaponAmmoCatalogReader.FileName, ammo ?? SdkCache.BundledAmmoCapabilities());
+            Add("metadata.json", old ? Fixture("metadata-0.13.0.json") : Release014("metadata.json"));
+            Add(PlayerWeaponCatalogReader.FileName, old ? Fixture("player-weapons-0.13.0.json") : Release014(PlayerWeaponCatalogReader.FileName));
+            if (!old && !omitAmmo) Add(PlayerWeaponAmmoCatalogReader.FileName, ammo ?? Release014(PlayerWeaponAmmoCatalogReader.FileName));
             if (extra != null) Add(extra, "{}"u8.ToArray());
         }
         return output.ToArray();
@@ -161,7 +166,7 @@ public sealed class AmmoAuthoringTests
     public async Task Invalid_ammo_update_preserves_previous_sdk(string defect)
     {
         using var env = new TestEnvironment(); await Install(env, old: true);
-        var node = JsonNode.Parse(SdkCache.BundledAmmoCapabilities())!;
+        var node = JsonNode.Parse(Release014(PlayerWeaponAmmoCatalogReader.FileName))!;
         if (defect == "schema") node["schemaVersion"] = 99;
         if (defect == "version") node["hd2RuntimeVersion"] = "0.15.0";
         if (defect == "baseline") node["weapons"]![0]!["fields"]!["capacity"]!["value"] = 999;
@@ -176,7 +181,7 @@ public sealed class AmmoAuthoringTests
     [Fact] public async Task Fresh_offline_cache_contains_all_three_published_metadata_files()
     {
         using var env = new TestEnvironment(); File.Delete(env.Paths.CachePath("current.json")); env.GitHub.Offline = true;
-        var sdk = await env.Cache.GetCurrentAsync(); Assert.Equal("0.14.0", sdk.Version); Assert.NotNull(sdk.PlayerAmmo);
+        var sdk = await env.Cache.GetCurrentAsync(); Assert.Equal("0.14.1", sdk.Version); Assert.NotNull(sdk.PlayerAmmo);
         Assert.Equal(SdkCache.BundledAmmoCapabilities(), await File.ReadAllBytesAsync(env.Paths.CachePath(sdk.Version, PlayerWeaponAmmoCatalogReader.FileName)));
         Assert.NotNull((await env.Cache.GetVersionAsync(sdk.Version)).PlayerAmmo);
     }

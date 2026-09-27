@@ -98,3 +98,23 @@ artifacts/ammo-ui/Exports/PunisherDualFeed-0.1.0.zip
 The 0.14 ModTemplate's archive/dependency conventions remain compatible with the existing exporter. Packages declare HD2Runtime 0.14.0/API 1 and Bingus dependencies and contain no Runtime implementation or GUI metadata. Sample source and values are documented in `samples/README.md`.
 
 Windows Debug build succeeded without warnings/errors at `artifacts/ammo-build/Debug/net10.0-windows10.0.19041.0/win-x64/`. Screenshots remain in ignored `docs/screenshots/`, including `VerdictMagazine-ammo-editor.png`, `PunisherDualFeed-ammo-editor.png`, `ammo-gp31-blocked.png` and `ammo-catalog-disagreement.png`. No support-weapon work, snapshot changes, game launch or mod deployment was performed.
+
+## SDK 0.14.1 / capability schema v2 aliases
+
+Consumed the public `HD2Runtime-0.14.1-sdk.zip`, SHA-256 `b032dee479d5328539140770116821dcf40cc6d8d7e3ef66a2553428e5d9b106`. Live discovery, digest verification and installation passed through the app's release/cache services. Bundled authoring, ammo and base metadata preserve the published bytes. The authoring catalog uses schema 2; base metadata and the companion ammo file remain schema 1.
+
+The typed reader retains the six field alias attributes, three published alias rules and collision-audit evidence. It validates canonical targets, flags, semantic targets, accepted writes and counts before installation. Grouping uses explicit per-weapon `aliasOf` declarations, never inferred backing offsets or semantic-target equality. The catalog has 3,027 entries, including 62 alias instances; 2,965 preferred entries and 1,907 editable entries remain. Read-only `weapon.base_capacity` remains visible independently of `magazine.capacity` even when their backing offsets match.
+
+Existing 0.13/0.14 projects stay pinned until explicit rebind. Saved source records and baselines remain intact on opening/rebinding. A canonical project view coalesces equal values for controls, counts, Changes and deterministic Lua; generation validates every enabled source before coalescing. An edit saves the canonical identifier and preserves the retained source's expected value and baseline SDK version. Different desired values, duplicate records or conflicting saved baselines produce migration conflicts; build/export remains blocked until the user chooses a source or resets the field. Choosing a source preserves its original baseline, which still requires explicit acceptance if it differs from the current SDK. Baseline-valued or disabled sources cannot conceal a conflict through no-op cleanup or enable toggles.
+
+**152 automated tests pass**, including each of:
+
+- `weapon.capacity` → `magazine.capacity`.
+- `weapon.feed_capacity_1` → `rounds.feed_capacity_1`.
+- `weapon.feed_capacity_2` → `rounds.feed_capacity_2`.
+
+Tests cover pinning/rebind, value/baseline retention, editing/reload/reset, equal-value coalescing, differing-value conflicts/resolution, deterministic Lua/ZIPs, non-alias fields sharing an offset, rejected writes, schema downgrade attempts, malformed targets/flags/counts and existing 0.13/0.14 regressions. `Fixtures/sdk-0.14.0.zip` contains only the three published metadata files for compatibility tests; it contains no runtime or executable SDK scripts.
+
+Desktop checks used `tools/alias-smoke.mjs` with an isolated `artifacts/alias-ui` library: Verdict capacity was saved under its old alias; Punisher had conflicting feed-1 and equal feed-2 alias/canonical records. The UI showed only canonical controls, retained the distinct base-capacity row, displayed one Changes row per canonical field, blocked conflicting generation, saved a source choice and successfully exported canonical Lua. All choices/edits survived application relaunch (`--relaunch`). The conflict panel refresh was verified after resolution. Screenshot: ignored `docs/screenshots/alias-migration-conflict.png`.
+
+Windows Debug build passes without warnings/errors at `artifacts/alias-build/Debug/net10.0-windows10.0.19041.0/win-x64/`. No Runtime files, packaging format, snapshot behavior, game processes or deployed mods were changed.

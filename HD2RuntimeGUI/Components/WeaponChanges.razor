@@ -1,15 +1,15 @@
 @inject BuilderWorkspace Workspace
 <section class="panel weapon-summary"><div class="panel-heading"><h2>Player weapon changes</h2>
-    @if (Workspace.Project!.WeaponChanges.Any(c => FieldPresentation.Modified(FindField(c), c))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
+    @if (Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
 </div>
-@foreach (var group in Workspace.Project!.WeaponChanges.GroupBy(c => c.Weapon).OrderBy(g => g.Key, StringComparer.Ordinal))
+@foreach (var group in Workspace.WeaponGroups.GroupBy(c => c.Weapon).OrderBy(g => g.Key, StringComparer.Ordinal))
 {
     var weapon = Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == group.Key);
-    var count = group.Count(c => FieldPresentation.Modified(FindField(c), c));
+    var count = group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     var showAll = AllFields.Contains(group.Key);
-    var rows = (weapon?.Fields.Select(f => new Row(f, group.SingleOrDefault(c => c.SemanticFieldId == f.SemanticFieldId))) ?? [])
-        .Concat(group.Where(c => FindField(c) == null).Select(c => new Row(null, c)))
-        .Where(r => showAll || FieldPresentation.Modified(r.Field, r.Change) || Workspace.WeaponIssues.Any(i => i.ChangeId == r.Change?.Id));
+    var rows = (weapon?.Fields.Where(f => f.IsPreferred).Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
+        .Concat(group.Where(g => g.Field == null).Select(g => new Row(null, g)))
+        .Where(r => showAll || r.Group?.Conflict != null || FieldPresentation.Modified(r.Field, r.Change) || Workspace.WeaponIssues.Any(i => r.Group?.Sources.Any(c => c.Id == i.ChangeId) == true));
     <details class="weapon-change-group" data-weapon-group="@group.Key" @key="group.Key">
         <summary><strong>@group.Key</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@count @(count == 1 ? "change" : "changes")</span></summary>
         <div class="weapon-group-content"><div class="panel-heading">
@@ -27,17 +27,19 @@
                         @if (modified) { <span class="badge modified-badge">Modified</span> }
                         @if (f?.DerivedReadOnly == true) { <span class="badge">Derived</span> }
                         else if (f?.Editable == false) { <span class="badge">Read-only</span> }
-                        @if (c != null) { <small>@c.Group · @(c.EnsureEnabled ? "Ensure · 60 s" : "Apply once") @(c.Enabled ? "" : "· Disabled")</small> }
+                        @if (c != null) { <small>@c.Group · @(c.EnsureEnabled ? "Ensure · 60 s" : "Apply once") @(row.Group!.Enabled ? "" : "· Disabled")</small> }
                     </div>
                     <FieldValue Field="f" Baseline="@(f?.CurrentDefault ?? c!.ExpectedValue)" Current="@(c?.DesiredValue ?? f!.CurrentDefault)" />
                     @if (c != null)
-                    { <label class="switch-label"><input type="checkbox" checked="@c.Enabled" aria-label="Enable weapon change" @onchange="() => Run(() => Workspace.ToggleWeaponChangeAsync(c.Id))" />Enabled</label><button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(c.Weapon, c.SemanticFieldId))">@(modified ? "Reset field" : "Remove saved override")</button> }
+                    { <label class="switch-label"><input type="checkbox" checked="@row.Group!.Enabled" aria-label="Enable weapon change" @onchange="() => Run(() => Workspace.ToggleWeaponChangeAsync(c.Id))" />Enabled</label><button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(c.Weapon, row.Group.FieldId))">@(modified ? "Reset field" : "Remove saved override")</button> }
                     </div>
+                    @if (row.Group?.Conflict != null) { <WeaponAliasConflict Group="row.Group" Changed="AliasResolved" /> }
                     @if (f != null && FieldPresentation.Explanation(f) is { } explanation) { <p class="flag-explanation">@explanation</p> }
                     @if (c != null && f?.AffectsMultipleWeapons == true) { <small>@(c.SharedAcknowledged ? "Shared effects acknowledged" : "Shared approval required")</small> }
                     @if (!string.IsNullOrWhiteSpace(c?.Notes)) { <p>@c.Notes</p> }
-                    @foreach (var issue in Workspace.WeaponIssues.Where(i => i.ChangeId == c?.Id))
-                    { <div class="notice warning"><span>@issue.Message</span>@if (f != null && f.Format(c!.ExpectedValue) != f.Format(f.CurrentDefault)) { <button @onclick="() => Run(() => Workspace.AcceptWeaponBaselineAsync(c!.Id))">Accept baseline @f.Format(f.CurrentDefault)</button> }</div> }
+                    @foreach (var issue in Workspace.WeaponIssues.Where(i => row.Group?.Sources.Any(source => source.Id == i.ChangeId) == true && i.Message != row.Group.Conflict))
+                    { var source = row.Group!.Sources.Single(source => source.Id == issue.ChangeId);
+                        <div class="notice warning"><span>@issue.Message</span>@if (f != null && f.Format(source.ExpectedValue) != f.Format(f.CurrentDefault)) { <button @onclick="() => Run(() => Workspace.AcceptWeaponBaselineAsync(source.Id))">Accept baseline @f.Format(f.CurrentDefault)</button> }</div> }
                 </div>
             }
         }
@@ -45,16 +47,17 @@
         </div>
     </details>
 }
-@if (Workspace.Project.WeaponChanges.Count == 0) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
+@if (Workspace.Project!.WeaponChanges.Count == 0) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
 @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 </section>
 @code {
     [Parameter] public EventCallback<string> Edit { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
-    private sealed record Row(WeaponCapability? Field, WeaponChange? Change);
+    private sealed record Row(WeaponCapability? Field, HD2RuntimeGUI.Core.Generation.WeaponChangeGroup? Group)
+    { public WeaponChange? Change => Group?.Representative; }
     private readonly HashSet<string> AllFields = [];
     private string? Error;
-    private WeaponCapability? FindField(WeaponChange c) => Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == c.Weapon)?.Fields.FirstOrDefault(f => f.SemanticFieldId == c.SemanticFieldId);
+    private async Task AliasResolved() => await Changed.InvokeAsync();
     private void ShowAll(string weapon, bool show) { if (show) AllFields.Add(weapon); else AllFields.Remove(weapon); }
     private async Task Run(Func<Task> action) { Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
 }

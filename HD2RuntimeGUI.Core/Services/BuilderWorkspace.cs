@@ -21,6 +21,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges)
         : this(store, projects, cache, updates, changes, generator, exporter, folders, picker, paths) => this.weaponChanges = weaponChanges;
     public string? BuildError { get; private set; }
+    public IReadOnlyList<WeaponChangeGroup> WeaponGroups => Project == null || Metadata == null ? [] : WeaponAliasResolver.Group(Metadata, Project.WeaponChanges);
     public IReadOnlyList<WeaponChangeIssue> WeaponIssues => Project == null || Metadata == null ? [] : weaponChanges.Review(Metadata, Project.WeaponChanges);
     public IReadOnlyList<ProjectSummary> Library { get; private set; } = [];
     public SdkStatus? SdkStatus { get; private set; }
@@ -54,7 +55,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         var sdk = await cache.GetVersionAsync(project.SdkVersion);
         // Clean redundant overrides written by older GUI versions before exposing
         // the project. Unknown/type-changed fields remain available for review.
-        if (project.WeaponChanges.RemoveAll(c => WeaponScalar.IsNoOp(sdk, c)) > 0) await store.SaveAsync(project);
+        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) > 0) await store.SaveAsync(project);
         Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
         Library = await store.ListAsync();
     }
@@ -87,7 +88,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     private async Task SaveChangesAsync()
     {
         var previous = Project!.WeaponChanges.ToList();
-        Project.WeaponChanges.RemoveAll(c => WeaponScalar.IsNoOp(Metadata!, c));
+        WeaponAliasResolver.RemoveNoOps(Metadata!, Project.WeaponChanges);
         try { await store.SaveAsync(Project); } catch { Project.WeaponChanges = previous; throw; }
         RefreshPreview(); LastExport = null; Library = await store.ListAsync();
     }
@@ -104,10 +105,12 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the edit could be saved.");
             var next = weaponChanges.Create(Metadata!, weapon, field, value, acknowledge); var previous = Project!.WeaponChanges.ToList();
-            var old = previous.SingleOrDefault(c => c.Weapon == weapon && c.SemanticFieldId == field);
+            var saved = WeaponGroups.SingleOrDefault(g => g.Weapon == weapon && g.FieldId == next.SemanticFieldId);
+            if (saved?.Conflict != null) throw new InvalidDataException(saved.Conflict);
+            var old = saved?.Representative;
             if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; }
             next.Group = string.IsNullOrWhiteSpace(group) ? "Gameplay" : group.Trim(); next.Notes = notes;
-            Project.WeaponChanges.RemoveAll(c => c.Weapon == weapon && c.SemanticFieldId == field);
+            Project.WeaponChanges.RemoveAll(c => saved?.Sources.Contains(c) == true);
             if (!WeaponScalar.IsNoOp(Metadata!, next)) Project.WeaponChanges.Add(next);
             try { await SaveChangesAsync(); } catch { Project.WeaponChanges = previous; throw; }
         }
@@ -116,27 +119,44 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     public async Task ResetWeaponsAsync(string? weapon = null, string? field = null)
     {
         // A reset of an available field is precisely an edit back to its SDK value.
-        var capability = Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == weapon)?.Fields.FirstOrDefault(f => f.SemanticFieldId == field);
-        if (capability?.Editable == true && field != null)
+        var capability = weapon != null && field != null ? Metadata?.PlayerWeapons?.FindCanonicalField(weapon, field) : null;
+        var saved = WeaponGroups.SingleOrDefault(g => g.Weapon == weapon && g.FieldId == capability?.SemanticFieldId);
+        if (capability?.Editable == true && field != null && saved?.Conflict == null)
         { await SetWeaponChangeAsync(weapon!, field, capability.CurrentDefault.GetRawText(), false); return; }
         var project = Project;
         await weaponEditGate.WaitAsync();
         try
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the reset could be saved.");
-            var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field));
+            var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field || saved?.Sources.Contains(c) == true));
             try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; throw; }
         }
         finally { weaponEditGate.Release(); }
     }
     public async Task ToggleWeaponChangeAsync(Guid id)
     {
-        var c = Project!.WeaponChanges.Single(c => c.Id == id); c.Enabled = !c.Enabled;
-        try { await SaveChangesAsync(); } catch { c.Enabled = !c.Enabled; throw; }
+        var group = WeaponGroups.Single(g => g.Sources.Any(c => c.Id == id)); var enabled = !group.Enabled;
+        var previous = group.Sources.Select(c => (Change: c, c.Enabled)).ToArray();
+        foreach (var c in group.Sources) c.Enabled = enabled;
+        try { await SaveChangesAsync(); } catch { foreach (var item in previous) item.Change.Enabled = item.Enabled; throw; }
+    }
+    public async Task ResolveWeaponAliasAsync(Guid keepId)
+    {
+        var project = Project;
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the conflict could be resolved.");
+            var group = WeaponGroups.Single(g => g.Sources.Any(c => c.Id == keepId));
+            var previous = Project!.WeaponChanges.ToList();
+            Project.WeaponChanges.RemoveAll(c => group.Sources.Contains(c) && c.Id != keepId);
+            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = previous; throw; }
+        }
+        finally { weaponEditGate.Release(); }
     }
     public async Task AcceptWeaponBaselineAsync(Guid id)
     {
-        var c = Project!.WeaponChanges.Single(c => c.Id == id); var f = WeaponChangeService.Catalog(Metadata!).Field(c.Weapon, c.SemanticFieldId);
+        var c = Project!.WeaponChanges.Single(c => c.Id == id); var f = WeaponChangeService.Catalog(Metadata!).FindCanonicalField(c.Weapon, c.SemanticFieldId)!;
         var old = (c.ExpectedValue, c.BaselineSdkVersion); c.ExpectedValue = f.CurrentDefault.Clone(); c.BaselineSdkVersion = Metadata!.Version;
         try { await SaveChangesAsync(); } catch { (c.ExpectedValue, c.BaselineSdkVersion) = old; throw; }
     }

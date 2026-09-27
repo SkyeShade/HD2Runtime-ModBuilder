@@ -15,12 +15,14 @@ public sealed class WeaponChangeService : IWeaponChangeService
 {
     public WeaponChange Create(SdkMetadata sdk, string weapon, string field, string value, bool sharedAcknowledged)
     {
-        var capability = Catalog(sdk).Field(weapon, field);
+        var catalog = Catalog(sdk); var original = catalog.Field(weapon, field);
+        var capability = catalog.FindCanonicalField(weapon, field)!;
+        if (!original.WriteAccepted || !capability.WriteAccepted) throw new InvalidDataException(original.Reason ?? "This field is not accepted for writes.");
         JsonElement parsed;
         try { using var document = JsonDocument.Parse(value); parsed = document.RootElement.Clone(); }
         catch (JsonException e) { throw new InvalidDataException("Enter a valid field value.", e); }
         parsed = WeaponScalar.Normalize(capability, parsed);
-        var c = new WeaponChange { Weapon = weapon, SemanticFieldId = field, ExpectedValue = capability.CurrentDefault.Clone(), DesiredValue = parsed,
+        var c = new WeaponChange { Weapon = weapon, SemanticFieldId = capability.SemanticFieldId, ExpectedValue = capability.CurrentDefault.Clone(), DesiredValue = parsed,
             FieldType = capability.Type, SharedAcknowledged = sharedAcknowledged && capability.AffectsMultipleWeapons,
             AcknowledgedWriteScope = sharedAcknowledged ? capability.WriteScope : null, AcknowledgedConsumerCount = sharedAcknowledged ? capability.Backing?.ConsumerCount : null,
             AcknowledgedAffectedWeapons = sharedAcknowledged ? capability.SharedWithWeapons.Order(StringComparer.Ordinal).ToList() : [], BaselineSdkVersion = sdk.Version };
@@ -31,7 +33,9 @@ public sealed class WeaponChangeService : IWeaponChangeService
     }
     public void Validate(SdkMetadata sdk, WeaponChange c)
     {
-        var weapon = Catalog(sdk).Weapon(c.Weapon); var f = Catalog(sdk).Field(c.Weapon, c.SemanticFieldId);
+        var catalog = Catalog(sdk); var weapon = catalog.Weapon(c.Weapon); var original = catalog.Field(c.Weapon, c.SemanticFieldId);
+        var f = catalog.FindCanonicalField(c.Weapon, c.SemanticFieldId)!;
+        if (!original.WriteAccepted || !f.WriteAccepted) throw new InvalidDataException(original.Reason ?? "This field is not accepted for writes.");
         if (weapon.OrdinaryWritesBlocked) throw new InvalidDataException(weapon.BlockReason ?? "Ambiguous weapon identity; ordinary writes are blocked.");
         if (!f.Editable || f.DerivedReadOnly || f.Backing == null) throw new InvalidDataException(f.Reason ?? "This field is read-only or unavailable.");
         if (c.FieldType != f.Type) throw new InvalidDataException("The capability type changed; review this modification.");
@@ -42,7 +46,10 @@ public sealed class WeaponChangeService : IWeaponChangeService
     public IReadOnlyList<WeaponChangeIssue> Review(SdkMetadata sdk, IEnumerable<WeaponChange> changes)
     {
         var issues = new List<WeaponChangeIssue>();
-        foreach (var c in changes.Where(c => c.Enabled))
+        var list = changes.ToArray();
+        foreach (var group in WeaponAliasResolver.Group(sdk, list).Where(g => g.Conflict != null))
+            issues.Add(new(group.Representative.Id, group.Conflict!));
+        foreach (var c in list.Where(c => c.Enabled))
             try { Validate(sdk, c); } catch (InvalidDataException e) { issues.Add(new(c.Id, e.Message)); }
         return issues;
     }

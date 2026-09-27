@@ -1,0 +1,25 @@
+@inject BuilderWorkspace Workspace
+<div class="notice warning" data-alias-conflict role="alert"><div>
+    <strong>Migration conflict · @Group.FieldId</strong>
+    <p>@Group.Conflict</p>
+    @foreach (var source in Group.Sources.OrderBy(c => c.SemanticFieldId))
+    {
+        <p><code>@source.SemanticFieldId</code>: @FieldPresentation.Value(Group.Field, source.ExpectedValue) → <strong>@FieldPresentation.Value(Group.Field, source.DesiredValue)</strong>
+            <small>Saved baseline SDK @source.BaselineSdkVersion</small>
+            <button @onclick="() => Run(() => Workspace.ResolveWeaponAliasAsync(source.Id))" disabled="@Busy">Keep @source.SemanticFieldId value</button></p>
+    }
+    <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(Group.Weapon, Group.FieldId))" disabled="@Busy">Reset field</button>
+    @if (Error != null) { <p class="dialog-error">@Error</p> }
+</div></div>
+@code {
+    [Parameter, EditorRequired] public HD2RuntimeGUI.Core.Generation.WeaponChangeGroup Group { get; set; } = default!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private bool Busy;
+    private string? Error;
+    private async Task Run(Func<Task> action)
+    {
+        if (Busy) return; Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

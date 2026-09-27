@@ -9,11 +9,16 @@ internal static class PlayerWeaponLua
 {
     internal static IEnumerable<string> Operations(ModProject project, SdkMetadata sdk, IWeaponChangeService validator)
     {
-        var active = project.WeaponChanges.Where(c => c.Enabled).OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.Group, StringComparer.Ordinal).ThenBy(c => c.SemanticFieldId, StringComparer.Ordinal).ToArray();
-        foreach (var c in active) validator.Validate(sdk, c);
-        if (active.GroupBy(c => (c.Weapon, c.SemanticFieldId)).Any(g => g.Count() > 1)) throw new InvalidDataException("A weapon field may only be modified once.");
+        var resolved = WeaponAliasResolver.Group(sdk, project.WeaponChanges);
+        if (resolved.FirstOrDefault(g => g.Conflict != null) is { } conflict) throw new InvalidDataException(conflict.Conflict);
+        // Validate every enabled source, including saved baselines and approvals,
+        // before coalescing equal alias/canonical requests into one operation.
+        foreach (var c in project.WeaponChanges.Where(c => c.Enabled)) validator.Validate(sdk, c);
+        var active = resolved.Where(g => g.Enabled).Select(g => g.Sources.Where(c => c.Enabled).OrderBy(c => c.SemanticFieldId != g.FieldId).ThenBy(c => c.Id).First())
+            .OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.Group, StringComparer.Ordinal)
+            .ThenBy(c => sdk.PlayerWeapons!.FindCanonicalField(c.Weapon, c.SemanticFieldId)!.SemanticFieldId, StringComparer.Ordinal).ToArray();
         var catalog = sdk.PlayerWeapons;
-        WeaponCapability Field(WeaponChange c) => catalog!.Field(c.Weapon, c.SemanticFieldId);
+        WeaponCapability Field(WeaponChange c) => catalog!.FindCanonicalField(c.Weapon, c.SemanticFieldId)!;
         // Shared backing aliases cannot declare conflicting desired values in one mod.
         foreach (var group in active.Where(c => Field(c).AffectsMultipleWeapons).GroupBy(c => (Field(c).Backing!.Settings, Field(c).Backing!.Group, Field(c).Backing!.Row, Field(c).Backing!.Offset)))
             if (group.Select(c => Field(c).Format(c.DesiredValue)).Distinct().Count() > 1) throw new InvalidDataException("Conflicting desired values for a shared backing setting.");
@@ -29,9 +34,10 @@ internal static class PlayerWeaponLua
             string Value(WeaponCapability f, System.Text.Json.JsonElement value) => value.ValueKind == System.Text.Json.JsonValueKind.String ? LuaGenerator.Quote(value.GetString()!) : f.Format(value);
             string Accessor(WeaponChange c)
             {
-                var parts = c.SemanticFieldId.Split('.', 2); var key = parts[1].Replace('.', '_');
+                var semanticId = Field(c).SemanticFieldId;
+                var parts = semanticId.Split('.', 2); var key = parts[1].Replace('.', '_');
                 // The public API prefixes collisions with legacy field constants with player_.
-                if (sdk.Resources.Values.SelectMany(r => r.Fields.Values).Any(f => f.Domain == parts[0] && f.Name.Replace('.', '_') == key && f.Name != c.SemanticFieldId)) key = "player_" + key;
+                if (sdk.Resources.Values.SelectMany(r => r.Fields.Values).Any(f => f.Domain == parts[0] && f.Name.Replace('.', '_') == key && f.Name != semanticId)) key = "player_" + key;
                 return "hd2.fields." + parts[0] + "." + key;
             }
             if (list.Length == 1)

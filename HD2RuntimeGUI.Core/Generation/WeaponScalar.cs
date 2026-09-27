@@ -40,7 +40,7 @@ public static class WeaponScalar
 
     public static bool IsNoOp(SdkMetadata sdk, WeaponChange change)
     {
-        var field = sdk.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == change.Weapon)?.Fields.FirstOrDefault(f => f.SemanticFieldId == change.SemanticFieldId);
+        var field = sdk.PlayerWeapons?.FindCanonicalField(change.Weapon, change.SemanticFieldId);
         // Preserve missing or type-changed capabilities for the migration review.
         return field != null && field.Type == change.FieldType && field.CurrentDefault.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined)
             && Equal(field, field.CurrentDefault, change.DesiredValue);
