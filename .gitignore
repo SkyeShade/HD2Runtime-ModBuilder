@@ -1,8 +1,27 @@
+# Build output and test results
 **/bin/
 **/obj/
-.vs/
-.idea/
 TestResults/
 artifacts/
+
+# IDE and per-user state
+.vs/
+.idea/
 *.user
 *.suo
+*.userosscache
+*.rsuser
+
+# Codex/Rider agent state and local smoke-test captures
+.codex/
+.agents/
+**/.codex/
+**/.agents/
+docs/screenshots/
+*.process-id.txt
+gui-process-id.txt
+update-process-id.txt
+webview-*/
+
+# Generated sample/export archives; keep samples/README.md and samples/addon.lua
+samples/*.zip
