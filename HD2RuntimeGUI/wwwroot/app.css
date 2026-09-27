@@ -1006,3 +1006,7 @@ input[type=checkbox]:checked:before {
 .evidence-item { margin: .4rem 0; }
 .graph-node { padding: .8rem; border-left: 2px solid var(--accent); }
 .graph-node small { display: block; margin: .4rem 0; }
+.notice.stratagem-approval { display: block; }
+.stratagem-approval ul { padding-left: 1.4rem; margin: .8rem 0; }
+.stratagem-approval li { margin: .3rem 0; }
+.stratagem-approval label { display: flex; gap: .6rem; align-items: center; }

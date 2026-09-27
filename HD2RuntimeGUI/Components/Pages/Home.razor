@@ -12,11 +12,12 @@
             <button class="nav-item @(Page == "overview" ? "selected" : "")" @onclick='() => Navigate("overview")'>◈ <span>Overview</span></button>
             @if (Workspace.Metadata!.PlayerWeapons != null) { <button class="nav-item @(Page == "player-weapons" ? "selected" : "")" @onclick='() => Navigate("player-weapons")'><span>Player Weapons</span><small>@Workspace.Metadata.PlayerWeapons.Weapons.Count</small></button> }
             @foreach (var kind in Workspace.Metadata!.Builders.Keys.Where(k => k != "weapon" || Workspace.Metadata.PlayerWeapons == null))
-            { <button class="nav-item @(Page == kind ? "selected" : "")" @onclick="() => SelectCategory(kind)">◇ <span>@Workspace.Metadata.CategoryName(kind)</span><small>@Workspace.Metadata.Resources.Values.Count(r => r.Kind == kind)</small></button> }
+            { <button class="nav-item @(Page == kind ? "selected" : "")" @onclick="() => SelectCategory(kind)">◇ <span>@(kind == "stratagem" && Workspace.Metadata.Stratagems != null ? "Legacy mapped stratagems" : Workspace.Metadata.CategoryName(kind))</span><small>@Workspace.Metadata.Resources.Values.Count(r => r.Kind == kind)</small></button> }
             <button class="nav-item @(Page == "changes" ? "selected" : "")" @onclick='() => Navigate("changes")'>≡ <span>Changes</span><small>@ModificationCount</small></button>
             <button class="nav-item @(Page == "lua" ? "selected" : "")" @onclick='() => Navigate("lua")'><span>Lua Preview</span></button>
             <button class="nav-item @(Page == "export" ? "selected" : "")" @onclick="ShowExport">↗ <span>Build / Export</span></button>
         }
+        <button class="nav-item @(Page == "stratagems" ? "selected" : "")" @onclick='() => Navigate("stratagems")'><span>Stratagems</span></button>
         <button class="nav-item @(Page == "support" ? "selected" : "")" @onclick='() => Navigate("support")'><span>Support Weapons</span></button>
         <button class="nav-item @(Page == "research" ? "selected" : "")" @onclick='() => Navigate("research")'><span>Snapshot Research</span></button>
         <div class="sidebar-bottom"><button class="nav-item @(Page == "settings" ? "selected" : "")" @onclick='() => Navigate("settings")'>⚙ <span>Settings &amp; SDK</span></button><div class="sdk-mini"><span class="status-dot @(Workspace.SdkStatus?.VerifiedOnline == true ? "online" : "")"></span><div>SDK @(Workspace.SdkStatus?.Installed.Version ?? "loading")<small>@(Workspace.SdkStatus?.VerifiedOnline == true ? "Release verified" : "Offline / not verified")</small></div></div></div>
@@ -44,6 +45,7 @@
             }
             <div class="library-footnote"><span>01 &nbsp; Create a project</span><span>02 &nbsp; Configure changes</span><span>03 &nbsp; Export your mod</span></div>
         }
+        else if (Page == "stratagems") { <Stratagems Changed="RefreshWeaponUI" /> }
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
@@ -64,6 +66,7 @@
             {
                 <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
                 <SupportChanges Changed="RefreshWeaponUI" />
+                <StratagemChanges Changed="RefreshWeaponUI" />
                 <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@ModificationCount</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
                 @if (Workspace.SdkStatus?.Installed.Version != active.SdkVersion) { <section class="panel"><h2>New SDK available for this project</h2><p>Rebind semantic identifiers to SDK @Workspace.SdkStatus?.Installed.Version. Your desired values and saved baselines are preserved. Any changed capabilities must be reviewed before building.</p><button @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">Rebind to installed SDK</button></section> }
                 @if (Workspace.Metadata!.PlayerWeapons != null) { <section class="panel"><h2>Author player weapons</h2><p>@Workspace.Metadata.PlayerWeapons.Weapons.Count weapons ? @Workspace.Metadata.PlayerWeapons.Summary.FieldInstances capability entries</p><button class="primary" @onclick='() => Navigate("player-weapons")'>Browse Player Weapons</button></section> }
@@ -74,6 +77,7 @@
             {
                 <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
                 <SupportChanges Changed="RefreshWeaponUI" />
+                <StratagemChanges Changed="RefreshWeaponUI" />
                 @if (active.Changes.Count > 0) {
                 <section class="panel"><div class="panel-heading"><h2>Other configured modifications</h2><span class="badge">@active.Changes.Count(c => c.Enabled) enabled</span></div>
                     @foreach (var group in active.Changes.GroupBy(c => c.Group))

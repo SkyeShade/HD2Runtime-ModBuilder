@@ -1,0 +1,64 @@
+using HD2RuntimeGUI.Core.Metadata;
+using HD2RuntimeGUI.Core.Models;
+
+namespace HD2RuntimeGUI.Core.Generation;
+
+public interface IStratagemLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk); }
+public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLua
+{
+    public IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk)
+    {
+        var active = project.StratagemChanges.Where(c => c.Enabled).OrderBy(c => c.InstanceKey, StringComparer.Ordinal).ToArray();
+        if (active.Length == 0) return [];
+        var catalog = StratagemChangeService.Catalog(sdk);
+        foreach (var c in active) service.Validate(project, sdk, c);
+        var rows = active.Where(c => !StratagemChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: catalog.Field(c.InstanceKey))).ToArray();
+        var plans = rows.GroupBy(r => r.Field.PlanGroup).OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
+        var parent = Enumerable.Range(0, plans.Length).ToArray();
+        int Root(int i) { while (parent[i] != i) i = parent[i]; return i; }
+        for (var i = 0; i < plans.Length; i++) for (var j = i + 1; j < plans.Length; j++)
+            if (plans[i].Select(r => r.Field.BackingObjectId).Intersect(plans[j].Select(r => r.Field.BackingObjectId)).Any()) parent[Root(j)] = Root(i);
+        var output = new List<string>();
+        foreach (var connected in Enumerable.Range(0, plans.Length).GroupBy(Root))
+        {
+            var entries = connected.SelectMany(i => plans[i]).ToArray();
+            if (entries.Select(r => r.Change.EnsureEnabled).Distinct().Count() != 1) throw new InvalidDataException("Related stratagem objects require the same persistence setting.");
+            var groups = entries.GroupBy(r => r.Field.OperationGroup).OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
+            if (sdk.Plans == null || groups.Length > sdk.Plans.Limits.Operations || entries.Length > sdk.Plans.Limits.PhysicalChangesPerPhase)
+                throw new InvalidDataException("Stratagem edit exceeds the published plan limits.");
+            var operations = new List<string>();
+            foreach (var group in groups)
+            {
+                var f = group.First().Field;
+                if (group.Select(r => r.Field.BackingObjectId).Distinct().Count() != 1 || group.Count() > 32
+                    || group.Any(r => r.Field.PlanPhase != 1 || r.Field.DependsOn.Length != 0)) throw new InvalidDataException("Unsupported stratagem operation contract.");
+                // A transaction has one semantic target. Slot-specific targets are not interchangeable.
+                var targets = group.Select(r => r.Field.Target).Distinct().ToArray();
+                if (targets.Length > 1 && !group.All(r => r.Field.Target.Path == "eagle_rearm"))
+                    throw new InvalidDataException("Stratagem composition conflict: the SDK operation group requires different branch targets. Keep these branch edits separate until Runtime publishes compatible operation groups. No fields were merged.");
+                var unique = group.GroupBy(r => r.Field.ApiFieldConstant).Select(g =>
+                {
+                    var first = g.First();
+                    if (g.Any(r => !StratagemScalar.Equal(first.Field, first.Change.ExpectedValue, r.Change.ExpectedValue)
+                        || !StratagemScalar.Equal(first.Field, first.Change.DesiredValue, r.Change.DesiredValue)))
+                        throw new InvalidDataException("Conflicting stratagem values on the same shared object. Resolve the changes before building.");
+                    return first;
+                }).OrderBy(r => r.Field.InstanceKey, StringComparer.Ordinal).ToArray();
+                var body = "{\n    id=" + LuaGenerator.Quote("stratagem-" + SupportChangeService.Hash(project.ResourceId + "\n" + group.Key)[..24])
+                    + ",\n    target=" + Target(f.Target) + ",\n";
+                if (f.AllowSharedRequired) body += "    allow_shared=true,\n";
+                if (unique.Length == 1)
+                { var r = unique[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={StratagemScalar.Text(r.Field, r.Change.DesiredValue)},\n"; }
+                else body += "    changes={\n" + string.Join("\n", unique.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},value={StratagemScalar.Text(r.Field, r.Change.DesiredValue)}}},")) + "\n    },\n";
+                operations.Add(body + "}");
+            }
+            var kind = groups.Length > 1 ? "plan" : operations[0].Contains("    changes={", StringComparison.Ordinal) ? "transaction" : "patch";
+            var request = kind == "plan" ? "{\n    id=" + LuaGenerator.Quote("stratagem-plan-" + SupportChangeService.Hash(project.ResourceId + "\n" + string.Join("\n", groups.Select(g => g.Key)))[..24])
+                + ",\n    operations={\n" + string.Join(",\n", operations.Select(o => "        " + o.Replace("\n", "\n        "))) + "\n    },\n}" : operations[0];
+            output.Add(entries[0].Change.EnsureEnabled ? "hd2.ensure({\n    " + kind + "=" + request.Replace("\n", "\n    ") + "\n})" : "hd2." + kind + "(" + request + ")");
+        }
+        return output;
+    }
+    public static string Target(StratagemTarget target) => "hd2.stratagem(" + LuaGenerator.Quote(target.Stratagem) + ")" + (target.Path switch
+    { "stratagem" => "", "attack" => ":attack(" + LuaGenerator.Quote(target.Attack!) + ")", "eagle_rearm" => ":eagle_rearm()", _ => throw new InvalidDataException("Unsupported stratagem target.") });
+}

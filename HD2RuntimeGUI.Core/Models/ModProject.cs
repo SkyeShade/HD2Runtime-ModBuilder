@@ -23,6 +23,8 @@ public sealed class ModProject
     public List<CompositionChange> CompositionChanges { get; set; } = [];
     public List<SupportChange> SupportChanges { get; set; } = [];
     public Dictionary<string, string> SupportApprovals { get; set; } = [];
+    public List<StratagemChange> StratagemChanges { get; set; } = [];
+    public Dictionary<string, string> StratagemApprovals { get; set; } = [];
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

@@ -1,0 +1,39 @@
+@inject BuilderWorkspace Workspace
+@{ var saved = Saved; }
+<article class="stat-card @(saved != null ? "modified" : "")" data-stratagem-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
+    <div class="panel-heading"><h3>@Field.DisplayName</h3>@if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
+    @if (saved != null) { <p class="modified-value">@Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong> @Field.Unit</p> }
+    else { <p class="subtle">Vanilla: @Format(Field.CurrentDefault) @Field.Unit</p> }
+    @if (!Field.Editable) { <span class="badge">Read-only</span><p>@Field.Reason</p> }
+    else
+    {
+        <label>Current value
+        @if (Field.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange='e => Commit((bool)e.Value! ? "true" : "false")' /> }
+        else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" /> }
+        </label>
+    }
+    @if (Field.Shared) { <span class="badge">Shared</span> }
+    @if (saved != null)
+    {
+        <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleStratagemAsync(saved.InstanceKey))" /> Enabled</label>
+        <button class="reset-action" @onclick="() => Run(() => Workspace.ResetStratagemAsync(instance: Field.InstanceKey))">Reset field</button>
+        @if (Workspace.StratagemIssue(saved) is { } issue)
+        {
+            <p class="notice warning">@issue</p>
+            @if (Field.Editable && NeedsReview(saved)) { <button @onclick="() => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }
+        }
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    <details><summary>Provenance</summary><p>@Field.Provenance</p><p>@Field.BackingObjectKind · @Field.Target.Attack</p><code>@Field.SemanticFieldId</code></details>
+</article>
+@code {
+    [Parameter, EditorRequired] public StratagemField Field { get; set; } = null!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private StratagemChange? Saved => StratagemChangeService.Saved(Workspace.Project, (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!, Field);
+    private string Value => Format(Saved?.DesiredValue ?? Field.CurrentDefault);
+    private string Format(System.Text.Json.JsonElement v) { try { return StratagemScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    private bool NeedsReview(StratagemChange c) => c.CapabilityEvidence != StratagemChangeService.Evidence(Field) || !StratagemScalar.Equal(Field, c.ExpectedValue, Field.CurrentDefault);
+    private Task Commit(string value) => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, value));
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

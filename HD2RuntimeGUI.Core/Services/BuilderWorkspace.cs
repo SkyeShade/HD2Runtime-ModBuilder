@@ -194,7 +194,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         var sdk = await cache.GetVersionAsync(project.SdkVersion);
         // Clean redundant overrides written by older GUI versions before exposing
         // the project. Unknown/type-changed fields remain available for review.
-        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) + project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(sdk, c)) > 0) await store.SaveAsync(project);
+        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) + project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(sdk, c)) + project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(sdk, c)) > 0) await store.SaveAsync(project);
         Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
         Library = await store.ListAsync();
     }

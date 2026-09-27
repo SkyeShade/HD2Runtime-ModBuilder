@@ -36,7 +36,10 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     private readonly ISupportAuthoringReader supportReader = new SupportAuthoringReader();
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader) => this.supportReader = supportReader;
-    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName);
+    private readonly IStratagemCatalogReader stratagemReader = new StratagemCatalogReader();
+    public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader, IStratagemCatalogReader stratagemReader)
+        : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
+    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -84,6 +87,13 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 throw new InvalidDataException("Plan contract does not declare support authoring capabilities.");
             sdk = sdk with { SupportAuthoring = supportReader.Read(payload.Composition!.GetValueOrDefault(SupportAuthoringReader.FileName)
                 ?? throw new InvalidDataException("SDK is missing canonical support authoring metadata."), sdk.Version) };
+        }
+        if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.21.0")) >= 0)
+        {
+            if (sdk.Plans?.FieldCapabilitySources?.Contains(StratagemCatalogReader.FileName) != true)
+                throw new InvalidDataException("Plan contract does not declare stratagem authoring capabilities.");
+            sdk = sdk with { Stratagems = stratagemReader.Read(payload.Composition!.GetValueOrDefault(StratagemCatalogReader.FileName)
+                ?? throw new InvalidDataException("SDK is missing canonical stratagem capabilities.")) };
         }
         return sdk;
     }

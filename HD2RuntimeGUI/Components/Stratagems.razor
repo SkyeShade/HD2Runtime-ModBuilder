@@ -1,0 +1,48 @@
+@inject BuilderWorkspace Workspace
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Stratagems; }
+<div class="page-heading"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version</div><h1>Stratagems</h1><p>Call-in settings and published attack branches.</p></div></div>
+@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
+@if (catalog == null) { <section class="panel"><h2>Stratagem authoring requires SDK 0.21</h2><p>Install a compatible SDK in Settings. Existing projects stay pinned until you explicitly rebind from Overview.</p></section> }
+else
+{
+    <div class="weapon-editor"><section class="panel weapon-browser"><h2>@catalog.Stratagems.Length stratagems</h2>
+        <label>Search<input id="stratagem-search" @bind="Search" @bind:event="oninput" placeholder="Stratagem name" /></label>
+        <label>Family<select id="stratagem-family" @bind="Family"><option value="">All</option>@foreach (var family in catalog.Stratagems.Select(s => s.Family).Distinct()) { <option value="@family">@FamilyLabel(family)</option> }</select></label>
+        <label>System<select @bind="System"><option value="">All systems</option><option value="cooldown">Cooldown</option>@foreach (var domain in catalog.FieldInstances.Select(f => f.Domain).Distinct().Order()) { <option value="@domain">@SupportAuthoringEditor.Label(domain)</option> }<option value="beam">Beam</option></select></label>
+        <label>Availability<select @bind="Availability"><option value="">All capabilities</option><option value="writable">Writable</option><option value="blocked">Read-only / blocked</option><option value="shared">Shared</option></select></label>
+        <div class="weapon-list">@foreach (var root in catalog.Stratagems.Where(s => Matches(catalog, s)))
+        { <button class="resource-item @(Selected == root.Name ? "active" : "")" data-stratagem="@root.Name" @onclick="() => Selected = root.Name"><strong>@root.Name</strong><small>@FamilyLabel(root.Family) · @(root.RootResolution == "UNIQUE" ? "Writable" : "Read-only") · @root.AttackRoles.Length branches</small></button> }</div>
+    </section><div class="weapon-detail">
+        @if (catalog.Stratagems.SingleOrDefault(s => s.Name == Selected) is { } stratagem)
+        {
+            <section class="panel"><h2>@stratagem.Name</h2><span class="badge">@FamilyLabel(stratagem.Family)</span><span class="badge">@stratagem.RootResolution</span>
+                @if (stratagem.BlockedReason != null) { <p class="notice warning">@stratagem.BlockedReason</p> }
+                <details><summary>Read-only / experimental capabilities</summary><p><strong>Call-In Time:</strong> @stratagem.CallInTime.Reason</p><p><strong>Max Uses:</strong> @stratagem.MaxUses.Reason</p>
+                    @if (stratagem.BarrageScheduling != null) { <p><strong>Barrage scheduling:</strong> @stratagem.BarrageScheduling.Reason</p> }
+                </details>
+            </section>
+            <StratagemEditor Name="@stratagem.Name" Changed="Refresh" @key="stratagem.Name" />
+            @if (catalog.SemanticBranches.Any(b => b.Stratagem == stratagem.Name))
+            {
+                <details class="panel"><summary>Delivery graph / inspection</summary>
+                @foreach (var branch in catalog.SemanticBranches.Where(b => b.Stratagem == stratagem.Name))
+                { <div class="graph-node"><strong>@branch.Name</strong> <span class="badge">@branch.WikiKind</span><p>@string.Join(" / ", branch.SemanticRoles)</p><small>@branch.Correlation</small></div> }
+                </details>
+            }
+        }
+        else { <section class="panel"><h2>Choose a stratagem</h2><p>Orbital, Eagle and support-weapon call-ins stay separate from weapon authoring. Changes save automatically in your active project.</p><p>@catalog.Summary.WritableFieldInstances writable instances · @catalog.Summary.SharedConsumerScopeCount reviewed shared objects</p></section> }
+    </div></div>
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    private string Search = "", Family = "", System = "", Availability = "", Selected = "";
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    public static string FamilyLabel(string family) => family == "support" ? "Support Call-Ins" : SupportAuthoringEditor.Label(family);
+    private bool Matches(StratagemCatalog c, StratagemDefinition s)
+    {
+        var fields = c.FieldInstances.Where(f => f.Target.Stratagem == s.Name).ToArray();
+        return s.Name.Contains(Search, StringComparison.OrdinalIgnoreCase) && (Family == "" || s.Family == Family)
+            && (System == "" || fields.Any(f => f.Domain == System || System == "cooldown" && f.SemanticFieldId == "stratagem.cooldown") || System == "beam" && c.Attacks.Any(a => a.Stratagem == s.Name && a.Kind == "Beam"))
+            && (Availability == "" || Availability == "writable" && fields.Any(f => f.Editable) || Availability == "blocked" && (s.RootResolution != "UNIQUE" || fields.Any(f => !f.Editable)) || Availability == "shared" && fields.Any(f => f.Shared));
+    }
+}

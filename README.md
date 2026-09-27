@@ -1,6 +1,6 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.20.1 guarded support/player-weapon, heat, ammo and composition-plan APIs**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.21 guarded stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
@@ -13,6 +13,12 @@ For a development build, run `./scripts/publish-windows.ps1` and launch the stag
 This repository is separate from HD2Runtime. It does not launch the game, deploy mods, or access game processes. Snapshot inspection reads only a user-selected local file.
 
 ## Authoring
+
+**Stratagems** has its own browser for Orbital, Eagle and Support Call-Ins. The published canonical catalog supplies 55 visible roots (20 offensive and 35 support call-ins), 989 field instances and 936 writable instances. The two unresolved call-ins remain read-only. Branch-specific fields retain separate identities; search and family/system/availability filters come from metadata. Cooldown, damage, explosion, projectile, status and OrbitalAbility fields autosave with vanilla comparisons and reset actions.
+
+Eagle cooldown and uses-per-rearm are per stratagem. Eagle rearm time is one shared system: all eight handles show the same saved override and use one acknowledgement of its reviewed consumers. Max uses, call-in time and unproven barrage scheduling remain read-only with SDK reasons. Projects stay pinned until explicitly rebound; changed baselines and ownership require review.
+
+See [0.21 verification and the remaining status-target grouping limitation](docs/runtime021-verification.md). Runtime 0.21's canonical operation groups cannot always express simultaneous edits to distinct status slots on one DamageInfo object; those combinations fail closed before export. No Runtime safety workaround is generated.
 
 Create a mod with a display name, author, resource ID such as `mods/skyeshade/my_mod`, version and optional description. The library supports open, rename, duplicate, remove from library, open project folder and export. Removing a library entry preserves its files.
 

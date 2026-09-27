@@ -1,0 +1,40 @@
+@inject BuilderWorkspace Workspace
+@{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Stratagems; var fields = catalog?.FieldInstances.Where(f => f.Target.Stratagem == Name && (!ExcludeRearm || f.Target.Path != "eagle_rearm") && (!RearmOnly || f.Target.Path == "eagle_rearm")).ToArray() ?? []; }
+@if (catalog != null)
+{
+    @if (Workspace.Project == null) { <p class="notice">Create or open a project to edit stratagems.</p> }
+    else if (!RearmOnly && Workspace.Project.StratagemChanges.Any(c => c.Stratagem == Name)) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetStratagemAsync(Name))">Reset stratagem</button> }
+    @foreach (var scope in fields.Where(f => f.Shared).GroupBy(f => f.BackingObjectId))
+    {
+        var field = scope.First();
+        @if (Workspace.Project != null && scope.Any(f => StratagemChangeService.Saved(Workspace.Project, catalog, f) != null))
+        {
+            <section class="panel notice warning stratagem-approval" data-stratagem-approval="@field.Target.Path">
+                <strong>@(field.Target.Path == "eagle_rearm" ? "Eagle Rearm Time — Shared across all Eagle stratagems" : "Shared " + field.BackingObjectKind)</strong>
+                <p>Changing this object may affect:</p><ul>@foreach (var consumer in field.SharedConsumers) { <li>@consumer.Stratagem · @consumer.Path</li> }</ul>
+                @if (field.DynamicConsumersPossible) { <p>Additional runtime consumers are possible.</p> }
+                <label><input type="checkbox" checked="@StratagemChangeService.Approved(Workspace.Project, field)" @onchange="e => Run(() => Workspace.SetStratagemApprovalAsync(field.InstanceKey, (bool)e.Value!))" /> I acknowledge writes to this shared object.</label>
+            </section>
+        }
+    }
+    @foreach (var branch in fields.Where(f => !ModifiedOnly || StratagemChangeService.Saved(Workspace.Project, catalog, f) != null).GroupBy(f => (f.Target.Path, f.Target.Attack)))
+    {
+        <section class="panel" data-stratagem-branch="@(branch.Key.Attack ?? branch.Key.Path)">
+            <h2>@catalog.BranchLabel(branch.First())</h2>
+            @if (branch.Key.Path == "eagle_rearm") { <p class="subtle">One shared Eagle system. The same saved value applies to every reviewed Eagle consumer.</p> }
+            @foreach (var domain in branch.GroupBy(f => f.Domain))
+            { <h3 class="group-title">@SupportAuthoringEditor.Label(domain.Key)</h3><div class="stat-grid">@foreach (var f in domain) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+        </section>
+    }
+    @if (Error != null) { <p class="notice warning">@Error</p> }
+}
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public bool ExcludeRearm { get; set; }
+    [Parameter] public bool RearmOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) { Error = e.Message; } }
+}

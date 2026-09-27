@@ -1,0 +1,23 @@
+@inject BuilderWorkspace Workspace
+@if (Workspace.Project?.StratagemChanges.Count > 0)
+{
+    <div class="panel-heading"><h2>Stratagem changes</h2><button class="reset-action" @onclick="() => Run(() => Workspace.ResetStratagemAsync())">Reset all stratagem changes</button></div>
+    @foreach (var group in Workspace.Project.StratagemChanges.GroupBy(c => c.Path == "eagle_rearm" ? "Eagle Shared System" : c.Stratagem).OrderBy(g => g.Key))
+    {
+        var shared = group.All(c => c.Path == "eagle_rearm");
+        <details class="panel" data-stratagem-change-group="@group.Key"><summary><strong>@group.Key</strong> <span class="badge">@group.Count() changes</span></summary>
+            <label><input type="checkbox" checked="@ShowAll.Contains(group.Key)" @onchange="e => Toggle(group.Key, (bool)e.Value!)" /> Show all fields</label>
+            <StratagemEditor Name="@group.First().Stratagem" ModifiedOnly="@(!ShowAll.Contains(group.Key))" ExcludeRearm="@(!shared)" RearmOnly="@shared" Changed="Refresh" />
+            @foreach (var c in group.Where(c => Workspace.Metadata?.Stratagems?.FieldInstances.All(f => f.InstanceKey != c.InstanceKey) != false))
+            { <p class="notice warning">Missing capability: @c.SemanticFieldId · @c.Attack</p><button @onclick="() => Run(() => Workspace.ResetStratagemAsync(instance: c.InstanceKey))">Remove missing change</button> }
+        </details>
+    }
+    @if (Error != null) { <p class="notice warning">@Error</p> }
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    private readonly HashSet<string> ShowAll = []; private string? Error;
+    private void Toggle(string key, bool value) { if (value) ShowAll.Add(key); else ShowAll.Remove(key); }
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) { Error = e.Message; } }
+}

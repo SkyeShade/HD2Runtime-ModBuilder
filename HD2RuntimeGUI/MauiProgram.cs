@@ -38,6 +38,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISupportAuthoringReader, SupportAuthoringReader>();
         builder.Services.AddSingleton<ISupportChangeService, SupportChangeService>();
         builder.Services.AddSingleton<ISupportLua, SupportLua>();
+        builder.Services.AddSingleton<IStratagemCatalogReader, StratagemCatalogReader>();
+        builder.Services.AddSingleton<IStratagemChangeService, StratagemChangeService>();
+        builder.Services.AddSingleton<IStratagemLua, StratagemLua>();
         builder.Services.AddSingleton<ISemanticOperationPlanner, SemanticOperationPlanner>();
         builder.Services.AddSingleton<IPlayerWeaponCompositionReader, PlayerWeaponCompositionReader>();
         builder.Services.AddSingleton<IAdvancedCapabilitiesReader, AdvancedCapabilitiesReader>();
