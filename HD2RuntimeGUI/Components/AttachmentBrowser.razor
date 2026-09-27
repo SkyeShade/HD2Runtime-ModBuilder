@@ -1,0 +1,27 @@
+@inject BuilderWorkspace Workspace
+@using System.Text.Json
+@{ var entry = Workspace.Metadata?.Composition?.Magazines.Weapons.SingleOrDefault(w => w.Weapon == Weapon); }
+@if (entry?.Categories is { Count: > 0 } categories)
+{
+    <section class="semantic-section" data-section="Attachments"><h2>Attachments <span class="badge">@entry.AttachmentCount · Read-only</span></h2>
+    <p class="subtle">Catalog compatibility is separate from proven native identity. No option-owned writable effects are published.</p>
+    @foreach (var category in categories)
+    {
+        <details class="panel composition-inspection" data-attachment-category="@category.Category"><summary><strong>@category.Category</strong><span class="badge">@category.Options.Count</span></summary>
+        @foreach (var option in category.Options)
+        {
+            <details class="attachment-option" data-attachment="@option.Name"><summary><strong>@option.Name</strong> <span class="badge">@(option.Default ? "Default" : "Optional")</span></summary>
+                <p>Catalog compatible: @(option.CatalogAllowed ? "Yes" : "Unproven") · Native identity: @(option.OptionIdentityProven ? "Proven" : "Unresolved")</p>
+                @if (option.NativeOption != null) { <p>@option.NativeOption.Name</p> }
+                <EvidenceTree Value="@JsonSerializer.SerializeToElement(option.Effects, EvidenceOptions)" />
+                <p class="subtle">@option.Reason</p><span class="badge">Read-only</span>
+            </details>
+        }
+        </details>
+    }
+    </section>
+}
+@code {
+    [Parameter] public string Weapon { get; set; } = "";
+    private static readonly JsonSerializerOptions EvidenceOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+}

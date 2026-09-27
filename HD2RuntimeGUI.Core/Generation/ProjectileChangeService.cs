@@ -18,9 +18,9 @@ public sealed class ProjectileChangeService : IProjectileChangeService
     private static ProjectileAttack Target(SdkMetadata sdk, string weapon, string role)
     {
         var a = Graph(sdk).Attack(weapon, role); var w = sdk.PlayerWeapons!.Weapon(weapon);
-        var f = w.Fields.SingleOrDefault(f => f.Type == "projectile_reference" && f.ReferenceRole == role);
+        var f = w.Fields.SingleOrDefault(f => f.Domain == "attack" && f.ReferenceRole == role);
         if (w.OrdinaryWritesBlocked || !a.WritableReferenceSwap || !a.TargetOwnershipProven || a.TargetBacking?.UniqueOwner != true
-            || f?.Editable != true || !f.WriteAccepted || f.AffectsMultipleWeapons || a.CompatibilityClass != "conventional_plain")
+            || f?.Editable != true || !f.WriteAccepted || f.AffectsMultipleWeapons || !(sdk.Advanced != null ? Graph(sdk).Projectiles.GuardPolicy?.ApprovedClasses?.Contains(a.CompatibilityClass) == true : a.CompatibilityClass == "conventional_plain"))
             throw new InvalidDataException(a.Reason ?? "Projectile selector is read-only, shared or ambiguous.");
         return a;
     }
@@ -28,11 +28,11 @@ public sealed class ProjectileChangeService : IProjectileChangeService
     {
         ProjectileAttack target;
         try { target = Target(sdk, weapon, role); } catch (InvalidDataException) { return []; }
-        return Graph(sdk).Projectiles.CompatibleSources!.Where(s =>
+        return (Graph(sdk).Projectiles.CompatibleSources ?? Graph(sdk).Projectiles.CompatibleSourcesByClass?.GetValueOrDefault(target.CompatibilityClass) ?? []).Where(s =>
         {
             var a = Graph(sdk).Attack(s.Weapon, s.Role);
             return a.SourceIdentityResolvable && a.ProjectileSettings != null && a.CompatibilityClass == target.CompatibilityClass
-                && !sdk.PlayerWeapons!.Weapon(s.Weapon).OrdinaryWritesBlocked;
+                && !sdk.PlayerWeapons!.Weapon(s.Weapon).OrdinaryWritesBlocked && a.Residency?.Classification != "SOURCE_WEAPON_REQUIRED";
         }).Select(s => new ProjectileReference(s.Weapon, s.Role)).OrderBy(s => s.Weapon, StringComparer.Ordinal).ThenBy(s => s.AttackRole, StringComparer.Ordinal).ToArray();
     }
     public bool IsBaseline(SdkMetadata sdk, string weapon, string role, ProjectileReference replacement)
@@ -40,10 +40,11 @@ public sealed class ProjectileChangeService : IProjectileChangeService
         var g = Graph(sdk); var a = g.Attack(weapon, role); var b = g.Attack(replacement.Weapon, replacement.AttackRole);
         return a.ProjectileType == b.ProjectileType && a.ProjectileSettings?.SettingsType == b.ProjectileSettings?.SettingsType;
     }
-    private static string Evidence(SdkMetadata sdk, ProjectileReference reference)
+    internal static string Evidence(SdkMetadata sdk, ProjectileReference reference)
     {
         var a = Graph(sdk).Attack(reference.Weapon, reference.AttackRole);
         var identity = string.Join("\n", sdk.PlayerWeapons!.Weapon(reference.Weapon).Resources.Order(StringComparer.Ordinal)) + "\n" + a.ProjectileType.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n" + a.ProjectileSettings?.SettingsType + "\n" + a.CompatibilityClass;
+        if (a.Residency != null) identity += "\n" + a.Residency.Classification;
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
     }
     public ProjectileChange Create(SdkMetadata sdk, string weapon, string role, ProjectileReference replacement)

@@ -31,7 +31,9 @@ internal static class PlayerWeaponLua
             var id = "gui-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(idInput)))[..24].ToLowerInvariant();
             var body = new StringBuilder("{\n    id=" + LuaGenerator.Quote(id) + ",\n    target=hd2.weapon(" + LuaGenerator.Quote(group.Key.Weapon) + "),\n");
             if (group.Key.Shared) body.Append("    allow_shared=true,\n");
-            string Value(WeaponCapability f, System.Text.Json.JsonElement value) => value.ValueKind == System.Text.Json.JsonValueKind.String ? LuaGenerator.Quote(value.GetString()!) : f.Format(value);
+            string Value(WeaponCapability f, System.Text.Json.JsonElement value) => f.SemanticFieldId == "weapon.default_fire_mode"
+                ? "hd2.enums.fire_mode." + f.EnumValues!.Single(p => System.Text.Json.JsonElement.DeepEquals(p.Value, value)).Key
+                : value.ValueKind == System.Text.Json.JsonValueKind.String ? LuaGenerator.Quote(value.GetString()!) : f.Format(value);
             string Accessor(WeaponChange c)
             {
                 var semanticId = Field(c).SemanticFieldId;

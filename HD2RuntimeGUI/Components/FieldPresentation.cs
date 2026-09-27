@@ -20,13 +20,16 @@ internal static class FieldPresentation
     public static string Value(WeaponCapability? field, JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.True => "On", JsonValueKind.False => "Off",
+        _ when field?.Type == "enum" && field.EnumValues?.FirstOrDefault(p => JsonElement.DeepEquals(p.Value, value)).Key is { } name => EnumLabel(name),
         _ => field?.Format(value) ?? value.ToString()
     };
+    public static string EnumLabel(string name) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(name.Replace('_', ' '));
     public static string Unit(WeaponCapability? field) => field?.Unit == "rpm" ? "RPM" : field?.Unit?.Replace('_', ' ') ?? "";
     public static string? Explanation(WeaponCapability field) => field.SemanticFieldId == "weapon.suppressed" && field.Backing?.Component == "WeaponDataComponentData"
         ? "Runtime weapon-data flag; it does not necessarily indicate a visible or selectable suppressor attachment." : null;
     public static string Section(WeaponCapability f)
     {
+        if (f.SemanticFieldId == "weapon.default_fire_mode") return "Fire Mode";
         if (f.Domain is "magazine" or "rounds") return "Ammo / Magazine";
         if (!f.Editable) return "Advanced / Read-only";
         if (f.Domain == "weapon") return f.SemanticFieldId.Contains("capacity") ? "Ammo / Feed" : f.SemanticFieldId.Contains("recoil") || f.SemanticFieldId.Contains("spread") || f.SemanticFieldId.Contains("sway") || f.SemanticFieldId.Contains("ergonomics") ? "Handling" : "Weapon";

@@ -12,13 +12,15 @@ namespace HD2RuntimeGUI.Tests;
 
 public sealed class CompositionTests
 {
+    private static byte[] Fixture(string name) { using var zip = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.15.0.zip")); using var input = zip.GetEntry(name)!.Open(); using var output = new MemoryStream(); input.CopyTo(output); return output.ToArray(); }
+    private static IReadOnlyDictionary<string, byte[]> FixtureComposition() => PlayerWeaponCompositionReader.FileNames.ToDictionary(n => n, Fixture);
     private static readonly ProjectileChangeService Changes = new();
     private static readonly ProjectileReference Verdict = new("P-113 Verdict", "primary");
     private const string Jar = "JAR-5 Dominator";
     private static byte[] Archive(string? version = null, string? omit = null)
     {
-        var files = SdkCache.BundledComposition().ToDictionary(p => p.Key, p => p.Value);
-        files.Add("metadata.json", SdkCache.BundledMetadata()); files.Add(PlayerWeaponCatalogReader.FileName, SdkCache.BundledCapabilities()); files.Add(PlayerWeaponAmmoCatalogReader.FileName, SdkCache.BundledAmmoCapabilities());
+        var files = FixtureComposition().ToDictionary(p => p.Key, p => p.Value);
+        files.Add("metadata.json", Fixture("metadata.json")); files.Add(PlayerWeaponCatalogReader.FileName, Fixture(PlayerWeaponCatalogReader.FileName)); files.Add(PlayerWeaponAmmoCatalogReader.FileName, Fixture(PlayerWeaponAmmoCatalogReader.FileName));
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
             foreach (var (name, bytes) in files.Where(p => p.Key != omit))
@@ -163,7 +165,7 @@ public sealed class CompositionTests
     [Theory] [InlineData("schemaVersion")] [InlineData("hd2RuntimeVersion")] [InlineData("weapons")]
     public async Task Malformed_composition_is_rejected(string property)
     {
-        using var env = new TestEnvironment(); var sdk = await Install(env); var files = SdkCache.BundledComposition().ToDictionary(p => p.Key, p => p.Value); var name = PlayerWeaponCompositionReader.FileNames[0];
+        using var env = new TestEnvironment(); var sdk = await Install(env); var files = FixtureComposition().ToDictionary(p => p.Key, p => p.Value); var name = PlayerWeaponCompositionReader.FileNames[0];
         var json = JsonNode.Parse(files[name])!; json[property] = property == "schemaVersion" ? JsonValue.Create(999) : property == "weapons" ? new JsonArray() : JsonValue.Create("0.14.0");
         files[name] = JsonSerializer.SerializeToUtf8Bytes(json);
         Assert.ThrowsAny<Exception>(() => new PlayerWeaponCompositionReader().Read(files, sdk.PlayerWeapons!));

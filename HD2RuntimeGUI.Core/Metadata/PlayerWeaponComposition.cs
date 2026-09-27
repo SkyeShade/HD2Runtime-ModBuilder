@@ -5,17 +5,19 @@ using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
-public sealed record MagazineGraphSummary(int Weapons, int NativeOptionIdentities, int WeaponsWithNativeDefaultOption, int DefaultRelationshipsProven, int PerOptionAmmoOwnersProven, int WritableOptionFields, int SimpleMagazineWeapons, int RoundsFeedWeapons);
-public sealed record ProjectileGraphSummary(int Weapons, int WeaponsWithProjectileAttack, int ProjectileAttacks, int WritableTargetAttacks, int CompatibleSourceAttacks);
+public sealed record MagazineGraphSummary(int Weapons, int NativeOptionIdentities, int WeaponsWithNativeDefaultOption, int DefaultRelationshipsProven, int PerOptionAmmoOwnersProven, int WritableOptionFields, int SimpleMagazineWeapons, int RoundsFeedWeapons, int? PrimaryWeaponsWithAttachments = null, int? AttachmentOptionsMapped = null, int? AttachmentOptionsTotal = null,
+    int? MagazineOptionsMapped = null, int? MagazineOptionsTotal = null, int? MagazineOptionsWithNativeIdentity = null, int? WeaponsWithWritablePerOptionFields = null,
+    int? OpticsMapped = null, int? UnderbarrelMapped = null, int? MuzzleMapped = null, int? CompleteCustomizationRecordsCompared = null);
+public sealed record ProjectileGraphSummary(int Weapons, int WeaponsWithProjectileAttack, int ProjectileAttacks, int WritableTargetAttacks, int CompatibleSourceAttacks, int? WritableExplosiveSelectors = null, int? SharedProjectileGroups = null, Dictionary<string, int>? CompatibilityClasses = null);
 public sealed record FireModeGraphSummary(int Weapons, int NativePrimaryValueReadable, int AllowedModeListsProven, int WritableWeapons);
-public sealed record TerminalGraphSummary(int Weapons, int ProjectileAttacks, int ReadableActions, int WritableActions, int ImpactExplosionLinks, int ExpiryExplosionLinks);
+public sealed record TerminalGraphSummary(int Weapons, int ProjectileAttacks, int ReadableActions, int WritableActions, int ImpactExplosionLinks, int ExpiryExplosionLinks, int? WritableImpactRefs = null, int? WritableExpiryRefs = null);
 public sealed record CompositionSummary(MagazineGraphSummary Magazine, ProjectileGraphSummary Projectile,
-    [property: JsonPropertyName("fire_mode")] FireModeGraphSummary FireMode, TerminalGraphSummary Terminal);
+    [property: JsonPropertyName("fire_mode")] FireModeGraphSummary FireMode, TerminalGraphSummary Terminal, ExplosionSummary? Explosion = null);
 public sealed record ProjectileSettingsIdentity(int Group, int RecordType, int Row, string SettingsType);
 public sealed record ProjectileBaseline(string Weapon, string Attack, int ProjectileType);
 public sealed record ProjectileSource(string Weapon, string Role, int ProjectileType);
 public sealed record ProjectileAttack(string Role, int ProjectileType, ProjectileSettingsIdentity? ProjectileSettings,
-    string CompatibilityClass, FieldBacking? TargetBacking, bool SourceIdentityResolvable, bool TargetOwnershipProven, bool WritableReferenceSwap, string? Reason);
+    string CompatibilityClass, FieldBacking? TargetBacking, bool SourceIdentityResolvable, bool TargetOwnershipProven, bool WritableReferenceSwap, string? Reason, ProjectileObject? ProjectileObject = null, ProjectileResidency? Residency = null);
 public sealed record ProjectileWeaponGraph(string Weapon, IReadOnlyList<string> Resources, string Resolution, IReadOnlyList<string> ImplementationFamilies, IReadOnlyList<ProjectileAttack> Attacks);
 public sealed record MagazineOptionGraph(string OptionId, string Name, string AddPath, AmmoValues BackingBaseValues, AmmoValues Values,
     bool Writable, string Reason, IReadOnlyList<string> SharedWithWeapons, bool Shared, bool Default, bool Allowed,
@@ -23,16 +25,17 @@ public sealed record MagazineOptionGraph(string OptionId, string Name, string Ad
 public sealed record ObservedMagazineOption(string OptionId, string Name, string AddPath, IReadOnlyList<int> OptionIdOffsets, IReadOnlyList<int> AddPathOffsets);
 public sealed record MagazineWeaponGraph(string Weapon, bool OrdinaryWritesBlocked, string? BackingDomain, bool SimpleMagazineApi,
     MagazineOptionGraph? DefaultOption, AlternateMagazineOptions AlternateOptions, EffectiveAmmoCapacity EffectiveCapacity, AmmoFields Fields,
-    IReadOnlyList<ObservedMagazineOption> ObservedCustomizationOptions);
+    IReadOnlyList<ObservedMagazineOption> ObservedCustomizationOptions, int? AttachmentCount = null, IReadOnlyList<AttachmentCategory>? Categories = null);
 public sealed record FireModeWeaponGraph(string Weapon, int PrimaryFireModeNativeValue, FieldBacking Backing,
-    IReadOnlyList<int>? AllowedModes, string DefaultModeSemantics, int? SelectedRuntimeMode, bool Writable, string Reason);
-public sealed record TerminalAction(string Phase, int ReferenceType, string ActionKind, bool LinkedExplosionRecord, bool Readable, bool Writable, string Reason);
+    IReadOnlyList<int>? AllowedModes, string DefaultModeSemantics, int? SelectedRuntimeMode, bool Writable, string? Reason, IReadOnlyList<int>? NativeModeVector = null, string? WriteKind = null);
+public sealed record TerminalAction(string Phase, int ReferenceType, string ActionKind, bool LinkedExplosionRecord, bool Readable, bool Writable, string? Reason, string? ReferenceClass = null, int? NullSentinel = null, IReadOnlyList<ProjectileConsumer>? ProjectileSettingsConsumers = null, bool? AffectsMultipleResources = null);
 public sealed record TerminalAttack(string Role, int ProjectileType, ProjectileSettingsIdentity? ProjectileSettings, IReadOnlyList<TerminalAction> Actions);
 public sealed record TerminalWeaponGraph(string Weapon, string Resolution, IReadOnlyList<TerminalAttack> Attacks);
 public sealed record CompositionSafety(int Writes, int ProtectionChanges, string FixtureFallback, bool SnapshotOnly);
 public sealed record CompositionGraph<T>(int SchemaVersion, string Hd2RuntimeVersion, string SourceSnapshot, BuildFingerprints GameFingerprints,
     int CatalogWeapons, string Feature, CompositionSafety Safety, IReadOnlyList<T> Weapons, IReadOnlyList<ProjectileSource>? CompatibleSources,
-    IReadOnlyList<NativeMagazineOption>? NativeMagazineOptions);
+    IReadOnlyList<NativeMagazineOption>? NativeMagazineOptions, Dictionary<string, IReadOnlyList<ProjectileSource>>? CompatibleSourcesByClass = null,
+    ProjectileGuardPolicy? GuardPolicy = null);
 public sealed record PlayerWeaponComposition(CompositionGraph<ProjectileWeaponGraph> Projectiles, CompositionGraph<MagazineWeaponGraph> Magazines,
     CompositionGraph<FireModeWeaponGraph> FireModes, CompositionGraph<TerminalWeaponGraph> TerminalActions)
 {
@@ -62,8 +65,9 @@ public sealed class PlayerWeaponCompositionReader : IPlayerWeaponCompositionRead
                     || !g.Weapons.Select(name).Order().SequenceEqual(catalog.Weapons.Select(w => w.Name).Order())) throw new InvalidDataException("Composition graph identity or safety mismatch.");
                 return g;
             }
+            var modern = catalog.Summary.Composition?.Explosion != null;
             var result = new PlayerWeaponComposition(ReadGraph<ProjectileWeaponGraph>(0, "projectile_reference_graph", w => w.Weapon),
-                ReadGraph<MagazineWeaponGraph>(1, "magazine_option_graph", w => w.Weapon), ReadGraph<FireModeWeaponGraph>(2, "fire_mode_graph", w => w.Weapon),
+                ReadGraph<MagazineWeaponGraph>(1, modern ? "attachment_option_capabilities" : "magazine_option_graph", w => w.Weapon), ReadGraph<FireModeWeaponGraph>(2, "fire_mode_graph", w => w.Weapon),
                 ReadGraph<TerminalWeaponGraph>(3, "projectile_terminal_action_graph", w => w.Weapon));
             foreach (var w in result.Projectiles.Weapons)
             {
@@ -72,23 +76,23 @@ public sealed class PlayerWeaponCompositionReader : IPlayerWeaponCompositionRead
                 foreach (var a in w.Attacks)
                 {
                     if (!Regex.IsMatch(a.Role, "\\A[a-z][a-z_0-9]{0,63}\\z")) throw new InvalidDataException("Invalid attack role.");
-                    var f = weapon.Fields.SingleOrDefault(f => f.Type == "projectile_reference" && f.ReferenceRole == a.Role);
+                    var f = weapon.Fields.SingleOrDefault(f => f.Domain == "attack" && f.ReferenceRole == a.Role);
                     if (f == null || f.Editable != a.WritableReferenceSwap || f.CompatibilityClass != a.CompatibilityClass) throw new InvalidDataException("Projectile graph/capability mismatch.");
                     var baseline = f.CurrentDefault.Deserialize<ProjectileBaseline>(Options)!;
                     if (baseline.Weapon != w.Weapon || baseline.Attack != a.Role || baseline.ProjectileType != a.ProjectileType || f.ReferenceSettings != a.ProjectileSettings) throw new InvalidDataException("Projectile baseline mismatch.");
                     if (a.WritableReferenceSwap && (weapon.OrdinaryWritesBlocked || !f.WriteAccepted || f.AffectsMultipleWeapons || !a.SourceIdentityResolvable || !a.TargetOwnershipProven
-                        || a.TargetBacking?.UniqueOwner != true || a.ProjectileSettings == null || a.CompatibilityClass != "conventional_plain")) throw new InvalidDataException("Unsafe projectile selector.");
+                        || a.TargetBacking?.UniqueOwner != true || a.ProjectileSettings == null || !(modern ? result.Projectiles.GuardPolicy?.ApprovedClasses?.Contains(a.CompatibilityClass) == true : a.CompatibilityClass == "conventional_plain"))) throw new InvalidDataException("Unsafe projectile selector.");
                 }
             }
-            var sources = result.Projectiles.CompatibleSources ?? throw new InvalidDataException("Missing compatible source contract.");
+            var sources = result.Projectiles.CompatibleSources ?? result.Projectiles.CompatibleSourcesByClass?.Values.SelectMany(s => s).ToArray() ?? throw new InvalidDataException("Missing compatible source contract.");
             if (sources.Select(s => (s.Weapon, s.Role)).Distinct().Count() != sources.Count) throw new InvalidDataException("Duplicate projectile sources.");
             foreach (var s in sources)
             {
                 var a = result.Attack(s.Weapon, s.Role);
-                if (!a.SourceIdentityResolvable || a.CompatibilityClass != "conventional_plain" || a.ProjectileType != s.ProjectileType || catalog.Weapon(s.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException("Unsafe compatible source.");
+                if (!a.SourceIdentityResolvable || !(modern ? result.Projectiles.GuardPolicy?.ApprovedClasses?.Contains(a.CompatibilityClass) == true : a.CompatibilityClass == "conventional_plain") || a.ProjectileType != s.ProjectileType || catalog.Weapon(s.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException("Unsafe compatible source.");
             }
-            if (result.Magazines.Weapons.Any(w => w.DefaultOption?.Writable == true) || result.FireModes.Weapons.Any(w => w.Writable)
-                || result.TerminalActions.Weapons.SelectMany(w => w.Attacks).SelectMany(a => a.Actions).Any(a => a.Writable || a.Phase is not ("impact" or "expiry"))) throw new UnsupportedSdkException("Unsupported writable inspection graph.");
+            if (!modern && (result.Magazines.Weapons.Any(w => w.DefaultOption?.Writable == true) || result.FireModes.Weapons.Any(w => w.Writable)
+                || result.TerminalActions.Weapons.SelectMany(w => w.Attacks).SelectMany(a => a.Actions).Any(a => a.Writable || a.Phase is not ("impact" or "expiry")))) throw new UnsupportedSdkException("Unsupported writable inspection graph.");
             var summary = catalog.Summary.Composition ?? throw new InvalidDataException("Missing composition summary.");
             var attacks = result.Projectiles.Weapons.SelectMany(w => w.Attacks).ToArray();
             var actions = result.TerminalActions.Weapons.SelectMany(w => w.Attacks).SelectMany(a => a.Actions).ToArray();

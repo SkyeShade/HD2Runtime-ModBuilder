@@ -1,4 +1,78 @@
-# 0.13 player-weapon authoring verification
+# Runtime 0.17 verification
+
+Published authority: [HD2Runtime v0.17.0](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.17.0), release build commit `5500113a1c5f7db6678d78fc143eac10b648afb7`.
+
+The production public GitHub release client discovered and installed SDK 0.17.0 into `artifacts/017-online`. It validated release/asset URLs, archive digest, size, paths and metadata contracts. Only SDK data was installed. The eleven bundled JSON files match the published SDK byte for byte.
+
+| Release asset | SHA-256 |
+| --- | --- |
+| HD2Runtime-0.17.0-sdk.zip | `0d78c58215e739c0fd909a5b2e7912d5ac0dd4167de4b03307b37d568e8c31c2` |
+| HD2Runtime-ModTemplate-0.17.0.zip | `14d5ab006f7d036af83260bbd4c55a845c601f04de3f8110d461ab475a9f447d` |
+| HD2Runtime-0.17.0-example-projects.zip | `8cd01931d679632fb2b0e3a9118390e9baff84f8f598478e28aee6ce075fca9c` |
+
+## Loaded contracts and editor coverage
+
+| Surface | Published / loaded result |
+| --- | --- |
+| Player weapons | 80 identities; 73 unique and seven duplicate identities remain fail-closed |
+| Semantic fields | 3,490 entries; 77 definitions, 62 writable, 15 read-only, six derived; 2,259 editable entries |
+| Alias handling | Schema v2; three rules / 62 instances, preferred canonical controls only |
+| Fire modes | 21 writable Full Auto / Semi Auto controls, filtered by each allowed vector |
+| Projectile selectors | 67 attacks on 66 weapons; 57 writable selectors across published compatibility classes |
+| Residency | JAR-5 self-contained; Talon source-weapon-required is excluded; permitted unresolved sources warn |
+| Terminal actions | 134 readable / 130 writable slots (65 impact, 65 expiry); typed None / ExplosionSettings |
+| Explosions | 13 settings records, 144 writable scalar entries / 12 semantic fields, four shared groups |
+| Attachments | 419 read-only options: 195 Optics, 117 Underbarrel, 71 Muzzle, 36 Magazine |
+| Support | 35 entries / 27 unique identities / eight duplicate groups / five shared settings groups; read-only contract v1 |
+
+## Tests and desktop validation
+
+Full suite: **219 passed, zero failed/skipped**. Existing release safety, ZIP traversal, versioning, atomic installation/failure preservation, old SDK fixtures, aliases, autosave, generation, packaging and snapshot tests remain in the suite. New coverage includes:
+
+- Required 0.17 artifacts and missing-artifact rollback; unsupported/malformed support contracts.
+- Fire-mode enum generation, allowed-vector rejection, read-only JAR-5 / single-mode weapons, no fabricated labels for native 3/5.
+- Residency filtering, source-object targeting after swaps, separate ordered operations, shared approval and stale-target export rejection.
+- Impact/expiry addition/removal with semantic None, typed explosion sources and shared-terminal approval.
+- Explosion radius/damage authoring, baseline reset, shared scope, changed permissions and removed source rejection.
+- All support entries, family graphs (Recoilless, Arc Thrower, C4, Solo Silo), duplicate/unresolved Railgun evidence.
+- Attachment category counts, Concussive Drum/Short/Extended capacities and read-only permission preservation.
+- Persistence of every new change kind, deterministic Lua/ZIPs, exact payload inventory, explicit 0.15-to-0.17 rebind and baseline/evidence review. Moving an old projectile scalar to Composition preserves desired/expected values and requires fresh shared approval.
+
+The actual MAUI desktop app was driven through its WebView2 UI using `tools/runtime017-smoke.mjs`, against an isolated Debug library in `artifacts/017-ui`. The four projects below were created, edited, reviewed and exported through the UI. After restarting the app, `--relaunch --catalog` opened/rebuilt all four and rendered every player weapon and support entry. It verified exactly **21 fire-mode selectors, 130 terminal selectors, 419 read-only attachment options and 35 support graphs with no write controls**. Changes/Lua Preview, shared approval blocking, JAR-5 fire-mode blocking, Talon source exclusion, Concussive attachment values and Railgun unresolved state were checked.
+
+Screenshots are local ignored artifacts in `docs/screenshots/`: `runtime017-projectile-object.png`, `runtime017-attachments.png`, `runtime017-support-arc.png` and `runtime017-support-railgun.png`. The existing dark desktop layout is retained; Composition groups each attack's selected projectile, shared object settings, terminal slots and explosion fields. Read-only catalogs use expandable cards/graph branches, with native evidence under disclosures. Snapshot behavior is unchanged.
+
+## Generated samples
+
+All paths are relative to the repository. The four ZIPs include only the eight-entry gameplay package; Runtime and Bingus remain separate dependencies.
+
+| Project | Changes | ZIP |
+| --- | --- | --- |
+| FireModeSample | Concussive Full Auto → Semi Auto | `artifacts/017-ui/Exports/FireModeSample-0.1.0.zip` |
+| TerminalExplosionSample | Eruptor expiry explosion → typed None | `artifacts/017-ui/Exports/TerminalExplosionSample-0.1.0.zip` |
+| ExplosionTuningSample | Eruptor outer radius 7 → 10; standard damage 225 → 500 | `artifacts/017-ui/Exports/ExplosionTuningSample-0.1.0.zip` |
+| ProjectileCompositionSample | Verdict → self-contained JAR-5 projectile; selected object velocity 180 → 350 | `artifacts/017-ui/Exports/ProjectileCompositionSample-0.1.0.zip` |
+
+The composition sample explicitly approves shared JAR-5 projectile-definition effects. Its Lua swaps the reference first, then edits the selected source object in a separate guarded operation. Production online SDK installation also rebuilt `VerdictMagazine` and `PunisherDualFeed` under `artifacts/017-online/Exports/` as ammo regressions. No game launch or deployment occurred.
+
+## Build / publish
+
+Windows Debug build succeeded with **zero warnings/errors**. Release self-contained publish succeeded at `artifacts/publish-0.17/win-x64/HD2RuntimeGUI.exe`, and the published executable launched successfully. Distribute the whole folder; WebView2 Evergreen is required, developer tooling is not.
+
+```powershell
+dotnet test HD2RuntimeGUI.Tests/HD2RuntimeGUI.Tests.csproj --no-restore
+dotnet build HD2RuntimeGUI/HD2RuntimeGUI.csproj --no-restore
+dotnet publish HD2RuntimeGUI/HD2RuntimeGUI.csproj `
+  -c Release -f net10.0-windows10.0.19041.0 -r win-x64 `
+  --self-contained true -p:WindowsAppSDKSelfContained=true `
+  -p:WindowsPackageType=None -o artifacts/publish-0.17/win-x64
+```
+
+No GUI-blocking released SDK defect was found. The public support contract is now sufficient for read-only browsing. Runtime limitations remain visible: no per-option attachment writes, no globally proven meaning for native mode 3/5, no independent outer-damage scalar, no shrapnel replacement, no projectile preload or weapon-local object cloning. Operations requiring unstable source handles are blocked before export. HD2Runtime itself was not changed.
+
+---
+
+# Historical 0.13 player-weapon authoring verification
 
 ## UX polish validation
 

@@ -18,7 +18,7 @@
         @if (Field.Type == "boolean")
         { <label class="boolean-control"><input id="@InputId" type="checkbox" role="switch" checked='@(Value == "true")' disabled="@Busy" @onchange='async e => { Value = (bool)e.Value! ? "true" : "false"; await Commit(); }' /><span>@(Value == "true" ? "On" : "Off")</span><small>SDK baseline: @FieldPresentation.Value(Field, Field.CurrentDefault)</small></label> }
         else if (Field.Type == "enum")
-        { <select id="@InputId" @bind="Value" @bind:after="Commit" disabled="@Busy">@foreach (var option in Field.EnumValues!) { <option value="@option.Value.GetRawText()">@option.Key</option> }</select> }
+        { <select id="@InputId" @bind="Value" @bind:after="Commit" disabled="@Busy">@foreach (var option in Field.EnumValues!.Where(p => Field.AllowedValues == null || Field.AllowedValues.Contains(p.Value.GetInt32()))) { <option value="@option.Value.GetRawText()">@FieldPresentation.EnumLabel(option.Key)</option> }</select> }
         else
         { <input id="@InputId" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" /> }
         @if (Field.AffectsMultipleWeapons)

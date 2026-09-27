@@ -36,3 +36,20 @@ Both use guarded semantic transactions with `hd2.ensure`, expected SDK baselines
 Create `Jar5VerdictProjectile` with resource ID `mods/skyeshade/jar5_verdict_projectile`. In Player Weapons choose JAR-5 Dominator, then Composition -> primary Projectile -> P-113 Verdict primary projectile. The semantic replacement autosaves. Review Changes / Lua Preview, then Build / Export Mod.
 
 The verified desktop sample is at `artifacts/composition-ui/Exports/Jar5VerdictProjectile-0.1.0.zip`. Install HD2Runtime 0.15.0 and Bingus separately before manually testing it. The GUI does not deploy it. `HD2RuntimeGUI.Tests/Golden/projectile-swap.lua` covers equivalent semantic output using the test resource ID.
+
+## Runtime 0.17 samples
+
+These four projects were created and built through the desktop GUI using the same generic editor and project services as ordinary projects. Their JSON definitions survive app restarts in `artifacts/017-ui/Projects/`. All exports require separately installed Bingus and HD2Runtime 0.17.0; none were deployed.
+
+| Project | Editor changes | ZIP in `artifacts/017-ui/Exports/` |
+| --- | --- | --- |
+| FireModeSample | Concussive: Full Auto → Semi Auto | `FireModeSample-0.1.0.zip` |
+| TerminalExplosionSample | Eruptor: expiry explosion → None | `TerminalExplosionSample-0.1.0.zip` |
+| ExplosionTuningSample | Eruptor: outer radius 7 → 10; standard damage 225 → 500 | `ExplosionTuningSample-0.1.0.zip` |
+| ProjectileCompositionSample | Verdict: replace projectile with self-contained JAR-5; selected object velocity 180 → 350 with shared acknowledgement | `ProjectileCompositionSample-0.1.0.zip` |
+
+The composition sample changes the shared JAR-5 projectile definition, so it can also affect its other consumers. The GUI displays this and requires approval. The reference swap and object edit are separate ordered guarded operations.
+
+Developer verification uses `tools/runtime017-smoke.mjs` with a Debug app launched against an isolated `HD2RUNTIMEGUI_DATA_ROOT` and a WebView2 CDP port. `--relaunch --catalog` reloads/rebuilds the four projects and checks every player/support view. Node is only a development verification tool, never an application dependency. Screenshots, generated projects, ZIPs and publish output remain ignored by Git.
+
+The historical samples above retain their SDK-era semantics. For 0.17 projectile scalar edits, use Composition and explicitly approve the published shared-object scope.

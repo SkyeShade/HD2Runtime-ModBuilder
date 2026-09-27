@@ -38,13 +38,17 @@ public sealed record FieldProvenance(
 }
 public sealed record FieldBacking(string Kind, string? Component, int Offset, string Storage, int Width,
     int? RecordIndex, int? IndexRow, int? OwnerCount, bool? UniqueOwner, string? Settings,
-    int? Group, int? Row, int? RecordType, string? SettingsType, string? Branch, int? ConsumerCount);
+    int? Group, int? Row, int? RecordType, string? SettingsType, string? Branch, int? ConsumerCount, string? Phase = null);
 public sealed record WeaponCapability(string DisplayName, string SemanticFieldId, string Type, string? Unit,
     JsonElement CurrentDefault, bool Editable, bool DerivedReadOnly, FieldProvenance Provenance,
     double? Min, double? Max, Dictionary<string, JsonElement>? EnumValues, FieldBacking? Backing,
     string WriteScope, IReadOnlyList<string> SharedWithWeapons, bool AffectsMultipleWeapons, string? Reason,
     string? SemanticTarget = null, bool? Canonical = null, bool? Preferred = null, bool? Deprecated = null,
-    string? AliasOf = null, bool? AcceptedForWrites = null, string? ReferenceKind = null, string? CompatibilityClass = null, string? ReferenceRole = null, ProjectileSettingsIdentity? ReferenceSettings = null)
+    string? AliasOf = null, bool? AcceptedForWrites = null, string? ReferenceKind = null, string? CompatibilityClass = null, string? ReferenceRole = null, ProjectileSettingsIdentity? ReferenceSettings = null,
+    IReadOnlyList<int>? AllowedValues = null, IReadOnlyList<int>? NativeModeVector = null, string? WriteKind = null,
+    ProjectileResidency? Residency = null, string? ReferencePhase = null, FieldBacking? ProjectileBacking = null,
+    ProjectileSettingsIdentity? ProjectileSettings = null, int? NullSentinel = null, IReadOnlyList<string>? SharedWithResources = null,
+    bool? DynamicConsumersPossible = null, int? ExplosionType = null, IReadOnlyList<string>? TerminalPhases = null)
 {
     [JsonIgnore] public string Domain => SemanticFieldId.Split('.')[0];
     [JsonIgnore] public bool IsPreferred => AliasOf == null && Canonical != false && Preferred != false && Deprecated != true;
@@ -100,11 +104,11 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
                 if (w.Resolution is not ("UNIQUE" or "DUPLICATE") || (w.Resolution != "UNIQUE" && !w.OrdinaryWritesBlocked) || (w.Resolution == "UNIQUE" && w.Resources.Count != 1)) throw new InvalidDataException("Ambiguous weapon identity is not blocked.");
                 foreach (var f in w.Fields)
                 {
-                    if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName) || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference")) throw new InvalidDataException("Invalid semantic field.");
-                    if (f.Type != "projectile_reference" && f.CurrentDefault.ValueKind is (JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new InvalidDataException("Expected a scalar baseline.");
-                    if (f.Type == "projectile_reference" && (f.CurrentDefault.ValueKind != JsonValueKind.Object || f.ReferenceKind != "projectile"
+                    if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName) || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference" or "explosion_reference")) throw new InvalidDataException("Invalid semantic field.");
+                    if (f.Type is not ("projectile_reference" or "explosion_reference") && f.CurrentDefault.ValueKind is (JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new InvalidDataException("Expected a scalar baseline.");
+                    if (f.Type == "projectile_reference" && f.Domain == "attack" && (f.CurrentDefault.ValueKind != JsonValueKind.Object || f.ReferenceKind != "projectile"
                         || f.SemanticFieldId != "attack." + f.ReferenceRole + ".projectile" || string.IsNullOrWhiteSpace(f.CompatibilityClass))) throw new InvalidDataException("Invalid semantic projectile reference.");
-                    var definitionId = f.Type == "projectile_reference" ? "attack.projectile" : Regex.Replace(Regex.Replace(f.SemanticFieldId, @"\.(primary|alternate)\.", "."), @"status_\d+_", "status_");
+                    var definitionId = Regex.Replace(Regex.Replace(f.SemanticFieldId, @"\.(primary|alternate|feed_primary|feed_alternate|impact|expiry)(?=\.)", ""), @"status_\d+_", "status_");
                     var definition = c.FieldDefinitions.SingleOrDefault(d => d.Id == definitionId) ?? throw new InvalidDataException("Capability has no semantic definition.");
                     if (f.Type != definition.Type || (f.Editable && (!definition.Writable || definition.Derived))) throw new InvalidDataException("Capability disagrees with its semantic definition.");
                     if (f.Provenance == null || f.SharedWithWeapons == null || f.SharedWithWeapons.Any(n => !c.Weapons.Any(other => other.Name == n))) throw new InvalidDataException("Invalid capability evidence or shared ownership.");

@@ -1,14 +1,14 @@
 @inject BuilderWorkspace Workspace
 <section class="panel weapon-summary"><div class="panel-heading"><h2>Player weapon changes</h2>
-    @if (Workspace.Project!.ProjectileChanges.Count > 0 || Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
+    @if (Workspace.Project!.CompositionChanges.Count > 0 || Workspace.Project!.ProjectileChanges.Count > 0 || Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
 </div>
-@foreach (var weaponName in Workspace.WeaponGroups.Select(g => g.Weapon).Concat(Workspace.Project!.ProjectileChanges.Select(c => c.Weapon)).Distinct().Order(StringComparer.Ordinal))
+@foreach (var weaponName in Workspace.WeaponGroups.Select(g => g.Weapon).Concat(Workspace.Project!.ProjectileChanges.Select(c => c.Weapon)).Concat(Workspace.Project.CompositionChanges.Select(c => c.Weapon)).Distinct().Order(StringComparer.Ordinal))
 {
     var group = Workspace.WeaponGroups.Where(g => g.Weapon == weaponName).ToArray();
     var weapon = Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == weaponName);
-    var count = Workspace.Project!.ProjectileChanges.Count(c => c.Weapon == weaponName) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
+    var count = Workspace.Project!.CompositionChanges.Count(c => c.Weapon == weaponName) + Workspace.Project!.ProjectileChanges.Count(c => c.Weapon == weaponName) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     var showAll = AllFields.Contains(weaponName);
-    var rows = (weapon?.Fields.Where(f => f.IsPreferred && f.Type != "projectile_reference").Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
+    var rows = (weapon?.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")).Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
         .Concat(group.Where(g => g.Field == null).Select(g => new Row(null, g)))
         .Where(r => showAll || r.Group?.Conflict != null || FieldPresentation.Modified(r.Field, r.Change) || Workspace.WeaponIssues.Any(i => r.Group?.Sources.Any(c => c.Id == i.ChangeId) == true));
     <details class="weapon-change-group" data-weapon-group="@weaponName" @key="weaponName">
@@ -35,6 +35,8 @@
                     { <label class="switch-label"><input type="checkbox" checked="@row.Group!.Enabled" aria-label="Enable weapon change" @onchange="() => Run(() => Workspace.ToggleWeaponChangeAsync(c.Id))" />Enabled</label><button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(c.Weapon, row.Group.FieldId))">@(modified ? "Reset field" : "Remove saved override")</button> }
                     </div>
                     @if (row.Group?.Conflict != null) { <WeaponAliasConflict Group="row.Group" Changed="AliasResolved" /> }
+                    @if (c != null && f != null && Workspace.Metadata?.Advanced != null && HD2RuntimeGUI.Core.Generation.CompositionChangeService.ProjectileOwned(f))
+                    { <button @onclick="() => Run(() => Workspace.MoveToCompositionAsync(c.Id))">Move to Composition · preserve saved values</button> }
                     @if (f != null && FieldPresentation.Explanation(f) is { } explanation) { <p class="flag-explanation">@explanation</p> }
                     @if (c != null && f?.AffectsMultipleWeapons == true) { <small>@(c.SharedAcknowledged ? "Shared effects acknowledged" : "Shared approval required")</small> }
                     @if (!string.IsNullOrWhiteSpace(c?.Notes)) { <p>@c.Notes</p> }
@@ -45,12 +47,13 @@
             }
         }
         <ProjectileChanges Weapon="@weaponName" Changed="AliasResolved" />
-        @if (showAll) { <WeaponComposition Weapon="@weaponName" Changed="AliasResolved" /> }
-        @if (!rows.Any() && !Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weaponName)) { <p class="subtle">No values differ from the SDK baseline. Enable Show all fields to inspect this weapon.</p> }
+        <CompositionChanges Weapon="@weaponName" Changed="AliasResolved" />
+        @if (showAll && Workspace.Metadata?.Advanced == null) { <WeaponComposition Weapon="@weaponName" Changed="AliasResolved" /> }
+        @if (!rows.Any() && !Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weaponName) && !Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName)) { <p class="subtle">No values differ from the SDK baseline. Enable Show all fields to inspect this weapon.</p> }
         </div>
     </details>
 }
-@if (Workspace.Project!.WeaponChanges.Count == 0 && Workspace.Project.ProjectileChanges.Count == 0) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
+@if (Workspace.Project!.WeaponChanges.Count == 0 && Workspace.Project.ProjectileChanges.Count == 0 && Workspace.Project.CompositionChanges.Count == 0) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
 @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 </section>
 @code {

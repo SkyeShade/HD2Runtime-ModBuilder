@@ -1,0 +1,27 @@
+@inject BuilderWorkspace Workspace
+@foreach (var group in Workspace.Project!.CompositionChanges.Where(c => c.Weapon == Weapon).GroupBy(c => c.Kind))
+{
+    <h3 class="summary-section">@(group.Key == "terminal" ? "Terminal Actions" : group.Key == "explosion" ? "Explosion" : "Projectile Settings")</h3>
+    @foreach (var change in group)
+    {
+        var field = change.Scalar == null ? null : Workspace.Metadata?.PlayerWeapons?.FindCanonicalField(change.Scalar.Weapon, change.Scalar.SemanticFieldId);
+        <div class="weapon-change modified" data-composition-change="@(change.Scalar?.SemanticFieldId ?? "terminal." + change.Phase)">
+            <div class="change-row"><div class="change-name"><strong>@(field?.DisplayName ?? (change.Kind == "terminal" ? change.Phase + " Explosion" : change.Scalar?.SemanticFieldId))</strong><span class="badge modified-badge">Modified</span><small>@change.AttackRole · @change.Target.Label · @(change.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div>
+                @if (change.Scalar != null) { <FieldValue Field="field" Baseline="change.Scalar.ExpectedValue" Current="change.Scalar.DesiredValue" /> }
+                else { <div class="modified-value">@change.ExpectedExplosion!.Label → <strong>@change.DesiredExplosion!.Label</strong></div> }
+                <label class="switch-label"><input type="checkbox" checked="@change.Enabled" @onchange="() => Run(() => Workspace.ToggleCompositionAsync(change.Id))" />Enabled</label>
+                <button class="reset-action" @onclick="() => Run(() => Workspace.RemoveCompositionAsync(change.Id))">Reset change</button>
+            </div>
+            @if (Workspace.CompositionIssue(change) is { } issue) { <div class="notice warning"><span>@issue</span><button @onclick="() => Accept(change)">Review: accept current SDK baseline</button></div> }
+        </div>
+    }
+}
+@if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+@code {
+    [Parameter] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private Task Accept(CompositionChange c) => Run(() => c.Scalar == null ? Workspace.SetTerminalAsync(c.Weapon, c.AttackRole, c.Phase!, c.DesiredExplosion!, HD2RuntimeGUI.Core.Generation.CompositionChangeService.ApprovalCurrent(Workspace.Metadata!, c), true)
+        : Workspace.SetObjectScalarAsync(c.Weapon, c.AttackRole, c.Kind, c.Phase, c.Scalar.SemanticFieldId, c.Scalar.DesiredValue.GetRawText(), HD2RuntimeGUI.Core.Generation.CompositionChangeService.ApprovalCurrent(Workspace.Metadata!, c), true));
+    private async Task Run(Func<Task> action) { Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

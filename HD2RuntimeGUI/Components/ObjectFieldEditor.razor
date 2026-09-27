@@ -1,0 +1,37 @@
+@inject BuilderWorkspace Workspace
+<article class="stat-card @(Saved != null ? "modified" : "")" data-object-field="@Field.SemanticFieldId">
+    <div class="panel-heading"><h3>@Field.DisplayName</h3><div class="field-badges">
+        @if (Saved != null) { <span class="badge modified-badge">Modified</span> }
+        <span class="badge">@(Field.Editable ? "Editable" : "Read-only")</span>@if (Field.AffectsMultipleWeapons) { <span class="badge amber">Shared object</span> }
+    </div></div>
+    <FieldValue Field="Field" Baseline="Field.CurrentDefault" Current="@(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault)" />
+    @if (Field.Editable && !Field.DerivedReadOnly)
+    {
+        <label>Current project value<input aria-label="@Field.DisplayName" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" /></label>
+        @if (Field.AffectsMultipleWeapons)
+        {
+            <div class="shared-warning"><strong>This edits a shared definition.</strong><p>Known affected weapons: @string.Join(", ", Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct())</p>
+            @if (Field.DynamicConsumersPossible == true) { <p>Other and future consumers may also use this projectile object. No weapon-local clone is proven.</p> }
+            <label class="switch-label"><input type="checkbox" @bind="Acknowledged" @bind:after="Commit" disabled="@Busy" />I acknowledge these shared effects.</label></div>
+        }
+    }
+    else { <p class="subtle">@Field.Reason</p> }
+    @if (Saved != null) { <button class="reset-action" @onclick="Reset">Reset field</button> }
+    @if (Saved != null && Workspace.CompositionIssue(Saved) is { } issue) { <p class="notice warning">@issue</p> }
+    @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+    <small>@Field.Provenance.Label · @(Field.Backing?.Settings ?? "Read-only evidence")</small>
+</article>
+@code {
+    [Parameter] public string Weapon { get; set; } = "";
+    [Parameter] public string Role { get; set; } = "";
+    [Parameter] public string Kind { get; set; } = "projectile";
+    [Parameter] public string? Phase { get; set; }
+    [Parameter] public WeaponCapability Field { get; set; } = default!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private CompositionChange? Saved => Workspace.Project!.CompositionChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Role && c.Kind == Kind && c.Phase == Phase && c.Scalar?.SemanticFieldId == Field.SemanticFieldId);
+    private string Value = "", Loaded = ""; private CompositionChange? Previous; private bool Acknowledged, Busy; private string? Error;
+    protected override void OnParametersSet() { var key = Weapon + Role + Kind + Phase + Field.SemanticFieldId; if (Loaded == key && Previous == Saved) return; Loaded = key; Previous = Saved; Value = Field.Format(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault); Acknowledged = Saved != null && HD2RuntimeGUI.Core.Generation.CompositionChangeService.ApprovalCurrent(Workspace.Metadata!, Saved); }
+    private Task Commit() => Run(() => Workspace.SetObjectScalarAsync(Weapon, Role, Kind, Phase, Field.SemanticFieldId, Value, Acknowledged));
+    private Task Reset() => Run(() => Workspace.RemoveCompositionAsync(Saved!.Id));
+    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; } }
+}

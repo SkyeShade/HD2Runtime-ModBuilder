@@ -56,11 +56,11 @@ public sealed class WeaponChangeService : IWeaponChangeService
     public static PlayerWeaponCatalog Catalog(SdkMetadata sdk) => sdk.PlayerWeapons ?? throw new InvalidDataException("Select SDK 0.13.0 or newer for player-weapon authoring.");
     public static void ValidateValue(WeaponCapability f, JsonElement value)
     {
-        if (f.Type == "projectile_reference") throw new InvalidDataException("Projectile references require semantic composition overrides.");
+        if (f.Type is "projectile_reference" or "explosion_reference") throw new InvalidDataException("References require semantic composition overrides.");
         if (f.Type == "boolean")
         { if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException("Expected a boolean."); return; }
         if (f.Type == "enum")
-        { if (f.EnumValues == null || !f.EnumValues.Values.Any(v => JsonElement.DeepEquals(v, value))) throw new InvalidDataException("Choose a proven enum member."); return; }
+        { if (f.EnumValues == null || !f.EnumValues.Values.Any(v => JsonElement.DeepEquals(v, value)) || f.AllowedValues != null && (!value.TryGetInt32(out var n) || !f.AllowedValues.Contains(n))) throw new InvalidDataException("Choose a mode allowed by this weapon's proven native vector."); return; }
         if (value.ValueKind != JsonValueKind.Number || !value.TryGetDouble(out var number) || !double.IsFinite(number) || (f.Type == "integer" && Math.Truncate(number) != number)) throw new InvalidDataException("Enter a finite value of the field's type.");
         // Representable storage bounds are not invented gameplay bounds.
         if ((f.Backing?.Storage == "f32" && !float.IsFinite((float)number)) || (f.Backing?.Storage == "u32" && (number < 0 || number > uint.MaxValue)) || (f.Backing?.Storage == "i32" && (number < int.MinValue || number > int.MaxValue)) || (f.Backing?.Storage == "u8" && (number < 0 || number > byte.MaxValue)) || (f.Min is double min && number < min) || (f.Max is double max && number > max)) throw new InvalidDataException("Value is outside the SDK's supported representation or bounds.");

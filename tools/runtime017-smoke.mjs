@@ -1,0 +1,123 @@
+// Developer-only smoke test against a running Debug MAUI app's WebView2 CDP port.
+// Node 22+ is used only for UI verification, never by the shipped application.
+import fs from 'node:fs/promises';
+import assert from 'node:assert/strict';
+let pages;
+for (let attempt = 0; attempt < 60; attempt++) {
+    try { pages = await (await fetch(`http://127.0.0.1:${process.env.HD2GUI_CDP_PORT ?? 9223}/json`)).json(); if (pages.some(p => p.url === 'https://0.0.0.1/')) break; }
+    catch { /* WebView2 is still starting. */ }
+    await new Promise(resolve => setTimeout(resolve, 500));
+}
+assert(pages?.length, 'WebView2 CDP port must be enabled on the running Debug app');
+const page = pages.find(p => p.url === 'https://0.0.0.1/');
+assert(page, 'MAUI Blazor WebView page must be running');
+const socket = new WebSocket(page.webSocketDebuggerUrl);
+await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
+let id = 0;
+const pending = new Map();
+socket.onmessage = ({data}) => { const message = JSON.parse(data); if (message.id) { const p = pending.get(message.id); pending.delete(message.id); message.error ? p.reject(message.error) : p.resolve(message.result); } };
+const cdp = (method, params = {}) => new Promise((resolve, reject) => { const n = ++id; pending.set(n, {resolve, reject}); socket.send(JSON.stringify({id: n, method, params})); });
+const evaluate = async expression => { const result = await cdp('Runtime.evaluate', {expression, returnByValue: true, awaitPromise: true}); if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const waitFor = async (expression, message) => { for (let i=0;i<120;i++) { if (await evaluate(`Boolean(${expression})`)) return; await sleep(250); } throw new Error('Timed out: ' + message + '\n' + await evaluate('document.body.innerText')); };
+const click = async text => { await evaluate(`(() => { const el = [...document.querySelectorAll('button')].find(b => b.innerText.trim() === ${JSON.stringify(text)}); if (!el) throw new Error('Missing button: '+${JSON.stringify(text)}); el.click(); })()`); await sleep(200); };
+const fill = async (selector, value) => { await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); el.value=${JSON.stringify(value)}; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); })()`); await sleep(100); };
+const screenshot = async name => { await fs.mkdir('docs/screenshots', {recursive:true}); const image=await cdp('Page.captureScreenshot',{format:'png'}); await fs.writeFile('docs/screenshots/'+name+'.png', Buffer.from(image.data,'base64')); };
+const nav = async label => { await waitFor(`[...document.querySelectorAll('.nav-item')].some(b=>b.innerText.includes(${JSON.stringify(label)}))`,label+' navigation'); await evaluate(`[...document.querySelectorAll('.nav-item')].find(b=>b.innerText.includes(${JSON.stringify(label)})).click()`); await sleep(150); };
+const choose = async weapon => { await fill('#weapon-search',weapon); await evaluate(`document.querySelector('[data-weapon='+CSS.escape(${JSON.stringify(weapon)})+']').click()`); await sleep(150); };
+const fieldClick = async (field,label) => { await evaluate(`[...document.querySelector('[data-field="${field}"]').querySelectorAll('button')].find(b=>b.innerText===${JSON.stringify(label)}).click()`); await sleep(200); };
+const group = name => `[data-weapon-group="${name}"]`;
+const expand = async name => { await evaluate(`document.querySelector(${JSON.stringify(group(name)+' > summary')}).click()`); await sleep(100); };
+const state = async field => evaluate(`({modified:document.querySelector('[data-field="${field}"]').classList.contains('modified'),text:document.querySelector('[data-field="${field}"] .value-comparison').innerText})`);
+const create = async name => {
+    await nav('Project library'); await click('+ Create New Mod'); await waitFor("!!document.querySelector('#mod-name')", 'create dialog');
+    await fill('#mod-name',name); await fill('#author','SkyeShade'); await fill('#resource-id','mods/skyeshade/'+name.toLowerCase());
+    await click('Create project →'); await waitFor("document.body.innerText.includes('Project overview')",'saved project'); await nav('Player Weapons');
+};
+const build = async () => { await click('↗ Build / Export Mod'); await waitFor("document.body.innerText.includes('Export complete')",'export'); console.log('GUI ZIP: '+await evaluate("document.querySelector('.export-success code').innerText")); };
+const openProject = async name => { await nav('Project library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')",'open '+name); };
+try {
+    await waitFor("!!document.querySelector('.desktop-shell') && !document.querySelector('.activity')",'startup');
+    if (!process.argv.includes('--relaunch')) {
+        await create('FireModeSample'); await choose('AR-23C Liberator Concussive');
+        await fill('[data-field="weapon.default_fire_mode"] select','2'); await nav('Changes'); await expand('AR-23C Liberator Concussive');
+        assert((await evaluate("document.querySelector('[data-change=\"weapon.default_fire_mode\"]').innerText")).includes('Full Auto'));
+        assert((await evaluate("document.querySelector('[data-change=\"weapon.default_fire_mode\"]').innerText")).includes('Semi Auto'));
+        await nav('Lua Preview'); assert((await evaluate('document.querySelector("pre").innerText')).includes('hd2.enums.fire_mode.semi_auto')); await build();
+
+        await create('TerminalExplosionSample'); await choose('R-36 Eruptor');
+        await fill('[data-terminal=expiry] select','none'); await nav('Changes'); await expand('R-36 Eruptor');
+        assert((await evaluate("document.querySelector('[data-composition-change=\"terminal.expiry\"]').innerText")).includes('None'));
+        await nav('Lua Preview'); assert((await evaluate('document.querySelector("pre").innerText')).includes(':no_explosion()')); await build();
+
+        await create('ExplosionTuningSample'); await choose('R-36 Eruptor');
+        await evaluate("document.querySelector('[data-explosion=impact] > summary').click()");
+        await fill('[data-explosion=impact] [data-object-field="explosion.primary.impact.outer_radius"] input[type=number]','10');
+        await fill('[data-explosion=impact] [data-object-field="explosion.primary.impact.damage.standard_damage"] input[type=number]','500');
+        await nav('Changes'); await expand('R-36 Eruptor'); assert.equal(await evaluate("document.querySelectorAll('[data-composition-change]').length"),2); await build();
+
+        await create('ProjectileCompositionSample'); await choose('P-113 Verdict');
+        assert(!(await evaluate("[...document.querySelector('[data-projectile=primary] select').options].map(o=>o.text).join('|')")).includes('LAS-58 Talon'));
+        await fill('[data-projectile=primary] select','JAR-5 Dominator|primary');
+        assert((await evaluate("document.querySelector('[data-projectile=primary]').innerText")).includes('SELF CONTAINED'));
+        await evaluate("document.querySelector('[data-attack=primary] > details > summary').click()");
+        await fill('[data-object-field="projectile.velocity"] input[type=number]','350');
+        assert((await evaluate('document.body.innerText')).includes('Build requires review'));
+        await evaluate("document.querySelector('[data-object-field=\"projectile.velocity\"] input[type=checkbox]').click()");
+        await waitFor("!document.body.innerText.includes('Build requires review')",'shared acknowledgement');
+        await screenshot('runtime017-projectile-object');
+        await nav('Lua Preview'); const lua=await evaluate('document.querySelector("pre").innerText');
+        assert(lua.includes("target=hd2.weapon('JAR-5 Dominator'):attack('primary'):projectile()"));
+        assert(lua.indexOf('field=hd2.fields.attack.projectile')<lua.indexOf('field=hd2.fields.projectile.velocity')); await build();
+    } else {
+        for(const name of ['FireModeSample','TerminalExplosionSample','ExplosionTuningSample','ProjectileCompositionSample']) {
+            await openProject(name); assert(!(await evaluate('document.body.innerText')).includes('Build requires review')); await nav('Lua Preview');
+            assert(!(await evaluate('document.querySelector("pre").innerText')).includes('No enabled modifications'));
+            await build();
+        }
+        console.log('PASS: all four new change types survived application restart');
+    }
+    if (process.argv.includes('--catalog')) {
+        const catalog=JSON.parse(await fs.readFile('HD2RuntimeGUI.Core/Metadata/Bundled/PlayerWeaponAuthoringCapabilities.json','utf8'));
+        await nav('Player Weapons'); let modes=0,terminals=0,options=0;
+        for(const w of catalog.weapons) {
+            await choose(w.name);
+            modes+=await evaluate("document.querySelectorAll('[data-field=\"weapon.default_fire_mode\"] select').length");
+            terminals+=await evaluate("document.querySelectorAll('[data-terminal] select').length");
+            options+=await evaluate("document.querySelectorAll('[data-attachment]').length");
+            assert.equal(await evaluate("document.querySelectorAll('[data-section=Attachments] input, [data-section=Attachments] select').length"),0);
+            assert.equal(await evaluate("document.querySelectorAll('.dialog-error, #blazor-error-ui[style*=block]').length"),0);
+        }
+        assert.equal(modes,21); assert.equal(terminals,130); assert.equal(options,419);
+        console.log(`PASS: all 80 player views render ${modes} writable fire-mode controls, ${terminals} terminal controls, ${options} read-only attachments`);
+    }
+    await nav('Player Weapons'); await choose('JAR-5 Dominator');
+    assert.equal(await evaluate("document.querySelectorAll('[data-field=\"weapon.default_fire_mode\"] select').length"),0);
+    await choose('AR-23C Liberator Concussive');
+    await evaluate("document.querySelector('[data-attachment-category=Magazine] > summary').click()");
+    for (const [name,value] of [['Drum Magazine','60'],['Short Magazine','30'],['Extended Magazine','45']]) {
+        await evaluate(`document.querySelector('[data-attachment='+CSS.escape(${JSON.stringify(name)})+'] > summary').click()`);
+        assert((await evaluate(`document.querySelector('[data-attachment='+CSS.escape(${JSON.stringify(name)})+']').innerText`)).includes(value));
+    }
+    assert.equal(await evaluate("document.querySelectorAll('[data-section=Attachments] input, [data-section=Attachments] select').length"),0);
+    await screenshot('runtime017-attachments');
+    await nav('Support Weapons'); assert((await evaluate('document.body.innerText')).includes('35 support weapons'));
+    if(process.argv.includes('--catalog')) {
+        const catalog=JSON.parse(await fs.readFile('HD2RuntimeGUI.Core/Metadata/Bundled/SupportWeaponCapabilities.json','utf8'));
+        for(const name of Object.keys(catalog.weapons)) {
+            await fill('#support-search',name); await evaluate(`document.querySelector('[data-support='+CSS.escape(${JSON.stringify(name)})+']').click()`); await sleep(100);
+            assert.equal(await evaluate("document.querySelectorAll('.weapon-detail input, .weapon-detail select').length"),0);
+            assert.equal(await evaluate("document.querySelectorAll('#blazor-error-ui[style*=block]').length"),0);
+        }
+        console.log('PASS: all 35 support weapon graphs render without authoring controls');
+    }
+    for (const name of ['GR-8 Recoilless Rifle','ARC-3 Arc Thrower','B/MD C4 Pack','MS-11 Solo Silo','RS-422 Railgun']) {
+        await fill('#support-search',name); await evaluate(`document.querySelector('[data-support='+CSS.escape(${JSON.stringify(name)})+']').click()`); await sleep(150);
+        assert.equal(await evaluate("document.querySelectorAll('.weapon-detail input, .weapon-detail select').length"),0);
+        if(name==='MS-11 Solo Silo') assert((await evaluate('document.body.innerText')).includes('HellpodRackComponentData'));
+        if(name==='RS-422 Railgun') assert((await evaluate('document.body.innerText')).includes('UNRESOLVED'));
+        if(name==='ARC-3 Arc Thrower') await screenshot('runtime017-support-arc');
+    }
+    await screenshot('runtime017-support-railgun');
+    await nav('Project library'); console.log('PASS: 0.17 authoring samples, shared gating, semantic Lua, read-only attachment/support graphs');
+} finally { socket.close(); }

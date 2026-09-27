@@ -1,10 +1,10 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.15.0 guarded player-weapon, ammo and composition API**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.17.0 guarded player-weapon, ammo and composition API**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
-The published `PlayerWeaponAuthoringCapabilities.json` drives all weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,094 entries, 62 field definitions (48 writable, 14 read-only, 6 derived)**. There is no manually maintained weapon/field catalog in the UI. The six derived definitions are included in the read-only count.
+The published `PlayerWeaponAuthoringCapabilities.json` drives all weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,490 entries, 77 field definitions (62 writable, 15 read-only, 6 derived)**. There is no manually maintained weapon/field catalog in the UI. The six derived definitions are included in the read-only count.
 
 ## Run
 
@@ -18,7 +18,7 @@ Create a mod with a display name, author, resource ID such as `mods/skyeshade/my
 
 Player Weapons provides name/category search and slot, category, implementation-family, editable and shared filters. Only applicable capability cards appear. Numeric controls have no invented gameplay bounds. Defaults, units, provenance, modified state and shared/derived/read-only badges are visible; backing offsets remain under Advanced.
 
-Seven ambiguous resource identities remain visible but have no write controls. Shared writes require a per-change acknowledgement, including unnamed additional consumers. Fifteen writable shared settings groups are represented. Pending approval can be saved, but blocks Lua generation and export. Reset field, reset weapon, reset all weapon changes, enable/disable, groups and notes are supported.
+Seven ambiguous resource identities remain visible but have no write controls. Shared writes require a per-change acknowledgement, including unnamed additional consumers. Pending approval can be saved, but blocks Lua generation and export. Reset field, reset weapon, reset all weapon changes, enable/disable, groups and notes are supported.
 
 Try these ordinary editor operations:
 
@@ -28,7 +28,7 @@ Try these ordinary editor operations:
 | VerdictFlatTrajectory | P-113 Verdict | Drag 1.2 → 0.1; gravity 1 → 0.2 |
 | ReprimandFlatTrajectory | SMG-32 Reprimand | Drag 1.2 → 0.1; gravity 1 → 0.2 |
 
-The two trajectory samples preserve velocity 285 and mass 15. No fictitious damage-dropoff field is introduced. See [sample definitions and generation](samples/README.md).
+These historical trajectory samples preserve velocity 285 and mass 15. In 0.17, use Composition → Projectile Settings and explicitly acknowledge shared projectile-definition writes. No fictitious damage-dropoff field is introduced. See [sample definitions and generation](samples/README.md).
 
 Ammo / Magazine groups the SDK's detachable-magazine and rounds-feed controls alongside calculated, read-only baselines. `PlayerWeaponAmmoCapabilities.json` supplies ownership, default-preset and discrepancy evidence; the reader cross-checks it against the semantic authoring catalog. There are 360 ammo entries, 194 writable, covering 45 weapons with writable ammo fields.
 
@@ -36,15 +36,25 @@ The 19 customization-supplied default presets (including Concussive and the shar
 
 Capability schema v2 supplies explicit `aliasOf`, `canonical`, `preferred`, `deprecated`, `acceptedForWrites` and `semanticTarget` metadata. Only preferred canonical fields appear as independent controls. Old project aliases resolve per weapon for display/editing and generated Lua; equal desired values appear once. Conflicting desired values (or different saved baselines) block building until a saved source is explicitly selected or the field is reset. Source records remain intact on opening/rebinding; ordinary edits save the canonical identifier while retaining the saved expected baseline. Fields are never merged merely because they share an offset or semantic target.
 
-## Composition and support visibility
+## Composition, fire modes and read-only catalogs
 
-The published projectile, magazine-option, fire-mode and terminal-action graphs drive Composition. Across 80 catalog weapons, 66 expose 67 projectile attacks; 45 guarded selectors accept only the metadata-approved conventional projectile sources. Selecting a replacement autosaves it, highlights the semantic original → replacement, and includes it in grouped Changes and Lua Preview. Returning to the original removes the override. SG-20's status-bearing alternate feed and explosive Crossbow selectors remain blocked with explanations.
+The published 0.17 contracts drive these controls; there are no manually maintained capability tables:
 
-Magazine option inspection shows proven default presets and observed identities separately; observed identities are not presented as allowed/default options. The graph contains 52 native option identities and 19 proven defaults, with no writable option-owned ammo records. Existing direct magazine/rounds controls are unchanged. All 80 native fire-mode values remain numeric and read-only: no invented Semi/Auto/Burst labels. Impact/expiry inspection covers 134 descriptors, including 13 impact and 5 expiry ExplosionSettings links. These views show SDK baselines, not a simulated result of overrides.
+- **Fire Mode:** 21 uniquely resolved weapons expose allowed Full Auto / Semi Auto choices. Other weapons remain read-only. Native values 3 and 5 have no invented global meaning; JAR-5 cannot be changed to Full Auto.
+- **Composition:** 66 weapons expose 67 attacks and 57 guarded replacement selectors. Sources are filtered by published compatibility class and residency. JAR-5 is self-contained; Talon is source-weapon-required and excluded. Runtime-permitted unresolved dependencies remain selectable with a warning.
+- **Projectile Settings:** controls belong to the selected projectile object. Replacing a projectile changes the settings shown. Object writes require explicit shared-definition acknowledgement, including consumers listed by the SDK and possible dynamic consumers.
+- **Terminal Actions:** 134 readable slots, 130 writable (65 impact / 65 expiry), with typed ExplosionSettings sources and semantic None. Add/remove impact or expiry explosions without numeric IDs. Shared slots require acknowledgement.
+- **Explosion:** 144 writable scalar capability entries across 12 semantic fields: three radii, standard/durable damage, four AP lanes, demolition/stagger/push. Only proven controls appear. Separate outer damage and shrapnel writes are not published.
+- **Attachments:** all 419 options (Optics 195, Underbarrel 117, Muzzle 71, Magazine 36) remain read-only. Default state, catalog compatibility, native identity evidence, normalized effects and ownership reasons are visible. This leaves existing direct magazine/rounds editing unchanged.
+- **Support Weapons:** the published `hd2runtime.support_weapon.read_only.v1` catalog supplies all 35 entries, with 27 unique identities, eight duplicate groups and five shared settings groups. Family graphs, parent/child attacks, ownership chains, backpack dependencies, statuses and unresolved nodes stay visible. Railgun Max Charge remains unresolved. No support authoring controls are offered.
 
-Support Weapons contains a contract-status panel, **zero catalog entries and no authoring controls**. The 0.15 SDK ships a support snapshot scan tool, but no stable GUI support catalog/map artifact. Internal research output is not imported as a public authoring contract. Snapshot Research remains unchanged.
+Modified values autosave and show baseline → desired in editor cards, Overview, Changes and exact Lua Preview. Returning to baseline removes the override using typed scalar equality. Read-only inspection data never becomes a project change.
 
-Projectile overrides store semantic weapon/attack references, expected and replacement references, baseline SDK version, compatibility class, opaque evidence digests and enabled/persistence/group/notes state. Digests detect changed identities without persisting raw IDs or offsets. Rebinding preserves saved evidence and blocks changed/missing/read-only/incompatible references until reviewed; accepting current evidence is explicit. Lua uses semantic `weapon():attack():projectile()` handles with `hd2.fields.attack.projectile`, never numeric projectile IDs. The Runtime resolves and guards these references at startup.
+Projectile reference overrides and object/terminal/explosion overrides store semantic weapon/attack/phase handles, saved baselines, SDK version, enabled/persistence/group/notes and acknowledgement/evidence digests. No native IDs or offsets are saved as runtime targets. Rebinding preserves values and blocks changed identities, residency, compatibility, allowed modes, shared scope or baselines until reviewed. Older projectile scalar overrides can explicitly **Move to Composition** while retaining their desired and expected values; newly shared writes require fresh acknowledgement.
+
+Generated projectile swaps run before object edits in separate, explicitly sequenced guarded operations. Object edits target the selected source projectile handle. Stale targets, source-handle cycles, conflicting shared writes and altered explosion source chains block export with a composition error. Each operation is guarded by Runtime; the GUI does not implement memory access or Runtime safety.
+
+See [0.17 sample projects](samples/README.md#runtime-017-samples) and [verification](docs/verification.md).
 
 ## Architecture
 
@@ -63,9 +73,9 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 ## SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.15.0 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.17.0 metadata supports first launch offline.
 
-Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only seven fixed metadata files are consumed (base metadata, authoring/ammo catalogs, and four composition graphs).
+Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only eleven fixed metadata files are consumed: base metadata, authoring/ammo catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities and SupportWeaponCapabilities contracts. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
 The SDK metadata and capability catalog must agree on version and supported schemas/API. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
 
@@ -87,7 +97,7 @@ Exports/<mod-name>-<version>.zip
 research.json
 ```
 
-Project format 3 retains support for formats 1 and 2 and legacy reviewed changes. `weaponChanges` stores weapon name, semantic field ID, expected and desired scalar values, scalar type, baseline SDK version, enabled/persistence state, group, notes and explicit shared acknowledgement/scope/affected identities. It stores no resolved addresses. Stable manager GUID generation matches the ModTemplate's resource-ID algorithm.
+Project format 4 retains support for formats 1, 2 and 3 and legacy reviewed changes. `weaponChanges` stores weapon name, semantic field ID, expected and desired scalar values, scalar type, baseline SDK version, enabled/persistence state, group, notes and explicit shared acknowledgement/scope/affected identities. It stores no resolved addresses. Stable manager GUID generation matches the ModTemplate's resource-ID algorithm.
 
 Rebinding keeps desired values and saved baselines. Missing fields, changed types, read-only capabilities, changed shared scope and changed defaults block affected builds and appear in Changes. A changed default requires an explicit **Accept baseline** action; opening or rebinding never silently rewrites it. Older SDK cache entries remain available.
 

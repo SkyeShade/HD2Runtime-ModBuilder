@@ -14,9 +14,13 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
     public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges) : this(changes) => this.weaponChanges = weaponChanges;
     private readonly IProjectileChangeService projectileChanges = new ProjectileChangeService();
     public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges) : this(changes, weaponChanges) => this.projectileChanges = projectileChanges;
+    private readonly ICompositionChangeService compositionChanges = new CompositionChangeService();
+    public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges, ICompositionChangeService compositionChanges)
+        : this(changes, weaponChanges, projectileChanges) => this.compositionChanges = compositionChanges;
     public string Generate(ModProject project, SdkMetadata sdk)
     {
         ProjectIdentity.Validate(project);
+        compositionChanges.ValidateComposition(project, sdk);
         if (project.SdkVersion != sdk.Version || project.RuntimeApi != sdk.ApiVersion) throw new InvalidDataException("Project SDK mismatch.");
         var active = project.Changes.Where(c => c.Enabled).OrderBy(c => c.Target, StringComparer.Ordinal).ThenBy(c => c.Group, StringComparer.Ordinal).ThenBy(c => c.Field, StringComparer.Ordinal).ToArray();
         foreach (var change in active) changes.Validate(sdk, change);
@@ -46,10 +50,13 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             var operation = patch ? "patch" : "transaction";
             operations.Add(group.Key.EnsureEnabled ? $"hd2.ensure({{\n    {operation}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{operation}({body})");
         }
-        operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
         operations.AddRange(ProjectileChangeService.Operations(project, sdk, projectileChanges));
+        operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
+        operations.AddRange(CompositionChangeService.Operations(project, sdk, compositionChanges));
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
+        if (project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1)
+            return prefix + "local operations={}\n" + string.Join("\n", operations.Select(o => "operations[#operations+1]=" + o)) + "\nreturn operations\n";
         return prefix + (operations.Count == 1 ? "return " + operations[0] : "return {\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}") + "\n";
     }
     public static string Quote(string value)

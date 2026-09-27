@@ -26,7 +26,7 @@ public static class ProjectIdentity
     }
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -44,6 +44,17 @@ public static class ProjectIdentity
             || !Regex.IsMatch(c.ExpectedEvidence, "\\A[a-f0-9]{64}\\z") || !Regex.IsMatch(c.ReplacementEvidence, "\\A[a-f0-9]{64}\\z"))) throw new InvalidDataException("Invalid semantic projectile overrides.");
         if (p.ProjectileChanges.Select(c => c.Id).Distinct().Count() != p.ProjectileChanges.Count) throw new InvalidDataException("Duplicate projectile change IDs.");
         foreach (var c in p.ProjectileChanges) SemVersion.Parse(c.BaselineSdkVersion);
+        if (p.CompositionChanges == null || p.CompositionChanges.Count > 1000 || p.CompositionChanges.Select(c => c.Id).Distinct().Count() != p.CompositionChanges.Count) throw new InvalidDataException("Invalid composition changes.");
+        foreach (var c in p.CompositionChanges)
+        {
+            bool Reference(ProjectileReference? r) => r != null && !string.IsNullOrWhiteSpace(r.Weapon) && r.Weapon.Length <= 256 && Regex.IsMatch(r.AttackRole, @"\A[a-z][a-z_0-9]{0,63}\z");
+            bool Explosion(ExplosionReference? r) => r != null && (r.IsNone ? r.Phase == null : Reference(r.Projectile) && r.Phase is "impact" or "expiry");
+            if (c.Id == Guid.Empty || !Reference(new(c.Weapon, c.AttackRole)) || !Reference(c.Target) || c.Kind is not ("projectile" or "explosion" or "terminal")
+                || (c.Kind == "projectile" ? c.Phase != null : c.Phase is not ("impact" or "expiry")) || c.Group.Length > 120 || c.Notes?.Length > 4000
+                || (c.Kind == "terminal" ? c.Scalar != null || !Explosion(c.ExpectedExplosion) || !Explosion(c.DesiredExplosion) : c.Scalar == null)
+                || c.Kind == "explosion" && !Explosion(c.ExplosionTarget)) throw new InvalidDataException("Invalid semantic composition override.");
+            SemVersion.Parse(c.BaselineSdkVersion);
+        }
         if (!Path.IsPathFullyQualified(p.ExportDirectory)) throw new InvalidDataException("Choose an absolute export directory.");
     }
 }
@@ -131,6 +142,8 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         foreach (var change in project.WeaponChanges) change.Id = Guid.NewGuid();
         project.ProjectileChanges = System.Text.Json.JsonSerializer.Deserialize<List<ProjectileChange>>(System.Text.Json.JsonSerializer.Serialize(source.ProjectileChanges))!;
         foreach (var change in project.ProjectileChanges) change.Id = Guid.NewGuid();
+        project.CompositionChanges = System.Text.Json.JsonSerializer.Deserialize<List<CompositionChange>>(System.Text.Json.JsonSerializer.Serialize(source.CompositionChanges))!;
+        foreach (var change in project.CompositionChanges) change.Id = Guid.NewGuid();
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

@@ -4,7 +4,7 @@ namespace HD2RuntimeGUI.Core.Models;
 
 public sealed class ModProject
 {
-    public int FormatVersion { get; set; } = 3;
+    public int FormatVersion { get; set; } = 4;
     public Guid Id { get; set; } = Guid.NewGuid();
     public string DisplayName { get; set; } = "";
     public string Author { get; set; } = "";
@@ -20,6 +20,7 @@ public sealed class ModProject
     public List<ModChange> Changes { get; set; } = [];
     public List<WeaponChange> WeaponChanges { get; set; } = [];
     public List<ProjectileChange> ProjectileChanges { get; set; } = [];
+    public List<CompositionChange> CompositionChanges { get; set; } = [];
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

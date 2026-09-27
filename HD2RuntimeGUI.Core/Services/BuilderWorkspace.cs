@@ -54,7 +54,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
             }
             project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
             if (next != null) project.ProjectileChanges.Add(next);
-            project.FormatVersion = 3;
+            project.FormatVersion = 4;
             try { await SaveChangesAsync(); } catch { project.ProjectileChanges = previous; throw; }
         }
         finally { weaponEditGate.Release(); }
@@ -63,6 +63,78 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
     {
         var c = Project!.ProjectileChanges.Single(c => c.Id == id); c.Enabled = !c.Enabled;
         try { await SaveChangesAsync(); } catch { c.Enabled = !c.Enabled; throw; }
+    }
+    private readonly ICompositionChangeService compositionChanges = new CompositionChangeService();
+    public BuilderWorkspace(IProjectStore store, IProjectService projects, ISdkCache cache, ISdkUpdateService updates,
+        IChangeService changes, ILuaGenerator generator, IModExporter exporter, IFolderOpener folders,
+        IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges, ICompositionChangeService compositionChanges)
+        : this(store, projects, cache, updates, changes, generator, exporter, folders, picker, paths, weaponChanges, projectileChanges) => this.compositionChanges = compositionChanges;
+    public ProjectileReference EffectiveProjectile(string weapon, string role) => compositionChanges.EffectiveProjectile(Project!, weapon, role);
+    public ExplosionReference EffectiveExplosion(string weapon, string role, string phase) => compositionChanges.EffectiveExplosion(Project!, Metadata!, weapon, role, phase);
+    public IReadOnlyList<ExplosionReference> ExplosionSources => compositionChanges.ExplosionSources(Metadata!);
+    public IReadOnlyList<WeaponCapability> ObjectFields(string weapon, string role, string kind, string? phase = null) => compositionChanges.Fields(Project!, Metadata!, weapon, role, kind, phase);
+    public string? CompositionIssue(CompositionChange change) { try { compositionChanges.Validate(Project!, Metadata!, change); return null; } catch (InvalidDataException e) { return e.Message; } }
+    public Task SetObjectScalarAsync(string weapon, string role, string kind, string? phase, string field, string value, bool acknowledge, bool acceptBaseline = false) => EditCompositionAsync(
+        () => compositionChanges.CreateScalar(Project!, Metadata!, weapon, role, kind, phase, field, value, acknowledge), acceptBaseline);
+    public Task SetTerminalAsync(string weapon, string role, string phase, ExplosionReference desired, bool acknowledge, bool acceptBaseline = false) => EditCompositionAsync(
+        () => compositionChanges.CreateTerminal(Project!, Metadata!, weapon, role, phase, desired, acknowledge), acceptBaseline);
+    private async Task EditCompositionAsync(Func<CompositionChange> create, bool acceptBaseline)
+    {
+        var project = Project; await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            var next = create(); var previous = project.CompositionChanges.ToList();
+            var old = previous.SingleOrDefault(c => c.Weapon == next.Weapon && c.AttackRole == next.AttackRole && c.Kind == next.Kind && c.Phase == next.Phase && c.Scalar?.SemanticFieldId == next.Scalar?.SemanticFieldId);
+            if (old != null)
+            {
+                next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
+                if (!acceptBaseline)
+                {
+                    if (old.Target != next.Target || old.ExplosionTarget != next.ExplosionTarget) throw new InvalidDataException("Composition target changed. Reset the old object edit before editing the new object.");
+                    next.TargetEvidence = old.TargetEvidence; next.ReferenceEvidence = old.ReferenceEvidence; next.ExpectedExplosion = old.ExpectedExplosion;
+                    next.BaselineSdkVersion = old.BaselineSdkVersion;
+                    if (next.Scalar != null) { next.Scalar.ExpectedValue = old.Scalar!.ExpectedValue; next.Scalar.BaselineSdkVersion = old.Scalar.BaselineSdkVersion; }
+                    if (next.DesiredExplosion == old.DesiredExplosion) next.DesiredReferenceEvidence = old.DesiredReferenceEvidence;
+                }
+            }
+            project.CompositionChanges.RemoveAll(c => c.Id == old?.Id);
+            if (!compositionChanges.IsNoOp(Metadata!, next)) project.CompositionChanges.Add(next);
+            project.FormatVersion = 4;
+            try { await SaveChangesAsync(); } catch { project.CompositionChanges = previous; throw; }
+        }
+        finally { weaponEditGate.Release(); }
+    }
+    public async Task RemoveCompositionAsync(Guid id)
+    {
+        var previous = Project!.CompositionChanges.ToList(); Project.CompositionChanges.RemoveAll(c => c.Id == id);
+        try { await SaveChangesAsync(); } catch { Project.CompositionChanges = previous; throw; }
+    }
+    public async Task ToggleCompositionAsync(Guid id)
+    {
+        var c = Project!.CompositionChanges.Single(c => c.Id == id); c.Enabled = !c.Enabled;
+        try { await SaveChangesAsync(); } catch { c.Enabled = !c.Enabled; throw; }
+    }
+    public async Task MoveToCompositionAsync(Guid id)
+    {
+        var project = Project; await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            var group = WeaponGroups.Single(g => g.Sources.Any(c => c.Id == id));
+            if (group.Conflict != null) throw new InvalidDataException(group.Conflict);
+            var old = group.Representative; var field = group.Field!;
+            if (!CompositionChangeService.ProjectileOwned(field)) throw new InvalidDataException("This is not a projectile-object field.");
+            var role = Metadata!.Composition!.Projectiles.Weapons.Single(w => w.Weapon == old.Weapon).Attacks.Single(a => a.Role == field.Backing!.Branch || a.Role == "feed_" + field.Backing.Branch).Role;
+            if (EffectiveProjectile(old.Weapon, role) != new ProjectileReference(old.Weapon, role)) throw new InvalidDataException("The saved override targets the original projectile. Reset the replacement first, or remove the old override and edit the replacement object.");
+            if (project.CompositionChanges.Any(c => c.Weapon == old.Weapon && c.AttackRole == role && c.Scalar?.SemanticFieldId == field.SemanticFieldId)) throw new InvalidDataException("A Composition override already exists for this field.");
+            var next = compositionChanges.CreateScalar(project, Metadata, old.Weapon, role, "projectile", null, field.SemanticFieldId, old.DesiredValue.GetRawText(), false);
+            next.Scalar!.ExpectedValue = old.ExpectedValue; next.Scalar.BaselineSdkVersion = old.BaselineSdkVersion; next.BaselineSdkVersion = old.BaselineSdkVersion;
+            next.Enabled = group.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
+            var previous = project.WeaponChanges.ToList(); project.WeaponChanges.RemoveAll(c => group.Sources.Contains(c)); project.CompositionChanges.Add(next);
+            try { await SaveChangesAsync(); } catch { project.WeaponChanges = previous; project.CompositionChanges.Remove(next); throw; }
+        }
+        finally { weaponEditGate.Release(); }
     }
     public string? BuildError { get; private set; }
     public IReadOnlyList<WeaponChangeGroup> WeaponGroups => Project == null || Metadata == null ? [] : WeaponAliasResolver.Group(Metadata, Project.WeaponChanges);
@@ -182,8 +254,10 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the reset could be saved.");
             var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field || saved?.Sources.Contains(c) == true));
             var oldReferences = Project.ProjectileChanges.ToList();
+            var oldObjects = Project.CompositionChanges.ToList();
+            if (field == null) Project.CompositionChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
             if (field == null) Project.ProjectileChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
-            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; throw; }
+            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; Project.CompositionChanges = oldObjects; throw; }
         }
         finally { weaponEditGate.Release(); }
     }

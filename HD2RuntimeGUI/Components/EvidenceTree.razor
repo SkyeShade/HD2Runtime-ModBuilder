@@ -1,0 +1,21 @@
+@using System.Text.Json
+@if (Depth < 12 && Value.ValueKind == JsonValueKind.Object)
+{
+    <dl class="evidence-tree">
+    @foreach (var property in Value.EnumerateObject().Where(p => p.Value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined)))
+    {
+        <dt>@Label(property.Name)</dt><dd><EvidenceTree Value="property.Value" Depth="@(Depth + 1)" /></dd>
+    }
+    </dl>
+}
+else if (Depth < 12 && Value.ValueKind == JsonValueKind.Array)
+{
+    @foreach (var item in Value.EnumerateArray()) { <div class="evidence-item"><EvidenceTree Value="item" Depth="@(Depth + 1)" /></div> }
+}
+else if (Value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined)) { <span>@Text(Value)</span> }
+@code {
+    [Parameter] public JsonElement Value { get; set; }
+    [Parameter] public int Depth { get; set; }
+    private static string Label(string name) => FieldPresentation.EnumLabel(System.Text.RegularExpressions.Regex.Replace(name, "([a-z])([A-Z])", "$1 $2"));
+    private static string Text(JsonElement value) => value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var n) ? n.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : value.ToString();
+}

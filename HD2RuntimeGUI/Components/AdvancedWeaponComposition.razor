@@ -1,0 +1,37 @@
+@inject BuilderWorkspace Workspace
+<section class="semantic-section" data-section="Composition"><h2>Composition</h2>
+@foreach (var attack in Workspace.Metadata!.Composition!.Projectiles.Weapons.Single(w => w.Weapon == Weapon).Attacks)
+{
+    var target = Workspace.EffectiveProjectile(Weapon, attack.Role);
+    <section class="panel composition-attack" data-attack="@attack.Role"><h3>Attack: @attack.Role.Replace('_', ' ')</h3>
+        <ProjectileSelector @key="(Weapon, attack.Role)" Weapon="@Weapon" Attack="attack" Changed="Refresh" />
+        <p class="subtle">Selected projectile object: <strong>@target.Label</strong></p>
+        <details class="composition-inspection"><summary><strong>Projectile Settings</strong><span class="badge">Shared definitions</span></summary>
+            <div class="stat-grid">@foreach (var field in Workspace.ObjectFields(Weapon, attack.Role, "projectile"))
+            { <ObjectFieldEditor @key="(Weapon, attack.Role, target, field.SemanticFieldId)" Weapon="@Weapon" Role="@attack.Role" Field="field" Changed="Refresh" /> }</div>
+        </details>
+        <h3>Terminal Actions</h3><div class="stat-grid">
+        @foreach (var action in Workspace.Metadata.Composition.TerminalActions.Weapons.Single(w => w.Weapon == target.Weapon).Attacks.Single(a => a.Role == target.AttackRole).Actions)
+        { <TerminalEditor @key="(Weapon, attack.Role, target, action.Phase)" Weapon="@Weapon" Role="@attack.Role" Phase="@action.Phase" Changed="Refresh" /> }
+        </div>
+        @foreach (var phase in new[] { "impact", "expiry" })
+        {
+            var explosion = Workspace.EffectiveExplosion(Weapon, attack.Role, phase);
+            @if (!explosion.IsNone)
+            {
+                <details class="composition-inspection" data-explosion="@phase"><summary><strong>Explosion · @phase</strong><span>@explosion.Label</span></summary>
+                    <div class="stat-grid">@foreach (var field in Workspace.ObjectFields(Weapon, attack.Role, "explosion", phase))
+                    { <ObjectFieldEditor @key="(Weapon, attack.Role, explosion, phase, field.SemanticFieldId)" Weapon="@Weapon" Role="@attack.Role" Kind="explosion" Phase="@phase" Field="field" Changed="Refresh" /> }</div>
+                    <p class="subtle">No independent outer-damage scalar is proven. Native radial falloff and shrapnel remain read-only.</p>
+                </details>
+            }
+        }
+    </section>
+}
+</section>
+<AttachmentBrowser Weapon="@Weapon" />
+@code {
+    [Parameter] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    private async Task Refresh() => await Changed.InvokeAsync();
+}

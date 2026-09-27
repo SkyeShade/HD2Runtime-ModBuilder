@@ -11,10 +11,16 @@
             <select aria-label="Replacement projectile" value="@Key(saved?.ReplacementProjectile ?? baseline)" @onchange="Select">
                 <option value="">Original · @baseline.Label</option>
                 @if (saved != null && !sources.Contains(saved.ReplacementProjectile)) { <option value="@Key(saved.ReplacementProjectile)" disabled>Unavailable · @saved.ReplacementProjectile.Label</option> }
-                @foreach (var source in sources.Where(s => s != baseline)) { <option value="@Key(source)">@source.Label</option> }
+                @foreach (var source in sources.Where(s => s != baseline)) { <option value="@Key(source)">@source.Label @ResidencyLabel(source)</option> }
             </select>
         </label>
         <p class="subtle">Compatibility: @Attack.CompatibilityClass.Replace('_', ' ')</p>
+        @if (Workspace.Metadata!.Advanced != null)
+        {
+            var residency = Workspace.Metadata.Composition!.Attack((saved?.ReplacementProjectile ?? baseline).Weapon, (saved?.ReplacementProjectile ?? baseline).AttackRole).Residency;
+            <span class="badge">@residency?.Classification.Replace('_', ' ')</span><p class="subtle">@residency?.Evidence</p>
+            @if (residency?.Classification == "DEPENDENCY_UNRESOLVED") { <p class="notice warning">Runtime permits this source, but its independent resource residency is unresolved.</p> }
+        }
     }
     else { <p class="subtle">@(Attack.Reason ?? "The SDK has not approved a writable projectile selector for this attack.")</p> }
     @if (saved != null)
@@ -29,6 +35,7 @@
     [Parameter, EditorRequired] public ProjectileAttack Attack { get; set; } = default!;
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
+    private string ResidencyLabel(ProjectileReference p) => Workspace.Metadata?.Composition?.Attack(p.Weapon, p.AttackRole).Residency is { } r ? " · " + FieldPresentation.EnumLabel(r.Classification.ToLowerInvariant()) : "";
     private string Key(ProjectileReference r) => r.Weapon == Weapon && r.AttackRole == Attack.Role ? "" : r.Weapon + "|" + r.AttackRole;
     private Task Select(ChangeEventArgs e)
     {
