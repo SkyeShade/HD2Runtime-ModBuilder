@@ -20,10 +20,9 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
         var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HD2RuntimeGUI");
-#if DEBUG
-        // Isolate desktop smoke tests from the user's actual project library.
-        dataRoot = Environment.GetEnvironmentVariable("HD2RUNTIMEGUI_DATA_ROOT") ?? dataRoot;
-#endif
+        // An explicit root is useful for isolated smoke tests; normal users continue to use LocalAppData.
+        var configuredRoot = Environment.GetEnvironmentVariable("HD2RUNTIMEGUI_DATA_ROOT");
+        if (!string.IsNullOrWhiteSpace(configuredRoot)) dataRoot = Path.GetFullPath(configuredRoot);
         builder.Services.AddSingleton(new AppPaths(dataRoot));
         builder.Services.AddSingleton(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(25) });
         builder.Services.AddSingleton<IGitHubReleaseClient, GitHubReleaseClient>();

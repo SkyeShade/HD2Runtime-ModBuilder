@@ -127,7 +127,7 @@ public sealed class GitHubReleaseClient(HttpClient http) : IGitHubReleaseClient
     private static HttpRequestMessage Request(string url)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.UserAgent.ParseAdd("HD2RuntimeGUI/0.2.0");
+        request.Headers.UserAgent.ParseAdd(BuildInfo.UserAgent);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
         return request;

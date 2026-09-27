@@ -8,7 +8,7 @@ The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon iden
 
 ## Run
 
-Launch `artifacts/publish/win-x64/HD2RuntimeGUI.exe` after publishing. Distribute the entire publish folder. .NET and Windows App SDK are included; users need the Microsoft Edge WebView2 Evergreen Runtime, but no development tools or Python.
+For a development build, run `./scripts/publish-windows.ps1` and launch the staged `artifacts/release/HD2RuntimeGUI-vX.Y.Z-win-x64/HD2RuntimeGUI.exe`. For end users, use the ZIP instructions below. .NET and the Windows App SDK are included; users need the Microsoft Edge WebView2 Evergreen Runtime, but no development tools or Python.
 
 This repository is separate from HD2Runtime. It does not launch the game, deploy mods, or access game processes. Snapshot inspection reads only a user-selected local file.
 
@@ -128,6 +128,18 @@ The separate read-only browser loads/relinks `.hd2snap`, persists its last path,
 
 The published mapper report omits record addresses, so automatic semantic-field-to-raw-byte navigation is unavailable. Raw inspection accepts an address from the selected snapshot or a captured-region selection. The browser does not execute Runtime's scanner or feed data into authoring/generation.
 
+## Download a Windows release
+
+Windows x64 releases are distributed as a self-contained directory ZIP, so no Rider or .NET SDK is required. From the GitHub Releases page:
+
+1. Download `HD2RuntimeGUI-vX.Y.Z-win-x64.zip`.
+2. Extract it to a folder you control.
+3. Run `HD2RuntimeGUI.exe`.
+
+The package includes the .NET runtime and MAUI/native files required by the application. It uses the Windows WebView2 Evergreen runtime supplied by Windows or installed separately; WebView2 is not bundled into the ZIP. HD2Runtime remains a separate dependency for generated mods, and generated mods/exports are never bundled into the GUI executable. The executable is currently unsigned, so Windows SmartScreen may show its standard warning on first launch.
+
+The app stores mutable projects and exports in `%LOCALAPPDATA%\HD2RuntimeGUI\Projects\` and `%LOCALAPPDATA%\HD2RuntimeGUI\Exports\`, so the extracted application directory can be moved or replaced safely.
+
 ## Build, test and publish
 
 Development requires Windows, .NET 10 SDK, MAUI workload and WebView2. NuGet access is needed for first restore. Close the app before rebuilding its output directory.
@@ -136,10 +148,9 @@ Development requires Windows, .NET 10 SDK, MAUI workload and WebView2. NuGet acc
 dotnet workload install maui
 dotnet build HD2RuntimeGUI/HD2RuntimeGUI.csproj
 dotnet test HD2RuntimeGUI.Tests/HD2RuntimeGUI.Tests.csproj
-dotnet publish HD2RuntimeGUI/HD2RuntimeGUI.csproj `
-  -c Release -f net10.0-windows10.0.19041.0 -r win-x64 `
-  --self-contained true -p:WindowsAppSDKSelfContained=true `
-  -p:WindowsPackageType=None -o artifacts/publish/win-x64
+./scripts/publish-windows.ps1
 ```
+
+The release script cleans `artifacts/release/`, publishes a Release `win-x64` self-contained directory, removes debug symbols, and creates `HD2RuntimeGUI-vX.Y.Z-win-x64.zip`. A directory package is intentional: MAUI Blazor Hybrid and WebView2/native dependencies are more reliable when kept beside the executable than when forced into a single file.
 
 See [verification results](docs/verification.md), including release provenance, test coverage, GUI scenarios and output locations. Agent screenshots, caches, publish output and generated ZIPs are ignored by Git.
