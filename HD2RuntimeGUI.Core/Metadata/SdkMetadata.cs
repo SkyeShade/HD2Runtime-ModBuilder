@@ -24,6 +24,7 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
     public PlayerWeaponComposition? Composition { get; init; }
     public AdvancedCapabilities? Advanced { get; init; }
     public CompositionPlanCapabilities? Plans { get; init; }
+    public SupportAuthoringCatalog? SupportAuthoring { get; init; }
     public string CategoryName(string key)
     {
         var name = Types[key].Name;

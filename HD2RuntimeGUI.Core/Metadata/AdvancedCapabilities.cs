@@ -57,7 +57,7 @@ public sealed class AdvancedCapabilitiesReader : IAdvancedCapabilitiesReader
                 if (!files.TryGetValue(name, out var bytes) || bytes.Length > MaxBytes) throw new InvalidDataException("Missing or oversized published capability: " + name);
                 using var doc = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 48 }); MetadataReader.RejectDuplicates(doc.RootElement);
                 if (doc.RootElement.GetProperty("schemaVersion").GetInt32() != 1) throw new UnsupportedSdkException("Unsupported capability schema: " + name);
-                if (doc.RootElement.GetProperty("hd2RuntimeVersion").GetString() != catalog.Hd2RuntimeVersion) throw new InvalidDataException("Capability version mismatch.");
+                if (!PublishedArtifactVersion.Matches(name, bytes, doc.RootElement.GetProperty("hd2RuntimeVersion").GetString(), catalog.Hd2RuntimeVersion)) throw new InvalidDataException("Capability version mismatch.");
                 return JsonSerializer.Deserialize<T>(bytes, Options)!;
             }
             // In 0.17 these named contracts publish the same payloads as the legacy graph names.

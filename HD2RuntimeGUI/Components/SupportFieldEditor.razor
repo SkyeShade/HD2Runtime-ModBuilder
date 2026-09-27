@@ -1,0 +1,42 @@
+@inject BuilderWorkspace Workspace
+@{ var saved = Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey); }
+<article class="stat-card @(saved != null ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
+    <div class="panel-heading"><h3>@Field.Display.Name</h3>@if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
+    @if (saved != null) { <p class="modified-value">@Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong> @Field.Value.Unit</p> }
+    else { <p class="subtle">Vanilla: @Format(Field.Value.Baseline) @Field.Value.Unit</p> }
+    <label>Current value
+        @if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" /> }
+        else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" /> }
+    </label>
+    <div class="field-badges"><span class="badge">@Field.Display.Domain</span>@if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge">Shared</span> }</div>
+    @if (saved != null)
+    {
+        <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleSupportAsync(Field.InstanceKey))" /> Enabled</label>
+        <button class="reset-action" @onclick="Reset">Reset field</button>
+        @if (Workspace.SupportIssue(saved) is { } issue)
+        {
+            <p class="notice warning">@issue</p>
+            @if (saved.CapabilityEvidence != SupportChangeService.Evidence(Field) || !BaselineMatches(saved)) { <button @onclick="Review">Accept current capability / baseline</button> }
+        }
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    <details><summary>Provenance / advanced</summary><p>@Field.Provenance.Baseline · @Field.Provenance.Ownership</p><p>@Field.Backing.SemanticType · @Field.Target.AttackRole</p><code>@Field.SemanticFieldId</code></details>
+</article>
+@code {
+    [Parameter, EditorRequired] public SupportField Field { get; set; } = null!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private string Value => Format(Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline);
+    private string Format(System.Text.Json.JsonElement value)
+    {
+        try { return SupportScalar.Text(Field, value); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException) { return value.GetRawText(); }
+    }
+    private bool BaselineMatches(SupportChange c)
+    { try { return SupportScalar.Equal(Field, c.ExpectedValue, Field.Value.Baseline); } catch (InvalidDataException) { return false; } }
+    private async Task Run(Func<Task> work) { try { await work(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+    private Task Commit(string value) => Run(() => Workspace.SetSupportAsync(Field.InstanceKey, value));
+    private Task BooleanChanged(ChangeEventArgs e) => Commit((bool)e.Value! ? "true" : "false");
+    private Task Reset() => Run(() => Workspace.ResetSupportAsync(instance: Field.InstanceKey));
+    private Task Review() => Run(() => Workspace.SetSupportAsync(Field.InstanceKey, Value, true));
+}

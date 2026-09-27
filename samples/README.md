@@ -1,4 +1,14 @@
-# Player-weapon samples
+# Mod builder samples
+
+For SDK 0.20.1 support authoring, run:
+
+```powershell
+dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/0201-samples --support
+```
+
+This creates RecoillessTuning020, ArcThrowerTuning020, C4Explosion020 and SupportAMRTuning020 through the same autosave, shared-scope approval, generation and export services as the editor. These are sample requests, not capability tables; exact baselines, target paths, permissions and grouping come from the SDK's canonical instances. See [verification and desktop-generated ZIPs](../docs/runtime0201-verification.md).
+
+## Player-weapon samples
 
 `player-weapons.json` contains three sample requests, not a gameplay catalog. Defaults, types and permissions are looked up in the installed SDK. The developer helper uses the same `WeaponChangeService`, project storage, generator and exporter as the GUI:
 

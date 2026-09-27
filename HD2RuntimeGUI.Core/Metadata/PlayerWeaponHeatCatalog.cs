@@ -54,7 +54,7 @@ public sealed class PlayerWeaponHeatCatalogReader : IPlayerWeaponHeatCatalogRead
             MetadataReader.RejectDuplicates(doc.RootElement);
             if (doc.RootElement.GetProperty("schemaVersion").GetInt32() != 1) throw new UnsupportedSdkException("Unsupported heat capability schema.");
             var c = JsonSerializer.Deserialize<PlayerWeaponHeatCatalog>(bytes, JsonStorage.Options) ?? throw new InvalidDataException("Empty heat catalog.");
-            if (c.Hd2RuntimeVersion != authoring.Hd2RuntimeVersion || SemVersion.Parse(c.Hd2RuntimeVersion).CompareTo(SemVersion.Parse("0.18.0")) < 0
+            if (!PublishedArtifactVersion.Matches(FileName, bytes, c.Hd2RuntimeVersion, authoring.Hd2RuntimeVersion) || SemVersion.Parse(c.Hd2RuntimeVersion).CompareTo(SemVersion.Parse("0.18.0")) < 0
                 || c.GameFingerprints != authoring.BuildFingerprints || c.SourceSnapshot != authoring.SourceSnapshot
                 || c.Feature != "player_weapon_heat_capabilities") throw new InvalidDataException("Heat and authoring catalog identities differ.");
             if (c.Safety is not { Writes: 0, ProtectionChanges: 0, FixtureFallback: "disabled", SnapshotOnly: true }

@@ -16,10 +16,11 @@ function read(name) {
 }
 const authoring = read('SupportWeaponAuthoringCapabilities.json');
 const inspection = read('SupportWeaponCapabilities.json');
-if (authoring.contract !== 'hd2runtime.support_weapon.guarded_authoring.v1' ||
-    authoring.schemaVersion !== 1 || authoring.hd2RuntimeVersion !== '0.20.0' ||
+const canonical = authoring.contract === 'hd2runtime.support_weapon.guarded_authoring.v2' && authoring.schemaVersion === 2 && authoring.hd2RuntimeVersion === '0.20.1';
+if ((!canonical && (authoring.contract !== 'hd2runtime.support_weapon.guarded_authoring.v1' ||
+    authoring.schemaVersion !== 1 || authoring.hd2RuntimeVersion !== '0.20.0')) ||
     inspection.hd2RuntimeVersion !== authoring.hd2RuntimeVersion)
-    throw new Error('This audit targets the published 0.20.0 support contracts only.');
+    throw new Error('This audit targets the published 0.20.0 and 0.20.1 support contracts only.');
 
 const weapons = authoring.weapons;
 if (!Array.isArray(weapons) || new Set(weapons.map(w => w.name)).size !== weapons.length)
@@ -31,14 +32,29 @@ if (weapons.length !== authoring.summary.catalogWeapons ||
     reportedInstances !== authoring.summary.writableFieldInstances)
     throw new Error('Catalog summary does not match weapon totals.');
 
+if (canonical) {
+    const fields = new Map(authoring.fieldInstances.map(f => [f.instanceKey, f]));
+    if (fields.size !== reportedInstances || fields.size !== authoring.fieldInstances.length || authoring.instanceAudit.missingInstances !== 0)
+        throw new Error('Canonical instances missing or duplicated.');
+    for (const w of weapons) if (w.fieldInstanceKeys.length !== w.writableFieldCount || w.fieldInstanceKeys.some(k => fields.get(k)?.supportWeapon !== w.name))
+        throw new Error('Canonical weapon/instance join mismatch.');
+    for (const f of fields.values()) if (!authoring.backingObjects.some(o => o.objectKey === f.backing.objectKey && o.fieldInstanceKeys.includes(f.instanceKey)) ||
+        !authoring.operationGroups.some(o => o.operationGroupingKey === f.operation.transactionGroupingKey && o.fieldInstanceKeys.includes(f.instanceKey)))
+        throw new Error('Canonical object/operation join mismatch.');
+}
 console.log(JSON.stringify({
+    canonicalInstances: canonical ? authoring.fieldInstances.length : 0,
+    canonicalMissingInstances: authoring.instanceAudit?.missingInstances,
+    backingObjects: authoring.backingObjects?.length,
+    operationGroups: authoring.operationGroups?.length,
+    sharedScopes: canonical ? new Set(authoring.fieldInstances.filter(f => f.sharedScope.shared).map(f => f.sharedScope.scopeKey)).size : 0,
     version: authoring.hd2RuntimeVersion,
     contract: authoring.contract,
     weapons: weapons.length,
     writableWeapons: weapons.filter(w => w.writable).length,
     reportedInstances,
     publishedWeaponFieldNames: weapons.reduce((n, w) => n + countIds(w), 0),
-    instanceMultiplicityLost: weapons.filter(w => w.writableFieldCount !== countIds(w)).map(w => ({
+    legacyFlattenedMultiplicityLoss: weapons.filter(w => w.writableFieldCount !== countIds(w)).map(w => ({
         weapon: w.name, reportedInstances: w.writableFieldCount, publishedFieldNames: countIds(w)
     })),
     publishedWeaponProperties: [...new Set(weapons.flatMap(Object.keys))].sort(),
@@ -48,5 +64,5 @@ console.log(JSON.stringify({
     inspectionContract: inspection.contract,
     inspectionAuthoringReady: inspection.summary.guardedAuthoringReady,
     hashes,
-    conclusion: 'Summary metadata is not an instance-level authoring contract. See docs/runtime020-sdk-blocker.md.'
+    conclusion: canonical ? 'Canonical instance joins are complete; legacy flattened counts are not used for authoring.' : 'Summary metadata is not an instance-level authoring contract. See docs/runtime020-sdk-blocker.md.'
 }, null, 2));

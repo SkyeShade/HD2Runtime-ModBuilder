@@ -1,5 +1,7 @@
 # Runtime 0.20 support authoring: released SDK blocker
 
+**Resolved by published 0.20.1 schema v2.** See [the completed integration and verification](runtime0201-verification.md). The following records the original 0.20.0 audit.
+
 The requested authoring upgrade is **blocked by missing public capability descriptors**. No application behavior, bundled SDK, project format, generator, Runtime source, or safety checks were changed. Support weapons remain read-only in this GUI revision. This is an SDK publication gap, not evidence that Runtime's guarded writes are unsafe.
 
 ## Verified release

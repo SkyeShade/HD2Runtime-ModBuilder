@@ -62,7 +62,7 @@ public sealed class PlayerWeaponCompositionReader : IPlayerWeaponCompositionRead
                 using var doc = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 }); MetadataReader.RejectDuplicates(doc.RootElement);
                 var g = JsonSerializer.Deserialize<CompositionGraph<T>>(bytes, Options)!;
                 if (g.SchemaVersion != 1) throw new UnsupportedSdkException("Unsupported composition graph schema.");
-                if (g.Hd2RuntimeVersion != catalog.Hd2RuntimeVersion || g.Feature != feature || g.GameFingerprints != catalog.BuildFingerprints || g.SourceSnapshot != catalog.SourceSnapshot
+                if (!PublishedArtifactVersion.Matches(FileNames[index], bytes, g.Hd2RuntimeVersion, catalog.Hd2RuntimeVersion) || g.Feature != feature || g.GameFingerprints != catalog.BuildFingerprints || g.SourceSnapshot != catalog.SourceSnapshot
                     || g.CatalogWeapons != catalog.Weapons.Count || g.Safety.Writes != 0 || g.Safety.ProtectionChanges != 0 || g.Safety.FixtureFallback != "disabled" || !g.Safety.SnapshotOnly
                     || !g.Weapons.Select(name).Order().SequenceEqual(catalog.Weapons.Select(w => w.Name).Order())) throw new InvalidDataException("Composition graph identity or safety mismatch.");
                 return g;

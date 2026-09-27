@@ -44,6 +44,15 @@ public static class ProjectIdentity
             || !Regex.IsMatch(c.ExpectedEvidence, "\\A[a-f0-9]{64}\\z") || !Regex.IsMatch(c.ReplacementEvidence, "\\A[a-f0-9]{64}\\z"))) throw new InvalidDataException("Invalid semantic projectile overrides.");
         if (p.ProjectileChanges.Select(c => c.Id).Distinct().Count() != p.ProjectileChanges.Count) throw new InvalidDataException("Duplicate projectile change IDs.");
         foreach (var c in p.ProjectileChanges) SemVersion.Parse(c.BaselineSdkVersion);
+        if (p.SupportChanges == null || p.SupportChanges.Count > 2000 || p.SupportApprovals == null || p.SupportApprovals.Count > 2000
+            || p.SupportChanges.Select(c => c.InstanceKey).Distinct().Count() != p.SupportChanges.Count || p.SupportChanges.Select(c => c.Id).Distinct().Count() != p.SupportChanges.Count
+            || p.SupportChanges.Any(c => c.Id == Guid.Empty || c.InstanceKey.Length > 512 || !c.InstanceKey.StartsWith("support-field/v1/", StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000
+                || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z") || c.FieldType is not ("number" or "integer" or "boolean")
+                || c.ExpectedValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)
+                || c.DesiredValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False))) throw new InvalidDataException("Invalid support overrides.");
+        foreach (var c in p.SupportChanges) SemVersion.Parse(c.BaselineSdkVersion);
+        foreach (var a in p.SupportApprovals) if (a.Key.Length > 256 || !a.Key.StartsWith("support-scope/v1/", StringComparison.Ordinal) || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid support approval.");
         if (p.CompositionChanges == null || p.CompositionChanges.Count > 1000 || p.CompositionChanges.Select(c => c.Id).Distinct().Count() != p.CompositionChanges.Count) throw new InvalidDataException("Invalid composition changes.");
         foreach (var c in p.CompositionChanges)
         {
@@ -144,6 +153,8 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         foreach (var change in project.ProjectileChanges) change.Id = Guid.NewGuid();
         project.CompositionChanges = System.Text.Json.JsonSerializer.Deserialize<List<CompositionChange>>(System.Text.Json.JsonSerializer.Serialize(source.CompositionChanges))!;
         foreach (var change in project.CompositionChanges) change.Id = Guid.NewGuid();
+        project.SupportChanges = source.SupportChanges.Select(c => c with { Id = Guid.NewGuid() }).ToList();
+        project.SupportApprovals = new(source.SupportApprovals);
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

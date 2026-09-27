@@ -1,0 +1,22 @@
+@inject BuilderWorkspace Workspace
+@if (Workspace.Project?.SupportChanges.Count > 0)
+{
+    <div class="panel-heading"><h2>Support weapon changes</h2><button class="reset-action" @onclick="() => Run(() => Workspace.ResetSupportAsync())">Reset all support changes</button></div>
+    @foreach (var weapon in Workspace.Project.SupportChanges.GroupBy(c => c.Weapon).OrderBy(g => g.Key))
+    {
+        <details class="panel"><summary><strong>@weapon.Key</strong> <span class="badge">@weapon.Count() changes</span></summary>
+            <label><input type="checkbox" checked="@ShowAll.Contains(weapon.Key)" @onchange="e => ToggleAll(weapon.Key, (bool)e.Value!)" /> Show all fields</label>
+            <SupportAuthoringEditor ModifiedOnly="@(!ShowAll.Contains(weapon.Key))" Weapon="@weapon.Key" Changed="Refresh" @key="weapon.Key" />
+            @foreach (var change in weapon.Where(c => Workspace.Metadata?.SupportAuthoring?.FieldInstances.All(f => f.InstanceKey != c.InstanceKey) != false))
+            { <p class="notice warning">Missing capability: @change.SemanticFieldId · @change.AttackRole</p><button @onclick="() => Run(() => Workspace.ResetSupportAsync(instance: change.InstanceKey))">Remove missing change</button> }
+        </details>
+    }
+    @if (Error != null) { <p class="notice warning">@Error</p> }
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    private HashSet<string> ShowAll = []; private string? Error;
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private void ToggleAll(string weapon, bool value) { if (value) ShowAll.Add(weapon); else ShowAll.Remove(weapon); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

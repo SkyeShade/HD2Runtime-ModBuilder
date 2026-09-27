@@ -1,10 +1,10 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.19.0 guarded player-weapon, heat, ammo and composition-plan API**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.20.1 guarded support/player-weapon, heat, ammo and composition-plan APIs**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
-The published `PlayerWeaponAuthoringCapabilities.json` drives all weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,574 entries, 89 field definitions (69 writable, 20 read-only, 9 derived)**. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
+The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,574 entries, 89 field definitions (69 writable, 20 read-only, 9 derived)**. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
 ## Run
 
@@ -44,7 +44,7 @@ Direct heat mechanics and heatsink inventory are separate from read-only attachm
 
 ## Composition, fire modes and read-only catalogs
 
-The published 0.19 contracts drive these controls; there are no manually maintained capability tables:
+Published Runtime contracts drive these controls; there are no manually maintained capability tables:
 
 - **Fire Mode:** 21 uniquely resolved weapons expose allowed Full Auto / Semi Auto choices. Other weapons remain read-only. Native values 3 and 5 have no invented global meaning; JAR-5 cannot be changed to Full Auto.
 - **Composition:** 66 weapons expose 67 attacks and 57 guarded replacement selectors. Sources are filtered by published compatibility class and residency. JAR-5 is self-contained; Talon is source-weapon-required and excluded. Runtime-permitted unresolved dependencies remain selectable with a warning.
@@ -52,7 +52,7 @@ The published 0.19 contracts drive these controls; there are no manually maintai
 - **Terminal Actions:** 134 readable slots, 130 writable (65 impact / 65 expiry), with typed ExplosionSettings sources and semantic None. Add/remove impact or expiry explosions without numeric IDs. Shared slots require acknowledgement.
 - **Explosion:** 144 writable scalar capability entries across 12 semantic fields: three radii, standard/durable damage, four AP lanes, demolition/stagger/push. Only proven controls appear. Separate outer damage and shrapnel writes are not published.
 - **Attachments:** all 419 options (Optics 195, Underbarrel 117, Muzzle 71, Magazine 36) remain read-only. Default state, catalog compatibility, native identity evidence, normalized effects and ownership reasons are visible. This leaves existing direct magazine/rounds editing unchanged.
-- **Support Weapons:** the published `hd2runtime.support_weapon.read_only.v1` catalog supplies all 35 entries, with 27 unique identities, eight duplicate groups and five shared settings groups. Family graphs, parent/child attacks, ownership chains, backpack dependencies, statuses and unresolved nodes stay visible. Railgun Max Charge remains unresolved. No support authoring controls are offered.
+- **Support Weapons:** the published `hd2runtime.support_weapon.guarded_authoring.v2` catalog supplies 828 canonical field instances for 27 writable identities across all 35 visible weapons. Its 146 backing objects, 155 operation groups and 81 shared scopes drive validation, approval and generation directly. Repeated branch fields remain separate; the legacy flattened view is never used for authoring. Family graphs, parent/child attacks, ownership chains, backpack dependencies, statuses and unresolved nodes stay visible. The eight duplicate identities and Railgun Max Charge remain blocked. See [0.20.1 verification and sample ZIPs](docs/runtime0201-verification.md).
 
 Modified values autosave and show baseline → desired in editor cards, Overview, Changes and exact Lua Preview. Returning to baseline removes the override using typed scalar equality. Read-only inspection data never becomes a project change.
 
@@ -81,11 +81,11 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 ## SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.19.0 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.20.1 metadata supports first launch offline.
 
-Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only thirteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities and CompositionPlanCapabilities contracts. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
+Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only fourteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities and CompositionPlanCapabilities contracts. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
-The SDK metadata and capability catalog must agree on version and supported schemas/API. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
+The SDK metadata and capability catalog must agree on version and supported schemas/API. For 0.20.1's reused 0.19 player artifacts, only the exact published bytes are accepted by digest; all other checks still apply. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
 
 An update warning offers **Install Update** or **Ignore This Time** before project creation. Ignoring is single-use. Settings also provides manual update checks. Existing projects remain pinned until **Rebind to installed SDK** is explicitly selected in Overview.
 
@@ -103,6 +103,7 @@ Sdk/<version>/PlayerWeaponAuthoringCapabilities.json
 Sdk/<version>/PlayerWeaponAmmoCapabilities.json  # SDK 0.14+
 Sdk/<version>/PlayerWeaponHeatCapabilities.json  # SDK 0.18+
 Sdk/<version>/CompositionPlanCapabilities.json   # SDK 0.19+
+Sdk/<version>/SupportWeaponAuthoringCapabilities.json # SDK 0.20.1+
 Exports/<mod-name>-<version>.zip
 research.json
 ```
@@ -115,7 +116,7 @@ Rebinding keeps desired values and saved baselines. Missing fields, changed type
 
 Single semantic changes use `hd2.patch`; multiple writes to the same SDK backing object use one `hd2.transaction`; persistence wraps each object operation in one `hd2.ensure` with Runtime's standard 60-second behavior. Modern generation groups by published owner identity, not user labels or field offsets. A transaction is limited to 32 fields and is never silently split. Mixed persistence or incompatible target kinds on one object block export. Shared operations require current acknowledgement of every included consumer scope. Conflicting shared overrides and duplicate weapon/field edits are rejected.
 
-Targets are `hd2.weapon(name)` and fields are published `hd2.fields` constants. The generator handles the API's `player_` aliases for collisions with legacy constants. IDs are deterministic per mod/weapon/group. Float32 baselines use their shortest round-trip scalar spelling, so catalog `1.2000000476837158` generates `expect=1.2`. The original project baseline is retained.
+Targets start with `hd2.weapon(name)` or `hd2.support_weapon(name)` and fields are published `hd2.fields` constants. Support targets and operation/plan groups come directly from canonical SDK descriptors. The player generator handles the API's `player_` aliases for collisions with legacy constants. IDs are deterministic per mod/weapon/group. Float32 baselines use their shortest round-trip scalar spelling, so catalog `1.2000000476837158` generates `expect=1.2`. The original project baseline is retained.
 
 The package follows the published ModTemplate archive, discovery-header, manager GUID and dependency conventions. It contains `manifest.json`, `hd2runtime.json`, `build-report.json`, `README.md`, `src/addon.lua`, and one gameplay archive plus empty stream/GPU companions under `mod/`. It requires Bingus release 15+/API 1 and the project's HD2Runtime minimum version/API. The template's Bingus check is `loader.version >= 16`.
 

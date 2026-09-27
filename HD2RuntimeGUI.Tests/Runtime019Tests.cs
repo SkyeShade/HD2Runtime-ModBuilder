@@ -13,7 +13,7 @@ public sealed class Runtime019Tests
     private const string Concussive = "AR-23C Liberator Concussive", Eruptor = "R-36 Eruptor", Verdict = "P-113 Verdict", Jar = "JAR-5 Dominator";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e, string name = "plans")
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync(); var w = e.Workspace();
+        e.GitHub.Archive = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.19.0.zip")); var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.19.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new(name, "Tests", "mods/skyeshade/" + name.ToLowerInvariant(), "0.1.0"), sdk); return w;
     }
     private static IReadOnlyList<PlannedSemanticOperation> Plan(BuilderWorkspace w) => new SemanticOperationPlanner().Plan(w.Project!, w.Metadata!);
@@ -46,9 +46,9 @@ public sealed class Runtime019Tests
         using var e = new TestEnvironment(); using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
         {
-            var files = SdkCache.BundledComposition().Where(f => f.Key != CompositionPlanCapabilitiesReader.FileName).ToDictionary();
-            files.Add("metadata.json", SdkCache.BundledMetadata()); files.Add(PlayerWeaponCatalogReader.FileName, SdkCache.BundledCapabilities()); files.Add(PlayerWeaponAmmoCatalogReader.FileName, SdkCache.BundledAmmoCapabilities());
-            foreach (var (name, bytes) in files) { using var stream = zip.CreateEntry(name).Open(); stream.Write(bytes); }
+            using var fixture = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.19.0.zip"));
+            foreach (var entry in fixture.Entries.Where(e => e.FullName != CompositionPlanCapabilitiesReader.FileName))
+            { using var source = entry.Open(); using var stream = zip.CreateEntry(entry.FullName).Open(); source.CopyTo(stream); }
         }
         e.GitHub.Archive = output.ToArray(); await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.19.0", e.GitHub.Archive)));
         Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);

@@ -1,0 +1,12 @@
+local hd2=require('mods/skyeshade/hd2runtime')
+
+return hd2.ensure({
+    patch={
+        id='support-15a82e255c6c99508cc7dc33',
+        target=hd2.support_weapon('ARC-3 Arc Thrower'):attack('primary'),
+        allow_shared=true,
+        field=hd2.fields.arc.range,
+        expect=55,
+        value=75,
+    }
+})

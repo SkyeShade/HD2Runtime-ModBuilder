@@ -9,7 +9,7 @@ public sealed record PlanSharedScope(string Granularity, string Rule, string Bac
 public sealed record CompositionPlanCapabilities(int SchemaVersion, string Api, string SemanticTargetModel, string FieldCapabilitySource,
     IReadOnlyList<string> IdentityContract, PlanLimits Limits, IReadOnlyList<string> OperationForms,
     Dictionary<string, string> TargetFromPaths, Dictionary<string, IReadOnlyList<string>> SemanticObjects,
-    PlanGrouping Grouping, PlanSharedScope SharedScope, IReadOnlyList<string> Execution, HeatSafety Safety);
+    PlanGrouping Grouping, PlanSharedScope SharedScope, IReadOnlyList<string> Execution, HeatSafety Safety, IReadOnlyList<string>? FieldCapabilitySources = null);
 public interface ICompositionPlanCapabilitiesReader { CompositionPlanCapabilities Read(byte[] bytes); }
 public sealed class CompositionPlanCapabilitiesReader : ICompositionPlanCapabilitiesReader
 {

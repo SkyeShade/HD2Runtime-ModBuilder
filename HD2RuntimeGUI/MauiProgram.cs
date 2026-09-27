@@ -36,6 +36,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<IWeaponChangeService, WeaponChangeService>();
         builder.Services.AddSingleton<IProjectileChangeService, ProjectileChangeService>();
         builder.Services.AddSingleton<ICompositionChangeService, CompositionChangeService>();
+        builder.Services.AddSingleton<ISupportAuthoringReader, SupportAuthoringReader>();
+        builder.Services.AddSingleton<ISupportChangeService, SupportChangeService>();
+        builder.Services.AddSingleton<ISupportLua, SupportLua>();
         builder.Services.AddSingleton<ISemanticOperationPlanner, SemanticOperationPlanner>();
         builder.Services.AddSingleton<IPlayerWeaponCompositionReader, PlayerWeaponCompositionReader>();
         builder.Services.AddSingleton<IAdvancedCapabilitiesReader, AdvancedCapabilitiesReader>();

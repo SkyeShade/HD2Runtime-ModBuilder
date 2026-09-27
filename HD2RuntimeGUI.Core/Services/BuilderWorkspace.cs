@@ -10,7 +10,7 @@ public interface IFolderOpener { Task OpenAsync(string path, bool selectFile = f
 public interface IProjectFilePicker { Task<string?> PickAsync(); }
 
 // Application use cases. Components delegate I/O and generation to this service.
-public sealed class BuilderWorkspace(IProjectStore store, IProjectService projects, ISdkCache cache,
+public sealed partial class BuilderWorkspace(IProjectStore store, IProjectService projects, ISdkCache cache,
     ISdkUpdateService updates, IChangeService changes, ILuaGenerator generator, IModExporter exporter,
     IFolderOpener folders, IProjectFilePicker picker, AppPaths paths)
 {
@@ -69,6 +69,10 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         IChangeService changes, ILuaGenerator generator, IModExporter exporter, IFolderOpener folders,
         IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges, ICompositionChangeService compositionChanges)
         : this(store, projects, cache, updates, changes, generator, exporter, folders, picker, paths, weaponChanges, projectileChanges) => this.compositionChanges = compositionChanges;
+    public BuilderWorkspace(IProjectStore store, IProjectService projects, ISdkCache cache, ISdkUpdateService updates,
+        IChangeService changes, ILuaGenerator generator, IModExporter exporter, IFolderOpener folders,
+        IProjectFilePicker picker, AppPaths paths, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges, ICompositionChangeService compositionChanges, ISupportChangeService supportChanges)
+        : this(store, projects, cache, updates, changes, generator, exporter, folders, picker, paths, weaponChanges, projectileChanges, compositionChanges) => this.supportChanges = supportChanges;
     public ProjectileReference EffectiveProjectile(string weapon, string role) => compositionChanges.EffectiveProjectile(Project!, weapon, role);
     public ExplosionReference EffectiveExplosion(string weapon, string role, string phase) => compositionChanges.EffectiveExplosion(Project!, Metadata!, weapon, role, phase);
     public IReadOnlyList<ExplosionReference> ExplosionSources => compositionChanges.ExplosionSources(Metadata!);
@@ -190,7 +194,7 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         var sdk = await cache.GetVersionAsync(project.SdkVersion);
         // Clean redundant overrides written by older GUI versions before exposing
         // the project. Unknown/type-changed fields remain available for review.
-        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) > 0) await store.SaveAsync(project);
+        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) + project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(sdk, c)) > 0) await store.SaveAsync(project);
         Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
         Library = await store.ListAsync();
     }

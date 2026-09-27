@@ -21,6 +21,8 @@ public sealed class ModProject
     public List<WeaponChange> WeaponChanges { get; set; } = [];
     public List<ProjectileChange> ProjectileChanges { get; set; } = [];
     public List<CompositionChange> CompositionChanges { get; set; } = [];
+    public List<SupportChange> SupportChanges { get; set; } = [];
+    public Dictionary<string, string> SupportApprovals { get; set; } = [];
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

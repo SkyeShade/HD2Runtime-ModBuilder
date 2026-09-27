@@ -43,7 +43,7 @@
             }
             <div class="library-footnote"><span>01 &nbsp; Create a project</span><span>02 &nbsp; Configure changes</span><span>03 &nbsp; Export your mod</span></div>
         }
-        else if (Page == "support") { <SupportWeapons /> }
+        else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
@@ -62,6 +62,7 @@
             else if (Page == "overview")
             {
                 <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
+                <SupportChanges Changed="RefreshWeaponUI" />
                 <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@ModificationCount</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
                 @if (Workspace.SdkStatus?.Installed.Version != active.SdkVersion) { <section class="panel"><h2>New SDK available for this project</h2><p>Rebind semantic identifiers to SDK @Workspace.SdkStatus?.Installed.Version. Your desired values and saved baselines are preserved. Any changed capabilities must be reviewed before building.</p><button @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">Rebind to installed SDK</button></section> }
                 @if (Workspace.Metadata!.PlayerWeapons != null) { <section class="panel"><h2>Author player weapons</h2><p>@Workspace.Metadata.PlayerWeapons.Weapons.Count weapons ? @Workspace.Metadata.PlayerWeapons.Summary.FieldInstances capability entries</p><button class="primary" @onclick='() => Navigate("player-weapons")'>Browse Player Weapons</button></section> }
@@ -71,6 +72,7 @@
             else if (Page == "changes")
             {
                 <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
+                <SupportChanges Changed="RefreshWeaponUI" />
                 @if (active.Changes.Count > 0) {
                 <section class="panel"><div class="panel-heading"><h2>Other configured modifications</h2><span class="badge">@active.Changes.Count(c => c.Enabled) enabled</span></div>
                     @foreach (var group in active.Changes.GroupBy(c => c.Group))
