@@ -14,8 +14,8 @@ public sealed class WeaponAutosaveTests
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment env)
     {
         // Install the published offline fixture into this isolated test cache.
-        await JsonStorage.WriteAtomicBytesAsync(env.Paths.SdkFile("0.13.0"), SdkCache.BundledMetadata());
-        await JsonStorage.WriteAtomicBytesAsync(env.Paths.CachePath("0.13.0", PlayerWeaponCatalogReader.FileName), SdkCache.BundledCapabilities());
+        await JsonStorage.WriteAtomicBytesAsync(env.Paths.SdkFile("0.13.0"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "metadata-0.13.0.json")));
+        await JsonStorage.WriteAtomicBytesAsync(env.Paths.CachePath("0.13.0", PlayerWeaponCatalogReader.FileName), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "player-weapons-0.13.0.json")));
         var workspace = env.Workspace();
         await workspace.CreateAsync(new("Autosave", "Tests", "mods/tests/autosave", "0.1.0"), await env.Cache.GetVersionAsync("0.13.0"));
         return workspace;

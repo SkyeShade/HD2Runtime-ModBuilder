@@ -1,0 +1,24 @@
+@if (Catalog.Weapons.FirstOrDefault(w => w.Name == WeaponName) is { } ammo)
+{
+    @if (ammo.DefaultMagazineOption is { } preset)
+    {
+        <section class="panel ammo-evidence" data-ammo-preset>
+            <div class="panel-heading"><h3>Default magazine preset</h3><span class="badge">Read-only</span>@if (preset.Shared) { <span class="badge amber">Shared preset</span> }</div>
+            <p><strong>@preset.Name.Trim()</strong></p>
+            <p>The default preset is known, but guarded write ownership is not yet proven. Its resolved values below are read-only.</p>
+            <p class="subtle">@preset.Reason</p>
+            @if (preset.SharedWithWeapons.Count > 0) { <p>Also used by @string.Join(", ", preset.SharedWithWeapons).</p> }
+            <details class="provenance"><summary>Advanced / preset evidence</summary><p>Option @preset.OptionId · AddPath @preset.AddPath</p><p>@Catalog.OwnershipFindings.DefaultCustomization</p></details>
+        </section>
+    }
+    @foreach (var diagnostic in ammo.Diagnostics)
+    { <div class="notice warning"><p>@diagnostic</p></div> }
+    @foreach (var discrepancy in Catalog.Discrepancies.Where(d => d.Weapon == WeaponName))
+    {
+        <div class="notice warning" data-ammo-discrepancy><p>SDK evidence disagreement for @discrepancy.Field: runtime @discrepancy.Runtime, catalog @discrepancy.Catalog. The editor retains the authoritative SDK capability baseline.</p></div>
+    }
+}
+@code {
+    [Parameter, EditorRequired] public PlayerWeaponAmmoCatalog Catalog { get; set; } = default!;
+    [Parameter, EditorRequired] public string WeaponName { get; set; } = "";
+}

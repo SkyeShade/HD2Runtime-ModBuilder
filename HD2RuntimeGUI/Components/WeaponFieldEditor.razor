@@ -9,6 +9,7 @@
         <span class="badge">@(Field.DerivedReadOnly ? "Derived" : !Available ? "Unavailable" : CanEdit ? "Editable" : "Read-only")</span>
     </div></div>
     <FieldValue Field="Field" Baseline="Field.CurrentDefault" Current="CurrentValue" />
+    @if (Field.DerivedReadOnly) { <p class="subtle">Calculated SDK baseline · read-only. This is not a live calculation of project edits.</p> }
     @if (FieldPresentation.Explanation(Field) is { } explanation) { <p class="flag-explanation">@explanation</p> }
     @if (CanEdit)
     {

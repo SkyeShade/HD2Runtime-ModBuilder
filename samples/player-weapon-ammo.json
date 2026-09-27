@@ -1,0 +1,25 @@
+[
+  {
+    "name": "VerdictMagazine",
+    "description": "SDK 0.14 guarded detachable-magazine test: 15-round capacity, 8 spare/starting/supply magazines.",
+    "weapon": "P-113 Verdict",
+    "changes": [
+      { "field": "magazine.capacity", "value": 15 },
+      { "field": "magazine.spare_magazines", "value": 8 },
+      { "field": "magazine.starting_magazines", "value": 8 },
+      { "field": "magazine.magazines_from_supply", "value": 8 }
+    ]
+  },
+  {
+    "name": "PunisherDualFeed",
+    "description": "SDK 0.14 guarded rounds-feed test: two 10-round feeds, 80 spare/supply rounds, 40 starting rounds.",
+    "weapon": "SG-8 Punisher",
+    "changes": [
+      { "field": "rounds.feed_capacity_1", "value": 10 },
+      { "field": "rounds.feed_capacity_2", "value": 10 },
+      { "field": "rounds.spare_rounds", "value": 80 },
+      { "field": "rounds.starting_rounds", "value": 40 },
+      { "field": "rounds.rounds_from_supply", "value": 80 }
+    ]
+  }
+]

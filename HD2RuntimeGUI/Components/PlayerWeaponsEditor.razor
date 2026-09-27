@@ -19,7 +19,9 @@
                 @if (weapon.OrdinaryWritesBlocked) { <div class="notice warning"><div><strong>Ordinary writes unavailable</strong><p>@weapon.BlockReason</p></div></div> }
             </section>
             @foreach (var section in weapon.Fields.GroupBy(Section).OrderBy(g => SectionOrder(g.Key)))
-            { <section class="semantic-section" data-section="@section.Key"><h2>@section.Key</h2><div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(weapon.Name, field.SemanticFieldId)" Weapon="weapon" Field="field" Changed="FieldChanged" /> }</div></section> }
+            { <section class="semantic-section" data-section="@section.Key"><h2>@section.Key</h2>
+                @if (section.Key == "Ammo / Magazine" && Workspace.Metadata.PlayerAmmo is { } ammo) { <AmmoEvidence Catalog="ammo" WeaponName="@weapon.Name" /> }
+                <div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(weapon.Name, field.SemanticFieldId)" Weapon="weapon" Field="field" Changed="FieldChanged" /> }</div></section> }
         }
         else { <section class="panel empty-state"><h2>Choose a player weapon</h2><p>Search by name, then edit its supported semantic values.</p><p>SDK @catalog.Hd2RuntimeVersion · @catalog.Summary.WritableSemanticFieldDefinitions writable field definitions</p></section> }
         </div>

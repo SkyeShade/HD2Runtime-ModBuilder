@@ -13,7 +13,7 @@ namespace HD2RuntimeGUI.Tests;
 
 public sealed class PlayerWeaponTests
 {
-    private static readonly SdkMetadata Sdk = new MetadataReader().Read(SdkCache.BundledMetadata()) with { PlayerWeapons = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.13.0") };
+    private static readonly SdkMetadata Sdk = new MetadataReader().Read(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "metadata-0.13.0.json"))) with { PlayerWeapons = new PlayerWeaponCatalogReader().Read(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "player-weapons-0.13.0.json")), "0.13.0") };
     private static readonly WeaponChangeService Changes = new();
     private static ModProject Project(string name) => new() { DisplayName = name, Author = "SkyeShade", ResourceId = "mods/skyeshade/" + name.ToLowerInvariant(), ManagerGuid = ProjectIdentity.ManagerGuid("mods/skyeshade/" + name.ToLowerInvariant()), SdkVersion = Sdk.Version, ExportDirectory = Path.GetTempPath() };
     [Fact] public void Published_catalog_loads_all_identities_and_entries()
@@ -61,7 +61,7 @@ public sealed class PlayerWeaponTests
     [Theory] [InlineData("schema")] [InlineData("version")] [InlineData("identity")] [InlineData("missing")] [InlineData("scalar")]
     public void Invalid_catalog_is_rejected(string kind)
     {
-        var node = JsonNode.Parse(SdkCache.BundledCapabilities())!;
+        var node = JsonNode.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "player-weapons-0.13.0.json")))!;
         if (kind == "schema") node["schemaVersion"] = 2;
         if (kind == "version") node["hd2RuntimeVersion"] = "0.12.0";
         if (kind == "identity") node["weapons"]![0]!["resolution"] = "DUPLICATE";
@@ -153,8 +153,8 @@ public sealed class PlayerWeaponTests
             using var output = new MemoryStream();
             using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
             {
-                using (var s = zip.CreateEntry("metadata.json").Open()) s.Write(SdkCache.BundledMetadata());
-                using (var s = zip.CreateEntry(PlayerWeaponCatalogReader.FileName).Open()) s.Write(corrupt ? "{}"u8.ToArray() : SdkCache.BundledCapabilities());
+                using (var s = zip.CreateEntry("metadata.json").Open()) s.Write(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "metadata-0.13.0.json")));
+                using (var s = zip.CreateEntry(PlayerWeaponCatalogReader.FileName).Open()) s.Write(corrupt ? "{}"u8.ToArray() : File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "player-weapons-0.13.0.json")));
             }
             return output.ToArray();
         }

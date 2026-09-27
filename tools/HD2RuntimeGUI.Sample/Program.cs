@@ -6,7 +6,7 @@ using HD2RuntimeGUI.Core.Projects;
 using HD2RuntimeGUI.Core.Services;
 using HD2RuntimeGUI.Core.Storage;
 
-var root = Path.GetFullPath(args.FirstOrDefault(a => !a.StartsWith("--")) ?? "artifacts/sample-workspace-0.13");
+var root = Path.GetFullPath(args.FirstOrDefault(a => !a.StartsWith("--")) ?? "artifacts/sample-workspace-0.14");
 var paths = new AppPaths(root);
 using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(25) };
 var github = new GitHubReleaseClient(http);
@@ -24,7 +24,7 @@ var catalog = WeaponChangeService.Catalog(sdk);
 Console.WriteLine($"Catalog: {catalog.Weapons.Count} weapons; {catalog.Summary.FieldInstances} capability entries.");
 var store = new JsonProjectStore(paths); var service = new ProjectService(store, paths);
 var changes = new WeaponChangeService(); var generator = new LuaGenerator(new ChangeService(), changes);
-var presets = JsonSerializer.Deserialize<List<Sample>>(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "player-weapons.json")), JsonStorage.Options)!;
+var presets = JsonSerializer.Deserialize<List<Sample>>(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, args.Contains("--ammo") ? "player-weapon-ammo.json" : "player-weapons.json")), JsonStorage.Options)!;
 foreach (var sample in presets)
 {
     var resource = "mods/skyeshade/" + sample.Name.ToLowerInvariant();

@@ -27,10 +27,11 @@ internal static class FieldPresentation
         ? "Runtime weapon-data flag; it does not necessarily indicate a visible or selectable suppressor attachment." : null;
     public static string Section(WeaponCapability f)
     {
+        if (f.Domain is "magazine" or "rounds") return "Ammo / Magazine";
         if (!f.Editable) return "Advanced / Read-only";
         if (f.Domain == "weapon") return f.SemanticFieldId.Contains("capacity") ? "Ammo / Feed" : f.SemanticFieldId.Contains("recoil") || f.SemanticFieldId.Contains("spread") || f.SemanticFieldId.Contains("sway") || f.SemanticFieldId.Contains("ergonomics") ? "Handling" : "Weapon";
         if (f.Domain == "damage") return f.SemanticFieldId.Contains(".ap_") ? "Penetration" : f.SemanticFieldId.Contains("status_") ? "Special Effects" : "Damage";
         return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(f.Domain.Replace('_', ' '));
     }
-    public static int SectionOrder(string name) => name switch { "Weapon" => 0, "Handling" => 1, "Ammo / Feed" => 2, "Projectile" => 3, "Damage" => 4, "Penetration" => 5, "Special Effects" => 6, "Advanced / Read-only" => 99, _ => 7 };
+    public static int SectionOrder(string name) => name switch { "Weapon" => 0, "Handling" => 1, "Ammo / Feed" or "Ammo / Magazine" => 2, "Projectile" => 3, "Damage" => 4, "Penetration" => 5, "Special Effects" => 6, "Advanced / Read-only" => 99, _ => 7 };
 }

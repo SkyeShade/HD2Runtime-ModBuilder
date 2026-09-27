@@ -19,6 +19,7 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
     Dictionary<string, string> Builders, Dictionary<string, SdkResource> Resources, List<SdkTransition> Transitions, string EvidenceNote)
 {
     public PlayerWeaponCatalog? PlayerWeapons { get; init; }
+    public PlayerWeaponAmmoCatalog? PlayerAmmo { get; init; }
     public string CategoryName(string key)
     {
         var name = Types[key].Name;

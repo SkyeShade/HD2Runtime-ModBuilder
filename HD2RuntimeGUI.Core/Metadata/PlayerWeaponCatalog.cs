@@ -13,7 +13,7 @@ public sealed record CapabilitySummary(int Weapons, int UniqueWeapons, int Dupli
     int SemanticFieldDefinitions, int WritableSemanticFieldDefinitions, int ReadOnlySemanticFieldDefinitions,
     int DerivedSemanticFieldDefinitions, int FieldInstances, int WritableFieldInstances,
     int WeaponsWithWritableFields, int WeaponsWithProjectileDamageWrites, int WeaponsRestrictedToWeaponLevelWrites,
-    Dictionary<string, FamilyCoverage> FamilyCoverage);
+    Dictionary<string, FamilyCoverage> FamilyCoverage, AmmoSummary? Ammo = null);
 public sealed record CatalogSafety(bool AddressesInPublicMetadata, int Writes, int ProtectionChanges, string FixtureFallback);
 public sealed record SemanticFieldDefinition(string Id,
     [property: JsonPropertyName("display_name")] string DisplayName, string Type, string? Unit,

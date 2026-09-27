@@ -1,10 +1,10 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.13.0 guarded player-weapon API**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.14.0 guarded player-weapon and ammo API**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
-The published `PlayerWeaponAuthoringCapabilities.json` drives all weapon identities, controls, defaults, evidence and permissions: **80 weapons, 2,667 entries, 48 field definitions (38 writable, 10 read-only, 3 derived)**. There is no manually maintained weapon/field catalog in the UI. The three derived definitions are included in the read-only count.
+The published `PlayerWeaponAuthoringCapabilities.json` drives all weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,027 entries, 60 field definitions (47 writable, 13 read-only, 6 derived)**. There is no manually maintained weapon/field catalog in the UI. The six derived definitions are included in the read-only count.
 
 ## Run
 
@@ -30,6 +30,10 @@ Try these ordinary editor operations:
 
 The two trajectory samples preserve velocity 285 and mass 15. No fictitious damage-dropoff field is introduced. See [sample definitions and generation](samples/README.md).
 
+Ammo / Magazine groups the SDK's detachable-magazine and rounds-feed controls alongside calculated, read-only baselines. `PlayerWeaponAmmoCapabilities.json` supplies ownership, default-preset and discrepancy evidence; the reader cross-checks it against the semantic authoring catalog. There are 360 ammo entries, 194 writable, covering 45 weapons with writable ammo fields.
+
+The 19 customization-supplied default presets (including Concussive and the shared Liberator/Penetrator/Suppressor preset) remain read-only. Thirteen weapons have no applicable ammo controls. GP-31's ambiguous identity remains blocked. Arbitrator and One-Two retain SDK baselines of 45 and 40 with visible catalog-disagreement warnings. Calculated values are explicitly labelled SDK baselines, not live simulations of overrides.
+
 ## Architecture
 
 `HD2RuntimeGUI/` is the MAUI Windows host, with Razor `Components/`, native desktop adapters in `Services/`, and custom dark CSS in `wwwroot/`.
@@ -47,7 +51,7 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 ## SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.13.0 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.14.0 metadata supports first launch offline.
 
 Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only the two fixed metadata files are consumed.
 
@@ -66,6 +70,7 @@ Sdk/current.json
 Sdk/last-release.json
 Sdk/<version>/metadata.json
 Sdk/<version>/PlayerWeaponAuthoringCapabilities.json
+Sdk/<version>/PlayerWeaponAmmoCapabilities.json  # SDK 0.14+
 Exports/<mod-name>-<version>.zip
 research.json
 ```
@@ -80,7 +85,7 @@ Single semantic changes use `hd2.patch`; multiple related writes use `hd2.transa
 
 Targets are `hd2.weapon(name)` and fields are published `hd2.fields` constants. The generator handles the API's `player_` aliases for collisions with legacy constants. IDs are deterministic per mod/weapon/group. Float32 baselines use their shortest round-trip scalar spelling, so catalog `1.2000000476837158` generates `expect=1.2`. The original project baseline is retained.
 
-The package follows the published 0.13 ModTemplate archive, discovery-header, manager GUID and dependency conventions. It contains `manifest.json`, `hd2runtime.json`, `build-report.json`, `README.md`, `src/addon.lua`, and one gameplay archive plus empty stream/GPU companions under `mod/`. It requires Bingus release 15+/API 1 and the project's HD2Runtime minimum version/API. The template's Bingus check is `loader.version >= 16`.
+The package follows the published 0.14 ModTemplate archive, discovery-header, manager GUID and dependency conventions. It contains `manifest.json`, `hd2runtime.json`, `build-report.json`, `README.md`, `src/addon.lua`, and one gameplay archive plus empty stream/GPU companions under `mod/`. It requires Bingus release 15+/API 1 and the project's HD2Runtime minimum version/API. The template's Bingus check is `loader.version >= 16`.
 
 No Runtime implementation, SDK stubs, GUI catalog, snapshots or research artifacts enter the package. ZIP inventory and content are reopened and verified before success. Sorted entries, fixed timestamps, deterministic IDs and stable content make unchanged exports byte-identical. Preview shows exactly the gameplay source included as `src/addon.lua`; the archive adds the template dependency/discovery wrapper. Export directory is configurable, and Explorer can select the result.
 

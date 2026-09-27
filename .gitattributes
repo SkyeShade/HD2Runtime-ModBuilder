@@ -10,4 +10,5 @@
 *.zip binary
 # Preserve the exact verified upstream release metadata bytes, including the
 # capability catalog. The cache treats each SDK version as immutable.
-HD2RuntimeGUI.Core/Metadata/Bundled/*.json -text
+HD2RuntimeGUI.Core/Metadata/Bundled/*.json -text whitespace=cr-at-eol
+HD2RuntimeGUI.Tests/Fixtures/*-0.13.0.json -text whitespace=cr-at-eol

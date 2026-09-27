@@ -68,3 +68,33 @@ Weapon editor controls now commit through the existing workspace/change service 
 The automated suite passes 101 tests, including create/update/remove, equivalent float spellings, boolean toggles, invalid/incomplete input, concurrent field commits, reload cleanup and shared-write gating. Existing Lua/ZIP golden tests pass unchanged. The Windows Debug build passes with no warnings or errors.
 
 Desktop WebView2 checks used the isolated `artifacts/autosave-validation` library and `tools/ux-smoke.mjs` (normal, `--safety`, `--relaunch`). They verified automatic persistence, immediate Modified/count/group updates, invalid input preserving the last saved value, neutral equivalent floats, boolean round trips, field/weapon reset, multiple weapons, explicit shared acknowledgement, duplicate write blocking and application relaunch. Local screenshots remain ignored under `docs/screenshots/`.
+
+## SDK 0.14 ammo authoring
+
+Consumed the public `HD2Runtime-0.14.0-sdk.zip`, SHA-256 `ec6cb938dc86c77cff7f431ee3bf5b10e98128d1bd66813b2445134ec1908749`. Its build report identifies commit `742138ff7b2d7c9924abc9cba538471e645d2e31`. The bundled metadata files are exact published bytes. Live discovery/download/digest validation/cache installation passed through `SdkUpdateService` and `SdkCache` using the sample helper's `--online --ammo` mode.
+
+The release's GitHub tag reference currently resolves to the older `2d1be38a1830bb973140b0b431e58d3c2fa9e081`, and the supplied 0.14 commit is not available through the public commit endpoint. This upstream publication discrepancy does not block consumption of the consistent, digest-verified 0.14 release assets. No upstream files or safety rules were changed.
+
+Loaded counts:
+
+- 80 player weapons, 3,027 authoring entries, 1,966 writable entries.
+- 60 semantic definitions: 47 writable, 13 read-only, including 6 derived.
+- 360 semantic ammo entries, 194 writable, across 45 weapons with writable ammo fields. The new surface adds 9 writable and 3 derived/read-only definitions.
+- Companion ammo catalog: 80 identities; 33 direct-magazine and 15 rounds-feed weapons; 19 customization presets; 13 not-applicable weapons; one shared default-preset group. Some direct/rounds identities remain blocked.
+
+Both catalogs are parsed into typed models and cross-validated for versions, fingerprints, identities, scalar baselines, permissions and summary counts before atomic cache installation. Controls and Lua still come exclusively from published semantic authoring descriptors. Companion-only read-only evidence for a blocked identity does not manufacture extra controls. Existing 0.13 tests retain the original release fixtures; projects remain pinned until explicitly rebound. No project-format or generator/package changes were necessary.
+
+The final automated suite passes **130 tests**. New coverage includes all detachable-magazine writes, dual feeds, derived capacity/ammo-box values, all customization presets, not-applicable cases, shared gating, GP-31, both catalog discrepancies, autosave/reload/reset-to-baseline, explicit 0.13→0.14 rebind, failed/malformed/missing/unsafe SDK updates, offline cache, published constant validation, golden Lua and deterministic ZIPs. Existing 0.13 goldens remain unchanged.
+
+Desktop validation used `tools/ammo-smoke.mjs`, including `--relaunch` and `--review`, with the isolated `artifacts/ammo-ui` library. Both sample projects were created, edited, reset, autosaved, reviewed, built and reopened after application restart. Their previews match the golden source exactly. Preset explanations, the shared read-only group, GP-31 diagnostics, absent Blitzer ammo controls, derived badges and Arbitrator/One-Two warnings passed UI assertions. Existing player-weapon smoke tests also passed for the three earlier sample projects, Arc/Beam/Flame/Melee/rounds-feed rendering, shared approval, duplicate blocking and snapshot-page availability.
+
+GUI-generated samples, ready for manual installation/gameplay testing:
+
+```text
+artifacts/ammo-ui/Exports/VerdictMagazine-0.1.0.zip
+artifacts/ammo-ui/Exports/PunisherDualFeed-0.1.0.zip
+```
+
+The 0.14 ModTemplate's archive/dependency conventions remain compatible with the existing exporter. Packages declare HD2Runtime 0.14.0/API 1 and Bingus dependencies and contain no Runtime implementation or GUI metadata. Sample source and values are documented in `samples/README.md`.
+
+Windows Debug build succeeded without warnings/errors at `artifacts/ammo-build/Debug/net10.0-windows10.0.19041.0/win-x64/`. Screenshots remain in ignored `docs/screenshots/`, including `VerdictMagazine-ammo-editor.png`, `PunisherDualFeed-ammo-editor.png`, `ammo-gp31-blocked.png` and `ammo-catalog-disagreement.png`. No support-weapon work, snapshot changes, game launch or mod deployment was performed.
