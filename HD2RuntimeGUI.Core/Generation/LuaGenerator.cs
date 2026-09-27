@@ -56,13 +56,18 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             var operation = patch ? "patch" : "transaction";
             operations.Add(group.Key.EnsureEnabled ? $"hd2.ensure({{\n    {operation}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{operation}({body})");
         }
-        operations.AddRange(ProjectileChangeService.Operations(project, sdk, projectileChanges));
-        if (sdk.Advanced != null)
-            operations.AddRange(planner.Plan(project, sdk).Select(o => o.Lua(project.ResourceId)));
+        if (sdk.Plans != null)
+            operations.AddRange(CompositionPlanLua.Operations(project.ResourceId, sdk, planner.Plan(project, sdk)));
         else
         {
-            operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
-            operations.AddRange(CompositionChangeService.Operations(project, sdk, compositionChanges));
+            operations.AddRange(ProjectileChangeService.Operations(project, sdk, projectileChanges));
+            if (sdk.Advanced != null)
+                operations.AddRange(planner.Plan(project, sdk).Select(o => o.Lua(project.ResourceId)));
+            else
+            {
+                operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
+                operations.AddRange(CompositionChangeService.Operations(project, sdk, compositionChanges));
+            }
         }
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";

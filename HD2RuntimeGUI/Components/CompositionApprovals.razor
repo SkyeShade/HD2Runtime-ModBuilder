@@ -1,0 +1,35 @@
+@inject BuilderWorkspace Workspace
+@using HD2RuntimeGUI.Core.Generation
+@if (Workspace.Metadata?.Plans != null)
+{
+    @foreach (var scope in Scopes())
+    {
+        var change = scope.First();
+        var field = Field(change);
+        if (field == null || !field.AffectsMultipleWeapons) { continue; }
+        var label = field.Domain switch { "damage" => "Projectile damage", "terminal" => "Terminal actions", "explosion" => field.SemanticFieldId.Contains(".damage.") ? "Explosion damage" : "Explosion settings", _ => "Projectile settings" };
+        <div class="shared-warning" data-shared-scope="@field.Backing?.Settings" data-scope-domain="@field.Domain">
+            <strong>@label · shared definition</strong>
+            <p>Affected weapons: @string.Join(", ", field.SharedWithWeapons.Append(change.Target.Weapon).Append(Weapon).Distinct())</p>
+            @if (field.SharedWithResources is { Count: > 0 } resources)
+            {
+                <p>The SDK identifies @resources.Count resource consumers; some may not have catalog names.</p>
+                <details><summary>Advanced consumer evidence</summary><p>@string.Join(", ", resources)</p><p>Scope: @field.WriteScope</p></details>
+            }
+            @if (field.DynamicConsumersPossible == true) { <p>Other and future consumers may also use this definition.</p> }
+            <label class="switch-label"><input type="checkbox" checked="@scope.All(c => CompositionChangeService.ApprovalCurrent(Workspace.Metadata!, c))" @onchange="e => Approve(change.Id, (bool)e.Value!)" />I acknowledge these effects for this shared definition.</label>
+            <small>Applies to @scope.Count() modified fields in this scope. Other shared definitions require their own approval.</small>
+        </div>
+    }
+    @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+}
+@code {
+    [Parameter] public string Weapon { get; set; } = "";
+    [Parameter] public IReadOnlyList<CompositionChange> Changes { get; set; } = [];
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private WeaponCapability? Field(CompositionChange c) { try { return c.Scalar == null ? CompositionChangeService.TerminalField(Workspace.Metadata!, c.Target, c.Phase!) : Workspace.Metadata!.PlayerWeapons!.Field(c.Scalar.Weapon, c.Scalar.SemanticFieldId); } catch (InvalidDataException) { return null; } }
+    private IEnumerable<IGrouping<string, CompositionChange>> Scopes() => Changes.Where(c => c.Enabled && c.Weapon == Weapon)
+        .GroupBy(c => { try { return CompositionChangeService.ApprovalScopeKey(Workspace.Metadata!, c); } catch (InvalidDataException) { return c.Id.ToString(); } });
+    private async Task Approve(Guid id, bool value) { try { Error = null; await Workspace.SetCompositionApprovalAsync(id, value); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

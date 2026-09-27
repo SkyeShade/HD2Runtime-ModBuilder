@@ -10,7 +10,7 @@
             <option value="baseline">Original · @baseline.Label</option>
             @foreach (var source in Workspace.ExplosionSources) { <option value="@Key(source)">@source.Label</option> }
         </select></label>
-        @if (field.AffectsMultipleWeapons)
+        @if (field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
         { <div class="shared-warning"><strong>Shared terminal setting</strong><p>Affected: @string.Join(", ", field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct())</p><label class="switch-label"><input type="checkbox" @bind="Acknowledged" @bind:after="Commit" disabled="@Busy" />I acknowledge these shared effects.</label></div> }
     }
     else { <p>@field.Reason</p> }

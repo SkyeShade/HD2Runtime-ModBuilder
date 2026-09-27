@@ -8,7 +8,7 @@
     @if (Field.Editable && !Field.DerivedReadOnly)
     {
         <label>Current project value<input aria-label="@Field.DisplayName" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" /></label>
-        @if (Field.AffectsMultipleWeapons)
+        @if (Field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
         {
             <div class="shared-warning"><strong>This edits a shared definition.</strong><p>Known affected weapons: @string.Join(", ", Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct())</p>
             @if (Field.DynamicConsumersPossible == true) { <p>Other and future consumers may also use this projectile object. No weapon-local clone is proven.</p> }

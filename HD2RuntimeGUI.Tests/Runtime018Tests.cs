@@ -14,13 +14,17 @@ public sealed class Runtime018Tests
     private const string Sickle = "LAS-16 Sickle";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e)
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync(); var w = e.Workspace();
+        e.GitHub.Archive = Archive(); var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.18.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new("Heat", "Tests", "mods/tests/heat", "0.1.0"), sdk); return w;
+    }
+    private static Dictionary<string, byte[]> FixtureFiles()
+    {
+        using var zip = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.18.0.zip"));
+        return zip.Entries.ToDictionary(e => e.FullName, e => { using var input = e.Open(); using var output = new MemoryStream(); input.CopyTo(output); return output.ToArray(); });
     }
     private static byte[] Archive(string? omit = null)
     {
-        var files = SdkCache.BundledComposition().ToDictionary(x => x.Key, x => x.Value);
-        files.Add("metadata.json", SdkCache.BundledMetadata()); files.Add(PlayerWeaponCatalogReader.FileName, SdkCache.BundledCapabilities()); files.Add(PlayerWeaponAmmoCatalogReader.FileName, SdkCache.BundledAmmoCapabilities());
+        var files = FixtureFiles();
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
             foreach (var (name, bytes) in files.Where(x => x.Key != omit)) { using var stream = zip.CreateEntry(name).Open(); stream.Write(bytes); }
@@ -54,7 +58,7 @@ public sealed class Runtime018Tests
     public async Task Malformed_or_incompatible_heat_metadata_rejected(string property, string value)
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
-        var node = JsonNode.Parse(SdkCache.BundledComposition()[PlayerWeaponHeatCatalogReader.FileName])!;
+        var node = JsonNode.Parse(FixtureFiles()[PlayerWeaponHeatCatalogReader.FileName])!;
         var path = property.Split('.'); var parent = path.Length == 2 ? node[path[0]]! : node; parent[path[^1]] = JsonNode.Parse(value);
         var error = Record.Exception(() => new PlayerWeaponHeatCatalogReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), w.Metadata!.PlayerWeapons!));
         Assert.True(error is InvalidDataException or UnsupportedSdkException);

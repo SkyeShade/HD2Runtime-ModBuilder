@@ -40,6 +40,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IPlayerWeaponCompositionReader, PlayerWeaponCompositionReader>();
         builder.Services.AddSingleton<IAdvancedCapabilitiesReader, AdvancedCapabilitiesReader>();
         builder.Services.AddSingleton<IPlayerWeaponHeatCatalogReader, PlayerWeaponHeatCatalogReader>();
+        builder.Services.AddSingleton<ICompositionPlanCapabilitiesReader, CompositionPlanCapabilitiesReader>();
         builder.Services.AddSingleton<IPlayerWeaponCatalogReader, PlayerWeaponCatalogReader>();
         builder.Services.AddSingleton<IPlayerWeaponAmmoCatalogReader, PlayerWeaponAmmoCatalogReader>();
         builder.Services.AddSingleton<ILuaGenerator, LuaGenerator>();

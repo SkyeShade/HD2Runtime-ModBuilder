@@ -10,7 +10,7 @@ public sealed class SemanticOperationPlannerTests
     private const string Concussive = "AR-23C Liberator Concussive", Eruptor = "R-36 Eruptor";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e)
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync(); var w = e.Workspace();
+        e.GitHub.Archive = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.18.0.zip")); var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.18.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new("Grouped", "Tests", "mods/tests/grouped", "0.1.0"), sdk); return w;
     }
     private static IReadOnlyList<PlannedSemanticOperation> Plan(BuilderWorkspace w) => new SemanticOperationPlanner().Plan(w.Project!, w.Metadata!);

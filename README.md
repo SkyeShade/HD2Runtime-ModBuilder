@@ -1,6 +1,6 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.18.0 guarded player-weapon, heat, ammo and composition API**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2 supports the **0.19.0 guarded player-weapon, heat, ammo and composition-plan API**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
@@ -44,7 +44,7 @@ Direct heat mechanics and heatsink inventory are separate from read-only attachm
 
 ## Composition, fire modes and read-only catalogs
 
-The published 0.18 contracts drive these controls; there are no manually maintained capability tables:
+The published 0.19 contracts drive these controls; there are no manually maintained capability tables:
 
 - **Fire Mode:** 21 uniquely resolved weapons expose allowed Full Auto / Semi Auto choices. Other weapons remain read-only. Native values 3 and 5 have no invented global meaning; JAR-5 cannot be changed to Full Auto.
 - **Composition:** 66 weapons expose 67 attacks and 57 guarded replacement selectors. Sources are filtered by published compatibility class and residency. JAR-5 is self-contained; Talon is source-weapon-required and excluded. Runtime-permitted unresolved dependencies remain selectable with a warning.
@@ -58,7 +58,9 @@ Modified values autosave and show baseline → desired in editor cards, Overview
 
 Projectile reference overrides and object/terminal/explosion overrides store semantic weapon/attack/phase handles, saved baselines, SDK version, enabled/persistence/group/notes and acknowledgement/evidence digests. No native IDs or offsets are saved as runtime targets. Rebinding preserves values and blocks changed identities, residency, compatibility, allowed modes, shared scope or baselines until reviewed. Older projectile scalar overrides can explicitly **Move to Composition** while retaining their desired and expected values; newly shared writes require fresh acknowledgement.
 
-Object edits bind to the selected projectile handle. Runtime 0.18 write jobs are asynchronous and have no public completion/dependency hook, so a replacement combined with dependent object edits now blocks export. Same-object scalar fields form one guarded transaction. Impact/expiry edits cannot share the released single-phase terminal target and are blocked together rather than emitted as racing jobs. Stale targets, source-handle cycles, conflicting shared writes and altered explosion source chains also block export. See [generation planning and contract limits](docs/generation-planning.md). The GUI does not implement memory access or Runtime safety.
+Object edits bind to the selected projectile handle. SDK 0.19 coordinates related objects with one guarded plan instead of independent ensure jobs. Same-object scalar fields stay grouped; impact and expiry use separate typed operations in the same plan. A reference replacement plus dependent edits uses two phases and target_from for fresh projectile/terminal resolution. Simple independent edits retain patch/transaction output. SDK-pinned 0.17/0.18 projects retain their old safe export blocks until explicitly rebound.
+
+Shared approvals appear once per modified object/consumer scope in Composition. DamageInfo approval cannot authorize ProjectileSettings or explosion data. Scope changes after rebind require review. Project files still store semantic intent, never Runtime plan requests or native targets. See [0.19 verification, samples and remaining limits](docs/runtime019-verification.md).
 
 See [0.17 sample projects](samples/README.md#runtime-017-samples) and [verification](docs/verification.md).
 
@@ -79,9 +81,9 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 ## SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.18.0 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.19.0 metadata supports first launch offline.
 
-Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only twelve fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities and SupportWeaponCapabilities contracts. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
+Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only thirteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities and CompositionPlanCapabilities contracts. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
 The SDK metadata and capability catalog must agree on version and supported schemas/API. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
 
@@ -100,6 +102,7 @@ Sdk/<version>/metadata.json
 Sdk/<version>/PlayerWeaponAuthoringCapabilities.json
 Sdk/<version>/PlayerWeaponAmmoCapabilities.json  # SDK 0.14+
 Sdk/<version>/PlayerWeaponHeatCapabilities.json  # SDK 0.18+
+Sdk/<version>/CompositionPlanCapabilities.json   # SDK 0.19+
 Exports/<mod-name>-<version>.zip
 research.json
 ```

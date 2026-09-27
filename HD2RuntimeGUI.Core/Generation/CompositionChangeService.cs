@@ -50,6 +50,8 @@ public sealed class CompositionChangeService : ICompositionChangeService
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     private static string ExplosionEvidence(SdkMetadata sdk, ExplosionReference r) => r.IsNone ? "none" : Hash(ProjectileChangeService.Evidence(sdk, r.Projectile!) + "\n" + JsonSerializer.Serialize(new { Explosion(sdk, r).ExplosionType, Explosion(sdk, r).DamageType }));
     private static string SharedEvidence(WeaponCapability f) => Hash(JsonSerializer.Serialize(new { f.WriteScope, f.SharedWithWeapons, f.SharedWithResources, f.Backing?.ConsumerCount, f.DynamicConsumersPossible }));
+    public static string ApprovalScopeKey(SdkMetadata sdk, CompositionChange c) =>
+        SemanticBackingObject.For(sdk, c.Scalar?.Weapon ?? c.Target.Weapon, Capability(sdk, c)) + "\n" + SharedEvidence(Capability(sdk, c));
     public static bool ApprovalCurrent(SdkMetadata sdk, CompositionChange c)
     {
         try { var f = c.Kind == "terminal" ? TerminalField(sdk, c.Target, c.Phase!) : sdk.PlayerWeapons!.Field(c.Scalar!.Weapon, c.Scalar.SemanticFieldId); return c.SharedAcknowledged && c.SharedEvidence == SharedEvidence(f); }

@@ -56,6 +56,8 @@ The historical samples above retain their SDK-era semantics. For 0.17 projectile
 
 ## Grouped Concussive regression samples
 
+For SDK 0.19, run `dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/019-sample --plans`. This generates **ConcussiveComposition019** (fire rate, five DamageInfo fields, impact and expiry) and **ProjectileSwapAndTune019** (Verdict → self-contained JAR-5, then velocity/drag via phased `target_from`). See [0.19 verification and complete Lua goldens](../docs/runtime019-verification.md). The older single-target restrictions below apply only to pinned SDK 0.17/0.18 projects.
+
 For SDK 0.18 heat authoring, run `dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/018-sample --heat`. The metadata-driven `player-weapon-heat.json` preset creates **SickleHeatTuning**: capacity 100 → 140, cooling 8 → 12, spare heatsinks 3 → 5. All three direct component fields share one guarded transaction. Attachment presets remain read-only. See [0.18 validation](../docs/runtime018-verification.md).
 
 Run `dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/grouped-generation --grouping` to build the exact fire-rate/push/AP regression mod through the normal project/change/generator services. See [operation grouping and before/after Lua](../docs/generation-planning.md).

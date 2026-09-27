@@ -26,6 +26,9 @@ public sealed record PlannedSemanticChange(string Field, string Expected, string
 public sealed record PlannedSemanticOperation(SemanticBackingObject Owner, string Target, bool Ensure, bool AllowShared,
     IReadOnlyList<PlannedSemanticChange> Changes)
 {
+    public string Family { get; init; } = "";
+    public IReadOnlyList<ProjectileReference> Contexts { get; init; } = [];
+    public ProjectileReference? Replacement { get; init; }
     public string Lua(string resourceId)
     {
         var identity = resourceId + "\n" + Owner.Kind + "\n" + Owner.Identity;
@@ -55,7 +58,7 @@ public interface ISemanticOperationPlanner
 public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
 {
     private sealed record Edit(SemanticBackingObject Owner, string Weapon, string Family, string Target, string Semantic,
-        string Field, string Expected, string Desired, bool Ensure, bool Shared);
+        string Field, string Expected, string Desired, bool Ensure, bool Shared, ProjectileReference? Context = null, ProjectileReference? Replacement = null);
     public IReadOnlyList<PlannedSemanticOperation> Plan(ModProject project, SdkMetadata sdk)
     {
         var edits = new List<Edit>();
@@ -69,14 +72,14 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
             var c = group.Sources.Where(c => c.Enabled).OrderBy(c => c.SemanticFieldId != group.FieldId).ThenBy(c => c.Id).First();
             if (WeaponScalar.IsNoOp(sdk, c)) continue;
             var f = sdk.PlayerWeapons!.FindCanonicalField(c.Weapon, c.SemanticFieldId)!;
-            var target = "hd2.weapon(" + LuaGenerator.Quote(c.Weapon) + ")"; var family = "weapon"; var semantic = f.SemanticFieldId;
+            var target = "hd2.weapon(" + LuaGenerator.Quote(c.Weapon) + ")"; var family = "weapon"; var semantic = f.SemanticFieldId; ProjectileReference? context = null;
             if (CompositionChangeService.ProjectileOwned(f))
             {
                 var attack = sdk.Composition!.Projectiles.Weapons.Single(w => w.Weapon == c.Weapon).Attacks.SingleOrDefault(a => a.Role == f.Backing!.Branch || a.Role == "feed_" + f.Backing.Branch);
-                if (attack != null) { target = CompositionChangeService.ProjectileLua(new(c.Weapon, attack.Role)); family = "projectile"; semantic = Generic(semantic); }
+                if (attack != null) { context = new(c.Weapon, attack.Role); target = CompositionChangeService.ProjectileLua(context); family = "projectile"; semantic = Generic(semantic); }
             }
             edits.Add(new(SemanticBackingObject.For(sdk, c.Weapon, f), c.Weapon, family, target, semantic, Accessor(sdk, semantic),
-                Scalar(f, c.ExpectedValue), Scalar(f, c.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons));
+                Scalar(f, c.ExpectedValue), Scalar(f, c.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, context));
         }
         foreach (var c in project.CompositionChanges.Where(c => c.Enabled))
         {
@@ -88,28 +91,48 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
             var semantic = c.Kind == "terminal" ? "terminal.explosion" : Generic(f.SemanticFieldId);
             edits.Add(new(SemanticBackingObject.For(sdk, c.Scalar?.Weapon ?? c.Target.Weapon, f), c.Scalar?.Weapon ?? c.Target.Weapon, c.Kind == "terminal" ? "terminal:" + c.Phase : c.Kind,
                 target, semantic, Accessor(sdk, semantic), c.Scalar == null ? Explosion(c.ExpectedExplosion!) : Scalar(f, c.Scalar.ExpectedValue),
-                c.Scalar == null ? Explosion(c.DesiredExplosion!) : Scalar(f, c.Scalar.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons));
+                c.Scalar == null ? Explosion(c.DesiredExplosion!) : Scalar(f, c.Scalar.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, new(c.Weapon, c.AttackRole)));
         }
         var swaps = project.ProjectileChanges.Where(c => c.Enabled).ToArray();
-        foreach (var swap in swaps)
+        if (sdk.Plans != null)
         {
-            var sourceOwners = sdk.PlayerWeapons!.Weapon(swap.ReplacementProjectile.Weapon).Fields.Where(f => f.Backing != null &&
-                (CompositionChangeService.ProjectileOwned(f) || f.Domain is "terminal" or "explosion") &&
-                (f.Backing.Branch == swap.ReplacementProjectile.AttackRole || "feed_" + f.Backing.Branch == swap.ReplacementProjectile.AttackRole))
-                .Select(f => SemanticBackingObject.For(sdk, swap.ReplacementProjectile.Weapon, f)).ToHashSet();
-            // Public patch/transaction/ensure calls schedule asynchronous jobs. Calling
-            // them in Lua statement order does not establish a completion dependency.
-            if (edits.Any(e => sourceOwners.Contains(e.Owner)) || project.CompositionChanges.Any(c => c.Enabled && (c.Weapon == swap.Weapon && c.AttackRole == swap.AttackRole || c.Target == swap.ReplacementProjectile))
-                || project.WeaponChanges.Any(c => c.Enabled && c.Weapon == swap.ReplacementProjectile.Weapon && CompositionChangeService.ProjectileOwned(sdk.PlayerWeapons!.Field(c.Weapon, c.SemanticFieldId))))
-                throw new InvalidDataException("Composition dependency: This Runtime SDK has no public write-completion dependency API. A projectile replacement and dependent object edits cannot be scheduled safely in one mod; keep the replacement or the object edits enabled, not both.");
-            var f = sdk.PlayerWeapons!.Weapon(swap.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == swap.AttackRole);
-            if (edits.Any(e => e.Owner == SemanticBackingObject.For(sdk, swap.Weapon, f)))
-                throw new InvalidDataException("Composition dependency: projectile replacement and another edit share the selector's backing object. This Runtime SDK cannot combine these target kinds safely.");
+            if (project.ProjectileChanges.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)) throw new InvalidDataException("Conflicting projectile overrides for one attack.");
+            var service = new ProjectileChangeService();
+            foreach (var swap in swaps)
+            {
+                service.Validate(sdk, swap);
+                if (service.IsBaseline(sdk, swap.Weapon, swap.AttackRole, swap.ReplacementProjectile)) continue;
+                var field = sdk.PlayerWeapons!.Weapon(swap.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == swap.AttackRole);
+                var target = "hd2.weapon(" + LuaGenerator.Quote(swap.Weapon) + "):attack(" + LuaGenerator.Quote(swap.AttackRole) + ")";
+                edits.Add(new(SemanticBackingObject.For(sdk, swap.Weapon, field), swap.Weapon, "attack:" + target, target, "attack.projectile",
+                    "hd2.fields.attack.projectile", target + ":projectile()", CompositionChangeService.ProjectileLua(swap.ReplacementProjectile), swap.EnsureEnabled, false,
+                    new(swap.Weapon, swap.AttackRole), swap.ReplacementProjectile));
+            }
         }
-        if (swaps.GroupBy(s => SemanticBackingObject.For(sdk, s.Weapon, sdk.PlayerWeapons!.Weapon(s.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == s.AttackRole))).Any(g => g.Count() > 1))
-            throw new InvalidDataException("Composition conflict: multiple projectile selectors share a backing object but this Runtime SDK supports only one attack target per transaction.");
+        else
+        {
+            foreach (var swap in swaps)
+            {
+                var sourceOwners = sdk.PlayerWeapons!.Weapon(swap.ReplacementProjectile.Weapon).Fields.Where(f => f.Backing != null &&
+                    (CompositionChangeService.ProjectileOwned(f) || f.Domain is "terminal" or "explosion") &&
+                    (f.Backing.Branch == swap.ReplacementProjectile.AttackRole || "feed_" + f.Backing.Branch == swap.ReplacementProjectile.AttackRole))
+                    .Select(f => SemanticBackingObject.For(sdk, swap.ReplacementProjectile.Weapon, f)).ToHashSet();
+                // Public patch/transaction/ensure calls schedule asynchronous jobs. Calling
+                // them in Lua statement order does not establish a completion dependency.
+                if (edits.Any(e => sourceOwners.Contains(e.Owner)) || project.CompositionChanges.Any(c => c.Enabled && (c.Weapon == swap.Weapon && c.AttackRole == swap.AttackRole || c.Target == swap.ReplacementProjectile))
+                    || project.WeaponChanges.Any(c => c.Enabled && c.Weapon == swap.ReplacementProjectile.Weapon && CompositionChangeService.ProjectileOwned(sdk.PlayerWeapons!.Field(c.Weapon, c.SemanticFieldId))))
+                    throw new InvalidDataException("Composition dependency: This Runtime SDK has no public write-completion dependency API. A projectile replacement and dependent object edits cannot be scheduled safely in one mod; keep the replacement or the object edits enabled, not both.");
+                var f = sdk.PlayerWeapons!.Weapon(swap.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == swap.AttackRole);
+                if (edits.Any(e => e.Owner == SemanticBackingObject.For(sdk, swap.Weapon, f)))
+                    throw new InvalidDataException("Composition dependency: projectile replacement and another edit share the selector's backing object. This Runtime SDK cannot combine these target kinds safely.");
+            }
+            if (swaps.GroupBy(s => SemanticBackingObject.For(sdk, s.Weapon, sdk.PlayerWeapons!.Weapon(s.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == s.AttackRole))).Any(g => g.Count() > 1))
+                throw new InvalidDataException("Composition conflict: multiple projectile selectors share a backing object but this Runtime SDK supports only one attack target per transaction.");
+        }
         var result = new List<PlannedSemanticOperation>();
-        foreach (var group in edits.GroupBy(e => e.Owner).OrderBy(g => g.Key.Kind, StringComparer.Ordinal).ThenBy(g => g.Key.Identity, StringComparer.Ordinal))
+        // Terminal phases need distinct typed targets even when their native owner is
+        // the same. A 0.19 plan coordinates these operations as one complete write set.
+        foreach (var group in edits.GroupBy(e => (e.Owner, Family: sdk.Plans == null ? "" : e.Family)).OrderBy(g => g.Key.Owner.Kind, StringComparer.Ordinal).ThenBy(g => g.Key.Owner.Identity, StringComparer.Ordinal).ThenBy(g => g.Key.Family, StringComparer.Ordinal))
         {
             if (group.Select(e => e.Ensure).Distinct().Count() != 1)
                 throw new InvalidDataException("One backing object has mixed persistence settings. Use the same persistence setting for all its fields; splitting them would race Runtime guards.");
@@ -131,7 +154,8 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                     && (e.Family.StartsWith("terminal:", StringComparison.Ordinal) ? f.Domain == "terminal" && "terminal:" + f.ReferencePhase == e.Family
                         : (e.Family == "weapon" ? f.SemanticFieldId : Generic(f.SemanticFieldId)) == request.Semantic))));
             if (candidate == null) throw new InvalidDataException("No published semantic target accepts all fields on this shared backing object. Separate jobs would race; review these changes.");
-            result.Add(new(group.Key, candidate.Target, group.First().Ensure, group.Any(e => e.Shared), values));
+            result.Add(new(group.Key.Owner, candidate.Target, group.First().Ensure, group.Any(e => e.Shared), values)
+            { Family = candidate.Family, Contexts = group.Where(e => e.Context != null).Select(e => e.Context!).Distinct().OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal).ToArray(), Replacement = candidate.Replacement });
         }
         return result;
     }

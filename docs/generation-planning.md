@@ -1,4 +1,8 @@
-# Guarded operation planning for Runtime 0.17?0.18
+# Guarded operation planning
+
+SDK 0.19 adds coordinated multi-target plans. See [current generation and verification](runtime019-verification.md). Same-object grouping below remains the foundation; the old cross-target blocks apply only to projects pinned to 0.17/0.18.
+
+## Historical 0.17/0.18 behavior
 
 The Composition generator emitted one independent `hd2.ensure({patch=...})` per field. Sibling edits captured the same DamageInfo record independently; the first write invalidated the other jobs' non-target snapshots. Calling asynchronous `ensure` jobs in Lua statement order did not establish an execution dependency. Runtime correctly rejected those jobs.
 

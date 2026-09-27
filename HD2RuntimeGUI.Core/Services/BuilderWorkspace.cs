@@ -116,6 +116,19 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
         var previous = Project!.CompositionChanges.ToList(); Project.CompositionChanges.RemoveAll(c => c.Id == id);
         try { await SaveChangesAsync(); } catch { Project.CompositionChanges = previous; throw; }
     }
+    public async Task SetCompositionApprovalAsync(Guid id, bool approved)
+    {
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            var project = Project!; var selected = project.CompositionChanges.Single(c => c.Id == id);
+            var previous = project.CompositionChanges;
+            project.CompositionChanges = previous.Select(c => CompositionChangeService.SameApprovalScope(Metadata!, c, selected)
+                ? CompositionChangeService.WithApproval(Metadata!, c, approved) : c).ToList();
+            try { await SaveChangesAsync(); } catch { project.CompositionChanges = previous; throw; }
+        }
+        finally { weaponEditGate.Release(); }
+    }
     public async Task ToggleCompositionAsync(Guid id)
     {
         var c = Project!.CompositionChanges.Single(c => c.Id == id); c.Enabled = !c.Enabled;

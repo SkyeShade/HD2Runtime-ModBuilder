@@ -1,5 +1,6 @@
 @inject BuilderWorkspace Workspace
 <section class="semantic-section" data-section="Composition"><h2>Composition</h2>
+<CompositionApprovals Weapon="@Weapon" Changes="Workspace.Project!.CompositionChanges" Changed="Refresh" />
 @foreach (var attack in Workspace.Metadata!.Composition!.Projectiles.Weapons.Single(w => w.Weapon == Weapon).Attacks)
 {
     var target = Workspace.EffectiveProjectile(Weapon, attack.Role);
