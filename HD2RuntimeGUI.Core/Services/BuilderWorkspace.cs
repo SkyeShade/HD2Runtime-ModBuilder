@@ -86,6 +86,10 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
             var next = create(); var previous = project.CompositionChanges.ToList();
             var old = previous.SingleOrDefault(c => c.Weapon == next.Weapon && c.AttackRole == next.AttackRole && c.Kind == next.Kind && c.Phase == next.Phase && c.Scalar?.SemanticFieldId == next.Scalar?.SemanticFieldId);
+            var revokeApproval = old != null && CompositionChangeService.ApprovalCurrent(Metadata!, old) && !next.SharedAcknowledged;
+            var field = CompositionChangeService.Capability(Metadata!, next);
+            if (!revokeApproval && field.AffectsMultipleWeapons && CompositionChangeService.HasObjectApproval(project, Metadata!, next.Scalar?.Weapon ?? next.Target.Weapon, field))
+                next = CompositionChangeService.WithApproval(Metadata!, next, true);
             if (old != null)
             {
                 next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
@@ -98,6 +102,8 @@ public sealed class BuilderWorkspace(IProjectStore store, IProjectService projec
                     if (next.DesiredExplosion == old.DesiredExplosion) next.DesiredReferenceEvidence = old.DesiredReferenceEvidence;
                 }
             }
+            project.CompositionChanges = project.CompositionChanges.Select(c => (revokeApproval || next.SharedAcknowledged) && CompositionChangeService.SameApprovalScope(Metadata!, c, next)
+                ? CompositionChangeService.WithApproval(Metadata!, c, !revokeApproval) : c).ToList();
             project.CompositionChanges.RemoveAll(c => c.Id == old?.Id);
             if (!compositionChanges.IsNoOp(Metadata!, next)) project.CompositionChanges.Add(next);
             project.FormatVersion = 4;

@@ -55,6 +55,35 @@ public sealed class CompositionChangeService : ICompositionChangeService
         try { var f = c.Kind == "terminal" ? TerminalField(sdk, c.Target, c.Phase!) : sdk.PlayerWeapons!.Field(c.Scalar!.Weapon, c.Scalar.SemanticFieldId); return c.SharedAcknowledged && c.SharedEvidence == SharedEvidence(f); }
         catch (InvalidDataException) { return false; }
     }
+    internal static WeaponCapability Capability(SdkMetadata sdk, CompositionChange c) => c.Scalar == null ? TerminalField(sdk, c.Target, c.Phase!) : sdk.PlayerWeapons!.Field(c.Scalar.Weapon, c.Scalar.SemanticFieldId);
+    internal static bool SameApprovalScope(SdkMetadata sdk, CompositionChange a, CompositionChange b)
+    {
+        try
+        {
+            var af = Capability(sdk, a); var bf = Capability(sdk, b);
+            return SemanticBackingObject.For(sdk, a.Scalar?.Weapon ?? a.Target.Weapon, af) == SemanticBackingObject.For(sdk, b.Scalar?.Weapon ?? b.Target.Weapon, bf)
+                && SharedEvidence(af) == SharedEvidence(bf);
+        }
+        catch (InvalidDataException) { return false; } // Missing rebind evidence remains pending review.
+    }
+    public static bool HasObjectApproval(ModProject project, SdkMetadata sdk, string weapon, WeaponCapability field) => project.CompositionChanges.Any(c =>
+    {
+        try { var f = Capability(sdk, c); return c.Enabled && ApprovalCurrent(sdk, c) && c.TargetEvidence == ProjectileChangeService.Evidence(sdk, c.Target)
+            && SemanticBackingObject.For(sdk, weapon, field) == SemanticBackingObject.For(sdk, c.Scalar?.Weapon ?? c.Target.Weapon, f) && SharedEvidence(field) == SharedEvidence(f); }
+        catch (InvalidDataException) { return false; }
+    });
+    internal static CompositionChange WithApproval(SdkMetadata sdk, CompositionChange c, bool approved)
+    {
+        var copy = JsonSerializer.Deserialize<CompositionChange>(JsonSerializer.Serialize(c))!;
+        var f = Capability(sdk, c); copy.SharedAcknowledged = approved; copy.SharedEvidence = approved ? SharedEvidence(f) : "";
+        if (copy.Scalar is { } scalar)
+        {
+            scalar.SharedAcknowledged = approved; scalar.AcknowledgedWriteScope = approved ? f.WriteScope : null;
+            scalar.AcknowledgedConsumerCount = approved ? f.Backing?.ConsumerCount : null;
+            scalar.AcknowledgedAffectedWeapons = approved ? f.SharedWithWeapons.Order(StringComparer.Ordinal).ToList() : [];
+        }
+        return copy;
+    }
     public static WeaponCapability TerminalField(SdkMetadata sdk, ProjectileReference target, string phase) => sdk.PlayerWeapons!.Weapon(target.Weapon).Fields.SingleOrDefault(f => f.Domain == "terminal" && f.ReferenceRole == target.AttackRole && f.ReferencePhase == phase) ?? throw new InvalidDataException("Terminal authoring capability missing.");
     private static void RequireModern(SdkMetadata sdk) { if (sdk.Advanced == null) throw new InvalidDataException("This operation requires the published 0.17 capability contracts."); }
     public CompositionChange CreateScalar(ModProject project, SdkMetadata sdk, string weapon, string role, string kind, string? phase, string field, string value, bool acknowledge)
@@ -103,9 +132,10 @@ public sealed class CompositionChangeService : ICompositionChangeService
             f = Fields(project, sdk, c.Weapon, c.AttackRole, c.Kind, c.Phase).SingleOrDefault(f => f.SemanticFieldId == c.Scalar!.SemanticFieldId) ?? throw new InvalidDataException("Object field is no longer available.");
             var source = c.Kind == "explosion" ? EffectiveExplosion(project, sdk, c.Weapon, c.AttackRole, c.Phase!) : null;
             if (c.Scalar!.Weapon != (source?.Projectile ?? c.Target).Weapon || c.ExplosionTarget != source || source != null && c.ReferenceEvidence != ExplosionEvidence(sdk, source)) throw new InvalidDataException("Explosion/object target changed. Reset and edit the newly selected object.");
-            scalars.Validate(sdk, c.Scalar);
+            var approved = HasObjectApproval(project, sdk, c.Scalar.Weapon, f);
+            scalars.Validate(sdk, approved ? WithApproval(sdk, c, true).Scalar! : c.Scalar);
         }
-        if (f.AffectsMultipleWeapons && (!c.SharedAcknowledged || c.SharedEvidence != SharedEvidence(f))) throw new InvalidDataException("Shared object write requires acknowledgement of its current consumers.");
+        if (f.AffectsMultipleWeapons && !HasObjectApproval(project, sdk, c.Scalar?.Weapon ?? c.Target.Weapon, f)) throw new InvalidDataException("Shared object write requires acknowledgement of its current consumers.");
     }
     public void ValidateComposition(ModProject project, SdkMetadata sdk)
     {

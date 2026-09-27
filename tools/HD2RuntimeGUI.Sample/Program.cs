@@ -24,6 +24,7 @@ var catalog = WeaponChangeService.Catalog(sdk);
 Console.WriteLine($"Catalog: {catalog.Weapons.Count} weapons; {catalog.Summary.FieldInstances} capability entries.");
 var store = new JsonProjectStore(paths); var service = new ProjectService(store, paths);
 var changes = new WeaponChangeService(); var generator = new LuaGenerator(new ChangeService(), changes);
+if (args.Contains("--grouping")) return await GroupingSamples.Run(paths, sdk, cache, github, store, service, generator);
 var presets = JsonSerializer.Deserialize<List<Sample>>(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, args.Contains("--ammo") ? "player-weapon-ammo.json" : "player-weapons.json")), JsonStorage.Options)!;
 foreach (var sample in presets)
 {

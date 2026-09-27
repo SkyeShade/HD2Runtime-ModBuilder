@@ -103,11 +103,11 @@ public sealed class Runtime017Tests
         await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", false);
         Assert.NotNull(w.BuildError); Assert.Contains("Shared", w.BuildError, StringComparison.OrdinalIgnoreCase);
         await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", true);
-        Assert.Null(w.BuildError); Assert.Contains("target=hd2.weapon('JAR-5 Dominator'):attack('primary'):projectile()", w.LuaPreview);
-        Assert.Contains("allow_shared=true", w.LuaPreview); Assert.Contains("expect=180", w.LuaPreview);
-        Assert.True(w.LuaPreview.IndexOf("field=hd2.fields.attack.projectile", StringComparison.Ordinal) < w.LuaPreview.IndexOf("field=hd2.fields.projectile.velocity", StringComparison.Ordinal));
-        Assert.DoesNotContain("hd2.transaction", w.LuaPreview);
-        await w.OpenAsync(w.Project!.Id); Assert.Single(w.Project.CompositionChanges); Assert.Null(w.BuildError);
+        Assert.Contains("Composition dependency", w.BuildError);
+        Assert.Equal(new(Jar, "primary"), Assert.Single(w.Project!.CompositionChanges).Target);
+        Assert.Equal(180, w.Project.CompositionChanges[0].Scalar!.ExpectedValue.GetDouble());
+        await Assert.ThrowsAsync<InvalidDataException>(w.ExportAsync);
+        await w.OpenAsync(w.Project.Id); Assert.Single(w.Project.CompositionChanges); Assert.Contains("Composition dependency", w.BuildError);
     }
     [Fact] public async Task Changing_replacement_blocks_stale_object_edits_before_export()
     {
@@ -199,7 +199,6 @@ public sealed class Runtime017Tests
         await w.SetWeaponChangeAsync(Concussive, "weapon.default_fire_mode", "2", false);
         await w.SetTerminalAsync(Jar, "primary", "impact", w.ExplosionSources.First(s => s.Projectile?.Weapon == "CB-9 Exploding Crossbow"), false);
         await w.SetObjectScalarAsync(Eruptor, "primary", "explosion", "impact", "explosion.primary.impact.outer_radius", "10", false);
-        await w.SetProjectileAsync(Verdict, "primary", new(Jar, "primary"));
         await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", true);
         var lua = w.LuaPreview; Assert.Null(w.BuildError); await w.OpenAsync(w.Project!.Id); Assert.Equal(lua, w.LuaPreview);
         await w.ExportAsync(); var bytes = await File.ReadAllBytesAsync(w.LastExport!); await w.ExportAsync(); Assert.Equal(bytes, await File.ReadAllBytesAsync(w.LastExport!));

@@ -46,13 +46,10 @@ public sealed class ProjectileScalarRegressionTests
         await w.SetObjectScalarAsync(Weapon, "primary", "projectile", null, id, desired, false);
         Assert.NotNull(w.BuildError); await Assert.ThrowsAsync<InvalidDataException>(w.ExportAsync);
         await w.SetObjectScalarAsync(Weapon, "primary", "projectile", null, id, desired, true);
-        Assert.Null(w.BuildError); var saved = Assert.Single(w.Project!.CompositionChanges);
+        Assert.Contains("Composition dependency", w.BuildError); var saved = Assert.Single(w.Project!.CompositionChanges);
         Assert.Equal(Source, saved.Scalar!.Weapon); Assert.Equal(new(Source, "primary"), saved.Target);
         Assert.True(WeaponScalar.Equal(field, field.CurrentDefault, saved.Scalar.ExpectedValue));
-        Assert.Contains("target=hd2.weapon('JAR-5 Dominator'):attack('primary'):projectile()", w.LuaPreview);
-        Assert.DoesNotContain("target=hd2.weapon('P-113 Verdict'):attack('primary'):projectile()", w.LuaPreview);
-        Assert.True(w.LuaPreview.IndexOf("field=hd2.fields.attack.projectile", StringComparison.Ordinal) < w.LuaPreview.IndexOf("id='gui-object-", StringComparison.Ordinal));
-        Assert.DoesNotContain("hd2.transaction", w.LuaPreview);
+        await Assert.ThrowsAsync<InvalidDataException>(w.ExportAsync);
         await w.SetObjectScalarAsync(Weapon, "primary", "projectile", null, id, field.Format(field.CurrentDefault), true);
         Assert.Empty(w.Project.CompositionChanges); await w.OpenAsync(w.Project.Id);
         Assert.Empty(w.Project.CompositionChanges); Assert.Single(w.Project.ProjectileChanges);

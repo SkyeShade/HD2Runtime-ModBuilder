@@ -18,7 +18,7 @@ Create a mod with a display name, author, resource ID such as `mods/skyeshade/my
 
 Player Weapons provides name/category search and slot, category, implementation-family, editable and shared filters. Only applicable capability cards appear. Numeric controls have no invented gameplay bounds. Defaults, units, provenance, modified state and shared/derived/read-only badges are visible; backing offsets remain under Advanced.
 
-Seven ambiguous resource identities remain visible but have no write controls. Shared writes require a per-change acknowledgement, including unnamed additional consumers. Pending approval can be saved, but blocks Lua generation and export. Reset field, reset weapon, reset all weapon changes, enable/disable, groups and notes are supported.
+Seven ambiguous resource identities remain visible but have no write controls. Shared writes require acknowledgement, including unnamed additional consumers. Composition reuses one approval for fields on the exact same backing object and consumer scope. Pending approval can be saved, but blocks Lua generation and export. Reset field, reset weapon, reset all weapon changes, enable/disable, groups and notes are supported.
 
 Try these ordinary editor operations:
 
@@ -52,7 +52,7 @@ Modified values autosave and show baseline → desired in editor cards, Overview
 
 Projectile reference overrides and object/terminal/explosion overrides store semantic weapon/attack/phase handles, saved baselines, SDK version, enabled/persistence/group/notes and acknowledgement/evidence digests. No native IDs or offsets are saved as runtime targets. Rebinding preserves values and blocks changed identities, residency, compatibility, allowed modes, shared scope or baselines until reviewed. Older projectile scalar overrides can explicitly **Move to Composition** while retaining their desired and expected values; newly shared writes require fresh acknowledgement.
 
-Generated projectile swaps run before object edits in separate, explicitly sequenced guarded operations. Object edits target the selected source projectile handle. Stale targets, source-handle cycles, conflicting shared writes and altered explosion source chains block export with a composition error. Each operation is guarded by Runtime; the GUI does not implement memory access or Runtime safety.
+Object edits bind to the selected projectile handle. Runtime 0.17 write jobs are asynchronous and have no public completion/dependency hook, so a replacement combined with dependent object edits now blocks export. Same-object scalar fields form one guarded transaction. Impact/expiry edits cannot share the released single-phase terminal target and are blocked together rather than emitted as racing jobs. Stale targets, source-handle cycles, conflicting shared writes and altered explosion source chains also block export. See [generation planning and contract limits](docs/generation-planning.md). The GUI does not implement memory access or Runtime safety.
 
 See [0.17 sample projects](samples/README.md#runtime-017-samples) and [verification](docs/verification.md).
 
@@ -103,7 +103,7 @@ Rebinding keeps desired values and saved baselines. Missing fields, changed type
 
 ## Lua and ZIP output
 
-Single semantic changes use `hd2.patch`; multiple related writes use `hd2.transaction`; persistence wraps either in `hd2.ensure` with Runtime's standard 60-second behavior. A transaction group is limited to Runtime's 32 fields and is never silently split. Shared and ordinary writes form separate operations. Shared operations are emitted only after every included shared change validates its acknowledgement. Conflicting shared overrides and duplicate weapon/field edits are rejected.
+Single semantic changes use `hd2.patch`; multiple writes to the same SDK backing object use one `hd2.transaction`; persistence wraps each object operation in one `hd2.ensure` with Runtime's standard 60-second behavior. Modern generation groups by published owner identity, not user labels or field offsets. A transaction is limited to 32 fields and is never silently split. Mixed persistence or incompatible target kinds on one object block export. Shared operations require current acknowledgement of every included consumer scope. Conflicting shared overrides and duplicate weapon/field edits are rejected.
 
 Targets are `hd2.weapon(name)` and fields are published `hd2.fields` constants. The generator handles the API's `player_` aliases for collisions with legacy constants. IDs are deterministic per mod/weapon/group. Float32 baselines use their shortest round-trip scalar spelling, so catalog `1.2000000476837158` generates `expect=1.2`. The original project baseline is retained.
 

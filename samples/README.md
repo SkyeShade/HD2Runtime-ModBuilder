@@ -48,8 +48,18 @@ These four projects were created and built through the desktop GUI using the sam
 | ExplosionTuningSample | Eruptor: outer radius 7 → 10; standard damage 225 → 500 | `ExplosionTuningSample-0.1.0.zip` |
 | ProjectileCompositionSample | Verdict: replace projectile with self-contained JAR-5; selected object velocity 180 → 350 with shared acknowledgement | `ProjectileCompositionSample-0.1.0.zip` |
 
-The composition sample changes the shared JAR-5 projectile definition, so it can also affect its other consumers. The GUI displays this and requires approval. The reference swap and object edit are separate ordered guarded operations.
+The historical composition sample above combined a reference swap and a shared JAR-5 object edit. **That combination is now blocked:** Runtime 0.17 cannot express a completion dependency between those asynchronous operations. Statement order did not guarantee execution order. Keep only one operation enabled; do not use the old combined ZIP as a sequencing example.
 
 Developer verification uses `tools/runtime017-smoke.mjs` with a Debug app launched against an isolated `HD2RUNTIMEGUI_DATA_ROOT` and a WebView2 CDP port. `--relaunch --catalog` reloads/rebuilds the four projects and checks every player/support view. Node is only a development verification tool, never an application dependency. Screenshots, generated projects, ZIPs and publish output remain ignored by Git.
 
 The historical samples above retain their SDK-era semantics. For 0.17 projectile scalar edits, use Composition and explicitly approve the published shared-object scope.
+
+## Grouped Concussive regression samples
+
+Run `dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/grouped-generation --grouping` to build the exact fire-rate/push/AP regression mod through the normal project/change/generator services. See [operation grouping and before/after Lua](../docs/generation-planning.md).
+
+- `ConcussiveGrouped-0.1.0.zip`: fire rate 400 → 1100; push 60 → 30; all four AP lanes 2 → 3. Six ensures become two (component patch + DamageInfo transaction).
+- `ConcussiveGroupedImpact-0.1.0.zip`: adds impact None → Eruptor explosion; three ensures.
+- `ConcussiveGroupedExpiry-0.1.0.zip`: adds expiry None → Eruptor explosion; three ensures.
+
+ZIPs are in `artifacts/grouped-generation/Exports/`. The terminal variants are alternatives to test individually, not together. The combined impact+expiry project is saved but blocked because the released transaction API accepts only one terminal phase. No deployment or game launch is performed.

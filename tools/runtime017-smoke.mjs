@@ -68,17 +68,13 @@ const projectileScalarRegression = async () => {
     await fill('[data-projectile=primary] select',source+'|primary'); await assertFields(source);
     for(const id of ['projectile.velocity','projectile.drag','damage.standard_damage','damage.ap_direct']) {
         await fill(card(id)+' input[type=number]',String(scalar(source,id).currentDefault+1));
-        await waitFor("document.body.innerText.includes('Build requires review')",id+' pending approval');
-        await evaluate(`document.querySelector(${JSON.stringify(card(id)+' input[type=checkbox]')}).click()`);
-        await waitFor("!document.body.innerText.includes('Build requires review')",id+' approved');
+        await evaluate(`(()=>{const input=document.querySelector(${JSON.stringify(card(id)+' input[type=checkbox]')});if(!input.checked)input.click();})()`);
+        await waitFor("document.body.innerText.includes('Composition dependency')",id+' dependent operation blocked');
     }
     await nav('Changes'); await expand(weapon);
     assert.equal(await evaluate("document.querySelectorAll('[data-composition-changes] [data-composition-change]').length"),4);
     assert((await evaluate("document.querySelector('[data-composition-changes]').innerText")).includes('Damage'));
-    await nav('Lua Preview'); const lua=await evaluate('document.querySelector("pre").innerText');
-    assert(lua.includes("target=hd2.weapon('JAR-5 Dominator'):attack('primary'):projectile()"));
-    assert(!lua.includes("target=hd2.weapon('P-113 Verdict'):attack('primary'):projectile()"));
-    assert(lua.indexOf('field=hd2.fields.attack.projectile')<lua.indexOf("id='gui-object-"));
+    await nav('Lua Preview'); assert((await evaluate('document.querySelector("pre").innerText')).includes('Build blocked'));
     await nav('Player Weapons'); await choose(weapon);
     for(const id of ['projectile.velocity','projectile.drag','damage.standard_damage','damage.ap_direct'])
         await fill(card(id)+' input[type=number]',String(scalar(source,id).currentDefault));
@@ -90,11 +86,38 @@ const projectileScalarRegression = async () => {
     await nav('Player Weapons'); await choose(weapon);
     await evaluate("document.querySelector('[data-projectile-object]').scrollIntoView({block:'start'})");
     await screenshot('runtime017-projectile-scalars-visible');
-    console.log('PASS: visible baseline/replacement physics, damage and AP; shared gating; Composition summary; ordered semantic Lua; reset/reload');
+    console.log('PASS: visible baseline/replacement physics, damage and AP; shared gating; Composition summary; dependency blocking; reset/reload');
+};
+const groupingRegression = async () => {
+    const weapon='AR-23C Liberator Concussive'; await create('ConcussiveGrouping'); await choose(weapon);
+    await fill('[data-field="weapon.fire_rate"] input[type=number]','1100');
+    await fill('[data-object-field="damage.push_force"] input[type=number]','30');
+    await waitFor("document.body.innerText.includes('Build requires review')",'DamageInfo approval');
+    await evaluate("document.querySelector('[data-object-field=\"damage.push_force\"] input[type=checkbox]').click()");
+    for(const lane of ['direct','slight','large','extreme']) {
+        await fill(`[data-object-field="damage.ap_${lane}"] input[type=number]`,'3');
+        assert(await evaluate(`document.querySelector('[data-object-field="damage.ap_${lane}"] input[type=checkbox]').checked`),'one object approval covers sibling '+lane);
+    }
+    await waitFor("!document.body.innerText.includes('Build requires review')",'grouped approval');
+    await nav('Lua Preview'); let lua=await evaluate('document.querySelector("pre").innerText');
+    assert.equal(lua.split('hd2.ensure(').length-1,2); assert.equal(lua.split('transaction={').length-1,1); assert(lua.includes('changes={')); await build();
+    await nav('Player Weapons'); await choose(weapon);
+    const source=await evaluate("[...document.querySelector('[data-terminal=impact] select').options].find(o=>o.text.includes('R-36 Eruptor')).value");
+    await fill('[data-terminal=impact] select',source);
+    await evaluate("document.querySelector('[data-terminal=impact] input[type=checkbox]').click()");
+    await waitFor("!document.body.innerText.includes('Build requires review')",'terminal object approval');
+    await fill('[data-terminal=expiry] select',source);
+    await waitFor("document.body.innerText.includes('Runtime 0.17 transactions have one target')",'unsupported cross-phase transaction blocked');
+    assert(await evaluate("document.querySelector('[data-terminal=expiry] input[type=checkbox]').checked"));
+    await evaluate("document.querySelector('[data-terminal=expiry] .reset-action').click()");
+    await waitFor("!document.body.innerText.includes('Build requires review')",'single terminal permitted');
+    await nav('Lua Preview'); lua=await evaluate('document.querySelector("pre").innerText'); assert.equal(lua.split('hd2.ensure(').length-1,3);
+    console.log('PASS: exact Concussive grouping; one DamageInfo approval; independent terminal scope; impact+expiry fails closed');
 };
 try {
     await waitFor("!!document.querySelector('.desktop-shell') && !document.querySelector('.activity')",'startup');
-    if (process.argv.includes('--projectile-scalars')) { await projectileScalarRegression(); }
+    if (process.argv.includes('--grouping')) { await groupingRegression(); }
+    else if (process.argv.includes('--projectile-scalars')) { await projectileScalarRegression(); }
     else {
     if (!process.argv.includes('--relaunch')) {
         await create('FireModeSample'); await choose('AR-23C Liberator Concussive');
@@ -121,14 +144,15 @@ try {
         await fill('[data-object-field="projectile.velocity"] input[type=number]','350');
         assert((await evaluate('document.body.innerText')).includes('Build requires review'));
         await evaluate("document.querySelector('[data-object-field=\"projectile.velocity\"] input[type=checkbox]').click()");
-        await waitFor("!document.body.innerText.includes('Build requires review')",'shared acknowledgement');
+        await waitFor("document.body.innerText.includes('Composition dependency')",'dependency cannot be scheduled');
         await screenshot('runtime017-projectile-object');
-        await nav('Lua Preview'); const lua=await evaluate('document.querySelector("pre").innerText');
-        assert(lua.includes("target=hd2.weapon('JAR-5 Dominator'):attack('primary'):projectile()"));
-        assert(lua.indexOf('field=hd2.fields.attack.projectile')<lua.indexOf('field=hd2.fields.projectile.velocity')); await build();
+        await evaluate("document.querySelector('[data-object-field=\"projectile.velocity\"] .reset-action').click()");
+        await waitFor("!document.body.innerText.includes('Build requires review')",'replacement-only mod'); await build();
     } else {
         for(const name of ['FireModeSample','TerminalExplosionSample','ExplosionTuningSample','ProjectileCompositionSample']) {
-            await openProject(name); assert(!(await evaluate('document.body.innerText')).includes('Build requires review')); await nav('Lua Preview');
+            await openProject(name);
+            if(name==='ProjectileCompositionSample' && (await evaluate('document.body.innerText')).includes('Composition dependency')) { console.log('PASS: earlier unsafe composition sample remains saved and is blocked pending review'); continue; }
+            assert(!(await evaluate('document.body.innerText')).includes('Build requires review')); await nav('Lua Preview');
             assert(!(await evaluate('document.querySelector("pre").innerText')).includes('No enabled modifications'));
             await build();
         }

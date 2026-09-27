@@ -12,7 +12,7 @@
         {
             <div class="shared-warning"><strong>This edits a shared definition.</strong><p>Known affected weapons: @string.Join(", ", Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct())</p>
             @if (Field.DynamicConsumersPossible == true) { <p>Other and future consumers may also use this projectile object. No weapon-local clone is proven.</p> }
-            <label class="switch-label"><input type="checkbox" @bind="Acknowledged" @bind:after="Commit" disabled="@Busy" />I acknowledge these shared effects.</label></div>
+            <label class="switch-label"><input type="checkbox" @bind="Acknowledged" @bind:after="Commit" disabled="@Busy" />I acknowledge this shared object and scope.</label><small>Applies to edits with the same backing object and affected consumers.</small></div>
         }
     }
     else { <p class="subtle">@Field.Reason</p> }
@@ -30,8 +30,8 @@
     [Parameter] public EventCallback Changed { get; set; }
     private CompositionChange? Saved => Workspace.Project!.CompositionChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Role && c.Kind == Kind && c.Phase == Phase && c.Scalar?.SemanticFieldId == Field.SemanticFieldId);
     private string Value = "", Loaded = ""; private CompositionChange? Previous; private bool Acknowledged, Busy; private string? Error;
-    protected override void OnParametersSet() { var key = Weapon + Role + Kind + Phase + Field.SemanticFieldId; if (Loaded == key && Previous == Saved) return; Loaded = key; Previous = Saved; Value = Field.Format(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault); Acknowledged = Saved != null && HD2RuntimeGUI.Core.Generation.CompositionChangeService.ApprovalCurrent(Workspace.Metadata!, Saved); }
+    protected override void OnParametersSet() { if (!Busy) Acknowledged = HD2RuntimeGUI.Core.Generation.CompositionChangeService.HasObjectApproval(Workspace.Project!, Workspace.Metadata!, Workspace.EffectiveProjectile(Weapon, Role).Weapon, Field); var key = Weapon + Role + Kind + Phase + Field.SemanticFieldId; if (Loaded == key && Previous == Saved) return; Loaded = key; Previous = Saved; Value = Field.Format(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault); }
     private Task Commit() => Run(() => Workspace.SetObjectScalarAsync(Weapon, Role, Kind, Phase, Field.SemanticFieldId, Value, Acknowledged));
     private Task Reset() => Run(() => Workspace.RemoveCompositionAsync(Saved!.Id));
-    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; } }
+    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; Acknowledged = HD2RuntimeGUI.Core.Generation.CompositionChangeService.HasObjectApproval(Workspace.Project!, Workspace.Metadata!, Workspace.EffectiveProjectile(Weapon, Role).Weapon, Field); } }
 }

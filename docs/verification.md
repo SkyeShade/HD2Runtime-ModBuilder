@@ -1,5 +1,9 @@
 # Runtime 0.17 verification
 
+## Guarded transaction planning correction
+
+See [generation planning, released-API limits and exact Concussive samples](generation-planning.md). The latest pass has **241 passing tests** and a clean Windows build. It groups same-object fields into one guarded transaction and shares acknowledgement within an exact object/scope. Earlier claims below about ordered Lua statements sequencing asynchronous swap/object ensures are superseded: those dependency combinations now block export, as do impact+expiry edits that cannot share the released single-phase target.
+
 ## Projectile scalar visibility regression fix
 
 The 0.17 presentation moved projectile/damage cards out of the weapon-level editor into a closed `Projectile Settings` disclosure. The capability ingestion and selected-object binding remained intact, but writable physics, damage and AP controls were hidden by default, and damage had no separate heading.

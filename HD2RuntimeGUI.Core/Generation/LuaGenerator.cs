@@ -15,8 +15,11 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
     private readonly IProjectileChangeService projectileChanges = new ProjectileChangeService();
     public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges) : this(changes, weaponChanges) => this.projectileChanges = projectileChanges;
     private readonly ICompositionChangeService compositionChanges = new CompositionChangeService();
+    private readonly ISemanticOperationPlanner planner = new SemanticOperationPlanner();
     public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges, ICompositionChangeService compositionChanges)
         : this(changes, weaponChanges, projectileChanges) => this.compositionChanges = compositionChanges;
+    public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges, ICompositionChangeService compositionChanges, ISemanticOperationPlanner planner)
+        : this(changes, weaponChanges, projectileChanges, compositionChanges) => this.planner = planner;
     public string Generate(ModProject project, SdkMetadata sdk)
     {
         ProjectIdentity.Validate(project);
@@ -24,6 +27,9 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
         if (project.SdkVersion != sdk.Version || project.RuntimeApi != sdk.ApiVersion) throw new InvalidDataException("Project SDK mismatch.");
         var active = project.Changes.Where(c => c.Enabled).OrderBy(c => c.Target, StringComparer.Ordinal).ThenBy(c => c.Group, StringComparer.Ordinal).ThenBy(c => c.Field, StringComparer.Ordinal).ToArray();
         foreach (var change in active) changes.Validate(sdk, change);
+        if (sdk.Advanced != null && active.Any(c => sdk.Resources[c.Target].Kind == "weapon") &&
+            (project.WeaponChanges.Any(c => c.Enabled) || project.CompositionChanges.Any(c => c.Enabled) || project.ProjectileChanges.Any(c => c.Enabled)))
+            throw new InvalidDataException("Migrate legacy weapon modifications before combining them with semantic edits; their shared backing scope cannot be safely planned together.");
         if (active.Any(c => sdk.Resources[c.Target].Kind == "weapon" && project.WeaponChanges.Any(w => w.Enabled && w.Weapon == sdk.Resources[c.Target].Label))) throw new InvalidDataException("Remove legacy weapon modifications before using semantic overrides for the same weapon.");
         if (active.GroupBy(c => (c.Target, c.Field)).Any(g => g.Count() > 1)) throw new InvalidDataException("A target field may only be modified once.");
         var operations = new List<string>();
@@ -51,8 +57,13 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             operations.Add(group.Key.EnsureEnabled ? $"hd2.ensure({{\n    {operation}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{operation}({body})");
         }
         operations.AddRange(ProjectileChangeService.Operations(project, sdk, projectileChanges));
-        operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
-        operations.AddRange(CompositionChangeService.Operations(project, sdk, compositionChanges));
+        if (sdk.Advanced != null)
+            operations.AddRange(planner.Plan(project, sdk).Select(o => o.Lua(project.ResourceId)));
+        else
+        {
+            operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));
+            operations.AddRange(CompositionChangeService.Operations(project, sdk, compositionChanges));
+        }
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
         if (project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1)
