@@ -1,6 +1,6 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.2.1 supports the **0.21 guarded stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.3.0 supports the **0.21 guarded stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
