@@ -236,7 +236,9 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         var previousReferences = Project.ProjectileChanges.ToList();
         WeaponAliasResolver.RemoveNoOps(Metadata!, Project.WeaponChanges);
         RemoveProjectileNoOps(Metadata!, Project);
-        try { await store.SaveAsync(Project); } catch { Project.WeaponChanges = previous; Project.ProjectileChanges = previousReferences; throw; }
+        // Format 8 marks 0.26.0 edits; a project without them keeps its format, so older ModBuilders still open it.
+        var format = Project.FormatVersion; Project.FormatVersion = Math.Max(Project.FormatVersion, Projects.ProjectIdentity.RequiredFormat(Project));
+        try { await store.SaveAsync(Project); } catch { Project.WeaponChanges = previous; Project.ProjectileChanges = previousReferences; Project.FormatVersion = format; throw; }
         RefreshPreview(); LastExport = null; Library = await store.ListAsync();
     }
     private int RemoveProjectileNoOps(SdkMetadata sdk, ModProject project) => project.ProjectileChanges.RemoveAll(c =>

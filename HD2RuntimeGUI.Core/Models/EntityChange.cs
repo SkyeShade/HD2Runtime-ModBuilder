@@ -11,6 +11,12 @@ public sealed record EntityChange
     public string Path { get; init; } = "";          // entity, damage_zone, mount or backpack
     public string? Zone { get; init; }
     public string? Mount { get; init; }
+    // 0.26.0 vehicle weapons (Resource "vehicle_weapon", Entity = the published weapon key "<vehicle> / <mount label>"): the attack role.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Attack { get; init; }
+    // 0.26.0 drop-pod racks (Resource "pod_rack", Entity = the published rack name): the rack slot (1-4) of a payload edit.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? Slot { get; init; }
     public string InstanceKey { get; init; } = "";
     public string SemanticFieldId { get; init; } = "";
     public string FieldType { get; init; } = "";

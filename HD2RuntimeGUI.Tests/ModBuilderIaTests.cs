@@ -21,7 +21,7 @@ public sealed class ModBuilderIaTests
     [Fact] public async Task Support_holds_weapons_vehicles_backpacks_and_standalone_items_once()
     {
         using var e = new TestEnvironment(); var sdk = await Current(e); var c = sdk.Stratagems!; var entities = sdk.Entities!;
-        Assert.Equal("0.25.1", sdk.Version);
+        Assert.Equal("0.26.0", sdk.Version);
         var support = c.Stratagems.Where(s => StratagemCategories.Support.Families.Contains(s.Family) && StratagemCategories.Listed(s, entities)).ToArray();
         Assert.Equal(55, support.Length);
         Assert.Equal(33, support.Count(s => s.Family == "support")); Assert.Equal(9, support.Count(s => s.Family == "vehicle")); Assert.Equal(13, support.Count(s => s.Family == "backpack"));

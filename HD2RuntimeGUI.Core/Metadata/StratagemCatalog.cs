@@ -5,7 +5,9 @@ using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
-public sealed record StratagemAvailability(JsonElement Value, bool Writable, string? Reason, string? Field, string? Unit);
+// 0.26.0 maxUses adds mode (finite/unlimited), range, transitions, gameplay-proven values, acknowledgement and caveat.
+public sealed record StratagemAvailability(JsonElement Value, bool Writable, string? Reason, string? Field, string? Unit,
+    string? Mode = null, double[]? Range = null, string[]? Transitions = null, JsonElement[]? GameplayProvenValues = null, string? Acknowledgement = null, string? Caveat = null);
 public sealed record StratagemBlockedField(string Field, string Reason);
 // Published semantic identity of a deployed entity. No native component records are exposed.
 // Populated native damage zones of a deployed entity (0.23.0+). Distinct zones are never merged.
@@ -57,7 +59,11 @@ public sealed record StratagemField(string InstanceKey, string SemanticFieldId, 
     string OperationGroup, string PlanGroup, string Requires, bool AllowSharedRequired, bool Shared,
     StratagemConsumer[] SharedConsumers, bool ReviewedScopeComplete, bool DynamicConsumersPossible,
     string Provenance, string BackingObjectKind, string ApiFieldConstant, string Domain, int PlanPhase, string[] DependsOn,
-    string? SharedScopeKey = null)
+    string? SharedScopeKey = null,
+    // 0.26.0 mission uses (type stratagem_uses): current mode, Runtime's unlimited token, range, published transitions and opt-in.
+    string? UsesMode = null, string? UnlimitedValue = null, long? NativeUnlimited = null, double? Min = null, double? Max = null,
+    string[]? Transitions = null, string? Acknowledgement = null, string? AcknowledgementReason = null, JsonElement[]? GameplayProvenValues = null,
+    string? Caveat = null)
 {
     // Schema 1 publishes its reviewed scope on the backing identity; schema 2 publishes a separate scope key.
     [JsonIgnore] public string ScopeKey => SharedScopeKey ?? BackingObjectId;
@@ -139,7 +145,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             MetadataReader.RejectDuplicates(doc.RootElement);
             var options = new JsonSerializerOptions(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip };
             var c = JsonSerializer.Deserialize<StratagemCatalog>(bytes, options)!;
-            void Check(bool value) { if (!value) throw new InvalidDataException("Inconsistent or unsupported stratagem capability metadata."); }
+            void Check(bool value, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0) { if (!value) throw new InvalidDataException($"Inconsistent or unsupported stratagem capability metadata (check {line})."); }
             var v2 = (c.SchemaVersion, c.Contract) switch
             {
                 (1, "hd2runtime.stratagem.guarded_authoring.v1") => false,
@@ -162,7 +168,14 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                     && f.Target.Resource == "stratagem" && roots.ContainsKey(f.Target.Stratagem)
                     && paths.Contains(f.Target.Path)
                     && Regex.IsMatch(f.ApiFieldConstant, @"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z")
-                    && f.Type is "number" or "integer" or "boolean" && !string.IsNullOrWhiteSpace(f.DisplayName)
+                    && (f.Type is "number" or "integer" or "boolean" || f.Type == StratagemUses.Type && f.SemanticFieldId == StratagemUses.Field && f.Target.Path == "stratagem"
+                        && (f.Editable
+                            ? f.UnlimitedValue == StratagemUses.Unlimited && f.NativeUnlimited == uint.MaxValue && f.Transitions is { Length: > 0 }
+                                && f.Transitions.All(t => t is StratagemUses.FiniteToUnlimited or StratagemUses.UnlimitedToFinite or StratagemUses.FiniteToFinite)
+                                && f.UsesMode == (StratagemUses.IsUnlimited(f.CurrentDefault) ? "unlimited" : "finite") && f.Acknowledgement is null or "allow_unverified_effect"
+                            // Eagles: the same native field is uses per rearm, so mission uses are read-only with Runtime's reason.
+                            : f.CurrentDefault.ValueKind == JsonValueKind.Null && f.UsesMode == null && (f.Transitions ?? []).Length == 0))
+                    && !string.IsNullOrWhiteSpace(f.DisplayName)
                     && !string.IsNullOrWhiteSpace(f.BackingObjectId) && !string.IsNullOrWhiteSpace(f.OperationGroup) && !string.IsNullOrWhiteSpace(f.PlanGroup)
                     && f.PlanPhase == 1 && f.DependsOn.Length == 0 && f.Requires == "patch_or_transaction"
                     && f.AllowSharedRequired == f.Shared && f.SharedConsumers.Length > 0);
@@ -193,7 +206,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                 && c.Summary.OffensiveRootsResolved == roots.Values.Count(w => w.RootResolution == "UNIQUE" && w.Family is "orbital" or "eagle")
                 && c.Summary.SupportRootsResolved == roots.Values.Count(w => w.RootResolution == "UNIQUE" && w.Family == "support")
                 && c.Summary.ImportedAttackBranches == c.SemanticBranches.Length && c.Summary.NativeBackingBranches == c.Attacks.Length);
-            if (v2) ValidateV2(c, roots, Check);
+            if (v2) ValidateV2(c, roots, ok => Check(ok));
             else Check(c.Stratagems.All(s => s.DeployedEntity == null) && c.FieldInstances.All(f => f.Target.Entity == null));
             // Optional icon identity: only a known state; a named icon must be a plain template key in the stratagem icon library.
             Check(c.Stratagems.All(s => s.UiIcon is null || StratagemUiIcon.States.Contains(s.UiIcon.State)
@@ -230,7 +243,8 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                 RejectNativeIdentifiers(p.Value, NameKeyedCounts.Contains(p.Name));
             }
         else if (node.ValueKind == JsonValueKind.Array) foreach (var child in node.EnumerateArray()) RejectNativeIdentifiers(child);
-        else if (node.ValueKind == JsonValueKind.String && Regex.IsMatch(node.GetString()!, @"\b0x[0-9a-fA-F]+\b"))
+        // 0xFFFFFFFF is the documented unlimited mission-use value (0.26.0 max_uses prose), not an address or resource identifier.
+        else if (node.ValueKind == JsonValueKind.String && Regex.IsMatch(Regex.Replace(node.GetString()!, @"\b0xFFFFFFFF\b", ""), @"\b0x[0-9a-fA-F]+\b"))
             throw new InvalidDataException("Stratagem capabilities expose native identifiers.");
     }
     private static void ValidateV2(StratagemCatalog c, Dictionary<string, StratagemDefinition> roots, Action<bool> Check)

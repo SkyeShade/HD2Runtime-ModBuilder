@@ -25,4 +25,7 @@ public sealed record StratagemChange
     public bool EnsureEnabled { get; init; } = true;
     public string Group { get; init; } = "Stratagems";
     public string? Notes { get; init; }
+    // 0.26.0: acknowledgement of Runtime's allow_unverified_effect opt-in for this change (mission uses). Omitted when absent.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? EffectAcknowledgement { get; init; }
 }

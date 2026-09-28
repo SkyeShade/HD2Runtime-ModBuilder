@@ -12,6 +12,12 @@ public static class SupportScalar
     public static JsonElement Normalize(SupportField f, JsonElement v)
     {
         if (f.Value.Type == "boolean" && v.ValueKind is JsonValueKind.True or JsonValueKind.False) return v.Clone();
+        if (f.Value.Type == WeaponCapability.FireModeSet)
+        {
+            if (f.FireMode is not { AllowedModes: { } allowed, MaxModes: int max }) throw new InvalidDataException("This weapon's fire modes are read-only.");
+            FireModes.ValidateValue(v, allowed, max);
+            return JsonSerializer.SerializeToElement(FireModes.Modes(v));
+        }
         if (v.ValueKind != JsonValueKind.Number) throw new InvalidDataException("Enter a valid scalar value.");
         if (f.Value.Type == "integer" && v.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue)
         {
@@ -23,8 +29,13 @@ public static class SupportScalar
         throw new InvalidDataException("Enter a finite value of the published scalar type.");
     }
     public static bool Equal(SupportField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
-    public static string Text(SupportField f, JsonElement value) => f.Value.Type == "number"
-        ? ((float)value.GetDouble()).ToString("R", CultureInfo.InvariantCulture) : Normalize(f, value).GetRawText();
+    // Lua literal: a fire-mode set is a table of mode names ({'single','burst'}); scalars are their JSON text.
+    public static string Text(SupportField f, JsonElement value) => f.Value.Type switch
+    {
+        "number" => ((float)value.GetDouble()).ToString("R", CultureInfo.InvariantCulture),
+        WeaponCapability.FireModeSet => FireModes.Lua(value),
+        _ => Normalize(f, value).GetRawText(),
+    };
 }
 public interface ISupportChangeService
 {

@@ -87,7 +87,7 @@ public static class ModOptionsService
                 // Magazine attachments are identified by semantic ID; show their published name.
                 var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Entity;
                 result.Add(Numeric(EntityKey(c.InstanceKey), "entity", owner, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
-                    c.Enabled, c.EnsureEnabled, f.Range?.Min, f.Range?.Max, blocker, v => EntityScalar.CheckRange(f, Json(v))));
+                    c.Enabled, c.EnsureEnabled, Finite(f.EffectiveRange?.Min), Finite(f.EffectiveRange?.Max), blocker, v => EntityScalar.CheckRange(f, Json(v))));
             }
         if (sdk.SupportAuthoring != null)
             foreach (var c in p.SupportChanges)
@@ -106,6 +106,7 @@ public static class ModOptionsService
         return result;
     }
     public static OptionTarget? Target(ModProject p, SdkMetadata sdk, string key) => Targets(p, sdk).FirstOrDefault(t => t.Key == key);
+    private static double? Finite(double? v) => v is double d && double.IsFinite(d) ? d : null;
     private static string? Scalar(string type) => type switch
     {
         "integer" or "number" => null,

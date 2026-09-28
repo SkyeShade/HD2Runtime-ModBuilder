@@ -25,7 +25,7 @@ public sealed partial class BuilderWorkspace
             {
                 edit(project); project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(Metadata!, c));
                 // Format 5 adds entity/weapon graph identities to stratagem changes.
-                if (project.StratagemChanges.Count > 0) project.FormatVersion = 5;
+                if (project.StratagemChanges.Count > 0) project.FormatVersion = Math.Max(project.FormatVersion, 5);
                 await SaveChangesAsync();
             }
             catch { project.StratagemChanges = previous; project.StratagemApprovals = approvals; project.FormatVersion = format; throw; }
@@ -42,7 +42,7 @@ public sealed partial class BuilderWorkspace
             // Keep the original scoped handle when editing the Eagle shared system through another consumer.
             var handle = catalog.Resolve(old)!;
             next = stratagemChanges.Create(Metadata!, handle.InstanceKey, value) with { Id = old.Id, Enabled = old.Enabled, EnsureEnabled = old.EnsureEnabled,
-                Notes = old.Notes, Group = old.Group, ExpectedValue = acceptBaseline ? f.CurrentDefault : old.ExpectedValue,
+                Notes = old.Notes, Group = old.Group, EffectAcknowledgement = old.EffectAcknowledgement, ExpectedValue = acceptBaseline ? f.CurrentDefault : old.ExpectedValue,
                 CapabilityEvidence = acceptBaseline ? StratagemChangeService.Evidence(handle) : old.CapabilityEvidence,
                 BaselineSdkVersion = acceptBaseline ? Metadata!.Version : old.BaselineSdkVersion };
             if (!acceptBaseline && old.InstanceKey != handle.InstanceKey) next = next with { InstanceKey = old.InstanceKey };
@@ -62,6 +62,13 @@ public sealed partial class BuilderWorkspace
         var f = StratagemChangeService.Catalog(Metadata!).Field(instance);
         if (approved && f.AllowSharedRequired) p.StratagemApprovals[f.ScopeKey] = StratagemChangeService.ApprovalEvidence(f);
         else p.StratagemApprovals.Remove(f.ScopeKey);
+    });
+    // 0.26.0: Runtime's allow_unverified_effect opt-in for one saved change (mission uses). Kept when the value changes.
+    public Task SetStratagemEffectAcknowledgedAsync(string instance, bool acknowledged) => EditStratagemAsync(p =>
+    {
+        var catalog = StratagemChangeService.Catalog(Metadata!); var f = catalog.Field(instance);
+        var old = StratagemChangeService.Saved(p, catalog, f) ?? throw new InvalidDataException("Change the value before acknowledging.");
+        p.StratagemChanges[p.StratagemChanges.IndexOf(old)] = old with { EffectAcknowledgement = acknowledged ? StratagemChangeService.EffectEvidence(f) : null };
     });
     public Task ToggleStratagemAsync(string instance) => EditStratagemAsync(p =>
         p.StratagemChanges = p.StratagemChanges.Select(c => c.InstanceKey == instance ? c with { Enabled = !c.Enabled } : c).ToList());

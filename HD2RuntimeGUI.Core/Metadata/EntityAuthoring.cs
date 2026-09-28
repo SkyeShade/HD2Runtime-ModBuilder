@@ -8,10 +8,17 @@ namespace HD2RuntimeGUI.Core.Metadata;
 // Runtime 0.23.0+ guarded vehicle (hd2.vehicle) and backpack (hd2.backpack) authoring catalogs.
 // Every control comes from a published canonical field instance; mount replacements come only from published allowed values.
 public sealed record EntityTarget(string Resource, string Path, string? Vehicle = null, string? Backpack = null, string? Zone = null, string? Mount = null,
-    string? Attachment = null, string? Booster = null)
+    string? Attachment = null, string? Booster = null,
+    // 0.26.0 vehicle weapons (weapon key + attack role) and drop-pod racks (rack name + slot). Omitted when absent, so evidence hashes of
+    // older targets stay byte-identical.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Weapon = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Attack = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Rack = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Slot = null)
 {
-    // Vehicle or backpack name, the magazine attachment semantic ID (weapon_attachment, 0.23.1+) or the booster name (booster, 0.24.0+).
-    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? "";
+    // Vehicle or backpack name, the magazine attachment semantic ID (weapon_attachment, 0.23.1+), the booster name (booster, 0.24.0+),
+    // the vehicle weapon key (vehicle_weapon, 0.26.0) or the rack name (pod_rack, 0.26.0).
+    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? "";
 }
 public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
     string? NativeOwner = null, string? GameplayWriteEffect = null);
@@ -23,10 +30,18 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     bool AllowSharedRequired, bool Shared, EntityConsumer[] SharedConsumers, string SharedScopeKey, bool ReviewedScopeComplete,
     bool DynamicConsumersPossible, string BackingObjectKind, string Domain, string ApiFieldConstant, int PlanPhase, string[] DependsOn,
     EntityEvidence Evidence, string Provenance, string[]? AllowedValues = null, string? Acknowledgement = null, string? ValueKind = null,
-    string? ResidencyWarning = null, EntityRange? Range = null)
+    string? ResidencyWarning = null, EntityRange? Range = null, double? Min = null, double? Max = null, string? AcknowledgementReason = null, string? UiGroup = null)
 {
     public const string ReferenceType = "mounted_weapon_reference";
+    // 0.26.0 drop-pod slot payload: a reviewed pickup semantic ID or 'empty'.
+    public const string PickupType = "pickup_reference";
     [JsonIgnore] public bool IsReference => Type == ReferenceType;
+    [JsonIgnore] public bool IsPickup => Type == PickupType;
+    // A value chosen from a published list (mount weapon or pickup) rather than typed.
+    [JsonIgnore] public bool IsChoice => IsReference || IsPickup;
+    // Safe range: 0.25.0 boosters publish "range"; 0.26.0 attachment and backpack-ammo fields publish "min"/"max".
+    [JsonIgnore] public EntityRange? EffectiveRange => Range ?? (Min == null && Max == null ? null
+        : new EntityRange(Min ?? double.NegativeInfinity, Max ?? double.PositiveInfinity, Type == "integer"));
 }
 public sealed record EntityBackingObject(string BackingObjectId, string Kind, bool Shared, EntityConsumer[] SharedConsumers, string SharedScopeKey, string[] FieldInstances);
 public sealed record EntityOperationGroup(string OperationGroup, string BackingObjectId, EntityTarget Target, string[] FieldInstances, string RecommendedApi, bool AllowSharedRequired);
@@ -64,8 +79,16 @@ public sealed record VehicleCatalog(string Contract, int SchemaVersion, string H
     public MountedWeapon? Weapon(string semanticId) => MountedWeapons.FirstOrDefault(w => w.SemanticId == semanticId);
 }
 public sealed record BackpackSettingGroup(string Group, string[] FieldInstanceKeys);
+// 0.26.0 backpack-fed support weapons: the weapon this backpack's deposit supplies (support weapon -> ammoBackpack, reverse link).
+public sealed record BackpackFeeds(string SupportWeapon, string SupportWeaponSemanticId, string Relationship, int AmmoMode, string InventorySlot,
+    string RefillStyle, bool WeaponOwnsMagazine, string[] Chain);
+public sealed record BackpackAmmoBox(JsonElement Value, bool Writable, string? Reason);
+public sealed record BackpackAmmo(int Capacity, int StartAmount, int RefillAmount, BackpackAmmoBox? FromAmmoBox);
 public sealed record Backpack(string Name, string SemanticId, EntityCallIn CallInStratagem, string[] DeliveryChain, string[] Components,
-    BackpackSettingGroup[] SettingGroups, EntityBlocked[] BlockedFields, string[] FieldInstanceKeys);
+    BackpackSettingGroup[] SettingGroups, EntityBlocked[] BlockedFields, string[] FieldInstanceKeys, BackpackFeeds? Feeds = null, BackpackAmmo? Ammo = null)
+{
+    public const string AmmoGroup = "backpack_ammo";
+}
 public sealed record BackpackSummary(int Backpacks, int FieldInstances, int WritableFieldInstances, int ReadOnlyFieldInstances, int BackpacksWithWritableFields,
     Dictionary<string, int> WritableByTier, int RackChainsResolved);
 public sealed record BackpackCatalog(string Contract, int SchemaVersion, string Hd2RuntimeVersion, string CanonicalCollection, Backpack[] Backpacks,
@@ -86,7 +109,13 @@ public sealed class EntityAuthoring
     public MagazineAttachmentCatalog? Attachments { get; init; }
     // Booster authoring (hd2.booster, SDK 0.24.0+); null on older SDKs, which have no Booster category.
     public BoosterCatalog? Boosters { get; init; }
-    public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []).Concat(Boosters?.FieldInstances ?? []);
+    // Mounted vehicle weapons and drop-pod payloads (SDK 0.26.0+); null on older SDKs.
+    public VehicleWeaponCatalog? VehicleWeapons { get; init; }
+    public PodPayloadCatalog? Pods { get; init; }
+    public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []).Concat(Boosters?.FieldInstances ?? [])
+        .Concat(VehicleWeapons?.FieldInstances ?? []).Concat(Pods?.FieldInstances ?? []);
+    // The backpack whose deposit feeds a support weapon (0.26.0 backpack ammunition).
+    public Backpack? AmmoBackpackOf(string supportWeapon) => Backpacks.Backpacks.FirstOrDefault(b => b.Feeds?.SupportWeapon == supportWeapon);
     public EntityField? Field(string instanceKey) => AllFields.FirstOrDefault(f => f.InstanceKey == instanceKey);
     public string? CallInFor(string resource, string entity) => CallIns.FirstOrDefault(p => p.Value == (resource, entity)).Key;
 }
@@ -99,7 +128,7 @@ public static class EntityAuthoringReader
     private static readonly Regex Api = new(@"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z", RegexOptions.CultureInvariant);
     private static readonly Regex Slot = new(@"\A(zone|slot)_[0-9]{1,3}\z", RegexOptions.CultureInvariant);
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip };
-    private static void Check(bool valid) { if (!valid) throw new InvalidDataException("Inconsistent vehicle/backpack capability metadata."); }
+    private static void Check(bool valid, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0) { if (!valid) throw new InvalidDataException($"Inconsistent vehicle/backpack capability metadata (check {line})."); }
 
     public static EntityAuthoring Read(byte[] vehicles, byte[] backpacks, string version, StratagemCatalog stratagems)
     {
@@ -233,7 +262,19 @@ public static class EntityAuthoringReader
             links.Add(root.Name, (resource, name));
         }
         foreach (var x in v.Vehicles) Link("vehicle", x.Name, x.SemanticId, x.CallInStratagem);
-        foreach (var x in b.Backpacks) Link("backpack", x.Name, x.SemanticId, x.CallInStratagem);
+        foreach (var x in b.Backpacks)
+        {
+            // 0.26.0 weapon-fed backpacks arrive in their support weapon's pod: the call-in is that weapon's stratagem, which must deliver
+            // exactly the weapon this backpack feeds. They are authored on the support weapon's page, not as backpack stratagems.
+            if (x.CallInStratagem.Relationship == "delivered_with_support_weapon")
+            {
+                Check(x.Feeds != null && roots.TryGetValue(x.CallInStratagem.SemanticId!, out var weapon) && weapon!.Family == "support"
+                    && weapon.Delivers is { Known: true, Kind: "support_weapon" } d && d.SemanticId == x.Feeds.SupportWeaponSemanticId);
+                continue;
+            }
+            Check(x.Feeds == null);
+            Link("backpack", x.Name, x.SemanticId, x.CallInStratagem);
+        }
         // No one-sided reverse links.
         Check(stratagems.Stratagems.Where(s => s.Delivers is { Known: true, Kind: "vehicle" or "backpack" }).All(s => links.ContainsKey(s.Name))
             && stratagems.Stratagems.Where(s => s.Family is "vehicle" or "backpack").All(s => links.ContainsKey(s.Name) || s.Delivers is { Known: false }));

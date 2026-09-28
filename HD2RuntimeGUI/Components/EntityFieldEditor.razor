@@ -8,7 +8,7 @@
             @if (saved != null) { <span class="badge modified-badge">Modified</span> }</span></div>
     <div class="field-value">
         @if (!Field.Editable) { <span class="badge" title="@Field.Reason">Read-only</span> }
-        else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Field.Range?.Min.ToString(System.Globalization.CultureInfo.InvariantCulture)" max="@Field.Range?.Max.ToString(System.Globalization.CultureInfo.InvariantCulture)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
+        else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.EffectiveRange?.Min)" max="@Bound(Field.EffectiveRange?.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
     @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong></div> }
     else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">Base @Format(Field.CurrentDefault)</div> }
@@ -21,7 +21,7 @@
         }
         <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
             @if (!Field.Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }
-            @if (Field.Range is { } range) { <p data-field-range><strong>Allowed range:</strong> @range.Min.ToString(System.Globalization.CultureInfo.InvariantCulture) – @range.Max.ToString(System.Globalization.CultureInfo.InvariantCulture)@(string.IsNullOrWhiteSpace(range.Reason) ? "" : " · " + range.Reason)</p> }
+            @if (Field.EffectiveRange is { } range) { <p data-field-range><strong>Allowed range:</strong> @(Bound(range.Min) ?? "−∞") – @(Bound(range.Max) ?? "∞")@(string.IsNullOrWhiteSpace(range.Reason) ? "" : " · " + range.Reason)</p> }
             <p><strong>Evidence:</strong> @EvidenceBadge.Label(Field.Evidence.Tier)@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? " — " + tier : "")</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
     @if (saved != null && Workspace.EntityIssue(saved) is { } issue && !(AcknowledgedInGroup && issue.StartsWith("Acknowledge ", StringComparison.Ordinal)))
@@ -43,6 +43,7 @@
     private EntityChange? Saved => EntityChangeService.Saved(Workspace.Project, Field);
     private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
     private string Value => Format(Saved?.DesiredValue ?? Field.CurrentDefault);
+    private static string? Bound(double? v) => v is double d && double.IsFinite(d) ? d.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
     private string Format(System.Text.Json.JsonElement v) { try { return EntityScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

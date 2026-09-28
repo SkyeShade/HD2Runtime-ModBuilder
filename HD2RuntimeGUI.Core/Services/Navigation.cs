@@ -23,9 +23,10 @@ public static class StratagemCategories
     // Support subcategories: family tabs plus "Other / Standalone" for items without a call-in stratagem.
     public const string OtherSupport = "other";
     // Vehicles/backpacks the SDK publishes without a call-in link (native-only), listed under Support → Other / Standalone.
+    // 0.26.0 weapon-fed backpacks (Maxigun, Cremator, GL-28) are delivered with their support weapon and authored on its page.
     public static IReadOnlyList<(string Resource, string Name)> EntitiesWithoutCallIn(EntityAuthoring? entities) => entities == null ? [] :
         [.. entities.Vehicles.Vehicles.Where(v => entities.CallInFor("vehicle", v.Name) == null).Select(v => ("vehicle", v.Name)),
-         .. entities.Backpacks.Backpacks.Where(b => entities.CallInFor("backpack", b.Name) == null).Select(b => ("backpack", b.Name))];
+         .. entities.Backpacks.Backpacks.Where(b => entities.CallInFor("backpack", b.Name) == null && b.Feeds == null).Select(b => ("backpack", b.Name))];
     public static int Count(StratagemCatalog catalog, StratagemCategory category, EntityAuthoring? entities = null)
         => catalog.Stratagems.Count(s => category.Families.Contains(s.Family) && Listed(s, entities));
 }

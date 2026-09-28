@@ -67,9 +67,23 @@ public static class ProjectIdentity
             _ => false,
         };
     }
+    private static bool Scalar(System.Text.Json.JsonElement v) => v.ValueKind is not (System.Text.Json.JsonValueKind.Undefined or System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array);
+    private static bool NumberOrBool(System.Text.Json.JsonElement v) => v.ValueKind is System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False;
+    // 0.26.0 fire_mode.modes: 1-4 distinct named modes.
+    private static bool ModeList(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Array && v.GetArrayLength() is >= 1 and <= 4
+        && v.EnumerateArray().All(m => m.ValueKind == System.Text.Json.JsonValueKind.String && Metadata.FireModes.Native.ContainsKey(m.GetString()!))
+        && v.EnumerateArray().Select(m => m.GetString()).Distinct().Count() == v.GetArrayLength();
+    private static bool Uses(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number
+        || v.ValueKind == System.Text.Json.JsonValueKind.String && v.GetString() == Metadata.StratagemUses.Unlimited;
+    // Format 8: SDK 0.26.0 edits (fire-mode lists, mission uses, effect acknowledgements, vehicle weapons, drop-pod payloads).
+    public static int RequiredFormat(ModProject p) =>
+        p.WeaponChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet || c.EffectAcknowledgement != null)
+        || p.SupportChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet)
+        || p.StratagemChanges.Any(c => c.FieldType == Metadata.StratagemUses.Type || c.EffectAcknowledgement != null)
+        || p.EntityChanges.Any(c => c.Resource is "vehicle_weapon" or "pod_rack" || c.Attack != null || c.Slot != null) ? 8 : 1;
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -78,7 +92,9 @@ public static class ProjectIdentity
         SemVersion.Parse(p.Version); SemVersion.Parse(p.SdkVersion);
         if (p.RuntimeApi != 1 || p.Changes == null || p.Changes.Count > 1000 || p.Description.Length > 8000) throw new InvalidDataException("Invalid project data.");
         if (p.Changes.Select(c => c.Id).Distinct().Count() != p.Changes.Count) throw new InvalidDataException("Duplicate change IDs.");
-        if (p.WeaponChanges == null || p.WeaponChanges.Count > 1000 || p.WeaponChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || string.IsNullOrWhiteSpace(c.SemanticFieldId) || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000 || c.AcknowledgedAffectedWeapons == null || c.ExpectedValue.ValueKind is System.Text.Json.JsonValueKind.Undefined or System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array || c.DesiredValue.ValueKind is System.Text.Json.JsonValueKind.Undefined or System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array)) throw new InvalidDataException("Invalid weapon overrides.");
+        if (p.WeaponChanges == null || p.WeaponChanges.Count > 1000 || p.WeaponChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || string.IsNullOrWhiteSpace(c.SemanticFieldId) || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000 || c.AcknowledgedAffectedWeapons == null
+            || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue) : Scalar(c.ExpectedValue) && Scalar(c.DesiredValue))
+            || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z"))) throw new InvalidDataException("Invalid weapon overrides.");
         if (p.WeaponChanges.Select(c => c.Id).Distinct().Count() != p.WeaponChanges.Count) throw new InvalidDataException("Duplicate weapon change IDs.");
         if (p.ProjectileChanges == null || p.ProjectileChanges.Count > 1000 || p.ProjectileChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256
             || !Regex.IsMatch(c.AttackRole, "\\A[a-z][a-z_0-9]{0,63}\\z") || c.SemanticFieldId != "attack.projectile" || c.ExpectedProjectile != new ProjectileReference(c.Weapon, c.AttackRole)
@@ -92,9 +108,8 @@ public static class ProjectIdentity
             || p.SupportChanges.Any(c => c.Id == Guid.Empty || c.InstanceKey.Length > 512 || !c.InstanceKey.StartsWith("support-field/v1/", StringComparison.Ordinal)
                 || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000
                 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z") || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z")
-                || c.FieldType is not ("number" or "integer" or "boolean")
-                || c.ExpectedValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)
-                || c.DesiredValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False))) throw new InvalidDataException("Invalid support overrides.");
+                || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue)
+                    : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue)))) throw new InvalidDataException("Invalid support overrides.");
         foreach (var c in p.SupportChanges) SemVersion.Parse(c.BaselineSdkVersion);
         foreach (var a in p.SupportApprovals) if (a.Key.Length > 256 || !a.Key.StartsWith("support-scope/v1/", StringComparison.Ordinal) || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid support approval.");
         if (p.StratagemChanges == null || p.StratagemApprovals == null || p.StratagemChanges.Count > 2000 || p.StratagemApprovals.Count > 2000
@@ -103,10 +118,12 @@ public static class ProjectIdentity
             || p.StratagemChanges.Any(c => c.Id == Guid.Empty || !ValidStratagemTarget(c) || string.IsNullOrWhiteSpace(c.Stratagem)
                 || c.Stratagem.Length > 256 || !c.InstanceKey.StartsWith("stratagem:", StringComparison.Ordinal) || c.InstanceKey.Length > 512
                 || c.SemanticFieldId.Length > 128
-                || c.Group.Length > 120 || c.Notes?.Length > 4000 || c.FieldType is not ("number" or "integer" or "boolean")
+                || c.Group.Length > 120 || c.Notes?.Length > 4000
                 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")
-                || c.ExpectedValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)
-                || c.DesiredValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)))
+                || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z")
+                // 0.26.0 mission uses: an integer count or Runtime's 'unlimited'.
+                || !(c.FieldType == Metadata.StratagemUses.Type ? Uses(c.ExpectedValue) && Uses(c.DesiredValue)
+                    : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue))))
             throw new InvalidDataException("Invalid semantic stratagem overrides.");
         foreach (var c in p.StratagemChanges) SemVersion.Parse(c.BaselineSdkVersion);
         foreach (var a in p.StratagemApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid stratagem approval.");
@@ -116,7 +133,7 @@ public static class ProjectIdentity
             || p.EntityChanges.Select(c => c.Id).Distinct().Count() != p.EntityChanges.Count
             || p.EntityChanges.Select(c => c.InstanceKey).Distinct().Count() != p.EntityChanges.Count
             || p.EntityChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Entity) || c.Entity.Length > 256 || c.SemanticFieldId.Length > 128
-                || !c.InstanceKey.StartsWith((c.Resource == "weapon_attachment" ? "attachment" : c.Resource) + ":", StringComparison.Ordinal) || c.InstanceKey.Length > 512
+                || !c.InstanceKey.StartsWith(c.Resource switch { "weapon_attachment" => "attachment:", "vehicle_weapon" => "vehicle-field/v1/", _ => c.Resource + ":" }, StringComparison.Ordinal) || c.InstanceKey.Length > 512
                 || !((c.Resource, c.Path) switch
                 {
                     ("vehicle", "entity") => c.Zone == null && c.Mount == null,
@@ -124,16 +141,27 @@ public static class ProjectIdentity
                     ("vehicle", "mount") => Slot(c.Mount, "slot") && c.Zone == null && c.FieldType == EntityField.ReferenceType,
                     ("backpack", "backpack") => c.Zone == null && c.Mount == null,
                     // 0.23.1 magazine attachment definitions: Entity is the published attachment semantic ID.
-                    ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType == "integer"
+                    // 0.26.0 adds reload duration and ergonomics modifier (numbers) to the four integer ammo fields.
+                    ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType is "integer" or "number"
                         && Regex.IsMatch(c.Entity, @"\Aweapon-attachment/v1/magazine/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
                     // 0.24.0+ boosters: Entity is the published booster name; only its reviewed sub-targets carry fields (more targets from 0.25.0).
                     ("booster", var boosterPath) when BoosterAuthoringReader.Paths.Contains(boosterPath) => c.Zone == null && c.Mount == null && BoosterAuthoringReader.ValidName(c.Entity),
+                    // 0.26.0 vehicle weapons: Entity is the published weapon key; the weapon itself, or one of its attack objects.
+                    ("vehicle_weapon", "weapon") => c.Zone == null && c.Mount == null && c.Slot == null && c.Attack == null && VehicleWeaponReader.ValidKey(c.Entity),
+                    ("vehicle_weapon", "projectile_reference" or "explosion" or "attack") => c.Zone == null && c.Mount == null && c.Slot == null
+                        && c.Attack != null && Regex.IsMatch(c.Attack, @"\A[a-z][a-z_0-9]{0,63}\z") && VehicleWeaponReader.ValidKey(c.Entity),
+                    // 0.26.0 drop-pod racks: Entity is the published rack name; spawn count on the rack, payload items on slots 1-4.
+                    ("pod_rack", "rack") => c.Zone == null && c.Mount == null && c.Slot == null && c.Attack == null && PodPayloadReader.ValidName(c.Entity) && c.FieldType == "integer",
+                    ("pod_rack", "slot") => c.Zone == null && c.Mount == null && c.Slot is >= 1 and <= 4 && c.Attack == null && PodPayloadReader.ValidName(c.Entity) && c.FieldType == EntityField.PickupType,
                     _ => false,
                 })
-                || (c.FieldType == EntityField.ReferenceType
-                    ? c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.String || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.String
-                        || !Regex.IsMatch(c.DesiredValue.GetString()!, @"\Amounted-weapon/v1/[a-z0-9-]{1,96}/[0-9a-f]{16}\z")
-                    : c.FieldType is not ("integer" or "number") || c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.Number || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.Number)
+                || (c.FieldType switch
+                {
+                    EntityField.ReferenceType => c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.String || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.String
+                        || !Regex.IsMatch(c.DesiredValue.GetString()!, @"\Amounted-weapon/v1/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
+                    EntityField.PickupType => !PodPayloadReader.ValidValue(c.ExpectedValue) || !PodPayloadReader.ValidValue(c.DesiredValue),
+                    _ => c.FieldType is not ("integer" or "number") || c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.Number || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.Number,
+                })
                 || c.Group.Length > 120 || c.Notes?.Length > 4000 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")
                 || c.ReferenceAcknowledgement != null && !Regex.IsMatch(c.ReferenceAcknowledgement, @"\A[a-f0-9]{64}\z")))
             throw new InvalidDataException("Invalid semantic vehicle/backpack overrides.");

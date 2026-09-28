@@ -15,7 +15,7 @@ namespace HD2RuntimeGUI.Tests;
 public sealed class SdkCacheUpgradeTests
 {
     private const string Magazine = "MagazineAttachmentCapabilities.json";
-    private const string Bundled = "0.25.1"; // The bundled offline SDK; stale-cache completion only uses the identical bundled release.
+    private const string Bundled = "0.26.0"; // The bundled offline SDK; stale-cache completion only uses the identical bundled release.
     private static string Dir(TestEnvironment e, string version) => Path.GetDirectoryName(e.Paths.SdkFile(version))!;
     private static string Current(TestEnvironment e) => (string)JsonNode.Parse(File.ReadAllText(e.Paths.CachePath("current.json")))!["version"]!;
     private static byte[] Archive(Action<ZipArchive> edit)

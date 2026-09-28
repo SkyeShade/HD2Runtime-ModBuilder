@@ -48,8 +48,16 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     IReadOnlyList<int>? AllowedValues = null, IReadOnlyList<int>? NativeModeVector = null, string? WriteKind = null,
     ProjectileResidency? Residency = null, string? ReferencePhase = null, FieldBacking? ProjectileBacking = null,
     ProjectileSettingsIdentity? ProjectileSettings = null, int? NullSentinel = null, IReadOnlyList<string>? SharedWithResources = null,
-    bool? DynamicConsumersPossible = null, int? ExplosionType = null, IReadOnlyList<string>? TerminalPhases = null)
+    bool? DynamicConsumersPossible = null, int? ExplosionType = null, IReadOnlyList<string>? TerminalPhases = null,
+    // 0.26.0 third-person reticle: the native crosshair value and the off/on encoding of the boolean view.
+    int? NativeValue = null, string? NativeName = null, string? ReticleState = null, ReticleEncoding? Encoding = null,
+    // 0.26.0: Runtime-required opt-in for this field ("allow_unverified_effect") with its reason, and field-level evidence.
+    string? Acknowledgement = null, string? AcknowledgementReason = null, WeaponFieldEvidence? Evidence = null,
+    // 0.26.0 fire modes: the four native FireMode slots, the modes a write may use, and the in-game selector binding.
+    IReadOnlyList<int>? NativeSlots = null, IReadOnlyList<string>? AllowedModes = null, Dictionary<string, int>? ModeValues = null,
+    int? MaxModes = null, string? FireModeState = null, FireModeSelector? Selector = null)
 {
+    public const string FireModeSet = "fire_mode_set";
     [JsonIgnore] public string Domain => SemanticFieldId.Split('.')[0];
     [JsonIgnore] public bool IsPreferred => AliasOf == null && Canonical != false && Preferred != false && Deprecated != true;
     [JsonIgnore] public bool WriteAccepted => AcceptedForWrites ?? Editable;
@@ -60,6 +68,14 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
         JsonValueKind.Number when Backing?.Storage == "f32" => ((float)value.GetDouble()).ToString("R", CultureInfo.InvariantCulture),
         _ => value.GetRawText()
     };
+}
+public sealed record ReticleEncoding(int Off, int On);
+public sealed record WeaponFieldEvidence(string? NativeOwner, string? Source, bool? GameplayProven, string? GameplaySource = null);
+// Input bindings: a published WeaponFunctionType name ("Firemode", "None"…) or an unnamed native value.
+public sealed record FireModeSelector(JsonElement Left, JsonElement Right)
+{
+    public bool Bound => IsFiremode(Left) || IsFiremode(Right);
+    private static bool IsFiremode(JsonElement v) => v.ValueKind == JsonValueKind.String && v.GetString() == "Firemode";
 }
 public sealed record PlayerWeapon(string Name, string Slot, string Category, string Resolution,
     bool OrdinaryWritesBlocked, string? BlockReason, IReadOnlyList<string> Resources,
@@ -104,8 +120,11 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
                 if (w.Resolution is not ("UNIQUE" or "DUPLICATE") || (w.Resolution != "UNIQUE" && !w.OrdinaryWritesBlocked) || (w.Resolution == "UNIQUE" && w.Resources.Count != 1)) throw new InvalidDataException("Ambiguous weapon identity is not blocked.");
                 foreach (var f in w.Fields)
                 {
-                    if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName) || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference" or "explosion_reference")) throw new InvalidDataException("Invalid semantic field.");
-                    if (f.Type is not ("projectile_reference" or "explosion_reference") && f.CurrentDefault.ValueKind is (JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new InvalidDataException("Expected a scalar baseline.");
+                    if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName) || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference" or "explosion_reference" or WeaponCapability.FireModeSet)) throw new InvalidDataException("Invalid semantic field.");
+                    if (f.Type == WeaponCapability.FireModeSet) FireModes.ValidateCapability(f);
+                    else if (f.Type is not ("projectile_reference" or "explosion_reference") && f.CurrentDefault.ValueKind is (JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new InvalidDataException("Expected a scalar baseline.");
+                    if (f.SemanticFieldId == FireModes.ReticleField && (f.Type != "boolean" || f.Editable && (f.Encoding == null || f.NativeValue == null))) throw new InvalidDataException("Invalid third-person reticle field.");
+                    if (f.Acknowledgement is not (null or "allow_unverified_effect")) throw new UnsupportedSdkException("Unsupported player-weapon acknowledgement: " + f.Acknowledgement);
                     if (f.Type == "projectile_reference" && f.Domain == "attack" && (f.CurrentDefault.ValueKind != JsonValueKind.Object || f.ReferenceKind != "projectile"
                         || f.SemanticFieldId != "attack." + f.ReferenceRole + ".projectile" || string.IsNullOrWhiteSpace(f.CompatibilityClass))) throw new InvalidDataException("Invalid semantic projectile reference.");
                     var definitionId = Regex.Replace(Regex.Replace(f.SemanticFieldId, @"\.(primary|alternate|feed_primary|feed_alternate|impact|expiry)(?=\.)", ""), @"status_\d+_", "status_");
@@ -113,7 +132,9 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
                     if (f.Type != definition.Type || (f.Editable && (!definition.Writable || definition.Derived))) throw new InvalidDataException("Capability disagrees with its semantic definition.");
                     if (f.Provenance == null || f.SharedWithWeapons == null || f.SharedWithWeapons.Any(n => !c.Weapons.Any(other => other.Name == n))) throw new InvalidDataException("Invalid capability evidence or shared ownership.");
                     if (f.Editable && (w.OrdinaryWritesBlocked || f.DerivedReadOnly || f.Backing == null || f.CurrentDefault.ValueKind == JsonValueKind.Null || f.WriteScope == "unknown")) throw new InvalidDataException("Unsafe writable capability.");
-                    if (f.Editable && (f.Backing!.Kind is not ("component" or "settings") || f.Backing.Storage is not ("f32" or "u32" or "i32" or "u8") || f.Backing.Width != (f.Backing.Storage == "u8" ? 1 : 4))) throw new UnsupportedSdkException("Unsupported writable backing type.");
+                    if (f.Editable && (f.Backing!.Kind is not ("component" or "settings") || f.Backing.Storage is not ("f32" or "u32" or "i32" or "u8" or WeaponCapability.FireModeSet)
+                        || f.Backing.Width != (f.Backing.Storage switch { "u8" => 1, WeaponCapability.FireModeSet => 16, _ => 4 }) || (f.Backing.Storage == WeaponCapability.FireModeSet) != (f.Type == WeaponCapability.FireModeSet)))
+                        throw new UnsupportedSdkException("Unsupported writable backing type.");
                     // Shared damage consumers can include unnamed/non-player consumers.
                     if ((!f.AffectsMultipleWeapons && f.SharedWithWeapons.Count > 0) || f.AffectsMultipleWeapons != f.WriteScope.StartsWith("shared_", StringComparison.Ordinal)) throw new InvalidDataException("Inconsistent shared-write scope.");
                 }

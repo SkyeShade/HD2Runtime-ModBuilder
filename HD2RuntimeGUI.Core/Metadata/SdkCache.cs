@@ -49,7 +49,8 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     private readonly IStratagemCatalogReader stratagemReader = new StratagemCatalogReader();
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader, IStratagemCatalogReader stratagemReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
-    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName);
+    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName)
+        .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -69,11 +70,13 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("HD2RuntimeGUI.Core.Metadata.Bundled." + PlayerWeaponAmmoCatalogReader.FileName)!;
         using var buffer = new MemoryStream(); stream.CopyTo(buffer); return buffer.ToArray();
     }
-    public static IReadOnlyDictionary<string, byte[]> BundledComposition() => GraphFiles.ToDictionary(n => n, n =>
-    {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("HD2RuntimeGUI.Core.Metadata.Bundled." + n)!;
-        using var buffer = new MemoryStream(); stream.CopyTo(buffer); return buffer.ToArray();
-    });
+    // The files the bundled release actually ships; which of them its version requires is decided by ReadPayload.
+    public static IReadOnlyDictionary<string, byte[]> BundledComposition() => GraphFiles
+        .Select(n => (Name: n, Stream: Assembly.GetExecutingAssembly().GetManifestResourceStream("HD2RuntimeGUI.Core.Metadata.Bundled." + n)))
+        .Where(x => x.Stream != null).ToDictionary(x => x.Name, x =>
+        {
+            using var stream = x.Stream!; using var buffer = new MemoryStream(); stream.CopyTo(buffer); return buffer.ToArray();
+        });
     private SdkMetadata ReadPayload(SdkPayload payload)
     {
         var sdk = reader.Read(payload.Metadata);
@@ -120,7 +123,34 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 Boosters = Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.24.0")) < 0 ? null
                     : BoosterAuthoringReader.Read(payload.Composition!.GetValueOrDefault(BoosterAuthoringReader.FileName)
                         ?? throw MissingFile(BoosterAuthoringReader.FileName, "SDK is missing booster authoring capabilities."), sdk.Version) } };
+        // 0.26.0: fire modes, mounted vehicle weapons and drop-pod payloads; the support weapon <-> ammo backpack link is checked both ways.
+        if (sdk.Has026)
+        {
+            byte[] Required(string file, string what) => payload.Composition!.GetValueOrDefault(file) ?? throw MissingFile(file, "SDK is missing " + what + ".");
+            sdk = sdk with { FireModes = WeaponFireModeReader.Read(Required(WeaponFireModeReader.FileName, "weapon fire-mode capabilities"), sdk.Version, sdk.PlayerWeapons!, sdk.SupportAuthoring) };
+            var e = sdk.Entities!;
+            sdk = sdk with { Entities = new EntityAuthoring { Vehicles = e.Vehicles, Backpacks = e.Backpacks, CallIns = e.CallIns, Attachments = e.Attachments, Boosters = e.Boosters,
+                VehicleWeapons = VehicleWeaponReader.Read(Required(VehicleWeaponReader.FileName, "vehicle weapon capabilities"), sdk.Version, e.Vehicles),
+                Pods = PodPayloadReader.Read(Required(PodPayloadReader.FileName, "drop-pod payload capabilities"), sdk.Version) } };
+            LinkAmmoBackpacks(sdk.Entities, sdk.SupportAuthoring ?? throw new InvalidDataException("SDK is missing canonical support authoring metadata."));
+        }
         return sdk;
+    }
+    // Backpack-fed support weapons: support weapon -> ammoBackpack and backpack -> feeds must name each other, with the same baseline.
+    private static void LinkAmmoBackpacks(EntityAuthoring entities, SupportAuthoringCatalog support)
+    {
+        void Check(bool valid) { if (!valid) throw new InvalidDataException("Inconsistent backpack ammunition link."); }
+        var fed = support.Weapons.Where(w => w.AmmoBackpack != null).ToArray();
+        foreach (var w in fed)
+        {
+            var a = w.AmmoBackpack!; var b = entities.Backpacks.Find(a.Backpack);
+            Check(b is { Feeds: { } feeds, Ammo: { } ammo } && feeds.SupportWeapon == w.Name && b.SemanticId == a.SemanticId && !a.WeaponOwnsMagazine && !feeds.WeaponOwnsMagazine
+                && ammo.Capacity == a.Baseline.Capacity && ammo.StartAmount == a.Baseline.StartAmount && ammo.RefillAmount == a.Baseline.RefillAmount);
+            var fields = entities.Backpacks.FieldInstances.Where(f => f.Target.Backpack == a.Backpack && f.UiGroup == Backpack.AmmoGroup).ToArray();
+            Check(fields.Select(f => f.SemanticFieldId).Order(StringComparer.Ordinal).SequenceEqual(a.Fields.Order(StringComparer.Ordinal))
+                && b!.SettingGroups.Any(g => g.Group == Backpack.AmmoGroup && g.FieldInstanceKeys.Order(StringComparer.Ordinal).SequenceEqual(fields.Select(f => f.InstanceKey).Order(StringComparer.Ordinal))));
+        }
+        Check(entities.Backpacks.Backpacks.Where(b => b.Feeds != null).All(b => fed.Any(w => w.AmmoBackpack!.Backpack == b.Name)));
     }
     // Developer-only local SDK (HD2RUNTIME_SDK_PATH / --sdk-path): an unpublished Runtime build's sdk/ directory or SDK zip.
     // It is read and fully validated in memory, served as the current SDK and for its own version for this run only, and never
@@ -321,6 +351,9 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         EntityAuthoringReader.VehicleFile or EntityAuthoringReader.BackpackFile => EntityAuthoringReader.MaxBytes,
         MagazineAttachmentReader.FileName => MagazineAttachmentReader.MaxBytes,
         BoosterAuthoringReader.FileName => BoosterAuthoringReader.MaxBytes,
+        VehicleWeaponReader.FileName => VehicleWeaponReader.MaxBytes,
+        PodPayloadReader.FileName => PodPayloadReader.MaxBytes,
+        WeaponFireModeReader.FileName => WeaponFireModeReader.MaxBytes,
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };
     public static void ValidateEntryPath(string name)

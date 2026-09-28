@@ -47,6 +47,8 @@ public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLu
                 var body = "{\n    id=" + LuaGenerator.Quote("stratagem-" + SupportChangeService.Hash(project.ResourceId + "\n" + group.Key)[..24])
                     + ",\n    target=" + Target(f.Target) + ",\n";
                 if (f.AllowSharedRequired) body += "    allow_shared=true,\n";
+                // 0.26.0: emitted only where Runtime requires it for the desired value (mission uses outside gameplay-proven targets).
+                if (unique.Any(r => StratagemChangeService.EffectRequired(r.Field, r.Change.DesiredValue))) body += "    allow_unverified_effect=true,\n";
                 if (unique.Length == 1)
                 { var r = unique[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={Value(r, group)},\n"; }
                 else body += "    changes={\n" + string.Join("\n", unique.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},value={Value(r, group)}}},")) + "\n    },\n";

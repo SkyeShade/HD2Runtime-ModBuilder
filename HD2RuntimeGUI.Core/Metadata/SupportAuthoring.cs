@@ -25,10 +25,19 @@ public sealed record SupportOperation(string MinimumApi, bool PatchSupported, bo
 public sealed record SupportResolution(string[] RootChain, string Linkage, string? ParentObjectKey, string? TerminalPhase,
     int PlanPhase, string[] PlanDependencies, bool RequiresLaterPlanPhase, JsonElement TargetFrom);
 public sealed record SupportProvenance(string Identity, string Semantics, string Ownership, string Baseline, string Validation, string EvidenceArtifact);
+// 0.26.0: fire-mode (fire_mode.modes / burst_rounds) and third-person reticle metadata on support-weapon field instances.
+public sealed record SupportFireMode(string FireModeState, IReadOnlyList<int>? NativeSlots, IReadOnlyList<string>? AllowedModes,
+    Dictionary<string, int>? ModeValues, int? MaxModes, FireModeSelector? Selector, WeaponFieldEvidence? Evidence);
+public sealed record SupportReticle(string ReticleState, int? NativeValue, string? NativeName, ReticleEncoding? Encoding, WeaponFieldEvidence? Evidence);
 public sealed record SupportField(string InstanceKey, string SupportWeapon, SupportIdentity SupportWeaponIdentity, SupportTarget Target,
     string SemanticFieldId, string QualifiedSemanticFieldId, string ApiFieldConstant, SupportDisplay Display, SupportValue Value,
     bool Writable, bool ReadOnly, string? BlockedReason, SupportBacking Backing, SupportScope SharedScope,
-    SupportOperation Operation, SupportResolution Resolution, SupportProvenance Provenance);
+    SupportOperation Operation, SupportResolution Resolution, SupportProvenance Provenance,
+    SupportFireMode? FireMode = null, SupportReticle? Reticle = null);
+// 0.26.0: support weapons whose ammunition is stored in their backpack (support weapon -> ammoBackpack).
+public sealed record SupportAmmoBackpackBaseline(int Capacity, int StartAmount, int RefillAmount);
+public sealed record SupportAmmoBackpack(string Backpack, string SemanticId, string Accessor, string Owner, bool WeaponOwnsMagazine,
+    string[] Fields, SupportAmmoBackpackBaseline Baseline, string Catalog);
 public sealed record SupportBlock(string Field, string Reason);
 // Forward call-in link. 0.22.0 publishes only known/kind; 0.22.1+ adds state, the linked stratagem semantic ID, relationship ID and blocker.
 public sealed record SupportLinkedStratagem(bool Known, string? Kind = null, string? State = null, string? SemanticId = null, string? RelationshipId = null,
@@ -44,7 +53,7 @@ public sealed record SupportNoCallIn(string Reason, SupportAcquisition? Acquisit
 public sealed record SupportIdentityResolution(string Basis, string[] Evidence, int NonDeliveredNativeRoots, bool NonDeliveredRootsAffected, string Note, string EvidenceArtifact);
 public sealed record SupportAuthoringWeapon(string Name, string IdentityStatus, string Confidence, string[] Family,
     bool Writable, int WritableFieldCount, string[] FieldInstanceKeys, SupportBlock[] BlockedFields, SupportLinkedStratagem? LinkedStratagem = null, string? SemanticId = null,
-    SupportIdentityResolution? IdentityResolution = null)
+    SupportIdentityResolution? IdentityResolution = null, SupportAmmoBackpack? AmmoBackpack = null)
 {
     public const string Unique = "UNIQUE", DeliveryResolved = "DELIVERY_RESOLVED";
     // A writable identity: unique, or resolved by Runtime through its call-in delivery chain.
@@ -112,8 +121,12 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
                     && SupportAuthoringWeapon.Resolved(f.SupportWeaponIdentity.IdentityStatus)
                     && (f.Operation.Acknowledgement == null ? f.Operation.AcknowledgementReason == null
                         : f.Operation.Acknowledgement == "allow_unverified_effect" && !string.IsNullOrWhiteSpace(f.Operation.AcknowledgementReason))
-                    && f.Writable && !f.ReadOnly && f.Value.Kind == "scalar" && f.Value.Type is "number" or "integer" or "boolean"
+                    && f.Writable && !f.ReadOnly && f.Value.Kind == "scalar" && f.Value.Type is "number" or "integer" or "boolean" or WeaponCapability.FireModeSet
+                    && (f.Value.Type == WeaponCapability.FireModeSet) == (f.FireMode != null && f.SemanticFieldId == FireModes.ModesField)
+                    && (f.Reticle == null) == (f.SemanticFieldId != FireModes.ReticleField) && (f.Reticle == null || f.Value.Type == "boolean" && f.Reticle.Encoding != null)
                     && JsonElement.DeepEquals(f.Value.Baseline, f.Value.Expected));
+                if (f.FireMode is { } fm && f.Value.Type == WeaponCapability.FireModeSet)
+                    FireModes.ValidateCapability(fm.FireModeState, f.Value.Baseline, f.Writable, fm.AllowedModes, fm.ModeValues, fm.MaxModes, fm.NativeSlots);
                 _ = Generation.SupportScalar.Normalize(f, f.Value.Baseline);
                 Check(Regex.IsMatch(f.ApiFieldConstant, @"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z"));
                 ValidateTarget(f.Target);

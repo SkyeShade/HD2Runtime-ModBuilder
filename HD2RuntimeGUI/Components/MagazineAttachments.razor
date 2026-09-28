@@ -15,9 +15,9 @@
                 @if (unresolved.Length > 0) { <span class="badge" data-unresolved-count>@unresolved.Length unresolved</span> }</summary>
             @foreach (var o in unresolved)
             {
-                <div class="unresolved-option" data-unresolved-option="@o.Name"><strong>@o.Name</strong> <span class="badge">@(o.Relationship == "catalog_effect_fingerprint_ambiguous" ? "Ambiguous" : "No native match")</span>
+                <div class="unresolved-option" data-unresolved-option="@o.Label"><strong>@o.Label</strong> <span class="badge">@(o.Relationship == "catalog_effect_fingerprint_ambiguous" ? "Ambiguous" : "No native match")</span>
                     @if (o.Default) { <span class="badge">Catalog default</span> }
-                    <span class="subtle">@(o.PublishedEffects.Capacity?.ToString() ?? "—") rounds · @(o.PublishedEffects.StartingMagazines?.ToString() ?? "—") starting · @(o.PublishedEffects.MaxMagazines?.ToString() ?? "—") max magazines</span>
+                    <span class="subtle">@(o.PublishedEffects?.Capacity?.ToString() ?? "—") rounds · @(o.PublishedEffects?.StartingMagazines?.ToString() ?? "—") starting · @(o.PublishedEffects?.MaxMagazines?.ToString() ?? "—") max magazines</span>
                     <details class="field-info"><summary title="Why unresolved?">ⓘ</summary><div class="field-info-body"><p>@o.Blocker</p>
                         @if (o.Candidates.Length > 0) { <p>Candidates (not chosen):</p><ul>@foreach (var c in o.Candidates) { <li><code>@c</code> @catalog.Attachment(c)?.Name</li> }</ul> }</div></details>
                 </div>

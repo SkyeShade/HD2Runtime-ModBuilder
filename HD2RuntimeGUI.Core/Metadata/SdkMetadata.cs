@@ -28,6 +28,10 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
     public StratagemCatalog? Stratagems { get; init; }
     public SupportCallInIndex? SupportLinks { get; init; }
     public EntityAuthoring? Entities { get; init; }
+    // SDK 0.26.0+: every weapon's fire-mode set and state (cross-checked against the player/support field catalogs).
+    public WeaponFireModeCatalog? FireModes { get; init; }
+    // True from SDK 0.26.0: magazine options, reticle, fire modes, vehicle weapons, mission uses, backpack ammo and pod payloads.
+    public bool Has026 => Models.SemVersion.Parse(Version).CompareTo(Models.SemVersion.Parse("0.26.0")) >= 0;
     public string CategoryName(string key)
     {
         var name = Types[key].Name;

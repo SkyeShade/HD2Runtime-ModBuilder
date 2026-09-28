@@ -10,6 +10,7 @@ public static class StratagemScalar
     public static JsonElement Normalize(StratagemField f, JsonElement value)
     {
         if (f.Type == "boolean" && value.ValueKind is JsonValueKind.True or JsonValueKind.False) return value.Clone();
+        if (f.Type == StratagemUses.Type) return StratagemUses.Normalize(f, value);
         if (value.ValueKind == JsonValueKind.Number)
         {
             if (f.Type == "integer" && value.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue) return JsonSerializer.SerializeToElement(n);
@@ -18,8 +19,15 @@ public static class StratagemScalar
         throw new InvalidDataException("Enter a complete, finite value of the published scalar type.");
     }
     public static bool Equal(StratagemField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
-    public static string Text(StratagemField f, JsonElement v) => v.ValueKind == JsonValueKind.Null ? "Unknown" : f.Type == "number"
-        ? Normalize(f, v).GetSingle().ToString("R", CultureInfo.InvariantCulture) : Normalize(f, v).GetRawText();
+    // Lua literal. Mission uses are Runtime's 'unlimited' token or an integer.
+    public static string Text(StratagemField f, JsonElement v) => v.ValueKind == JsonValueKind.Null ? "Unknown" : f.Type switch
+    {
+        "number" => Normalize(f, v).GetSingle().ToString("R", CultureInfo.InvariantCulture),
+        StratagemUses.Type => StratagemUses.Lua(Normalize(f, v)),
+        _ => Normalize(f, v).GetRawText(),
+    };
+    // What a person reads ("Unlimited" rather than the Lua token).
+    public static string Display(StratagemField f, JsonElement v) => f.Type == StratagemUses.Type && v.ValueKind != JsonValueKind.Null ? StratagemUses.Text(Normalize(f, v)) : Text(f, v);
 }
 public interface IStratagemChangeService
 {
@@ -42,9 +50,11 @@ public sealed class StratagemChangeService : IStratagemChangeService
         try
         {
             using var doc = JsonDocument.Parse(value);
+            var desired = StratagemScalar.Normalize(f, doc.RootElement);
+            if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, f.CurrentDefault, desired);
             return new() { InstanceKey = instance, TargetKind = TargetKind(f), Stratagem = f.Target.Stratagem, Path = f.Target.Path,
                 Entity = f.Target.Entity, Weapon = f.Target.Weapon, Zone = f.Target.Zone, Attack = f.Target.Attack,
-                SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(), DesiredValue = StratagemScalar.Normalize(f, doc.RootElement),
+                SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(), DesiredValue = desired,
                 BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f) };
         }
         catch (JsonException e) { throw new InvalidDataException("Enter a complete scalar value.", e); }
@@ -61,8 +71,14 @@ public sealed class StratagemChangeService : IStratagemChangeService
             throw new InvalidDataException("Stratagem capability or ownership changed. Review and accept the current capability, or reset the change.");
         if (!StratagemScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Stratagem baseline changed. Review the saved and current values before accepting the new baseline.");
         _ = StratagemScalar.Normalize(f, c.DesiredValue);
+        if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, c.ExpectedValue, c.DesiredValue);
         if (f.AllowSharedRequired && !Approved(p, f)) throw new InvalidDataException("Acknowledge this shared stratagem object and affected consumers before building.");
+        if (EffectRequired(f, c.DesiredValue) && c.EffectAcknowledgement != EffectEvidence(f))
+            throw new InvalidDataException($"Acknowledge that {f.DisplayName.ToLowerInvariant()} for {f.Target.Stratagem} is not gameplay-confirmed before building.");
     }
+    // 0.26.0: Runtime requires allow_unverified_effect for this change (mission uses except gameplay-proven targets).
+    public static bool EffectRequired(StratagemField f, JsonElement desired) => f.Type == StratagemUses.Type ? StratagemUses.EffectRequired(f, desired) : f.Acknowledgement == "allow_unverified_effect";
+    public static string EffectEvidence(StratagemField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.InstanceKey, f.Acknowledgement, f.AcknowledgementReason }));
     public static string Evidence(StratagemField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
         f.BackingObjectId, f.OperationGroup, f.PlanGroup, f.PlanPhase, f.DependsOn, Approval = ApprovalEvidence(f) }));
     // Schema 1 publishes the reviewed scope on the backing identity itself. Schema 2 publishes an exact shared-scope key;

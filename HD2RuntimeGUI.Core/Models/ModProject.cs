@@ -50,6 +50,9 @@ public sealed class WeaponChange
     public bool EnsureEnabled { get; set; } = true;
     public string Group { get; set; } = "Gameplay";
     public string? Notes { get; set; }
+    // 0.26.0: acknowledgement of Runtime's allow_unverified_effect opt-in for this field (reticle, fire modes). Omitted when absent.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? EffectAcknowledgement { get; set; }
 }
 
 public sealed class ModChange

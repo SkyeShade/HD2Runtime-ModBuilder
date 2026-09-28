@@ -5,11 +5,14 @@ namespace HD2RuntimeGUI.Core.Services;
 // Readable groups for published semantic fields. Presentation only: groups never change targets, operations or guards.
 public static class FieldGroups
 {
-    public static readonly string[] Order = ["Ammo", "Handling", "Firing", "Projectile", "Damage", "Explosion", "Arc", "Beam", "Status"];
+    public static readonly string[] Order = ["Ammo", "Handling", "Firing", "Fire Mode", "Projectile", "Damage", "Explosion", "Arc", "Beam", "Status"];
     public static string Of(string semanticFieldId, string? domain = null)
     {
         var id = semanticFieldId.ToLowerInvariant(); var head = id.Split('.')[0];
         if (id is "weapon.capacity" || head is "magazine" or "rounds" or "reload" or "attachment") return "Ammo";
+        // 0.26.0: the third-person reticle is aiming presentation; fire modes are their own native model.
+        if (id == "weapon.third_person_reticle") return "Handling";
+        if (head == "fire_mode") return "Fire Mode";
         if (head == "weapon" && (id.Contains("ergonomic") || id.Contains("recoil") || id.Contains("sway") || id.Contains("spread") || id.Contains("drift"))) return "Handling";
         if (head is "weapon" or "windup" or "charge" or "heat" or "heatsink") return "Firing";
         return head switch
