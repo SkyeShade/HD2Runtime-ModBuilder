@@ -1,53 +1,20 @@
 @inject BuilderWorkspace Workspace
 @using System.Text.Json
-@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Advanced?.Support; var authoring = sdk?.SupportAuthoring; }
-<div class="page-heading"><div><div class="eyebrow">@(authoring == null ? "READ-ONLY CATALOG" : "GUARDED AUTHORING") · SDK @sdk?.Version</div><h1>Support Weapons</h1><p><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span>Weapon equipment for support stratagems. Call-in cooldowns are under Stratagems → Support; HD2Runtime @sdk?.Version does not publish which call-in delivers each weapon, so the two are edited separately.</p></div></div>
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Advanced?.Support; var authoring = sdk?.SupportAuthoring; var links = sdk?.SupportLinks; }
+<div class="page-heading"><div><div class="eyebrow">@(authoring == null ? "READ-ONLY CATALOG" : "GUARDED AUTHORING") · SDK @sdk?.Version</div><h1>Support Weapons</h1><p><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span>@(links == null ? "Weapon equipment for support stratagems. HD2Runtime " + sdk?.Version + " does not publish which call-in delivers each weapon, so call-ins (Stratagems → Support) and weapons are edited separately." : "Support weapons without a resolved call-in link. Linked weapons are edited inside their support stratagem under Stratagems → Support.")</p></div></div>
+@if (links != null) { <p class="notice cat-note cat-support" data-linked-support-count="@links.ByWeapon.Count">@links.ByWeapon.Count linked support weapons are edited together with their call-in under Stratagems → Support. The weapons listed here have no link published by HD2Runtime, so they are not paired with a stratagem.</p> }
 @if (Workspace.Project is { } active) { <p class="subtle">@active.DisplayName / Changes save automatically / SDK @active.SdkVersion</p> }
 @if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert"><strong>Build requires review</strong><p>@issue</p></div> }
 @if (catalog == null)
 { <section class="panel"><h2>No support catalog in this SDK</h2><p>Install SDK 0.17 or explicitly rebind the current project to inspect the published support catalog. Support authoring requires SDK 0.20.1 canonical capabilities.</p></section> }
 else
 {
-    <div class="weapon-editor"><section class="panel weapon-browser"><h2>@catalog.Weapons.Count support weapons</h2><label>Search<input id="support-search" @bind="Search" @bind:event="oninput" placeholder="Name, family or trait" /></label>
+    <div class="weapon-editor"><section class="panel weapon-browser"><h2>@Listed(catalog, authoring, links).Count() support weapons</h2><label>Search<input id="support-search" @bind="Search" @bind:event="oninput" placeholder="Name, family or trait" /></label>
     @if (authoring != null) { <label>Family / system<select @bind="Family"><option value="">All families</option>@foreach (var family in authoring.Weapons.SelectMany(w => w.Family).Concat(authoring.FieldInstances.Select(f => f.Display.Domain)).Select(f => f.ToLowerInvariant()).Distinct().Order()) { <option value="@family">@SupportAuthoringEditor.Label(family)</option> }</select></label><label><input type="checkbox" @bind="WritableOnly" /> Writable only</label><label><input type="checkbox" @bind="SharedOnly" /> Shared settings</label><p>@authoring.Weapons.Count(w => w.Writable) writable identities</p> }
-    <div class="weapon-list">@foreach (var w in catalog.Weapons.Values.Where(w => Matches(w, authoring)).Where(w => (w.CatalogIdentity + " " + w.WeaponType + " " + string.Join(" ", w.Traits)).Contains(Search, StringComparison.OrdinalIgnoreCase)))
+    <div class="weapon-list">@foreach (var w in Listed(catalog, authoring, links).Where(w => (w.CatalogIdentity + " " + w.WeaponType + " " + string.Join(" ", w.Traits)).Contains(Search, StringComparison.OrdinalIgnoreCase)))
     { <button class="resource-item @(Selected == w.CatalogIdentity ? "active" : "")" data-support="@w.CatalogIdentity" @onclick="() => Selected = w.CatalogIdentity"><strong>@w.CatalogIdentity</strong><small>@w.WeaponType · @w.IdentityResolution</small></button> }</div></section>
     <div class="weapon-detail">
-    @if (catalog.Weapons.GetValueOrDefault(Selected) is { } weapon)
-    {
-        <section class="panel"><h2>@weapon.CatalogIdentity</h2><div class="field-badges"><span class="badge">@(authoring?.Weapons.Single(w => w.Name == weapon.CatalogIdentity).Writable == true ? "Writable" : "Read-only")</span><span class="badge">@weapon.IdentityResolution</span><span class="badge">@weapon.Confidence</span>@foreach (var trait in weapon.Traits) { <span class="badge">@trait</span> }</div>
-            @if (authoring == null) { <p>@weapon.AuthoringReason</p> }
-            else { <details open="@(weapon.IdentityResolution != "UNIQUE")"><summary>Read-only / unresolved capabilities</summary>@foreach (var block in authoring.Weapons.Single(w => w.Name == weapon.CatalogIdentity).BlockedFields) { <p class="subtle">@block.Field: @block.Reason</p> }</details> }
-            @if (weapon.IdentityResolution != "UNIQUE") { <p class="notice warning">Duplicate/ambiguous resources remain separate. No canonical identity is selected for writing.</p> }
-            @if (weapon.BackpackDependent) { <p class="notice warning">Backpack dependent · native backpack entity ownership remains unresolved where noted below.</p> }
-        </section>
-        @if (weapon.OwnershipChain.Count > 0) { <section class="panel"><h3>System ownership chain</h3>@foreach (var node in weapon.OwnershipChain) { <div class="graph-node">→ <strong>@node.Kind.Replace('_', ' ')</strong> @node.Component</div> }</section> }
-        <SupportAuthoringEditor Weapon="@weapon.CatalogIdentity" Changed="Refresh" />
-        <section class="panel"><h3>Attack graph</h3>
-        @foreach (var branch in weapon.AttackGraph)
-        {
-            <details class="support-branch" data-support-branch="@branch.Name"><summary><strong>@branch.Name</strong> <span class="badge">@branch.Kind</span><span class="badge">@branch.State</span></summary>
-                @if (branch.ParentAttack != null) { <p>From: @branch.ParentAttack</p> }
-                @if (branch.ChildAttacks.Count > 0) { <p>Branches: @string.Join(" → ", branch.ChildAttacks)</p> }
-                @if (branch.UnresolvedReason != null) { <p class="notice warning">@branch.UnresolvedReason</p> }
-                <EvidenceTree Value="branch.Charge" />
-            </details>
-        }
-        </section>
-        @foreach (var attack in weapon.RuntimeAttacks)
-        {
-            <details class="panel support-runtime"><summary><strong>@attack.Role · @attack.Kind</strong> <span class="badge">Resolved fields</span></summary>
-                @if (attack.ParentRole != null) { <p>Parent: @attack.ParentRole</p> }
-                <EvidenceTree Value="@JsonSerializer.SerializeToElement(attack.ResolvedFields)" />
-                <EvidenceTree Value="attack.StatusEffects" />
-            </details>
-        }
-        <details class="panel"><summary>Charge / cadence</summary><EvidenceTree Value="weapon.ChargeCadence" /></details>
-        <details class="panel"><summary>Ammo / feed / backpack ownership</summary><EvidenceTree Value="weapon.AmmoFeedMagazine" /></details>
-        <details class="panel"><summary>Relationships and shared settings</summary><EvidenceTree Value="weapon.Relationships" /><EvidenceTree Value="weapon.Sharedness" /><EvidenceTree Value="catalog.SharedSettingsGroups" /></details>
-        @if (weapon.UnresolvedLinks.Count > 0) { <section class="panel"><h3>Unresolved links</h3><ul>@foreach (var link in weapon.UnresolvedLinks) { <li>@link</li> }</ul></section> }
-        <details class="panel"><summary>Advanced identity / component evidence</summary>@foreach (var resource in weapon.ResourceHashes) { <p><code>@resource</code></p> }<EvidenceTree Value="weapon.WeaponComponents" /></details>
-    }
+    @if (catalog.Weapons.ContainsKey(Selected) && links?.ForWeapon(Selected) == null) { <SupportWeaponDetail Weapon="@Selected" Changed="Refresh" @key="Selected" /> }
     else { <section class="panel"><h2>Choose a support weapon</h2><p>Inspect branches, family-specific settings, dependencies and unresolved evidence. Writable capabilities autosave into the active project.</p></section> }
     </div></div>
 }
@@ -55,6 +22,9 @@ else
     [Parameter] public EventCallback Changed { get; set; }
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     private string Search = "", Selected = "", Family = ""; private bool WritableOnly, SharedOnly;
+    // Weapons with a published call-in link live inside that stratagem's editor; only unlinked weapons stay here.
+    private IEnumerable<SupportWeapon> Listed(SupportCatalog catalog, SupportAuthoringCatalog? authoring, SupportCallInIndex? links)
+        => catalog.Weapons.Values.Where(w => links?.ForWeapon(w.CatalogIdentity) == null && Matches(w, authoring));
     private bool Matches(SupportWeapon w, SupportAuthoringCatalog? catalog) {
         if (catalog == null) return true;
         var descriptor = catalog.Weapons.Single(x => x.Name == w.CatalogIdentity);

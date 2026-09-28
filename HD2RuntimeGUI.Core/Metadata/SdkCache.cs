@@ -95,6 +95,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             sdk = sdk with { Stratagems = stratagemReader.Read(payload.Composition!.GetValueOrDefault(StratagemCatalogReader.FileName)
                 ?? throw new InvalidDataException("SDK is missing canonical stratagem capabilities.")) };
         }
+        if (sdk.Stratagems != null && sdk.SupportAuthoring != null) sdk = sdk with { SupportLinks = SupportCallInLinker.Link(sdk.Stratagems, sdk.SupportAuthoring) };
         return sdk;
     }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)

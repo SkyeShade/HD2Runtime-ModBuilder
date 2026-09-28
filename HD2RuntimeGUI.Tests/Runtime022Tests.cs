@@ -30,7 +30,7 @@ public sealed class Runtime022Tests
     [Fact] public async Task Published_022_catalog_loads_with_audited_counts()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); var c = w.Metadata!.Stratagems!;
-        Assert.Equal("0.22.0", w.Metadata.Version); Assert.Equal(2, c.SchemaVersion); Assert.Equal("hd2runtime.stratagem.guarded_authoring.v2", c.Contract);
+        Assert.Equal("0.22.1", w.Metadata.Version); Assert.Equal(2, c.SchemaVersion); Assert.Equal("hd2runtime.stratagem.guarded_authoring.v2", c.Contract);
         Assert.Equal(1382, c.FieldInstances.Length); Assert.Equal(1382, c.FieldInstances.Select(f => f.InstanceKey).Distinct().Count());
         Assert.Equal(1311, c.FieldInstances.Count(f => f.Editable));
         var defensive = c.FieldInstances.Where(f => Defensive(c, f)).ToArray();
@@ -75,7 +75,7 @@ public sealed class Runtime022Tests
         Assert.Equal(1382, sdk.Stratagems!.FieldInstances.Length);
         Assert.True(new FileInfo(e.Paths.CachePath("0.22.0", StratagemCatalogReader.FileName)).Length > PlayerWeaponCompositionReader.MaxBytes);
         var cached = await e.Cache.GetVersionAsync("0.22.0"); Assert.Equal(1311, cached.Stratagems!.FieldInstances.Count(f => f.Editable));
-        Assert.Equal(SdkCache.BundledComposition()[StratagemCatalogReader.FileName], await File.ReadAllBytesAsync(e.Paths.CachePath("0.22.0", StratagemCatalogReader.FileName)));
+        Assert.Null(sdk.SupportLinks); Assert.Null(cached.SupportLinks); // 0.22.0 publishes no call-in linkage, so nothing is merged.
     }
     [Theory] [InlineData("native")] [InlineData("hex")] [InlineData("group-target")] [InlineData("scope")] [InlineData("backing-kind")] [InlineData("mine-attack")]
     [InlineData("fire-rate")] [InlineData("audit")] [InlineData("entity-path")] [InlineData("missing-scope")] [InlineData("contract")]
@@ -334,7 +334,7 @@ public sealed class Runtime022Tests
             using var reader = new StreamReader(entry.Open()); var text = reader.ReadToEnd();
             foreach (var native in new[] { "backing:", "operation:", "shared-scope:", "0x", "offset", "recordIndex" }) Assert.DoesNotContain(native, text);
         }
-        using var dependency = new StreamReader(zip.GetEntry("hd2runtime.json")!.Open()); Assert.Contains("0.22.0", dependency.ReadToEnd());
+        using var dependency = new StreamReader(zip.GetEntry("hd2runtime.json")!.Open()); Assert.Contains("0.22.1", dependency.ReadToEnd());
     }
 
     [Fact] public async Task Runtime021_project_rebinds_by_semantic_identity_and_reviews_changed_scopes()
@@ -349,7 +349,7 @@ public sealed class Runtime022Tests
         File.Delete(e.Paths.CachePath("current.json")); await e.Cache.GetCurrentAsync();
         await w.OpenAsync(w.Project.Id); Assert.Equal("0.21.0", w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(989, w.Metadata!.Stratagems!.FieldInstances.Length);
         await w.RebindToInstalledSdkAsync(); var c22 = w.Metadata!.Stratagems!;
-        Assert.Equal("0.22.0", w.Project.SdkVersion); Assert.Equal(4, w.Project.StratagemChanges.Count);
+        Assert.Equal("0.22.1", w.Project.SdkVersion); Assert.Equal(4, w.Project.StratagemChanges.Count);
         Assert.All(w.Project.StratagemChanges, x => { Assert.NotNull(c22.Find(x.InstanceKey)); Assert.Equal("0.21.0", x.BaselineSdkVersion); Assert.Equal(saved[x.SemanticFieldId].DesiredValue.GetRawText(), x.DesiredValue.GetRawText()); });
         Assert.Null(w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "stratagem.cooldown")));
         Assert.Null(w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "damage.standard_damage")));
@@ -361,7 +361,7 @@ public sealed class Runtime022Tests
         Assert.All(w.Project.StratagemApprovals.Keys, k => Assert.StartsWith("shared-scope:", k));
         await w.SetStratagemAsync(napalm22.InstanceKey, "12", true);
         Assert.Contains("Acknowledge", w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "status.duration")));
-        Assert.Equal("0.22.0", w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "status.duration").BaselineSdkVersion);
+        Assert.Equal("0.22.1", w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "status.duration").BaselineSdkVersion);
         await w.SetStratagemApprovalAsync(napalm22.InstanceKey, true); Assert.Null(w.BuildError);
         await w.OpenAsync(w.Project.Id); Assert.Null(w.BuildError); Assert.Contains(":attack('delivery_1_projectile_impact_damage_status_1')", w.LuaPreview);
     }

@@ -1,5 +1,5 @@
 @inject BuilderWorkspace Workspace
-@{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Stratagems; }
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Stratagems; var link = sdk?.SupportLinks?.ForStratagem(Name); }
 @if (catalog?.Root(Name) != null)
 {
     var graph = StratagemGraph.Build(catalog, Name, f => (!ExcludeRearm || f.Target.Path != "eagle_rearm") && (!RearmOnly || f.Target.Path == "eagle_rearm")
@@ -26,6 +26,13 @@
         <section class="panel" data-stratagem-branch="stratagem"><h2>Stratagem</h2>
             <div class="stat-grid">@foreach (var f in graph.Definition) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
         </section>
+    }
+    @if (link != null && !RearmOnly)
+    {
+        // Merged support entry: the linked weapon's own editor and guards, joined through published semantic IDs only.
+        if (!ModifiedOnly) { <DeliveryGraph Link="link" /><SupportWeaponDetail Weapon="@link.Weapon.Name" Embedded="true" Changed="Refresh" /> }
+        else if (Workspace.Project?.SupportChanges.Any(c => c.Weapon == link.Weapon.Name) == true)
+        { <div class="linked-weapon-changes" data-linked-weapon="@link.Weapon.Name"><h3 class="section-label">Weapon · @link.Weapon.Name</h3><SupportAuthoringEditor Weapon="@link.Weapon.Name" ModifiedOnly="true" Changed="Refresh" /></div> }
     }
     @if (graph.EagleRearm.Length > 0)
     {

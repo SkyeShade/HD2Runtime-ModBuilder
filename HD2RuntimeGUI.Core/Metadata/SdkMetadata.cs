@@ -26,6 +26,7 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
     public CompositionPlanCapabilities? Plans { get; init; }
     public SupportAuthoringCatalog? SupportAuthoring { get; init; }
     public StratagemCatalog? Stratagems { get; init; }
+    public SupportCallInIndex? SupportLinks { get; init; }
     public string CategoryName(string key)
     {
         var name = Types[key].Name;

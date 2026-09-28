@@ -14,7 +14,7 @@ public sealed record StratagemDefinition(string Name, string Family, string Root
     string[] AttackRoles, StratagemAvailability CooldownCapability, StratagemAvailability MaxUses,
     StratagemAvailability CallInTime, int? UsesPerRearm, double? RearmTime,
     StratagemAvailability? BarrageScheduling, StratagemEntityIdentity? DeployedEntity = null,
-    bool? MineScopeDeferred = null, bool? MineInstanceResolved = null);
+    bool? MineScopeDeferred = null, bool? MineInstanceResolved = null, string? SemanticId = null, StratagemDelivers? Delivers = null);
 // Descriptive (non-authoring) graph nodes. Schema 1 nodes carry wiki kind/roles; schema 2 defensive nodes carry kind/source/evidence.
 public sealed record StratagemBranch(string Id, string Name, string? WikiKind, string[]? SemanticRoles, string? ParentId,
     string[] ChildIds, string Stratagem, string Family, string Correlation, string? Kind = null, string? SourcePath = null,
@@ -64,7 +64,8 @@ public sealed record StratagemCatalog(int SchemaVersion, string Contract, string
     StratagemDefinition[] Stratagems, StratagemBranch[] SemanticBranches, StratagemAttack[] Attacks,
     StratagemField[] FieldInstances, StratagemSummary Summary,
     StratagemDeployedEntityRecord[]? DeployedEntities = null, StratagemBackingObject[]? BackingObjects = null,
-    StratagemOperationGroup[]? OperationGroups = null, StratagemInstanceAudit? InstanceAudit = null)
+    StratagemOperationGroup[]? OperationGroups = null, StratagemInstanceAudit? InstanceAudit = null,
+    SupportCallInLinkage? SupportCallInLinks = null)
 {
     public static readonly string[] DefensiveFamilies = ["sentry", "emplacement", "mine"];
     public static bool IsDefensive(string family) => DefensiveFamilies.Contains(family);

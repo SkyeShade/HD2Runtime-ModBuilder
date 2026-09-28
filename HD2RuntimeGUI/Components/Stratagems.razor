@@ -40,7 +40,11 @@ else
                     </ol>
                 }
                 @if (stratagem.Family == "support")
-                { <p class="notice cat-note cat-support" data-support-link-blocker>Support weapon equipment (ammo, projectile, damage, explosion, …) is edited under <strong>Support Weapons</strong>. HD2Runtime @sdk?.Version does not publish which support weapon a call-in delivers, so this call-in and its weapon are not paired automatically.</p> }
+                {
+                    if (sdk?.SupportLinks == null) { <p class="notice cat-note cat-support" data-support-link-blocker>Support weapon equipment is edited under <strong>Support Weapons</strong>. HD2Runtime @sdk?.Version does not publish which support weapon a call-in delivers, so this call-in and its weapon are not paired automatically.</p> }
+                    else if (sdk.SupportLinks.ForStratagem(stratagem.Name) is { } link) { <p class="notice cat-note cat-support" data-support-linked="@link.Weapon.Name">This call-in delivers <strong>@link.Weapon.Name</strong>. Its weapon controls are shown below with the call-in, using HD2Runtime's structural link. Call-in and weapon edits remain separate guarded targets.</p> }
+                    else if (stratagem.Delivers is { Known: false } unresolved) { <p class="notice cat-note cat-support" data-support-link-unresolved>No support weapon is linked to this call-in: @unresolved.Blocker</p> }
+                }
                 @if (stratagem.Family == "mine" && stratagem.MineInstanceResolved != true)
                 { <p class="notice" data-mine-scope>Runtime resolves this minefield's stratagem and deployment entity only. Individual mines, their triggers, distribution and explosion/status attacks are not resolved, so they have no controls here.</p> }
                 <details open="@(graph.Blocked.Length > 0)" data-blocked-capabilities><summary>Not currently writable</summary>
@@ -79,7 +83,9 @@ else
     private string Search = "", Family = "", System = "", Availability = "", Selected = "";
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     public static string FamilyLabel(string family) => StratagemBrowser.FamilyLabel(family);
-    private static string Summary(StratagemCatalog c, StratagemDefinition s) => s.DeployedEntity is { } e
+    private string Summary(StratagemCatalog c, StratagemDefinition s) => (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.SupportLinks?.ForStratagem(s.Name) is { } link
+        ? "Call-in + weapon" + (link.Weapon.Writable ? "" : " (weapon read-only)")
+        : s.DeployedEntity is { } e
         ? EntityStats.KindLabel(e) + (e.WeaponBranches.Length > 0 ? " · " + e.WeaponBranches.Length + " mounted weapon" + (e.WeaponBranches.Length == 1 ? "" : "s") : "")
         : s.AttackRoles.Length == 0 ? "Call-in definition" : s.AttackRoles.Length + " branches";
     private static string BlockedLabel(string field) => field switch

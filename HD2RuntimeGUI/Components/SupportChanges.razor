@@ -1,8 +1,10 @@
 @inject BuilderWorkspace Workspace
-@if (Workspace.Project?.SupportChanges.Count > 0)
+@{ var links = Workspace.Metadata?.SupportLinks; var unlinked = Workspace.Project?.SupportChanges.Where(c => links?.ForWeapon(c.Weapon) == null).ToArray() ?? []; }
+@* Linked support weapons are listed with their call-in under Stratagem changes. *@
+@if (unlinked.Length > 0)
 {
-    <div class="panel-heading"><h2>Support weapon changes</h2><button class="reset-action" @onclick="() => Run(() => Workspace.ResetSupportAsync())">Reset all support changes</button></div>
-    @foreach (var weapon in Workspace.Project.SupportChanges.GroupBy(c => c.Weapon).OrderBy(g => g.Key))
+    <div class="panel-heading"><h2>Support weapon changes</h2><button class="reset-action" @onclick="() => Run(async () => { foreach (var weapon in unlinked.Select(c => c.Weapon).Distinct().ToArray()) await Workspace.ResetSupportAsync(weapon); })">@(links == null ? "Reset all support changes" : "Reset these support changes")</button></div>
+    @foreach (var weapon in unlinked.GroupBy(c => c.Weapon).OrderBy(g => g.Key))
     {
         <details class="panel"><summary><strong>@weapon.Key</strong> <span class="badge">@weapon.Count() changes</span></summary>
             <label><input type="checkbox" checked="@ShowAll.Contains(weapon.Key)" @onchange="e => ToggleAll(weapon.Key, (bool)e.Value!)" /> Show all fields</label>

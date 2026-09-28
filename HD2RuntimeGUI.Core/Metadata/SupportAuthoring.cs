@@ -27,10 +27,11 @@ public sealed record SupportField(string InstanceKey, string SupportWeapon, Supp
     bool Writable, bool ReadOnly, string? BlockedReason, SupportBacking Backing, SupportScope SharedScope,
     SupportOperation Operation, SupportResolution Resolution, SupportProvenance Provenance);
 public sealed record SupportBlock(string Field, string Reason);
-// Runtime's published call-in linkage. 0.22 publishes only known/kind, never the linked stratagem identity.
-public sealed record SupportLinkedStratagem(bool Known, string? Kind = null);
+// Forward call-in link. 0.22.0 publishes only known/kind; 0.22.1+ adds state, the linked stratagem semantic ID, relationship ID and blocker.
+public sealed record SupportLinkedStratagem(bool Known, string? Kind = null, string? State = null, string? SemanticId = null, string? RelationshipId = null,
+    string? Relationship = null, string? StratagemName = null, string? DeliveryObject = null, string? Special = null, string? Confidence = null, string? Blocker = null);
 public sealed record SupportAuthoringWeapon(string Name, string IdentityStatus, string Confidence, string[] Family,
-    bool Writable, int WritableFieldCount, string[] FieldInstanceKeys, SupportBlock[] BlockedFields, SupportLinkedStratagem? LinkedStratagem = null);
+    bool Writable, int WritableFieldCount, string[] FieldInstanceKeys, SupportBlock[] BlockedFields, SupportLinkedStratagem? LinkedStratagem = null, string? SemanticId = null);
 public sealed record SupportObject(string ObjectKey, string Kind, string SemanticType, string[] Domains, bool Shared,
     bool RequiresSharedAcknowledgement, string SharedScopeKey, int ReviewedConsumerCount, SupportConsumer[] AffectedSemanticConsumers,
     bool ReviewedScopeComplete, bool DynamicConsumersPossible, string[] FieldInstanceKeys);
@@ -42,7 +43,7 @@ public sealed record SupportPlanContract(string Api, int CurrentPhase, bool Curr
     bool OneOperationPerOperationGroupingKey, bool MultipleBackingObjectsRequirePlan);
 public sealed record SupportAuthoringCatalog(int SchemaVersion, string Contract, string Hd2RuntimeVersion, SupportAuthoringSummary Summary,
     SupportAuthoringWeapon[] Weapons, SupportField[] FieldInstances, SupportObject[] BackingObjects,
-    SupportOperationGroup[] OperationGroups, SupportPlanContract PlanContract)
+    SupportOperationGroup[] OperationGroups, SupportPlanContract PlanContract, SupportCallInLinkage? SupportCallInLinks = null)
 {
     public SupportField Field(string key) => FieldInstances.SingleOrDefault(f => f.InstanceKey == key)
         ?? throw new InvalidDataException("Support capability is missing from this SDK. Reset or review the saved modification.");

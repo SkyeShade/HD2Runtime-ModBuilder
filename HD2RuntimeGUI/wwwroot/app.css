@@ -1051,3 +1051,11 @@ input[type=checkbox]:checked:before {
 .nav-item.no-project:not(.selected) { color:#7f8898 }
 .workspace-empty { margin-top:40px }
 .workspace-empty .actions { justify-content:center }
+/* Support call-in delivery graph */
+.delivery-tree, .delivery-tree ul { list-style:none; margin:.4rem 0 0; padding-left:0 }
+.delivery-tree ul { padding-left:1.4rem; border-left:1px solid var(--border); margin-left:3px }
+.delivery-tree li { margin:.45rem 0 }
+.delivery-tree li > .cat-dot { margin-right:.55rem; vertical-align:middle }
+.delivery-tree li > small { color:var(--muted); margin-left:.6rem }
+.delivery-tree li > .badge { margin-left:.6rem }
+.linked-weapon-changes { margin-top:14px; padding-left:14px; border-left:2px solid color-mix(in srgb, var(--cat-support) 55%, transparent) }

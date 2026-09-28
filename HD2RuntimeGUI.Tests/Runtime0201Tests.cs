@@ -23,7 +23,7 @@ public sealed class Runtime0201Tests
     [Fact] public async Task Canonical_catalog_has_complete_instances_objects_operations_and_scopes()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); var c = w.Metadata!.SupportAuthoring!;
-        Assert.Equal("0.22.0", w.Metadata.Version); Assert.Equal(35, c.Weapons.Length); Assert.Equal(27, c.Weapons.Count(w => w.Writable));
+        Assert.Equal("0.22.1", w.Metadata.Version); Assert.Equal(35, c.Weapons.Length); Assert.Equal(27, c.Weapons.Count(w => w.Writable));
         Assert.Equal(828, c.FieldInstances.Length); Assert.Equal(828, c.FieldInstances.Select(f => f.InstanceKey).Distinct().Count());
         Assert.Equal(146, c.BackingObjects.Length); Assert.Equal(155, c.OperationGroups.Length);
         Assert.Equal(81, c.FieldInstances.Where(f => f.SharedScope.Shared).Select(f => f.SharedScope.ScopeKey).Distinct().Count());
@@ -127,7 +127,7 @@ public sealed class Runtime0201Tests
         Assert.DoesNotContain("0x", lua); Assert.DoesNotContain("offset", lua); Assert.Contains(":projectile()", lua); Assert.Contains(":explosion()", lua);
         using var archive = ZipFile.OpenRead(w.LastExport!); Assert.Equal(8, archive.Entries.Count);
         Assert.DoesNotContain(archive.Entries, x => x.FullName.Contains("Capabilities") || x.FullName.Contains("snapshot"));
-        Assert.Contains(archive.Entries, x => { using var r = new StreamReader(x.Open()); return r.ReadToEnd().Contains("0.22.0"); });
+        Assert.Contains(archive.Entries, x => { using var r = new StreamReader(x.Open()); return r.ReadToEnd().Contains("0.22.1"); });
     }
     [Theory] [InlineData("missing")] [InlineData("duplicate")] [InlineData("group")] [InlineData("phase")] [InlineData("api")] [InlineData("scope")]
     public void Invalid_canonical_metadata_is_rejected(string mode)
@@ -140,7 +140,7 @@ public sealed class Runtime0201Tests
             case "api": first["apiFieldConstant"] = "os.execute('bad')"; break;
             case "scope": first["sharedScope"]!["scopeKey"] = "invented"; break;
         }
-        Assert.Throws<InvalidDataException>(() => new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.22.0"));
+        Assert.Throws<InvalidDataException>(() => new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.22.1"));
     }
     private static byte[] Archive(bool omitSupport = false)
     {
@@ -156,15 +156,15 @@ public sealed class Runtime0201Tests
         var old = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.19.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new("Old project", "Tests", "mods/tests/old_support", "0.1.0"), old);
         await w.SetWeaponChangeAsync("AR-23C Liberator Concussive", "weapon.fire_rate", "1100", false);
-        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.22.0", e.GitHub.Archive));
+        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.22.1", e.GitHub.Archive));
         await w.OpenAsync(w.Project!.Id); Assert.Equal("0.19.0", w.Project!.SdkVersion); Assert.Null(w.Metadata!.SupportAuthoring);
-        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.22.0", w.Project.SdkVersion); Assert.Equal(828, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.22.1", w.Project.SdkVersion); Assert.Equal(828, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
         Assert.Equal("0.19.0", w.Project.WeaponChanges.Single().BaselineSdkVersion); Assert.Null(w.BuildError);
     }
     [Fact] public async Task Missing_canonical_artifact_preserves_previous_install()
     {
         using var e = new TestEnvironment(); e.GitHub.Archive = Archive(true);
-        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.22.0", e.GitHub.Archive)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.22.1", e.GitHub.Archive)));
         Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);
     }
     [Fact] public async Task Reused_player_artifacts_allow_only_verified_exact_bytes()

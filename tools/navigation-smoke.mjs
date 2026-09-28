@@ -60,11 +60,11 @@ try {
     await screenshot('navigation-defensive');
     await go('stratagems:offensive'); assert.equal(await count('.weapon-list [data-stratagem="Orbital Laser"]'), 1); assert.equal(await count('.weapon-list [data-stratagem="Eagle Airstrike"]'), 1);
     await go('stratagems:support'); await evaluate(`document.querySelector('[data-stratagem="GR-8 Recoilless Rifle"]').click()`); await sleep(300);
-    assert.equal(await count('[data-support-link-blocker]'), 1); assert.equal(await count('[data-semantic-field="stratagem.cooldown"] input[type=number]'), 1);
+    assert.equal(await count('[data-support-linked="GR-8 Recoilless Rifle"]'), 1); assert.equal(await count('[data-semantic-field="stratagem.cooldown"] input[type=number]'), 1);
     await screenshot('navigation-support');
-    await go('support'); await waitFor("document.body.innerText.includes('MS-11 Solo Silo')", 'support weapons editor');
+    await go('support'); await waitFor("document.querySelectorAll('.weapon-list [data-support]').length === 3", 'unlinked support weapons');
     await go('stratagems'); assert.equal(await count('.category-pill.active[data-category="all"]'), 1); assert.equal(await count('.weapon-list [data-stratagem]'), 73);
     await go('changes'); assert.equal(await count('[data-change-category="defensive"]'), 1);
     await go('library');
-    console.log('PASS: public-only navigation, persistent no-project navigation and empty states, category pills/colors/counts, support blocker notice, Support Weapons editor');
+    console.log('PASS: public-only navigation, persistent no-project navigation and empty states, category pills/colors/counts, merged support notice, unlinked Support Weapons list');
 } finally { socket.close(); }

@@ -50,19 +50,4 @@ public sealed class NavigationTests
         Assert.Equal(StratagemCategories.Support, StratagemCategories.Of(c.Root("GR-8 Recoilless Rifle")!.Family));
         Assert.Null(StratagemCategories.Of("vehicle"));
     }
-    // The merged support editor is blocked: Runtime 0.22 publishes no support weapon ↔ call-in identity.
-    // This test documents the published state; if Runtime starts publishing a link, it fails and the merge can be revisited.
-    [Fact] public async Task Runtime_does_not_publish_support_weapon_call_in_identity()
-    {
-        using var e = new TestEnvironment(); var sdk = await Current(e);
-        var weapons = sdk.SupportAuthoring!.Weapons;
-        Assert.Equal(35, weapons.Length); Assert.All(weapons, w => Assert.NotNull(w.LinkedStratagem));
-        Assert.Equal(34, weapons.Count(w => !w.LinkedStratagem!.Known));
-        var silo = weapons.Single(w => w.LinkedStratagem!.Known); Assert.Equal("MS-11 Solo Silo", silo.Name); Assert.Equal("support_weapon_delivery", silo.LinkedStratagem!.Kind);
-        var json = System.Text.Json.Nodes.JsonNode.Parse(SdkCache.BundledComposition()[SupportAuthoringReader.FileName])!;
-        Assert.All(json["weapons"]!.AsArray(), w => Assert.Equal(w!["linkedStratagem"]!["known"]!.GetValue<bool>() ? 2 : 1, w["linkedStratagem"]!.AsObject().Count));
-        var support = sdk.Stratagems!.Stratagems.Where(s => s.Family == "support").ToArray();
-        Assert.All(support, s => { Assert.Empty(s.AttackRoles); Assert.Null(s.DeployedEntity); });
-        Assert.DoesNotContain(sdk.Stratagems.FieldInstances, f => support.Any(s => s.Name == f.Target.Stratagem) && f.Target.Path != "stratagem");
-    }
 }

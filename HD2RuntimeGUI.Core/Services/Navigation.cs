@@ -33,9 +33,10 @@ public static class Navigation
         };
         if (sdk?.Stratagems is { } catalog)
             items.AddRange(StratagemCategories.All.Select(c => new NavItem("stratagems:" + c.Key, c.Label, Workspace, StratagemCategories.Count(catalog, c), c.CssClass, true)));
-        // Runtime does not publish a support weapon ↔ call-in link, so support weapon equipment keeps its own editor.
+        // Weapons with a published call-in link are edited inside their support stratagem; this destination lists the rest.
+        // Without linkage metadata (SDK 0.22.0 and older) every support weapon keeps its standalone editor.
         if (sdk?.SupportAuthoring is { } support)
-            items.Add(new("support", "Support Weapons", Workspace, support.Weapons.Length, StratagemCategories.Support.CssClass));
+            items.Add(new("support", "Support Weapons", Workspace, support.Weapons.Length - (sdk.SupportLinks?.ByWeapon.Count ?? 0), StratagemCategories.Support.CssClass));
         items.Add(new("changes", "Changes", Workspace, project == null ? null : modifications));
         items.Add(new("lua", "Lua Preview", Workspace));
         items.Add(new("export", "Build / Export", Workspace));
