@@ -1,0 +1,17 @@
+@inject HD2RuntimeGUI.Core.GameAssets.GameIconStore Icons
+@* Small game icon imported locally from the installed game (Settings → Game icons). Falls back to a neutral category glyph
+   when no icon is imported or no published identity names one. *@
+@{ var uri = Icons.DataUri(Kind, Key); }
+<span class="game-icon @Size @CssClass @(uri == null ? "fallback" : "")" data-game-icon="@(uri == null ? "fallback" : Key)" title="@(uri == null ? FallbackTitle : Label)" aria-hidden="true">
+    @if (uri != null) { <img src="@uri" alt="" draggable="false" /> }
+    else { <span>@Initials</span> }
+</span>
+@code {
+    [Parameter, EditorRequired] public string Kind { get; set; } = "";
+    [Parameter] public string? Key { get; set; }
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public string Size { get; set; } = "sm";
+    private string Initials => string.Concat(Label.Split([' ', '-', '/'], StringSplitOptions.RemoveEmptyEntries).Where(w => char.IsLetter(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
+    private string FallbackTitle => Key == null ? "No published icon identity" : "Icon not imported (Settings → Game icons)";
+}

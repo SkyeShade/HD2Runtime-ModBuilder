@@ -1,4 +1,5 @@
 @inject BuilderWorkspace Workspace
+@inject GameIconStore Icons
 @* One published booster (hd2.booster, SDK 0.24.0+). Identity, relationships and blockers are shown exactly as Runtime publishes them;
    controls exist only for published field instances, grouped by the booster sub-target that owns them. *@
 @{ var entities = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities; var catalog = entities?.Boosters; var booster = catalog?.Find(Name); }
@@ -10,10 +11,11 @@
     @if (!ModifiedOnly)
     {
         <section class="panel category-panel cat-booster" data-booster="@booster.Name" data-booster-status="@booster.Identity.Status">
+            <div class="object-header"><GameIcon Kind="booster" Key="@Icons.BoosterIcon(booster)" Label="@booster.Name" CssClass="cat-booster" Size="md" /><div>
             <div class="eyebrow">BOOSTER@(booster.Identity.NativeName is { } native ? " · " + native : "")</div><h2>@booster.Name</h2>
             <div class="field-badges"><span class="badge" data-booster-identity>@Status(booster.Identity.Status)</span>
                 <span class="badge">@(booster.Writable ? fields.Length + " writable" : "Read-only")</span>
-                <span class="badge" title="Native Booster enum value">@(booster.Identity.EnumValue is { } v ? "Enum " + v : booster.Identity.EnumValueCandidates.Length > 0 ? "Candidates " + string.Join(", ", booster.Identity.EnumValueCandidates) : "No enum value")</span></div>
+                <span class="badge" title="Native Booster enum value">@(booster.Identity.EnumValue is { } v ? "Enum " + v : booster.Identity.EnumValueCandidates.Length > 0 ? "Candidates " + string.Join(", ", booster.Identity.EnumValueCandidates) : "No enum value")</span></div></div></div>
             <p class="subtle"><code data-semantic-id>@booster.SemanticId</code></p>
             <details><summary>Identity evidence</summary><ul>@foreach (var e in booster.Identity.Evidence) { <li>@e</li> }</ul></details>
             @if (!booster.Writable) { <p class="notice" data-booster-readonly>Runtime knows this booster but exposes no writable values.</p> }

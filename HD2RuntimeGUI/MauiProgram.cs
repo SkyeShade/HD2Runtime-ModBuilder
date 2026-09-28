@@ -52,6 +52,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IModExporter, ModExporter>();
         builder.Services.AddSingleton<IFolderOpener, WindowsFolderOpener>();
         builder.Services.AddSingleton<IProjectFilePicker, ProjectFilePicker>();
+        builder.Services.AddSingleton<HD2RuntimeGUI.Core.GameAssets.GameIconStore>();
         builder.Services.AddSingleton<BuilderWorkspace>();
         builder.Services.AddSingleton<ISnapshotReader, SnapshotReader>();
         builder.Services.AddSingleton<IResearchFilePicker, ResearchFilePicker>();

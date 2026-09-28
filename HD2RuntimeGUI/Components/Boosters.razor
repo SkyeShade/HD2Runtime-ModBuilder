@@ -1,18 +1,20 @@
 @inject BuilderWorkspace Workspace
+@inject GameIconStore Icons
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Entities?.Boosters; }
 <div class="page-heading cat-booster"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version</div><h1>Boosters</h1><p>Booster effects from <code>hd2.booster</code>. Only values Runtime links to a native record are editable; every booster write requires <code>allow_unverified_effect</code>.</p></div></div>
 @if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
 @if (catalog == null) { <section class="panel" data-booster-unavailable><h2>Booster authoring requires SDK 0.24.0</h2><p>This project is bound to SDK @sdk?.Version. Rebind it from Overview to use the published booster capabilities.</p></section> }
 else
 {
-    var boosters = catalog.Boosters.Where(b => b.Name.Contains(Search, StringComparison.OrdinalIgnoreCase))
+    var boosters = catalog.Boosters.Where(b => string.Join(" ", b.Name, b.SemanticId, b.Identity.NativeName, b.Identity.Status).Contains(Search, StringComparison.OrdinalIgnoreCase))
         .OrderByDescending(b => b.Writable).ThenBy(b => b.Name, StringComparer.Ordinal).ToArray();
     <div class="weapon-editor"><section class="panel weapon-browser"><h2>@boosters.Length boosters</h2>
-        <label>Search<input id="booster-search" @bind="Search" @bind:event="oninput" placeholder="Booster name" /></label>
+        <label>Search<input id="booster-search" @bind="Search" @bind:event="oninput" placeholder="Name, ID or native name" /></label>
         <div class="weapon-list">@foreach (var b in boosters)
         {
-            <button class="resource-item cat-booster @(Selected == b.Name ? "active" : "")" data-booster-item="@b.Name" data-booster-writable="@(b.Writable ? "true" : "false")" @onclick="() => Selected = b.Name">
-                <strong>@b.Name</strong><small>@(b.Writable ? b.FieldInstanceKeys.Length + " writable" : "Read-only") · @BoosterEditor.Status(b.Identity.Status)@(Modified(b.Name) ? " · modified" : "")</small></button>
+            <button class="resource-item with-icon cat-booster @(Selected == b.Name ? "active" : "")" data-booster-item="@b.Name" data-booster-writable="@(b.Writable ? "true" : "false")" @onclick="() => Selected = b.Name">
+                <GameIcon Kind="booster" Key="@Icons.BoosterIcon(b)" Label="@b.Name" CssClass="cat-booster" /><span class="resource-text">
+                <strong>@b.Name</strong><small>@(b.Writable ? b.FieldInstanceKeys.Length + " writable" : "Read-only") · @BoosterEditor.Status(b.Identity.Status)@(Modified(b.Name) ? " · modified" : "")</small></span></button>
         }</div>
     </section><div class="weapon-detail">
         @if (catalog.Find(Selected) != null) { <BoosterEditor Name="@Selected" Changed="Refresh" @key="Selected" /> }

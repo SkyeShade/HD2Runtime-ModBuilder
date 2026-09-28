@@ -63,9 +63,8 @@ try {
     for (const name of ['B/MD C4 Pack','SG-88 Break-Action Shotgun','CQC-72 Entrenchment Tool']) {
         await pick(name); assert.equal(await count('[data-support-link-unresolved]'), 1, name); assert.equal(await count('[data-support-weapon]'), 0, name);
     }
-    await go('support');
-    assert.deepEqual((await list('.weapon-list [data-support]', 'b=>b.dataset.support')).sort(), ['B/MD C4 Pack','CQC-72 Entrenchment Tool','SG-88 Break-Action Shotgun']);
-    assert.equal(await count('[data-linked-support-count="32"]'), 1);
+    await go('stratagems:support');
+    assert.deepEqual((await list('.weapon-list [data-unlinked-support]', 'b=>b.dataset.unlinkedSupport')).sort(), ['B/MD C4 Pack','CQC-72 Entrenchment Tool','SG-88 Break-Action Shotgun']);
     await go('library');
     console.log('PASS: 32 linked support entries merged (GR-8 edit/Lua/Changes, MG-43 guard, Solo Silo graph), 3 unresolved kept separate');
 } finally { socket.close(); }

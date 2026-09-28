@@ -3,7 +3,7 @@
 <section class="panel entity-stats" data-entity-stats="@Identity">
     <div class="panel-heading"><h2>@Title</h2>@if (Kind != null) { <span class="badge">@Kind</span> }</div>
     @if (Description != null) { <p class="subtle">@Description</p> }
-    @if (Items.Count > 0) { <h3 class="group-title">Entity Stats</h3><div class="stat-grid">@foreach (var item in Items) { @Editor(item) }</div> }
+    @if (Items.Count > 0) { <h3 class="group-title">Durability</h3><div class="stat-grid">@foreach (var item in Items) { @Editor(item) }</div> }
     else if (ChildContent == null) { <p class="subtle">No entity statistics are published for this entity.</p> }
     @ChildContent
 </section>

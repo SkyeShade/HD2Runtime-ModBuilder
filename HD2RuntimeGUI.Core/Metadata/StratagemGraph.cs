@@ -103,7 +103,9 @@ public static class StratagemBrowser
     public static bool Matches(StratagemCatalog c, StratagemDefinition s, string family = "", string search = "", string system = "", string availability = "")
     {
         var fields = c.FieldInstances.Where(f => f.Target.Stratagem == s.Name).ToArray();
-        return s.Name.Contains(search, StringComparison.OrdinalIgnoreCase) && (family == "" || s.Family == family)
+        // Search covers the display name, published semantic ID and family/type labels.
+        var text = string.Join(" ", s.Name, s.SemanticId, s.Family, FamilyLabel(s.Family), s.DeployedEntity?.Kind);
+        return text.Contains(search, StringComparison.OrdinalIgnoreCase) && (family == "" || s.Family == family)
             && (system == "" || fields.Any(f => f.Domain == system || system == "cooldown" && f.SemanticFieldId == "stratagem.cooldown")
                 || system == "beam" && c.Attacks.Any(a => a.Stratagem == s.Name && a.Kind is "Beam" or "BeamSettings"))
             && (availability == "" || availability == "writable" && fields.Any(f => f.Editable)

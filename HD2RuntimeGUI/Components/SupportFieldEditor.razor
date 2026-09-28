@@ -1,33 +1,41 @@
 @inject BuilderWorkspace Workspace
+@* One published support-weapon scalar as a compact row. Shared and unverified-effect guards stay visible as badges. *@
 @{ var saved = Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey); }
-<article class="stat-card @(saved != null ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
-    <div class="panel-heading"><h3>@Field.Display.Name</h3>@if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
-    @if (saved != null) { <p class="modified-value">@Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong> @Field.Value.Unit</p> }
-    else { <p class="subtle">Vanilla: @Format(Field.Value.Baseline) @Field.Value.Unit</p> }
-    <label>Current value
-        @if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" /> }
-        else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" /> }
-    </label>
-    <div class="field-badges"><span class="badge">@Field.Display.Domain</span>@if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge" data-flag="allow_shared">Shared</span> }
-        @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">allow_unverified_effect · effect unproven</span> }</div>
-    @if (saved != null)
+<div class="field-row @(saved != null ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
+    <div class="field-name"><span>@Field.Display.Name</span>@if (!string.IsNullOrEmpty(Field.Value.Unit)) { <small class="field-unit">@Field.Value.Unit!.Replace('_', ' ')</small> }
+        <span class="field-flags">
+            @if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge amber" data-flag="allow_shared" title="Shared object: requires acknowledging its affected consumers">Shared</span> }
+            @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">Effect unproven</span> }
+            @if (saved != null) { <span class="badge modified-badge">Modified</span> }
+        </span></div>
+    <div class="field-value">
+        @if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Field.Display.Name" /> }
+        else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@Field.Display.Name" /> }
+    </div>
+    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong></div> }
+    else { <div class="field-baseline subtle" data-baseline="@Format(Field.Value.Baseline)">Base @Format(Field.Value.Baseline)</div> }
+    <div class="field-tools">
+        @if (saved != null)
+        {
+            <label class="field-toggle" title="Include this change in the build"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleSupportAsync(Field.InstanceKey))" /> On</label>
+            <button class="reset-action small" @onclick="Reset">Reset field</button>
+        }
+        <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
+            @if (UnverifiedEffect) { <p><strong>Effect unproven:</strong> @Field.Operation.AcknowledgementReason</p> }
+            <p>@Field.Provenance.Baseline · @Field.Provenance.Ownership</p><p>@Field.Backing.SemanticType · @Field.Target.AttackRole</p><code>@Field.SemanticFieldId</code></div></details>
+    </div>
+    @if (saved != null && UnverifiedEffect)
     {
-        <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleSupportAsync(Field.InstanceKey))" /> Enabled</label>
-        <button class="reset-action" @onclick="Reset">Reset field</button>
-        @if (UnverifiedEffect)
-        {
-            <label class="attachment-ack @(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field) ? "" : "notice warning")"><input type="checkbox" data-support-effect-ack checked="@(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field))" @onchange="e => Run(() => Workspace.SetSupportEffectAcknowledgedAsync(Field.InstanceKey, (bool)e.Value!))" />
-                I understand the gameplay effect of this edit is unproven: @Field.Operation.AcknowledgementReason</label>
-        }
-        @if (Workspace.SupportIssue(saved) is { } issue)
-        {
-            <p class="notice warning">@issue</p>
-            @if (saved.CapabilityEvidence != SupportChangeService.Evidence(Field) || !BaselineMatches(saved)) { <button @onclick="Review">Accept current capability / baseline</button> }
-        }
+        <label class="field-wide attachment-ack @(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field) ? "" : "notice warning")"><input type="checkbox" data-support-effect-ack checked="@(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field))" @onchange="e => Run(() => Workspace.SetSupportEffectAcknowledgedAsync(Field.InstanceKey, (bool)e.Value!))" />
+            I understand the gameplay effect of this edit is unproven (<code>allow_unverified_effect</code>).</label>
     }
-    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
-    <details><summary>Provenance / advanced</summary><p>@Field.Provenance.Baseline · @Field.Provenance.Ownership</p><p>@Field.Backing.SemanticType · @Field.Target.AttackRole</p><code>@Field.SemanticFieldId</code></details>
-</article>
+    @if (saved != null && Workspace.SupportIssue(saved) is { } issue)
+    {
+        <div class="field-wide"><p class="notice warning">@issue</p>
+            @if (saved.CapabilityEvidence != SupportChangeService.Evidence(Field) || !BaselineMatches(saved)) { <button @onclick="Review">Accept current capability / baseline</button> }</div>
+    }
+    @if (Error != null) { <p class="field-wide notice warning" role="alert">@Error</p> }
+</div>
 @code {
     [Parameter, EditorRequired] public SupportField Field { get; set; } = null!;
     [Parameter] public EventCallback Changed { get; set; }

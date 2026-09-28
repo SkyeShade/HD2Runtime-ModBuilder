@@ -10,6 +10,11 @@ namespace HD2RuntimeGUI.Components.Pages;
 public partial class Home
 {
     [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private HD2RuntimeGUI.Core.GameAssets.GameIconStore Icons { get; set; } = default!;
+    // Local, read-only import of the game's own icon libraries into the GUI data folder (not shipped with the tool).
+    private string IconDataPath = HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath() ?? "";
+    private Task ImportIcons() => Run(async () => { var m = await Icons.ImportAsync(IconDataPath); Notice = $"Imported {m.Sources.Sum(s => s.Icons)} icons from the installed game."; }, "Reading icon libraries from the game data…");
+    private Task RemoveIcons() => Run(() => { Icons.Clear(); Notice = "Imported game icons removed."; return Task.CompletedTask; });
     private string Page = "library", Search = "", TargetKey = "", FieldKey = "", NewValue = "", ChangeGroup = "Gameplay", ExportDirectory = "";
     private string ModName = "", Author = "", ResourceId = "", ModVersion = "0.1.0", Description = "";
     // The resource ID follows author and mod name until the user types their own; clearing it resumes the suggestion.
@@ -39,7 +44,7 @@ public partial class Home
     private CreationTicket? Ticket;
     private SdkMetadata? CreationSdk;
     private ElementReference DialogElement;
-    private string PageTitle => Page switch { "stratagems" => "Stratagems", "vehicles" => "Vehicles", "backpacks" => "Backpacks", "boosters" => "Boosters", "support" => "Support Weapons", "player-weapons" => "Player Weapons", "lua" => "Lua Preview", "research" => "Snapshot Research", "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
+    private string PageTitle => Page switch { "stratagems" => "Stratagems", "vehicles" => "Vehicles", "backpacks" => "Backpacks", "boosters" => "Boosters", "support" => "Support equipment", "player-weapons" => "Player Weapons", "lua" => "Lua Preview", "research" => "Snapshot Research", "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
     private IEnumerable<SdkResource> VisibleResources => Workspace.Metadata!.Resources.Values.Where(r => r.Kind == Page && r.Label.Contains(Search, StringComparison.OrdinalIgnoreCase));
     private SdkResource? SelectedResource => Workspace.Metadata?.Resources.GetValueOrDefault(TargetKey);
     private SdkField? SelectedField => SelectedResource?.Fields.GetValueOrDefault(FieldKey);

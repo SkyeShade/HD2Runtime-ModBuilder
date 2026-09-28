@@ -1,30 +1,35 @@
 @inject BuilderWorkspace Workspace
-@* One published vehicle/backpack scalar field. Evidence tiers are shown as published; schema-proven never looks like in-game tested. *@
+@* One published vehicle/backpack/attachment/booster scalar as a compact row. The evidence tier stays visible as a short badge
+   (schema-proven never looks like in-game tested); its full description and provenance are in the tooltip / ⓘ section. *@
 @{ var saved = Saved; }
-<article class="stat-card @(saved != null ? "modified" : "")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
-    <div class="panel-heading"><h3>@(Label ?? Field.DisplayName)</h3>
-        <EvidenceBadge Evidence="Field.Evidence" Tiers="Tiers" />
-        @if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
-    @if (saved != null) { <p class="modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong> @Unit</p> }
-    else { <p class="subtle" data-baseline="@Format(Field.CurrentDefault)">Baseline: @Format(Field.CurrentDefault) @Unit</p> }
-    @if (!Field.Editable) { <span class="badge">Not currently writable</span><p class="subtle">@Field.Reason</p> }
-    else
-    {
-        <label>Current value <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" /></label>
-    }
-    @if (saved != null)
-    {
-        <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> Enabled</label>
-        <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: Field.InstanceKey))">Reset field</button>
-        @if (Workspace.EntityIssue(saved) is { } issue)
+<div class="field-row @(saved != null ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
+    <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
+        <span class="field-flags"><EvidenceBadge Evidence="Field.Evidence" Tiers="Tiers" Compact="true" />
+            @if (saved != null) { <span class="badge modified-badge">Modified</span> }</span></div>
+    <div class="field-value">
+        @if (!Field.Editable) { <span class="badge" title="@Field.Reason">Read-only</span> }
+        else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
+    </div>
+    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong></div> }
+    else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">Base @Format(Field.CurrentDefault)</div> }
+    <div class="field-tools">
+        @if (saved != null)
         {
-            <p class="notice warning">@issue</p>
-            @if (Field.Editable && (saved.CapabilityEvidence != EntityChangeService.Evidence(Field) || !EntityScalar.Equal(Field, saved.ExpectedValue, Field.CurrentDefault)))
-            { <button @onclick="() => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }
+            <label class="field-toggle" title="Include this change in the build"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> On</label>
+            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: Field.InstanceKey))">Reset field</button>
         }
+        <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
+            @if (!Field.Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }
+            <p><strong>Evidence:</strong> @EvidenceBadge.Label(Field.Evidence.Tier)@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? " — " + tier : "")</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
+    </div>
+    @if (saved != null && Workspace.EntityIssue(saved) is { } issue)
+    {
+        <div class="field-wide"><p class="notice warning">@issue</p>
+            @if (Field.Editable && (saved.CapabilityEvidence != EntityChangeService.Evidence(Field) || !EntityScalar.Equal(Field, saved.ExpectedValue, Field.CurrentDefault)))
+            { <button @onclick="() => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }</div>
     }
-    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
-</article>
+    @if (Error != null) { <p class="field-wide notice warning" role="alert">@Error</p> }
+</div>
 @code {
     [Parameter, EditorRequired] public EntityField Field { get; set; } = null!;
     [Parameter] public string? Label { get; set; }

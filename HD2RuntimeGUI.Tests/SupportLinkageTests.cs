@@ -37,7 +37,8 @@ public sealed class SupportLinkageTests
             Assert.False(w.Metadata.SupportAuthoring!.Weapons.Single(x => x.Name == name).LinkedStratagem!.Known);
             Assert.False(string.IsNullOrWhiteSpace(w.Metadata.Stratagems!.Root(name)!.Delivers!.Blocker));
         }
-        Assert.Equal(3, Navigation.Build(w.Metadata, null).Single(i => i.Page == "support").Count);
+        // Unlinked equipment is listed inside Stratagems → Support; there is no separate Support Weapons destination.
+        Assert.DoesNotContain(Navigation.Build(w.Metadata, null), i => i.Page == "support"); Assert.Equal(3, SupportEquipment.Unlinked(w.Metadata).Count);
     }
     [Fact] public async Task Linked_weapons_keep_their_write_guards()
     {

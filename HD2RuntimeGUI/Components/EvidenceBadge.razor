@@ -1,8 +1,10 @@
-@* Runtime-published evidence tier. Labels deliberately distinguish in-game testing from schema proof, live writes and structure-only references. *@
-<span class="badge evidence tier-@Evidence.Tier.Replace('_', '-')" data-evidence-tier="@Evidence.Tier" title="@Tooltip">@Label(Evidence.Tier)</span>
+@* Runtime-published evidence tier. Labels deliberately distinguish in-game testing from schema proof, live writes and structure-only references.
+   Compact labels keep that distinction in a short badge; the full label, description and proof stay in the tooltip. *@
+<span class="badge evidence tier-@Evidence.Tier.Replace('_', '-')" data-evidence-tier="@Evidence.Tier" title="@Tooltip">@(Compact ? Short(Evidence.Tier) : Label(Evidence.Tier))</span>
 @code {
     [Parameter, EditorRequired] public EntityEvidence Evidence { get; set; } = null!;
     [Parameter] public IReadOnlyDictionary<string, string>? Tiers { get; set; }
+    [Parameter] public bool Compact { get; set; }
     public static string Label(string tier) => tier switch
     {
         "gameplay_proven" => "In-game tested",
@@ -19,7 +21,19 @@
         "unique_exact_multi_value_fingerprint" => "Unique value fingerprint · effect unproven",
         _ => tier.Replace('_', ' '),
     };
-    private string Tooltip => string.Join("\n", new[] { Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,
+    public static string Short(string tier) => tier switch
+    {
+        "gameplay_proven" => "In-game tested",
+        "gameplay_proven_combined" => "In-game (combined)",
+        "schema_proven" => "Schema",
+        "live_write_verified" => "Live write",
+        "structural_reference" => "Structure only",
+        "native_owner" or "native_owner_effect_consistent" or "native_owner_value_consistent" => "Native owner",
+        "structural_chain_exact_fingerprint" => "Structural chain",
+        "unique_exact_multi_value_fingerprint" => "Value fingerprint",
+        _ => tier.Replace('_', ' '),
+    };
+    private string Tooltip => string.Join("\n", new[] { Label(Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,
         Evidence.ProvenOn is { Length: > 0 } on ? "Proven on: " + string.Join(", ", on) : null, Evidence.Proof,
         Evidence.NativeOwner == null ? null : "Native owner: " + Evidence.NativeOwner, Evidence.GameplayWriteEffect == null ? null : "Gameplay effect of a write: " + Evidence.GameplayWriteEffect }.Where(s => !string.IsNullOrWhiteSpace(s)));
 }

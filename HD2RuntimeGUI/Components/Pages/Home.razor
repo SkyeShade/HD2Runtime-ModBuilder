@@ -62,6 +62,19 @@
             else
             { <p class="notice warning" data-sdk-error>@(Workspace.SdkError is { } sdkError ? "The installed SDK could not be loaded: " + sdkError : "Loading the installed SDK…")</p> }<p class="subtle">Source: github.com/SkyeShade/HD2Runtime · Public access, no token required.</p><div class="actions"><button @onclick="CheckUpdates">Check for SDK updates</button>@if (Workspace.SdkStatus?.UpdateAvailable == true) { <button class="primary" @onclick="InstallUpdate">Install Update</button> }</div></section>
             @if (Workspace.SdkStatus?.Installed.PlayerWeapons is { } capabilities) { <section class="panel"><h2>Player weapon capability catalog</h2><p>@capabilities.Summary.Weapons weapons ? @capabilities.Summary.FieldInstances entries ? @capabilities.Summary.WritableSemanticFieldDefinitions writable / @capabilities.Summary.ReadOnlySemanticFieldDefinitions read-only definitions ? @capabilities.Summary.DerivedSemanticFieldDefinitions derived definitions</p><p>@capabilities.Summary.DuplicateWeapons ambiguous identities fail closed. Shared settings require explicit approval.</p></section> }
+            <section class="panel" data-game-icons><h2>Game icons</h2>
+                <p>Stratagem and booster icons are read from your own Helldivers 2 installation on this computer and stored in the local data folder. They are game assets and are not shipped with this tool; the game folder is only read.</p>
+                <label>Game data folder<input id="icon-data-path" @bind="IconDataPath" placeholder="…\steamapps\common\Helldivers 2\data" /></label>
+                <div class="actions"><button data-import-icons @onclick="ImportIcons">Import icons from game</button>@if (Icons.Manifest != null) { <button @onclick="RemoveIcons">Remove imported icons</button> }</div>
+                @if (Icons.Manifest is { } icons)
+                {
+                    var boosters = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.Boosters?.Boosters ?? [];
+                    <p class="subtle" data-icon-status>@Icons.Count("booster") booster and @Icons.Count("stratagem") stratagem icons imported @icons.ImportedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm") from <code>@icons.GameDataPath</code>.
+                        @if (boosters.Length > 0) { <span>@boosters.Count(b => Icons.BoosterIcon(b) is { } k && Icons.Svg("booster", k) != null) of @boosters.Length boosters have a published icon identity.</span> }
+                        Stratagems show category glyphs: HD2Runtime does not yet publish which icon (native stratagem type) each stratagem uses.</p>
+                }
+                else { <p class="subtle" data-icon-status>No icons imported. Lists show category glyphs until icons are imported.</p> }
+            </section>
             <section class="panel"><h2>Project storage</h2><code class="path">@Workspace.StorageLocation</code><p>Projects and the library index are human-readable JSON. Removing a project from the library keeps its files. Open project restores it to the library.</p></section>
             <section class="panel"><h2>About this builder</h2><p>HD2RuntimeGUI <span data-build-identity title="@BuildInfo.Commit">@BuildInfo.Identity</span> · .NET 10 · MAUI Blazor Hybrid</p><p>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</p></section>
         }

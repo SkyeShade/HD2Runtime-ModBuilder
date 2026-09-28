@@ -1,54 +1,57 @@
 @inject BuilderWorkspace Workspace
 @using System.Text.Json
-@* One support weapon: identity/guard summary, guarded authoring controls and published inspection data.
-   Used standalone (Support Weapons) and embedded in a linked support stratagem. Write guards come from the support catalog only. *@
+@* One support weapon/equipment item: identity and guard summary, grouped authoring controls, then collapsed inspection data.
+   Embedded in its linked support stratagem, or shown as unlinked equipment. Write guards come from the support catalog only. *@
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Advanced?.Support; var authoring = sdk?.SupportAuthoring;
    var descriptor = authoring?.Weapons.SingleOrDefault(w => w.Name == Weapon);
    // Write identity comes from the authoring catalog (0.24.0 resolves some duplicates through their call-in delivery); the read-only catalog is older evidence.
    var writableIdentity = descriptor != null ? SupportAuthoringWeapon.Resolved(descriptor.IdentityStatus) : catalog?.Weapons.GetValueOrDefault(Weapon)?.IdentityResolution == "UNIQUE"; }
 @if (catalog?.Weapons.GetValueOrDefault(Weapon) is { } weapon)
 {
-    <section class="panel @(Embedded ? "category-panel cat-support linked-weapon" : "")" data-support-weapon="@weapon.CatalogIdentity">
-        @if (Embedded) { <div class="eyebrow">WEAPON · DELIVERED BY THIS CALL-IN</div> }
-        <h2>@weapon.CatalogIdentity</h2>
-        <div class="field-badges"><span class="badge" data-support-writable="@(descriptor?.Writable == true ? "true" : "false")">@(descriptor?.Writable == true ? "Writable" : "Read-only")</span><span class="badge" data-support-identity="@(descriptor?.IdentityStatus ?? weapon.IdentityResolution)">@((descriptor?.IdentityStatus ?? weapon.IdentityResolution).Replace('_', ' '))</span><span class="badge">@weapon.Confidence</span>@foreach (var trait in weapon.Traits) { <span class="badge">@trait</span> }</div>
-        @if (authoring == null || descriptor == null) { <p>@weapon.AuthoringReason</p> }
-        else { <details open="@(!writableIdentity)"><summary>Read-only / unresolved capabilities</summary>@foreach (var block in descriptor.BlockedFields) { <p class="subtle">@block.Field: @block.Reason</p> }</details> }
+    <section class="panel @(Embedded ? "linked-weapon" : "")" data-support-weapon="@weapon.CatalogIdentity">
+        <div class="panel-heading"><h3>@(Embedded ? "Delivered equipment · " : "")@weapon.CatalogIdentity</h3></div>
+        <div class="field-badges"><span class="badge" data-support-writable="@(descriptor?.Writable == true ? "true" : "false")">@(descriptor?.Writable == true ? "Writable" : "Read-only")</span>
+            <span class="badge" data-support-identity="@(descriptor?.IdentityStatus ?? weapon.IdentityResolution)" title="Runtime identity status">@((descriptor?.IdentityStatus ?? weapon.IdentityResolution).Replace('_', ' '))</span>
+            <span class="badge">@weapon.WeaponType</span>@foreach (var trait in weapon.Traits.Take(3)) { <span class="badge">@trait</span> }</div>
+        @if (authoring == null || descriptor == null) { <p class="subtle">@weapon.AuthoringReason</p> }
         @if (descriptor?.IdentityResolution is { } resolution)
         {
-            <div class="notice cat-note cat-support" data-support-delivery-resolved><strong>Delivery-resolved identity</strong>
+            <details class="subtle" data-support-delivery-resolved><summary>Identity resolved through its call-in delivery</summary>
                 <p>@resolution.Note</p><ul>@foreach (var e in resolution.Evidence) { <li>@e</li> }</ul>
-                <p class="subtle">Basis: @resolution.Basis.Replace('_', ' ') · @resolution.NonDeliveredNativeRoots other native roots unaffected</p></div>
+                <p>Basis: @resolution.Basis.Replace('_', ' ') · @resolution.NonDeliveredNativeRoots other native roots unaffected</p></details>
         }
-        @if (!writableIdentity) { <p class="notice warning" data-support-identity-blocked>Duplicate/ambiguous resources remain separate. No canonical identity is selected for writing, so this weapon's controls stay read-only@(Embedded ? " even though its call-in link is known" : "").</p> }
+        @if (!writableIdentity) { <p class="notice warning" data-support-identity-blocked>Duplicate/ambiguous resources remain separate. No canonical identity is selected for writing, so this equipment's controls stay read-only@(Embedded ? " even though its call-in link is known" : "").</p> }
         @if (weapon.BackpackDependent) { <p class="notice warning">Backpack dependent · native backpack entity ownership remains unresolved where noted below.</p> }
     </section>
     <SupportAuthoringEditor Weapon="@weapon.CatalogIdentity" Changed="Changed" />
-    @if (weapon.OwnershipChain.Count > 0) { <section class="panel"><h3>System ownership chain</h3>@foreach (var node in weapon.OwnershipChain) { <div class="graph-node">→ <strong>@node.Kind.Replace('_', ' ')</strong> @node.Component</div> }</section> }
-    <details class="panel" open="@(!Embedded)"><summary>Attack graph</summary>
-    @foreach (var branch in weapon.AttackGraph)
-    {
-        <details class="support-branch" data-support-branch="@branch.Name"><summary><strong>@branch.Name</strong> <span class="badge">@branch.Kind</span><span class="badge">@branch.State</span></summary>
-            @if (branch.ParentAttack != null) { <p>From: @branch.ParentAttack</p> }
-            @if (branch.ChildAttacks.Count > 0) { <p>Branches: @string.Join(" → ", branch.ChildAttacks)</p> }
-            @if (branch.UnresolvedReason != null) { <p class="notice warning">@branch.UnresolvedReason</p> }
-            <EvidenceTree Value="branch.Charge" />
-        </details>
-    }
-    </details>
-    @foreach (var attack in weapon.RuntimeAttacks)
-    {
-        <details class="panel support-runtime"><summary><strong>@attack.Role · @attack.Kind</strong> <span class="badge">Resolved fields</span></summary>
-            @if (attack.ParentRole != null) { <p>Parent: @attack.ParentRole</p> }
-            <EvidenceTree Value="@JsonSerializer.SerializeToElement(attack.ResolvedFields)" />
-            <EvidenceTree Value="attack.StatusEffects" />
-        </details>
-    }
-    <details class="panel"><summary>Charge / cadence</summary><EvidenceTree Value="weapon.ChargeCadence" /></details>
-    <details class="panel"><summary>Ammo / feed / backpack ownership</summary><EvidenceTree Value="weapon.AmmoFeedMagazine" /></details>
-    <details class="panel"><summary>Relationships and shared settings</summary><EvidenceTree Value="weapon.Relationships" /><EvidenceTree Value="weapon.Sharedness" /><EvidenceTree Value="catalog.SharedSettingsGroups" /></details>
-    @if (weapon.UnresolvedLinks.Count > 0) { <section class="panel"><h3>Unresolved links</h3><ul>@foreach (var link in weapon.UnresolvedLinks) { <li>@link</li> }</ul></section> }
-    <details class="panel"><summary>Advanced identity / component evidence</summary>@foreach (var resource in weapon.ResourceHashes) { <p><code>@resource</code></p> }<EvidenceTree Value="weapon.WeaponComponents" /></details>
+    <details class="ia-section advanced" data-support-inspection="@weapon.CatalogIdentity" open="@(!writableIdentity && !Embedded)"><summary>Equipment inspection &amp; provenance <small>read-only reasons, attack graph, ownership</small></summary><div class="ia-body">
+        @if (descriptor != null && descriptor.BlockedFields.Length > 0)
+        { <h3 class="group-title">Read-only / unresolved capabilities</h3>@foreach (var block in descriptor.BlockedFields) { <p class="subtle" data-blocked-field="@block.Field">@block.Field: @block.Reason</p> } }
+        @if (weapon.OwnershipChain.Count > 0) { <h3 class="group-title">System ownership chain</h3>@foreach (var node in weapon.OwnershipChain) { <div class="graph-node">→ <strong>@node.Kind.Replace('_', ' ')</strong> @node.Component</div> } }
+        <h3 class="group-title">Attack graph</h3>
+        @foreach (var branch in weapon.AttackGraph)
+        {
+            <details class="support-branch" data-support-branch="@branch.Name"><summary><strong>@branch.Name</strong> <span class="badge">@branch.Kind</span><span class="badge">@branch.State</span></summary>
+                @if (branch.ParentAttack != null) { <p>From: @branch.ParentAttack</p> }
+                @if (branch.ChildAttacks.Count > 0) { <p>Branches: @string.Join(" → ", branch.ChildAttacks)</p> }
+                @if (branch.UnresolvedReason != null) { <p class="notice warning">@branch.UnresolvedReason</p> }
+                <EvidenceTree Value="branch.Charge" />
+            </details>
+        }
+        @foreach (var attack in weapon.RuntimeAttacks)
+        {
+            <details class="support-runtime"><summary><strong>@attack.Role · @attack.Kind</strong> <span class="badge">Resolved fields</span></summary>
+                @if (attack.ParentRole != null) { <p>Parent: @attack.ParentRole</p> }
+                <EvidenceTree Value="@JsonSerializer.SerializeToElement(attack.ResolvedFields)" />
+                <EvidenceTree Value="attack.StatusEffects" />
+            </details>
+        }
+        <details><summary>Charge / cadence</summary><EvidenceTree Value="weapon.ChargeCadence" /></details>
+        <details><summary>Ammo / feed / backpack ownership</summary><EvidenceTree Value="weapon.AmmoFeedMagazine" /></details>
+        <details><summary>Relationships and shared settings</summary><EvidenceTree Value="weapon.Relationships" /><EvidenceTree Value="weapon.Sharedness" /><EvidenceTree Value="catalog.SharedSettingsGroups" /></details>
+        @if (weapon.UnresolvedLinks.Count > 0) { <h3 class="group-title">Unresolved links</h3><ul>@foreach (var link in weapon.UnresolvedLinks) { <li>@link</li> }</ul> }
+        <details><summary>Advanced identity / component evidence</summary>@foreach (var resource in weapon.ResourceHashes) { <p><code>@resource</code></p> }<EvidenceTree Value="weapon.WeaponComponents" /></details>
+    </div></details>
 }
 @code {
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";

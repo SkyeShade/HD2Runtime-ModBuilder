@@ -21,25 +21,33 @@
             </section>
         }
     }
-    @if (graph.Definition.Length > 0)
+    @if (graph.Definition.Length > 0 || graph.EagleRearm.Length > 0)
     {
-        <section class="panel" data-stratagem-branch="stratagem"><h2>Stratagem</h2>
-            <div class="stat-grid">@foreach (var f in graph.Definition) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
-        </section>
+        <details class="ia-section" data-section="call-in" open><summary>Call-in <small>cooldown, uses and call-in settings</small></summary><div class="ia-body">
+        @if (graph.Definition.Length > 0)
+        {
+            <section class="panel" data-stratagem-branch="stratagem">
+                <div class="stat-grid">@foreach (var f in graph.Definition) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+            </section>
+        }
+        @if (graph.EagleRearm.Length > 0)
+        {
+            <section class="panel" data-stratagem-branch="eagle_rearm"><h3 class="group-title">Eagle shared system</h3>
+                <p class="subtle">One shared Eagle system. The same saved value applies to every reviewed Eagle consumer.</p>
+                <div class="stat-grid">@foreach (var f in graph.EagleRearm) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+            </section>
+        }
+        </div></details>
     }
+    @if (link != null && !RearmOnly && (!ModifiedOnly || Workspace.Project?.SupportChanges.Any(c => c.Weapon == link.Weapon.Name) == true) || graph.Entities.Length > 0 || graph.Attacks.Length > 0)
+    {
+    <details class="ia-section" data-section="delivered" open><summary>Delivered object <small>@DeliveredLabel(graph, link)</small></summary><div class="ia-body">
     @if (link != null && !RearmOnly)
     {
         // Merged support entry: the linked weapon's own editor and guards, joined through published semantic IDs only.
-        if (!ModifiedOnly) { <DeliveryGraph Link="link" /><SupportWeaponDetail Weapon="@link.Weapon.Name" Embedded="true" Changed="Refresh" /> }
+        if (!ModifiedOnly) { <SupportWeaponDetail Weapon="@link.Weapon.Name" Embedded="true" Changed="Refresh" /> }
         else if (Workspace.Project?.SupportChanges.Any(c => c.Weapon == link.Weapon.Name) == true)
         { <div class="linked-weapon-changes" data-linked-weapon="@link.Weapon.Name"><h3 class="section-label">Weapon · @link.Weapon.Name</h3><SupportAuthoringEditor Weapon="@link.Weapon.Name" ModifiedOnly="true" Changed="Refresh" /></div> }
-    }
-    @if (graph.EagleRearm.Length > 0)
-    {
-        <section class="panel" data-stratagem-branch="eagle_rearm"><h2>Eagle Shared System</h2>
-            <p class="subtle">One shared Eagle system. The same saved value applies to every reviewed Eagle consumer.</p>
-            <div class="stat-grid">@foreach (var f in graph.EagleRearm) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
-        </section>
     }
     @foreach (var entity in graph.Entities)
     {
@@ -90,9 +98,11 @@
     {
         <section class="panel" data-stratagem-branch="@attack.Attack.Role">
             <h2>@ConsumerPath(attack.Attack.Path)</h2>
-            @foreach (var domain in attack.Fields.GroupBy(f => f.Domain))
-            { <h3 class="group-title">@SupportAuthoringEditor.Label(domain.Key)</h3><div class="stat-grid">@foreach (var f in domain) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+            @foreach (var domain in FieldGroups.Group(attack.Fields, f => f.SemanticFieldId, f => f.Domain))
+            { <h3 class="group-title">@domain.Key</h3><div class="stat-grid">@foreach (var f in domain) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
         </section>
+    }
+    </div></details>
     }
     @if (Error != null) { <p class="notice warning">@Error</p> }
 }
@@ -104,6 +114,8 @@
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     public static string ConsumerPath(string path) => path.Replace("/", " → ");
+    private static string DeliveredLabel(StratagemGraph graph, SupportCallInLink? link) => link != null ? "support equipment · " + link.Weapon.Name
+        : graph.Entities.Length > 0 ? string.Join(", ", graph.Entities.Select(e => EntityStats.KindLabel(e.Identity).ToLowerInvariant()).Distinct()) : graph.Attacks.Length + " attack " + (graph.Attacks.Length == 1 ? "branch" : "branches");
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) { Error = e.Message; } }
 }

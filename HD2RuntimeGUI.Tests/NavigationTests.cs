@@ -12,7 +12,7 @@ public sealed class NavigationTests
     {
         using var e = new TestEnvironment(); var sdk = await Current(e);
         var nav = Navigation.Build(sdk, null);
-        Assert.Equal(["overview", "player-weapons", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "vehicles", "backpacks", "support", "boosters", "changes", "lua", "export", "research"],
+        Assert.Equal(["overview", "player-weapons", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "vehicles", "backpacks", "boosters", "changes", "lua", "export", "research"],
             nav.Select(i => i.Page));
         var labels = nav.Select(i => i.Label).ToArray();
         // "Vehicles" is now the hd2.vehicle destination (page "vehicles"), never the legacy mapped "vehicle" builder category.

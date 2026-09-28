@@ -11,6 +11,16 @@ var paths = new AppPaths(root);
 using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(25) };
 var github = new GitHubReleaseClient(http);
 var cache = new SdkCache(paths, new MetadataReader(), github);
+if (args.FirstOrDefault(a => a.StartsWith("--import-icons")) is { } iconArg)
+{
+    // Developer check of the local, read-only icon import (the GUI's Settings page does the same).
+    var dataDir = iconArg.Contains('=') ? iconArg[(iconArg.IndexOf('=') + 1)..] : HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath() ?? throw new DirectoryNotFoundException("Game data folder not found.");
+    var watch = System.Diagnostics.Stopwatch.StartNew();
+    var manifest = await new HD2RuntimeGUI.Core.GameAssets.GameIconStore(paths).ImportAsync(dataDir);
+    foreach (var s in manifest.Sources) Console.WriteLine($"{s.Resource}: {s.Icons} icons, sha256 {s.Sha256}");
+    Console.WriteLine($"Type bindings: {manifest.StratagemTypeIcons.Count} stratagem, {manifest.BoosterTypeIcons.Count} booster; {watch.Elapsed.TotalSeconds:F1}s");
+    return 0;
+}
 var sdk = await cache.GetCurrentAsync();
 if (args.Contains("--online"))
 {

@@ -47,10 +47,10 @@ public static class Navigation
             items.Add(new("vehicles", "Vehicles", Workspace, entities.Vehicles.Vehicles.Length, StratagemCategories.Support.CssClass));
             items.Add(new("backpacks", "Backpacks", Workspace, entities.Backpacks.Backpacks.Length, StratagemCategories.Support.CssClass));
         }
-        // Weapons with a published call-in link are edited inside their support stratagem; this destination lists the rest.
-        // Without linkage metadata (SDK 0.22.0 and older) every support weapon keeps its standalone editor.
-        if (sdk?.SupportAuthoring is { } support)
-            items.Add(new("support", "Support Weapons", Workspace, support.Weapons.Length - (sdk.SupportLinks?.ByWeapon.Count ?? 0), StratagemCategories.Support.CssClass));
+        // Support equipment lives in Stratagems → Support: linked weapons inside their call-in, unlinked ones in its
+        // "Unlinked support equipment" group. Only SDKs without a stratagem catalog (0.17–0.20.x) keep a separate destination.
+        if (sdk?.Stratagems == null && sdk?.Advanced?.Support is { } support)
+            items.Add(new("support", "Support equipment", Workspace, support.Weapons.Count, StratagemCategories.Support.CssClass));
         // hd2.booster authoring appears only when the bound SDK publishes BoosterAuthoringCapabilities.json (0.24.0+).
         if (entities?.Boosters is { } boosters) items.Add(new("boosters", "Boosters", Workspace, boosters.Boosters.Length, StratagemCategories.BoosterCssClass));
         items.Add(new("changes", "Changes", Workspace, project == null ? null : modifications));
