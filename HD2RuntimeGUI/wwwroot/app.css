@@ -6,7 +6,17 @@
     --border:#2a2f39;
     --text:#e7eaf0;
     --muted:#919bab;
-    --accent:#e9c869;
+    /* Brand accent (logo, primary buttons, selection, modified state). Derived shades follow it. */
+    --accent:#ffdc33;
+    --accent-hover:#ffe666;
+    --accent-border:color-mix(in srgb, var(--accent) 45%, #101216);
+    --accent-soft:color-mix(in srgb, var(--accent) 55%, #ffffff);
+    /* Selected navigation / list items. */
+    --accent-selected:color-mix(in srgb, var(--accent) 85%, #ffffff);
+    --accent-selected-bg:color-mix(in srgb, var(--accent) 10%, #181b21);
+    --accent-selected-border:color-mix(in srgb, var(--accent) 30%, #181b21);
+    /* Warning semantics (shared / unverified acknowledgements, amber badges). Kept separate from the brand accent. */
+    --warning:#e9c869;
     --green:#7cd8ac;
     --danger:#ff9c9c;
     /* Semantic stratagem categories: support, offensive, defensive. */
@@ -26,14 +36,14 @@
 .field-badges { display:flex; gap:6px; flex-wrap:wrap }
 .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px }
 .stat-card { padding:18px; background:var(--surface); border:1px solid var(--border); border-radius:12px; min-width:0 }
-.stat-card.modified { border-color:#796934; box-shadow:inset 3px 0 var(--accent) }
+.stat-card.modified { border-color:var(--accent-border); box-shadow:inset 3px 0 var(--accent) }
 .stat-card h3 { font-size:15px; margin:0 }
 .stat-card .panel-heading { align-items:flex-start; flex-wrap:wrap; gap:8px }
 .stat-baseline { display:flex; justify-content:space-between; gap:10px; color:var(--muted); margin:14px 0 }
 .stat-baseline strong { color:var(--text); text-align:right }
 .stat-baseline small { font-weight:400; font-size:11px }
 .field-evidence { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:16px; color:var(--muted); overflow-wrap:anywhere }
-.shared-warning { background:#e9c8690d; border:1px solid #e9c86942; border-radius:8px; padding:12px; margin:12px 0 }
+.shared-warning { background:color-mix(in srgb, var(--warning) 5%, transparent); border:1px solid color-mix(in srgb, var(--warning) 26%, transparent); border-radius:8px; padding:12px; margin:12px 0 }
 .shared-warning p { margin:8px 0 }
 .field-options { color:var(--muted); margin:12px 0 }
 .semantic-section { margin-bottom:24px }
@@ -44,8 +54,8 @@
 .modified-value,.modified-value strong { color:var(--accent) }
 .original-value { color:var(--muted); font-weight:400 }
 .neutral-value { color:var(--muted) }
-.badge.modified-badge { color:var(--accent); border-color:#796934; background:#e9c86910 }
-.reset-action { border-color:#796934; color:var(--accent) }
+.badge.modified-badge { color:var(--accent); border-color:var(--accent-border); background:color-mix(in srgb, var(--accent) 6%, transparent) }
+.reset-action { border-color:var(--accent-border); color:var(--accent) }
 .boolean-control { display:flex; align-items:center; gap:10px }
 .boolean-control small,.flag-explanation { color:var(--muted); font-size:12px; line-height:1.5 }
 .weapon-change-group { border:1px solid var(--border); border-radius:10px; margin-top:12px; overflow:hidden }
@@ -54,7 +64,7 @@
 .weapon-group-content { padding:16px }
 .summary-section { color:var(--muted); font-size:13px; margin:20px 0 8px }
 .weapon-change { padding:12px; border-radius:6px }
-.weapon-change.modified { border-left:3px solid var(--accent); background:#e9c86908 }
+.weapon-change.modified { border-left:3px solid var(--accent); background:color-mix(in srgb, var(--accent) 3%, transparent) }
 .weapon-change .change-row { flex-wrap:wrap; gap:12px }
 .weapon-change .value-comparison { margin:0; min-width:170px }
 .weapon-change .change-name .badge { margin-left:8px }
@@ -101,8 +111,8 @@ button:disabled,fieldset:disabled button {
     font-weight:650
 }
 .primary:hover {
-    background:#f6d980;
-    border-color:#f6d980
+    background:var(--accent-hover);
+    border-color:var(--accent-hover)
 }
 .danger {
     background:#672c34;
@@ -201,10 +211,10 @@ input[type=checkbox]:before {
     transition:transform .12s
 }
 input[type=checkbox]:checked {
-    background:#857137
+    background:var(--accent-border)
 }
 input[type=checkbox]:checked:before {
-    background:#f7dc8e;
+    background:var(--accent-soft);
     transform:translateX(14px)
 }
 .desktop-shell {
@@ -241,7 +251,7 @@ input[type=checkbox]:checked:before {
     place-items:center;
     width:38px;
     height:40px;
-    background:#e9c869;
+    background:var(--accent);
     color:#211e13;
     border-radius:8px;
     position:relative;
@@ -274,9 +284,9 @@ input[type=checkbox]:checked:before {
     background:#1e242d
 }
 .nav-item.selected {
-    background:#2d2b23;
-    color:#f0d584;
-    border-color:#46402c
+    background:var(--accent-selected-bg);
+    color:var(--accent-selected);
+    border-color:var(--accent-selected-border)
 }
 .nav-item small {
     padding:2px 5px;
@@ -417,7 +427,7 @@ input[type=checkbox]:checked:before {
     background:#1d3029
 }
 .badge.amber {
-    color:var(--accent);
+    color:var(--warning);
     background:#302b1b;
     border-color:#5a4c29
 }
@@ -621,9 +631,9 @@ input[type=checkbox]:checked:before {
     margin-top:7px
 }
 .resource-item.active {
-    background:#302d22;
-    border-color:#5b4e2e;
-    color:#f0d589
+    background:var(--accent-selected-bg);
+    border-color:var(--accent-selected-border);
+    color:var(--accent-selected)
 }
 .field-title {
     display:flex;
@@ -1072,7 +1082,7 @@ input[type=checkbox]:checked:before {
 .badge.tier-gameplay-proven { color:var(--green); border-color:color-mix(in srgb, var(--green) 45%, transparent) }
 .badge.tier-gameplay-proven-combined { color:var(--green); border-style:dashed }
 .badge.tier-schema-proven { color:var(--cat-support); border-color:color-mix(in srgb, var(--cat-support) 40%, transparent) }
-.badge.tier-live-write-verified { color:var(--accent); border-color:#796934 }
+.badge.tier-live-write-verified { color:var(--accent); border-color:var(--accent-border) }
 .badge.tier-structural-reference { color:var(--muted); border-style:dashed }
 
 /* ---- Readability pass: compact field rows, icons and object sections ---- */
@@ -1110,7 +1120,7 @@ input[type=checkbox]:checked:before {
 .resource-item.with-icon { display:flex; align-items:center; gap:10px }
 .resource-item.with-icon > .resource-text { min-width:0; flex:1 }
 .resource-item.with-icon small { margin-top:3px }
-.resource-item .warn-dot { color:var(--accent); margin-left:4px }
+.resource-item .warn-dot { color:var(--warning); margin-left:4px }
 .list-group-title { margin:16px 4px 6px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted) }
 
 /* One coherent object: header, then collapsible call-in / delivered object / advanced sections. */
@@ -1140,8 +1150,8 @@ input[type=checkbox]:checked:before {
 .summary-stats { display:flex; gap:8px; flex-wrap:wrap }
 .summary-stat { padding:3px 10px; border:1px solid var(--border); border-radius:999px; font-size:12px; color:var(--muted); white-space:nowrap }
 .summary-stat strong { color:var(--text); margin-right:3px; font-variant-numeric:tabular-nums }
-.summary-stat.active { border-color:#796934; color:var(--accent) } .summary-stat.active strong { color:var(--accent) }
-.summary-stat.shared { border-color:#e9c86942 }
+.summary-stat.active { border-color:var(--accent-border); color:var(--accent) } .summary-stat.active strong { color:var(--accent) }
+.summary-stat.shared { border-color:color-mix(in srgb, var(--warning) 26%, transparent) }
 .summary-stat.warn { border-color:var(--danger); color:var(--danger); background:color-mix(in srgb, var(--danger) 8%, transparent) } .summary-stat.warn strong { color:var(--danger) }
 
 /* Primary: name, editor, modified state. Secondary: baseline, units, badges. Tertiary: schema and provenance behind ⓘ. */
@@ -1157,11 +1167,11 @@ input[type=checkbox]:checked:before {
 @container (min-width:2150px) { .stat-grid:has(> .field-row) { grid-template-columns:repeat(4,minmax(0,1fr)) } }
 
 /* One acknowledgement box per shared object or unverified effect/reference. */
-.ack-panel { margin:10px 0; padding:10px 14px; border:1px solid #e9c86955; border-radius:10px; background:#e9c8690b; font-size:13px; max-width:1100px }
+.ack-panel { margin:10px 0; padding:10px 14px; border:1px solid color-mix(in srgb, var(--warning) 33%, transparent); border-radius:10px; background:color-mix(in srgb, var(--warning) 4%, transparent); font-size:13px; max-width:1100px }
 .ack-panel.acknowledged { border-color:color-mix(in srgb, var(--green) 40%, transparent); background:color-mix(in srgb, var(--green) 5%, transparent) }
 .ack-panel.ack-unverified.required { border-style:dashed }
 .ack-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
-.ack-icon { color:var(--accent) } .ack-panel.acknowledged .ack-icon { color:var(--green) }
+.ack-icon { color:var(--warning) } .ack-panel.acknowledged .ack-icon { color:var(--green) }
 .ack-panel p { margin:6px 0; color:var(--muted) }
 .ack-items { color:var(--text) !important }
 .ack-check { display:flex; align-items:center; gap:10px; margin-top:8px; font-weight:600; cursor:pointer }
@@ -1179,7 +1189,7 @@ input[type=checkbox]:checked:before {
 .composition-line { margin:0 0 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface); padding:0 14px }
 .composition-line > summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:9px 0; cursor:pointer; list-style:none }
 .composition-line > summary::-webkit-details-marker { display:none }
-.composition-action { margin-left:auto; font-size:12px; color:var(--accent); border:1px solid #796934; border-radius:6px; padding:2px 8px }
+.composition-action { margin-left:auto; font-size:12px; color:var(--accent); border:1px solid var(--accent-border); border-radius:6px; padding:2px 8px }
 .composition-line[open] > summary .composition-action { display:none }
 .composition-line[open] { padding-bottom:12px }
 .composition-control { padding:10px 0; border-top:1px solid var(--border) }
