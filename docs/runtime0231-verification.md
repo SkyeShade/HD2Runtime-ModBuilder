@@ -95,3 +95,13 @@ Initialization therefore threw, `SdkStatus` stayed null, and Settings rendered e
 - **Consumer scope:** the weapon-to-attachment compatibility table is not resolved, so consumer scope is incomplete and every write needs `allow_shared`.
 - **Re-application:** in-game re-application of edited attachment values is unproven (`allow_unverified_effect`).
 - **Other effects:** handling, reload and visual effects of an attachment are published but not writable.
+
+## Runtime 0.23.2 hotfix
+
+- **Release:** https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.23.2. SDK asset `HD2Runtime-0.23.2-sdk.zip`, 923,017 bytes, SHA-256 `2e70932e2d98949508a4133eb9ae8417aa61b92a66c6df9875ab56c02ea54b4b`.
+- **Metadata diff:** every consumed metadata file is byte-identical to 0.23.1 after substituting the version string. The only other archive change is `docs/getting-started.md`, which the GUI does not read.
+- **GUI changes:**
+  - 0.23.2 joins the reviewed version allowlist for the reused 0.19 artifacts.
+  - The bundled offline SDK is now the published 0.23.2 metadata.
+  - Magazine-attachment support and generated Lua are unchanged.
+  - Projects on 0.23.1 rebind to 0.23.2 with the same keys and acknowledgements and no review. Only the SDK version in the generated output changes.

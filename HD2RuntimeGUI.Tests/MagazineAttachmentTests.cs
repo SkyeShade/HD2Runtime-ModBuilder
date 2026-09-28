@@ -25,7 +25,7 @@ public sealed class MagazineAttachmentTests
     [Fact] public async Task Published_0231_catalog_loads()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); var c = Catalog(w);
-        Assert.Equal("0.23.1", w.Metadata!.Version); Assert.Equal(43, c.Attachments.Length); Assert.Equal(172, c.FieldInstances.Length);
+        Assert.Equal("0.23.2", w.Metadata!.Version); Assert.Equal(43, c.Attachments.Length); Assert.Equal(172, c.FieldInstances.Length);
         Assert.Equal(20, c.Weapons.Length); Assert.Equal(14, c.Weapons.Count(x => x.MagazineSlot.BaseRecordCapacityIsPlaceholder));
         Assert.False(c.Selection.Writable); Assert.All(c.FieldInstances, f => { Assert.True(f.AllowSharedRequired); Assert.Equal("allow_unverified_effect", f.Acknowledgement); });
         Assert.Equal(172, w.Metadata.Entities!.AllFields.Count(f => f.Target.Resource == "weapon_attachment"));
@@ -113,9 +113,21 @@ public sealed class MagazineAttachmentTests
         await w.SetEntityAsync(armor.InstanceKey, "5");
         File.Delete(e.Paths.CachePath("current.json")); await e.Cache.GetCurrentAsync();
         await w.OpenAsync(w.Project!.Id); Assert.Equal("0.23.0", w.Project!.SdkVersion); Assert.Null(w.Metadata!.Entities!.Attachments);
-        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.23.1", w.Project.SdkVersion); Assert.NotNull(w.Metadata!.Entities!.Attachments);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.23.2", w.Project.SdkVersion); Assert.NotNull(w.Metadata!.Entities!.Attachments);
         Assert.Equal(armor.InstanceKey, w.Project.EntityChanges.Single().InstanceKey); Assert.Null(w.BuildError);
         Assert.Null((await SdkFixtures.Install(e, "0.22.1")).Entities);
+    }
+    // 0.23.2 is a Runtime hotfix: consumed metadata differs from 0.23.1 only in its version line.
+    [Fact] public async Task Hotfix_0232_rebinds_0231_attachment_edits_without_review()
+    {
+        using var e = new TestEnvironment(); var old = await SdkFixtures.Install(e, "0.23.1");
+        var w = e.Workspace(); await w.CreateAsync(new("Pinned", "Tests", "mods/tests/pinned_0231", "0.1.0"), old);
+        await w.SetEntityAsync(Field(w, Drum, "attachment.magazine_capacity").InstanceKey, "90"); await w.SetAttachmentAcknowledgedAsync(Drum, true);
+        var (keys, lua) = (w.Project!.EntityChanges.Select(c => c.InstanceKey).ToArray(), w.LuaPreview);
+        await SdkFixtures.Install(e, "0.23.2"); await w.OpenAsync(w.Project.Id); Assert.Equal("0.23.1", w.Project!.SdkVersion);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.23.2", w.Project.SdkVersion); Assert.Null(w.BuildError);
+        Assert.Equal(keys, w.Project.EntityChanges.Select(c => c.InstanceKey)); Assert.True(BuilderWorkspace.AttachmentAcknowledged(w.Project, Catalog(w), Drum));
+        Assert.Equal(lua.Replace("0.23.1", "0.23.2"), w.LuaPreview);
     }
 
     [Theory] [InlineData("ambiguous-resolved")] [InlineData("unknown-attachment")] [InlineData("no-effect-ack")] [InlineData("value-mismatch")]
@@ -136,19 +148,19 @@ public sealed class MagazineAttachmentTests
             case "default-not-native": concussive["magazineSlot"]!["defaultRelationship"] = "catalog_effect_fingerprint_unique"; break;
             case "scope-complete": j["attachments"]![0]!["consumers"]!["scopeComplete"] = true; break;
         }
-        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.23.1");
-        var ex = Record.Exception(() => MagazineAttachmentReader.Read(Encoding.UTF8.GetBytes(j.ToJsonString()), "0.23.1", players));
+        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.23.2");
+        var ex = Record.Exception(() => MagazineAttachmentReader.Read(Encoding.UTF8.GetBytes(j.ToJsonString()), "0.23.2", players));
         Assert.True(ex is InvalidDataException or UnsupportedSdkException, ex?.GetType().Name);
     }
     [Fact] public void Unknown_contract_is_unsupported()
     {
         var j = Json(); j["contract"] = "hd2runtime.weapon_attachment.magazine.v2";
-        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.23.1");
-        Assert.Throws<UnsupportedSdkException>(() => MagazineAttachmentReader.Read(Encoding.UTF8.GetBytes(j.ToJsonString()), "0.23.1", players));
+        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.23.2");
+        Assert.Throws<UnsupportedSdkException>(() => MagazineAttachmentReader.Read(Encoding.UTF8.GetBytes(j.ToJsonString()), "0.23.2", players));
     }
     [Fact] public void Published_catalog_reads_cleanly()
     {
-        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.23.1");
-        Assert.Equal(43, MagazineAttachmentReader.Read(SdkCache.BundledComposition()[MagazineAttachmentReader.FileName], "0.23.1", players).Attachments.Length);
+        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.23.2");
+        Assert.Equal(43, MagazineAttachmentReader.Read(SdkCache.BundledComposition()[MagazineAttachmentReader.FileName], "0.23.2", players).Attachments.Length);
     }
 }

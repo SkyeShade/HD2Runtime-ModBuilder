@@ -15,6 +15,7 @@ namespace HD2RuntimeGUI.Tests;
 public sealed class SdkCacheUpgradeTests
 {
     private const string Magazine = "MagazineAttachmentCapabilities.json";
+    private const string Bundled = "0.23.2"; // The bundled offline SDK; stale-cache completion only uses the identical bundled release.
     private static string Dir(TestEnvironment e, string version) => Path.GetDirectoryName(e.Paths.SdkFile(version))!;
     private static string Current(TestEnvironment e) => (string)JsonNode.Parse(File.ReadAllText(e.Paths.CachePath("current.json")))!["version"]!;
     private static byte[] Archive(Action<ZipArchive> edit)
@@ -40,8 +41,8 @@ public sealed class SdkCacheUpgradeTests
     {
         using var e = new TestEnvironment(); File.Delete(e.Paths.CachePath("current.json")); e.GitHub.Offline = true;
         var status = await e.Updates.CheckAsync();
-        Assert.Equal("0.23.1", status.Installed.Version); Assert.NotNull(status.Installed.Entities!.Attachments);
-        Assert.True(File.Exists(Path.Combine(Dir(e, "0.23.1"), Magazine)));
+        Assert.Equal(Bundled, status.Installed.Version); Assert.NotNull(status.Installed.Entities!.Attachments);
+        Assert.True(File.Exists(Path.Combine(Dir(e, Bundled), Magazine)));
     }
 
     [Fact] public async Task Upgrade_from_0230_to_0231_keeps_versions_separate()
@@ -107,7 +108,7 @@ public sealed class SdkCacheUpgradeTests
     private static async Task<TestEnvironment> StaleCache()
     {
         var e = new TestEnvironment();
-        await SdkFixtures.Install(e, "0.23.1"); File.Delete(Path.Combine(Dir(e, "0.23.1"), Magazine));
+        await SdkFixtures.Install(e, Bundled); File.Delete(Path.Combine(Dir(e, Bundled), Magazine));
         return e;
     }
 
@@ -115,28 +116,28 @@ public sealed class SdkCacheUpgradeTests
     {
         using var e = await StaleCache(); e.GitHub.Offline = true;
         var status = await new SdkUpdateService(new SdkCache(e.Paths, e.Reader, e.GitHub), e.GitHub, e.Paths).CheckAsync();
-        Assert.Equal("0.23.1", status.Installed.Version); Assert.Equal(43, status.Installed.Entities!.Attachments!.Attachments.Count());
-        Assert.Equal(SdkFixtures.Entry("0.23.1", Magazine), File.ReadAllBytes(Path.Combine(Dir(e, "0.23.1"), Magazine)));
-        Assert.Empty(Directory.GetFiles(Dir(e, "0.23.1"), "*.tmp"));
+        Assert.Equal(Bundled, status.Installed.Version); Assert.Equal(43, status.Installed.Entities!.Attachments!.Attachments.Count());
+        Assert.Equal(SdkFixtures.Entry(Bundled, Magazine), File.ReadAllBytes(Path.Combine(Dir(e, Bundled), Magazine)));
+        Assert.Empty(Directory.GetFiles(Dir(e, Bundled), "*.tmp"));
     }
 
     [Fact] public async Task Stale_cache_with_different_files_is_never_mixed_with_the_bundle()
     {
         using var e = await StaleCache();
-        var vehicle = Path.Combine(Dir(e, "0.23.1"), "VehicleAuthoringCapabilities.json"); File.AppendAllText(vehicle, " ");
-        var error = await Assert.ThrowsAsync<IncompleteSdkCacheException>(() => e.Cache.GetVersionAsync("0.23.1"));
-        Assert.Equal("0.23.1", error.Version); Assert.Equal(Magazine, error.File); Assert.Contains("older HD2RuntimeGUI", error.Message);
-        Assert.False(File.Exists(Path.Combine(Dir(e, "0.23.1"), Magazine)));
+        var vehicle = Path.Combine(Dir(e, Bundled), "VehicleAuthoringCapabilities.json"); File.AppendAllText(vehicle, " ");
+        var error = await Assert.ThrowsAsync<IncompleteSdkCacheException>(() => e.Cache.GetVersionAsync(Bundled));
+        Assert.Equal(Bundled, error.Version); Assert.Equal(Magazine, error.File); Assert.Contains("older HD2RuntimeGUI", error.Message);
+        Assert.False(File.Exists(Path.Combine(Dir(e, Bundled), Magazine)));
     }
 
     [Fact] public async Task Reinstalling_a_stale_version_adds_only_the_missing_file()
     {
         using var e = await StaleCache();
-        var others = Directory.GetFiles(Dir(e, "0.23.1")).ToDictionary(Path.GetFileName, File.ReadAllBytes);
-        var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.23.1", e.GitHub.Archive));
+        var others = Directory.GetFiles(Dir(e, Bundled)).ToDictionary(Path.GetFileName, File.ReadAllBytes);
+        var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease(Bundled, e.GitHub.Archive));
         Assert.NotNull(sdk.Entities!.Attachments);
-        Assert.True(File.Exists(Path.Combine(Dir(e, "0.23.1"), Magazine)));
-        foreach (var (name, bytes) in others) Assert.Equal(bytes, File.ReadAllBytes(Path.Combine(Dir(e, "0.23.1"), name!)));
+        Assert.True(File.Exists(Path.Combine(Dir(e, Bundled), Magazine)));
+        foreach (var (name, bytes) in others) Assert.Equal(bytes, File.ReadAllBytes(Path.Combine(Dir(e, Bundled), name!)));
     }
 
     [Fact] public async Task Check_reinstalls_an_incomplete_non_bundled_cache_online()
