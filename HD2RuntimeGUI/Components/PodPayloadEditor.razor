@@ -1,0 +1,113 @@
+@inject BuilderWorkspace Workspace
+@* 0.26.0 drop-pod contents (PodPayloadCapabilities): the hellpod rack a call-in delivers. Slots 1-4 are authored with a pickup from
+   Runtime's typed catalog (grouped by its published category, never by name) or 'empty'; the spawn count decides how many of them
+   spawn. Slots 5-8 are never authored. Written as hd2.pod_rack(name):slot(n) and hd2.pod_rack(name) with the published opt-ins. *@
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var entities = sdk?.Entities; var pods = entities?.Pods; var rack = pods?.Rack(Rack); }
+@if (entities != null && pods != null && rack != null)
+{
+    var byKey = pods.FieldInstances.Where(f => f.Target.Rack == rack.Name).ToDictionary(f => f.InstanceKey);
+    var spawn = byKey.GetValueOrDefault(PodPayloadReader.SpawnKey(rack));
+    var slots = rack.AuthoredSlots.Where(s => s.Writable).Select(s => (Slot: s, Field: byKey[PodPayloadReader.SlotKey(rack, s.Slot)])).ToArray();
+    var edited = byKey.Values.Where(f => EntityChangeService.Saved(Workspace.Project, f) != null).ToArray();
+    var count = spawn == null ? rack.SpawnCount.Value ?? 0 : Int(EntityChangeService.Saved(Workspace.Project, spawn)?.DesiredValue ?? spawn.CurrentDefault);
+    @if (!ModifiedOnly || edited.Length > 0)
+    {
+    <section class="panel pod-payload @(edited.Length > 0 ? "modified" : "")" data-pod-rack="@rack.Name" data-pod-shared="@(rack.Shared ? "true" : "false")">
+        <div class="panel-heading"><h3>Drop pod contents</h3><span class="badge" data-pod-rack-name>@rack.Name</span>
+            @if (rack.Shared) { <span class="badge amber" data-flag="allow_shared" title="One rack delivered by several call-ins">Shared rack · @rack.Consumers.Length</span> }
+            @if (edited.Length > 0) { <span class="badge modified-badge">Modified</span> }
+            @if (edited.Length > 0 && Workspace.Project != null) { <button class="reset-action small" data-pod-reset @onclick='() => Run(() => Workspace.ResetEntityAsync("pod_rack", rack.Name))'>Reset drop pod</button> }</div>
+        @if (!rack.Writable) { <p class="subtle field-blocker" data-pod-readonly>Read-only · @rack.Reason</p> }
+        else
+        {
+            @if (rack.Shared)
+            {
+                <p class="notice cat-note" data-pod-shared-warning>This drop pod is shared by <strong>@string.Join(", ", rack.Consumers.Select(c => c.Name))</strong>. Editing it here changes every one of them.</p>
+            }
+            @if (spawn != null && (!ModifiedOnly || EntityChangeService.Saved(Workspace.Project, spawn) != null))
+            { <div class="stat-grid" data-pod-spawn-count><EntityFieldEditor @key="spawn.InstanceKey" Field="spawn" Label="Spawn count" Tiers="Tiers" AcknowledgedInGroup="true" Changed="Refresh" /></div> }
+            <div class="pod-slots">
+            @foreach (var (s, f) in slots.Where(x => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, x.Field) != null))
+            {
+                var saved = EntityChangeService.Saved(Workspace.Project, f);
+                var value = (saved?.DesiredValue ?? f.CurrentDefault).GetString()!;
+                var chosen = value == PodPayloadReader.Empty ? null : pods.Pickup(value);
+                <article class="stat-card pod-slot @(saved != null ? "modified" : "") @(s.Slot > count ? "inactive" : "")" data-pod-slot="@s.Slot">
+                    <div class="panel-heading"><h4>Slot @s.Slot</h4>
+                        @if (s.Slot > count) { <span class="badge" data-pod-slot-idle title="The rack spawns its first @count slot(s)">Not spawned at count @count</span> }
+                        @if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
+                    <p class="subtle" data-pod-slot-vanilla>Vanilla: <strong>@(s.Current?.Name ?? "Empty")</strong></p>
+                    <label>Contents
+                        <select data-pod-slot-select disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(f.InstanceKey, e.Value?.ToString() ?? string.Empty))">
+                            <option value="@PodPayloadReader.Empty" selected="@(value == PodPayloadReader.Empty)">Empty@(s.Current == null ? " (vanilla)" : "")</option>
+                            @foreach (var category in pods.Categories)
+                            {
+                                var items = pods.Pickups.Where(p => p.Category == category.Key).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+                                if (items.Length == 0) continue;
+                                <optgroup label="@category.Value">
+                                    @foreach (var p in items) { <option value="@p.SemanticId" selected="@(value == p.SemanticId)">@p.Name@(s.Current?.Pickup == p.SemanticId ? " (vanilla)" : "") · @Short(PodPayloadCatalog.CompatibilityIn(s, p), PodPayloadCatalog.LowPackageRisk(rack, s, p))</option> }
+                                </optgroup>
+                            }
+                        </select>
+                    </label>
+                    @if (chosen != null)
+                    {
+                        <div class="field-badges" data-pickup-badges="@chosen.SemanticId">
+                            <span class="badge">@chosen.CategoryLabel</span>
+                            @switch (PodPayloadCatalog.CompatibilityIn(s, chosen))
+                            {
+                                case "PROVEN_COMPATIBLE": <span class="badge green" data-pickup-badge="proven" title="@pods.CompatibilityStates["PROVEN_COMPATIBLE"]">Proven</span> break;
+                                case "SCHEMA_COMPATIBLE": <span class="badge" data-pickup-badge="rack-compatible" title="@pods.CompatibilityStates["SCHEMA_COMPATIBLE"]">Rack-compatible</span> break;
+                                default: <span class="badge amber" data-pickup-badge="unverified" title="@pods.CompatibilityStates["UNVERIFIED_REFERENCE"]">Unverified</span> break;
+                            }
+                            @if (chosen.Evidence.WorldLoot || chosen.Evidence.StandalonePickup) { <span class="badge" data-pickup-badge="world" title="@chosen.CompatibilityBasis">World pickup</span> }
+                            @if (!PodPayloadCatalog.LowPackageRisk(rack, s, chosen)) { <span class="badge amber" data-pickup-badge="package-risk" title="@chosen.Residency.Basis">Package risk</span> }
+                        </div>
+                    }
+                    @if (saved != null)
+                    {
+                        <div class="field-tools">
+                            <label class="field-toggle" title="Include this change in the build"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> On</label>
+                            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: f.InstanceKey))">Reset slot</button></div>
+                        @if (EntityScalar.AcknowledgementRequired(f, saved.DesiredValue))
+                        {
+                            <AckPanel Title="Unverified replacement" Kind="unverified" Checked="saved.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(f, saved.DesiredValue)"
+                                Description="@(chosen != null && !PodPayloadCatalog.LowPackageRisk(rack, s, chosen) ? pods.PackageRisk : "Not this slot's vanilla occupant (allow_unverified_reference).")"
+                                Label="I understand this replacement may not load correctly" OnChange="v => Run(() => Workspace.SetEntityAcknowledgedAsync([f.InstanceKey], v))"
+                                CheckboxAttributes='@(new() { ["data-pod-reference-ack"] = s.Slot.ToString(System.Globalization.CultureInfo.InvariantCulture) })' />
+                        }
+                        @if (Workspace.EntityIssue(saved) is { } issue && !issue.StartsWith("Acknowledge ", StringComparison.Ordinal)) { <p class="notice warning">@issue</p> }
+                    }
+                </article>
+            }
+            </div>
+            @if (!ModifiedOnly && rack.AuthoredSlots.Any(s => !s.Writable)) { <p class="subtle field-blocker">Read-only slots: @string.Join(", ", rack.AuthoredSlots.Where(s => !s.Writable).Select(s => s.Slot))</p> }
+            @if (spawn != null && EntityChangeService.Saved(Workspace.Project, spawn) != null)
+            {
+                <AckPanel Title="Spawn count · effect not gameplay-confirmed" Kind="unverified" Checked="BuilderWorkspace.EntityAcknowledged(Workspace.Project, entities, [spawn.InstanceKey])"
+                    Description="Changing how many slots spawn has not been confirmed in game (allow_unverified_effect)." Label="I understand this effect is not gameplay-confirmed"
+                    OnChange="v => Run(() => Workspace.SetEntityAcknowledgedAsync([spawn.InstanceKey], v))" CheckboxAttributes='@(new() { ["data-pod-spawn-ack"] = "true" })' />
+            }
+            @if (rack.Shared && edited.Length > 0)
+            {
+                <AckPanel Title="Shared drop pod" Kind="shared" Checked="EntityChangeService.Approved(Workspace.Project!, edited[0])"
+                    Description="Runtime writes this rack once (allow_shared); every call-in listed receives the same contents." Items="@rack.Consumers.Select(c => c.Name).ToArray()" ItemsLabel="Also changes:"
+                    Label="I understand this affects other users of this object" OnChange="v => Run(() => Workspace.SetEntityApprovalAsync(edited[0].InstanceKey, v))"
+                    CheckboxAttributes='@(new() { ["data-pod-shared-ack"] = "true" })' />
+            }
+        }
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </section>
+    }
+}
+@code {
+    [Parameter, EditorRequired] public string Rack { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string> { ["structural_reference"] = "Rack layout proven; the in-game effect of changing it has not been tested." };
+    private static int Int(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
+    private static string Short(string compatibility, bool lowRisk) => (compatibility switch { "PROVEN_COMPATIBLE" => "Proven", "SCHEMA_COMPATIBLE" => "Rack-compatible", _ => "Unverified" }) + (lowRisk ? "" : " · package risk");
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

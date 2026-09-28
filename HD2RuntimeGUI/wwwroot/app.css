@@ -1296,3 +1296,45 @@ input[type=checkbox]:checked:before {
 .app-update-close { background:transparent; border:0 }
 .badge.brand { color:var(--brand-yellow); border-color:var(--brand-yellow); background:color-mix(in srgb, var(--brand-yellow) 10%, transparent) }
 .app-update-settings .panel-heading > .badge { align-self:center }
+
+/* HD2Runtime 0.26.0 authoring: magazine variants, fire modes, mission uses, backpack ammo, mounted vehicle weapons, drop-pod contents */
+.variant-picker { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px }
+.variant-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--text); font-size:12.5px; cursor:pointer }
+.variant-chip:hover { border-color:var(--accent-border) }
+.variant-chip.active { border-color:var(--accent-selected-border); background:var(--accent-selected-bg); color:var(--accent-selected) }
+.chip-flag { font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted) }
+.chip-dot { width:6px; height:6px; border-radius:50%; background:var(--accent) }
+.attachment-meta { color:var(--muted); font-size:12px; margin:2px 0 8px; overflow-wrap:anywhere }
+.locked-effects { color:var(--muted); font-size:12px }
+.field-blocker { font-size:12.5px; margin:6px 0 }
+.blocked-fields { margin-top:10px; font-size:12.5px; color:var(--muted) }
+.fire-mode-editor { display:grid; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; margin:0 0 10px }
+.fire-mode-head { display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+.fire-mode-slots { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px }
+.fire-mode-slot { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; min-height:64px }
+.fire-mode-slot.empty { border-style:dashed; color:var(--muted) }
+.fire-mode-slot .slot-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em }
+.fire-mode-slot .slot-actions { display:flex; gap:4px; flex-wrap:wrap }
+.fire-mode-add { display:flex; flex-wrap:wrap; gap:6px }
+.fire-mode-blocked { color:var(--muted); font-size:12.5px }
+.mission-uses { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px }
+.mission-uses-option { display:inline-flex; align-items:center; gap:5px; white-space:nowrap }
+.mission-uses input[type=number] { width:72px }
+.mission-uses-notes { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12px }
+.backpack-ammo { margin-top:12px }
+.vehicle-weapon { margin-top:12px }
+.vehicle-weapon.modified { box-shadow:inset 3px 0 var(--accent) }
+.vehicle-weapon-group { margin-top:10px }
+.vehicle-weapon-group .scope-line { font-weight:400; font-size:12px }
+.mount-swap { margin:6px 0 4px }
+.mount-swap > summary { cursor:pointer; color:var(--muted); font-size:12.5px }
+.pod-payload { margin-top:12px }
+.pod-slots { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px; margin-top:10px }
+.pod-slot { padding:12px 14px }
+.pod-slot h4 { margin:0; font-size:14px }
+.pod-slot.inactive { opacity:.72 }
+.pod-slot select { width:100% }
+.pod-slot .field-tools { display:flex; gap:8px; align-items:center; margin-top:8px }
+@media (max-width:760px) { .fire-mode-slots { grid-template-columns:repeat(2, minmax(0, 1fr)) } }
+.fire-mode-slot.unavailable { opacity:.6 }
+.fire-mode-slots { list-style:none; padding:0; margin:0 }

@@ -42,6 +42,14 @@
         </div></details>
     </div>
     @if (SavedGroup?.Conflict != null) { <div class="field-wide"><WeaponAliasConflict Group="SavedGroup" Changed="AliasResolved" /></div> }
+    @* 0.26.0: Runtime's allow_unverified_effect opt-in (reticle, burst length) is acknowledged next to the edit it covers. *@
+    @if (Change != null && Field.Acknowledgement == "allow_unverified_effect" && FieldPresentation.Modified(Field, Change))
+    {
+        <div class="field-wide"><AckPanel Title="@(Field.DisplayName + " · effect not gameplay-confirmed")" Kind="unverified" Checked="EffectAcknowledged" Description="@Field.AcknowledgementReason"
+            Label="I understand this effect is not gameplay-confirmed" OnChange="v => Run(() => Workspace.SetWeaponEffectAcknowledgedAsync(Weapon.Name, Field.SemanticFieldId, v))"
+            CheckboxAttributes='@(new() { ["data-effect-ack"] = Field.SemanticFieldId })' /></div>
+    }
+    @if (!CanEdit && Field.SemanticFieldId == FireModes.ReticleField) { <p class="field-wide subtle field-blocker" data-field-blocker>@(Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)</p> }
     @if (Error != null) { <p class="field-wide dialog-error" role="alert">@Error</p> }
 </div>
 
@@ -55,7 +63,8 @@
     private System.Text.Json.JsonElement CurrentValue => FieldPresentation.Parse(Value) ?? Change?.DesiredValue ?? Field.CurrentDefault;
     private bool Modified => FieldPresentation.Differs(Field, Field.CurrentDefault, CurrentValue);
     private bool Dirty => FieldPresentation.Differs(Field, Change?.DesiredValue ?? Field.CurrentDefault, CurrentValue);
-    private bool Available => Field.CurrentDefault.ValueKind is not (System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined);
+    private bool EffectAcknowledged => Change?.EffectAcknowledgement == WeaponChangeService.EffectEvidence(Weapon.Name, Field);
+    private bool Available =>Field.CurrentDefault.ValueKind is not (System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined);
     private bool CanEdit => Field.IsPreferred && Field.WriteAccepted && Field.Editable && !Weapon.OrdinaryWritesBlocked && !Field.DerivedReadOnly && SavedGroup?.Conflict == null;
     private string Value = "", Group = "Gameplay", Notes = "";
     private string? Error;

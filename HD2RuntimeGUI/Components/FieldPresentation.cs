@@ -32,6 +32,9 @@ internal static class FieldPresentation
     public const string Advanced = "Advanced / Read-only";
     public static string Section(WeaponCapability f)
     {
+        // 0.26.0: the reticle and fire modes stay in their own sections even when read-only, so their blocker is visible there.
+        if (f.SemanticFieldId == HD2RuntimeGUI.Core.Metadata.FireModes.ReticleField) return "Handling";
+        if (f.Domain == "fire_mode") return FireMode;
         if (!f.Editable || f.DerivedReadOnly) return Advanced;
         if (f.Domain == "heat") return "Heat";
         if (f.Domain == "heatsink") return "Heatsinks";
@@ -41,5 +44,6 @@ internal static class FieldPresentation
         if (f.Domain == "damage") return f.SemanticFieldId.Contains("status_") ? "Status Effects" : "Damage";
         return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(f.Domain.Replace('_', ' '));
     }
-    public static int SectionOrder(string name) => name switch { "Weapon" => 0, "Ammo / Magazine" => 1, "Handling" => 2, "Heat" => 3, "Heatsinks" => 4, "Projectile" => 5, "Damage" => 6, "Status Effects" => 7, "Explosion" => 8, Advanced => 99, _ => 9 };
+    public const string FireMode = "Fire Mode";
+    public static int SectionOrder(string name) => name switch { "Weapon" => 0, FireMode => 1, "Ammo / Magazine" => 2, "Handling" => 3, "Heat" => 4, "Heatsinks" => 5, "Projectile" => 6, "Damage" => 7, "Status Effects" => 8, "Explosion" => 9, Advanced => 99, _ => 10 };
 }

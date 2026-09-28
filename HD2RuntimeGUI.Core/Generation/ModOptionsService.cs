@@ -83,7 +83,7 @@ public static class ModOptionsService
             foreach (var c in p.EntityChanges)
             {
                 EntityField f; try { f = EntityChangeService.Resolve(sdk.Entities, c); } catch (InvalidDataException) { continue; }
-                var blocker = f.IsReference ? "Reference swaps cannot be bound to in-game options." : Scalar(f.Type);
+                var blocker = f.IsReference ? "Reference swaps cannot be bound to in-game options." : f.IsPickup ? "Drop-pod contents are pickup references and cannot be in-game options." : Scalar(f.Type);
                 // Magazine attachments are identified by semantic ID; show their published name.
                 var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Entity;
                 result.Add(Numeric(EntityKey(c.InstanceKey), "entity", owner, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
@@ -100,6 +100,16 @@ public static class ModOptionsService
             foreach (var c in p.StratagemChanges)
             {
                 StratagemField f; try { f = StratagemChangeService.Resolve(sdk.Stratagems, c); } catch (InvalidDataException) { continue; }
+                // 0.26.0 mission uses: a finite count Runtime lets change to other finite counts maps to an integer slider in the published
+                // range; Unlimited is a token, not a number, so an edit to or from it cannot be an option.
+                if (f.Type == StratagemUses.Type)
+                {
+                    var finite = !StratagemUses.IsUnlimited(c.ExpectedValue) && !StratagemUses.IsUnlimited(c.DesiredValue) && f.Transitions?.Contains(StratagemUses.FiniteToFinite) == true;
+                    result.Add(Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, "integer", f.Unit, c.ExpectedValue, c.DesiredValue,
+                        c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), finite ? null : "Unlimited mission uses are a token, not a number, so only a finite-to-finite use count can be an in-game option.",
+                        v => StratagemUses.CheckTransition(f, c.ExpectedValue, StratagemUses.Normalize(f, Json(v)))));
+                    continue;
+                }
                 result.Add(Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
                     c.Enabled, c.EnsureEnabled, null, null, Scalar(f.Type), v => StratagemScalar.Normalize(f, Json(v))));
             }
@@ -111,6 +121,7 @@ public static class ModOptionsService
     {
         "integer" or "number" => null,
         "boolean" => "Runtime binds toggle options only to an operation's enabled state, never to a field value, so boolean edits cannot be in-game options.",
+        WeaponCapability.FireModeSet => "A fire-mode list is not a number, so it cannot be an in-game option.",
         _ => "Only numeric and enum fields can be in-game options.",
     };
     private static JsonElement Json(double v) => JsonSerializer.SerializeToElement(v);

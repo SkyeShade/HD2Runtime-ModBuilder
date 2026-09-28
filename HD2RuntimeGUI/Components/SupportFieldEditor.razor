@@ -6,14 +6,15 @@
         <span class="field-flags">
             @if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge amber" data-flag="allow_shared" title="Shared object: requires acknowledging its affected consumers">Shared</span> }
             @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">Effect unproven</span> }
+            @if (Field.Reticle?.Evidence is { GameplayProven: true } proven) { <span class="badge green" data-gameplay-proven title="@proven.GameplaySource">Gameplay-proven</span> }
             @if (saved != null) { <span class="badge modified-badge">Modified</span> }
         </span></div>
     <div class="field-value">
         @if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Field.Display.Name" /> }
         else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@Field.Display.Name" /> }
     </div>
-    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong></div> }
-    else { <div class="field-baseline subtle" data-baseline="@Format(Field.Value.Baseline)">Base @Format(Field.Value.Baseline)</div> }
+    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Display(saved.ExpectedValue) → <strong>@Display(saved.DesiredValue)</strong></div> }
+    else { <div class="field-baseline subtle" data-baseline="@Format(Field.Value.Baseline)">Base @Display(Field.Value.Baseline)</div> }
     <div class="field-tools">
         @if (saved != null) { <OptionToggle Key="@ModOptionsService.SupportKey(Field.InstanceKey)" Changed="Changed" /> }
         @if (saved != null)
@@ -40,6 +41,8 @@
     // 0.24.0+: Runtime requires allow_unverified_effect=true for this field.
     private bool UnverifiedEffect => Field.Operation.Acknowledgement == "allow_unverified_effect";
     private string Value => Format(Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline);
+    private string Display(System.Text.Json.JsonElement value) => Field.Value.Type == "boolean" && value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False
+        ? (value.GetBoolean() ? "On" : "Off") : Field.Value.Type == WeaponCapability.FireModeSet && value.ValueKind == System.Text.Json.JsonValueKind.Array ? FireModes.Text(value) : Format(value);
     private string Format(System.Text.Json.JsonElement value)
     {
         try { return SupportScalar.Text(Field, value); }

@@ -70,6 +70,7 @@ public static class CompositionPlanLua
                 }
                 else body.Append("    target=").Append(op.Target).Append(",\n");
                 if (op.AllowShared) body.Append("    allow_shared=true,\n");
+                if (op.AllowUnverifiedEffect) body.Append("    allow_unverified_effect=true,\n");
                 if (op.Changes.Count == 1)
                 {
                     var c = op.Changes[0]; body.Append($"    field={c.Field},\n    expect={c.Expected},\n    value={options?.Value(c.Keys, c.Desired) ?? c.Desired},\n");

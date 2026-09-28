@@ -42,7 +42,15 @@ public sealed class WeaponChangeService : IWeaponChangeService
         ValidateValue(f, c.ExpectedValue); ValidateValue(f, c.DesiredValue);
         if (f.Format(c.ExpectedValue) != f.Format(f.CurrentDefault)) throw new InvalidDataException($"SDK baseline changed: saved {f.Format(c.ExpectedValue)}, current {f.Format(f.CurrentDefault)}. Review and explicitly accept the new baseline.");
         if (f.AffectsMultipleWeapons && !SharedAcknowledgementCurrent(f, c)) throw new InvalidDataException("Shared setting requires acknowledgement of the current affected weapons and write scope.");
+        if (f.Acknowledgement == "allow_unverified_effect" && c.EffectAcknowledgement != EffectEvidence(c.Weapon, f))
+            throw new InvalidDataException($"Acknowledge that the {f.DisplayName.ToLowerInvariant()} change on {c.Weapon} is not gameplay-confirmed before building.");
     }
+    // 0.26.0: acknowledgement of Runtime's allow_unverified_effect opt-in for one weapon field, bound to its published reason.
+    public static string EffectEvidence(string weapon, WeaponCapability f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { weapon, f.SemanticFieldId, f.Acknowledgement, f.AcknowledgementReason }));
+    // fire_mode.modes rewrites the whole native mode vector; the older default-fire-mode view covers the same bytes (Runtime rejects both in one plan).
+    public static string? FireModeConflict(IEnumerable<WeaponChange> changes, string weapon) =>
+        changes.Any(c => c.Enabled && c.Weapon == weapon && c.SemanticFieldId == FireModes.ModesField) && changes.Any(c => c.Enabled && c.Weapon == weapon && c.SemanticFieldId is "weapon.default_fire_mode" or "weapon.primary_fire_mode")
+            ? $"{weapon}: Fire modes and the older default fire mode edit the same native slots. Keep one of them (the fire-mode list sets the default by its first entry)." : null;
     // A shared-setting acknowledgement covers the exact write scope, consumer count and affected weapons published today.
     public static bool SharedAcknowledgementCurrent(WeaponCapability f, WeaponChange c) => c.SharedAcknowledged && c.AcknowledgedWriteScope == f.WriteScope
         && c.AcknowledgedConsumerCount == f.Backing?.ConsumerCount && c.AcknowledgedAffectedWeapons.Order(StringComparer.Ordinal).SequenceEqual(f.SharedWithWeapons.Order(StringComparer.Ordinal));
@@ -54,12 +62,19 @@ public sealed class WeaponChangeService : IWeaponChangeService
             issues.Add(new(group.Representative.Id, group.Conflict!));
         foreach (var c in list.Where(c => c.Enabled))
             try { Validate(sdk, c); } catch (InvalidDataException e) { issues.Add(new(c.Id, e.Message)); }
+        foreach (var weapon in list.Select(c => c.Weapon).Distinct())
+            if (FireModeConflict(list, weapon) is { } conflict) issues.Add(new(list.First(c => c.Weapon == weapon && c.SemanticFieldId == FireModes.ModesField).Id, conflict));
         return issues;
     }
     public static PlayerWeaponCatalog Catalog(SdkMetadata sdk) => sdk.PlayerWeapons ?? throw new InvalidDataException("Select SDK 0.13.0 or newer for player-weapon authoring.");
     public static void ValidateValue(WeaponCapability f, JsonElement value)
     {
         if (f.Type is "projectile_reference" or "explosion_reference") throw new InvalidDataException("References require semantic composition overrides.");
+        if (f.Type == WeaponCapability.FireModeSet)
+        {
+            if (f.AllowedModes is not { } allowed || f.MaxModes is not int maxModes) throw new InvalidDataException(f.Reason ?? "This weapon's fire modes are read-only.");
+            FireModes.ValidateValue(value, allowed, maxModes); return;
+        }
         if (f.Type == "boolean")
         { if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException("Expected a boolean."); return; }
         if (f.Type == "enum")

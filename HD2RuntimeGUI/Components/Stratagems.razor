@@ -133,6 +133,9 @@ else
                 else { <BackpackEditor Name="@d.Entity" Embedded="true" Changed="Refresh" @key="d.Entity" /> }
             }
             else { <StratagemEditor Name="@stratagem.Name" Changed="Refresh" @key="stratagem.Name" /> }
+            @* 0.26.0: the hellpod rack this call-in delivers, joined by the published stratagem semantic ID. *@
+            @foreach (var pod in sdk?.Entities?.Pods?.ForStratagem(stratagem.SemanticId) ?? [])
+            { <details class="ia-section" data-section="drop-pod" open><summary>Drop pod <small>contents and spawn count</small></summary><div class="ia-body"><PodPayloadEditor Rack="@pod.Name" Changed="Refresh" @key="pod.Name" /></div></details> }
             <details class="ia-section advanced" data-section="advanced" open="@(fields.All(f => !f.Editable) && graph.Blocked.Length > 0)"><summary>Advanced / provenance <small>structure, read-only reasons and inspection</small></summary><div class="ia-body">
                 @if (graph.Entities.Length > 0)
                 {

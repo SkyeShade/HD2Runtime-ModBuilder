@@ -2,7 +2,8 @@
 @{
     var entities = Workspace.Metadata?.Entities; var project = Workspace.Project;
     // One logical entry per vehicle/backpack: its own edits plus edits to its linked call-in stratagem.
-    var keys = project == null ? [] : project.EntityChanges.Select(c => (c.Resource, c.Entity))
+    // Mounted vehicle weapon edits (0.26.0) belong to their vehicle's entry; drop-pod racks are their own entry.
+    var keys = project == null ? [] : project.EntityChanges.Select(Group)
         .Concat(entities == null ? [] : project.StratagemChanges.Where(c => entities.CallIns.ContainsKey(c.Stratagem)).Select(c => entities.CallIns[c.Stratagem]))
         .Distinct().OrderBy(k => k.Resource).ThenBy(k => k.Item2, StringComparer.Ordinal).ToArray();
 }
@@ -11,17 +12,18 @@
     <div class="panel-heading"><h2>Vehicle, backpack, magazine attachment &amp; booster changes</h2>@if (project.EntityChanges.Count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync())">Reset all vehicle, backpack, attachment &amp; booster changes</button> }</div>
     @foreach (var (resource, entity) in keys)
     {
-        var own = project.EntityChanges.Where(c => c.Resource == resource && c.Entity == entity).ToArray();
+        var own = project.EntityChanges.Where(c => Group(c) == (resource, entity)).ToArray();
         var callIn = entities?.CallInFor(resource, entity); var callInChanges = callIn == null ? 0 : project.StratagemChanges.Count(c => c.Stratagem == callIn);
         var key = resource + ":" + entity;
-        <details class="panel" data-entity-change-group="@key"><summary><span class="category-pill static @(resource == "booster" ? StratagemCategories.BoosterCssClass : "cat-support")"><span class="cat-dot" aria-hidden="true"></span>@(resource switch { "vehicle" => "Vehicle", "backpack" => "Backpack", "booster" => "Booster", _ => "Magazine attachment" })</span><strong>@Title(resource, entity)</strong>
+        <details class="panel" data-entity-change-group="@key"><summary><span class="category-pill static @(resource == "booster" ? StratagemCategories.BoosterCssClass : "cat-support")"><span class="cat-dot" aria-hidden="true"></span>@(resource switch { "vehicle" => "Vehicle", "backpack" => "Backpack", "booster" => "Booster", "pod_rack" => "Drop pod", _ => "Magazine attachment" })</span><strong>@Title(resource, entity)</strong>
             <span class="badge">@(own.Length + callInChanges) @(own.Length + callInChanges == 1 ? "change" : "changes")</span>
             <small class="subtle">@string.Join(" · ", new[] { callInChanges > 0 ? "Call-in" : null, own.Any(c => c.Path is "entity" or "backpack") ? (resource == "vehicle" ? "Durability" : "Settings") : null,
-                own.Any(c => c.Path == "damage_zone") ? own.Count(c => c.Path == "damage_zone") + " zone fields" : null, own.Any(c => c.Path == "mount") ? "Mounts" : null, own.Any(c => c.Path == "magazine") ? "Magazine values" : null, own.Any(c => c.Path == "deployed_entity") ? "Deployed entity" : null, own.Any(c => c.Path == "status_effect") ? "Status effect" : null }.Where(s => s != null))</small></summary>
+                own.Any(c => c.Path == "damage_zone") ? own.Count(c => c.Path == "damage_zone") + " zone fields" : null, own.Any(c => c.Path == "mount") ? "Mounts" : null, own.Any(c => c.Resource == "vehicle_weapon") ? "Mounted weapons" : null, own.Any(c => c.Resource == "pod_rack") ? "Contents" : null, own.Any(c => c.Path == "magazine") ? "Magazine values" : null, own.Any(c => c.Path == "deployed_entity") ? "Deployed entity" : null, own.Any(c => c.Path == "status_effect") ? "Status effect" : null }.Where(s => s != null))</small></summary>
             <label><input type="checkbox" checked="@ShowAll.Contains(key)" @onchange="e => Toggle(key, (bool)e.Value!)" /> Show all fields</label>
             @if (resource == "vehicle") { <VehicleEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (resource == "backpack") { <BackpackEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (resource == "booster") { <BoosterEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
+            else if (resource == "pod_rack") { <PodPayloadEditor Rack="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else { <MagazineAttachmentCard Attachment="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             @foreach (var c in own.Where(c => entities?.Field(c.InstanceKey) == null))
             { <p class="notice warning">Missing capability: @c.SemanticFieldId · @(c.Zone ?? c.Mount ?? c.Path)</p><button @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: c.InstanceKey))">Remove missing change</button> }
@@ -35,6 +37,7 @@
     // Attachment definitions are named by their native name and the weapons whose default magazine they are.
     private string Title(string resource, string entity) => resource != "weapon_attachment" ? entity
         : Workspace.Metadata?.Entities?.Attachments?.Attachment(entity) is { } a ? a.Name + (a.Consumers.NativeDefaultOf.Length > 0 ? " (" + string.Join(", ", a.Consumers.NativeDefaultOf) + ")" : "") : entity;
+    private static (string Resource, string Entity) Group(EntityChange c) => c.Resource == "vehicle_weapon" ? ("vehicle", VehicleWeaponReader.Split(c.Entity).Vehicle) : (c.Resource, c.Entity);
     private void Toggle(string key, bool value) { if (value) ShowAll.Add(key); else ShowAll.Remove(key); }
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) { Error = e.Message; } }

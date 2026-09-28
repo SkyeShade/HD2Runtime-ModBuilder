@@ -1,0 +1,28 @@
+@inject BuilderWorkspace Workspace
+@* Player-weapon fire modes (SDK 0.26.0, hd2.fields.fire_mode.modes) through the ordinary player-weapon change pipeline.
+   Blocked weapons show the observed modes from WeaponFireModeCapabilities with Runtime's reason. *@
+@if (Model() is { } model)
+{
+    <FireModeEditor Model="model" SetModes="Set" Reset="Reset" Acknowledge="Acknowledge" />
+}
+@code {
+    [Parameter, EditorRequired] public PlayerWeapon Weapon { get; set; } = null!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private FireModeEditor.FireModeModel? Model()
+    {
+        var f = Weapon.Fields.FirstOrDefault(x => x.SemanticFieldId == FireModes.ModesField);
+        var entry = Workspace.Metadata?.FireModes?.Find("player", Weapon.Name);
+        if (f == null && entry == null) return null;
+        var writable = f is { Editable: true, AllowedModes: not null, MaxModes: not null } && f.WriteAccepted && !Weapon.OrdinaryWritesBlocked;
+        var change = Workspace.WeaponGroups.SingleOrDefault(g => g.Weapon == Weapon.Name && g.FieldId == FireModes.ModesField)?.Representative;
+        var baseline = writable ? FireModes.Modes(f!.CurrentDefault) : [];
+        var current = writable && change != null ? FireModes.Modes(change.DesiredValue) : baseline;
+        return new(Weapon.Name, f?.FireModeState ?? entry?.State ?? "blocked", writable, Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : f?.Reason ?? entry?.Reason,
+            baseline, current, f?.AllowedModes ?? [], f?.MaxModes ?? 0, f?.Acknowledgement == "allow_unverified_effect",
+            change != null && f != null && change.EffectAcknowledgement == WeaponChangeService.EffectEvidence(Weapon.Name, f), f?.AcknowledgementReason,
+            f?.Evidence?.NativeOwner, entry?.ModeLabels.ToArray() ?? []);
+    }
+    private async Task Set(string json) { await Workspace.SetWeaponChangeAsync(Weapon.Name, FireModes.ModesField, json, false); await Changed.InvokeAsync(); }
+    private async Task Reset() { await Workspace.ResetWeaponsAsync(Weapon.Name, FireModes.ModesField); await Changed.InvokeAsync(); }
+    private async Task Acknowledge(bool value) { await Workspace.SetWeaponEffectAcknowledgedAsync(Weapon.Name, FireModes.ModesField, value); await Changed.InvokeAsync(); }
+}

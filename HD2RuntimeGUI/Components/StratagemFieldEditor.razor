@@ -9,6 +9,23 @@
         </span></div>
     <div class="field-value">
         @if (!Field.Editable) { <span class="badge" title="@Field.Reason">Read-only</span> }
+        else if (Field.Type == StratagemUses.Type)
+        {
+            @* 0.26.0 mission uses: Runtime's own 'unlimited' or a finite count, only through transitions Runtime publishes for this stratagem. *@
+            var current = saved?.DesiredValue ?? Field.CurrentDefault; var unlimited = StratagemUses.IsUnlimited(current);
+            var baseUnlimited = StratagemUses.IsUnlimited(Field.CurrentDefault);
+            var canUnlimited = baseUnlimited || Field.Transitions?.Contains(StratagemUses.FiniteToUnlimited) == true;
+            var canFinite = baseUnlimited ? Field.Transitions?.Contains(StratagemUses.UnlimitedToFinite) == true : true;
+            var count = unlimited ? (baseUnlimited ? 1 : Field.CurrentDefault.GetInt32()) : current.GetInt32();
+            <div class="mission-uses" data-mission-uses="@Field.Target.Stratagem" role="radiogroup" aria-label="Mission uses">
+                <label class="mission-uses-option"><input type="radio" name="@("uses-" + Field.InstanceKey)" checked="@unlimited" disabled="@(Workspace.Project == null || !canUnlimited)"
+                    data-uses-unlimited @onchange='() => Commit("\"unlimited\"")' /> Unlimited</label>
+                <label class="mission-uses-option"><input type="radio" name="@("uses-" + Field.InstanceKey)" checked="@(!unlimited)" disabled="@(Workspace.Project == null || !canFinite)"
+                    data-uses-limited @onchange="() => Commit(count.ToString(System.Globalization.CultureInfo.InvariantCulture))" /> Limited:</label>
+                <input type="number" step="1" min="@(Field.Min ?? 1)" max="@(Field.Max ?? 100)" value="@count" disabled="@(Workspace.Project == null || unlimited || !canFinite)"
+                    data-uses-count aria-label="Limited mission uses" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" />
+            </div>
+        }
         else if (Field.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange='e => Commit((bool)e.Value! ? "true" : "false")' aria-label="@(Label ?? Field.DisplayName)" /> }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
@@ -25,7 +42,21 @@
             @if (!Field.Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }
             <p>@Field.Provenance</p><p>@Field.BackingObjectKind · @(Field.Target.Attack ?? Field.Target.Weapon ?? Field.Target.Entity ?? Field.Target.Path)</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
-    @if (saved != null && Workspace.StratagemIssue(saved) is { } issue)
+    @if (Field.Type == StratagemUses.Type && Field.Editable)
+    {
+        var desired = saved?.DesiredValue ?? Field.CurrentDefault;
+        <div class="field-wide mission-uses-notes">
+            @if (saved != null && !StratagemChangeService.EffectRequired(Field, desired)) { <span class="badge green" data-gameplay-proven>Gameplay-proven</span> }
+            @if (Field.Caveat != null) { <span class="subtle" data-uses-caveat>@Field.Caveat</span> }
+        </div>
+        @if (saved != null && StratagemChangeService.EffectRequired(Field, desired))
+        {
+            <div class="field-wide"><AckPanel Title="Mission uses · effect not gameplay-confirmed" Kind="unverified" Checked="@(saved.EffectAcknowledgement == StratagemChangeService.EffectEvidence(Field))"
+                Description="@Field.AcknowledgementReason" Label="I understand this effect is not gameplay-confirmed"
+                OnChange="v => Run(() => Workspace.SetStratagemEffectAcknowledgedAsync(Field.InstanceKey, v))" CheckboxAttributes='@(new() { ["data-uses-ack"] = "true" })' /></div>
+        }
+    }
+    @if (saved != null && Workspace.StratagemIssue(saved) is { } issue && !issue.StartsWith("Acknowledge that", StringComparison.Ordinal))
     {
         <div class="field-wide"><p class="notice warning">@issue</p>
             @if (Field.Editable && NeedsReview(saved)) { <button @onclick="() => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }</div>
@@ -39,8 +70,9 @@
     private string? Error;
     private StratagemChange? Saved => StratagemChangeService.Saved(Workspace.Project, (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!, Field);
     private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
-    private string Value => Format(Saved?.DesiredValue ?? Field.CurrentDefault);
-    private string Format(System.Text.Json.JsonElement v) { try { return StratagemScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    // A JSON literal for SetStratagemAsync: mission uses keep the quoted "unlimited" token; other scalars display as their JSON text.
+    private string Value => Field.Type == StratagemUses.Type ? (Saved?.DesiredValue ?? Field.CurrentDefault).GetRawText() : Format(Saved?.DesiredValue ?? Field.CurrentDefault);
+    private string Format(System.Text.Json.JsonElement v) { try { return StratagemScalar.Display(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
     private bool NeedsReview(StratagemChange c)
     {
         var handle = (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!.Resolve(c) ?? Field;

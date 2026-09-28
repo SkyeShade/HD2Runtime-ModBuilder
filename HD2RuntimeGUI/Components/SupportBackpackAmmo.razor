@@ -1,0 +1,41 @@
+@inject BuilderWorkspace Workspace
+@* 0.26.0 backpack-fed support weapons (Maxigun, Cremator, GL-28): their ammunition is the backpack's deposit, not a weapon magazine.
+   Shown on the weapon's Support page through the published support weapon -> ammoBackpack link; written as
+   hd2.support_weapon(name):backpack() with allow_unverified_effect. *@
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var entities = sdk?.Entities;
+   var link = sdk?.SupportAuthoring?.Weapons.FirstOrDefault(w => w.Name == Weapon)?.AmmoBackpack; var backpack = link == null ? null : entities?.Backpacks.Find(link.Backpack); }
+@if (entities != null && link != null && backpack != null)
+{
+    var fields = entities.Backpacks.FieldInstances.Where(f => f.Target.Backpack == backpack.Name && f.UiGroup == Backpack.AmmoGroup)
+        .Where(f => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null).ToArray();
+    var keys = fields.Select(f => f.InstanceKey).ToArray();
+    var edited = fields.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null);
+    <section class="panel backpack-ammo @(edited ? "modified" : "")" data-backpack-ammo="@backpack.Name">
+        <div class="panel-heading"><h3>Backpack ammo</h3>
+            <span class="badge" data-ammo-owner>Stored in @backpack.Name</span>
+            <span class="badge amber" data-flag="allow_unverified_effect" title="@fields.FirstOrDefault()?.AcknowledgementReason">Effect unverified</span>
+            @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", backpack.Name))'>Reset backpack ammo</button> }</div>
+        <p class="subtle" data-ammo-ownership>@Weapon has no magazine of its own: it fires from the ammunition stored in its backpack, so these values belong to the backpack.</p>
+        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="entities.Backpacks.EvidenceTiers" AcknowledgedInGroup="true" Changed="Refresh" /> }</div>
+        @if (backpack.Ammo?.FromAmmoBox is { } box && !ModifiedOnly)
+        { <p class="subtle" data-ammo-box>Ammo box: @box.Value.GetRawText()@(box.Writable ? "" : " · " + box.Reason)</p> }
+        @if (edited && Workspace.Project != null)
+        {
+            <AckPanel Title="Backpack ammo · effect not gameplay-confirmed" Kind="unverified" Checked="BuilderWorkspace.EntityAcknowledged(Workspace.Project, entities, keys)"
+                Description="@fields.FirstOrDefault()?.AcknowledgementReason" Label="I understand this effect is not gameplay-confirmed"
+                OnChange="v => Run(() => Workspace.SetEntityAcknowledgedAsync(keys, v))" CheckboxAttributes='@(new() { ["data-backpack-ammo-ack"] = "true" })' />
+        }
+        <details class="field-info"><summary title="How this is written">ⓘ</summary><div class="field-info-body">
+            <p>Written as <code>hd2.support_weapon('@Weapon'):backpack()</code> (<code>@link.Owner</code>). Keep the starting amount no greater than the capacity.</p>
+            @if (backpack.Feeds is { } feeds) { <ul>@foreach (var step in feeds.Chain) { <li>@step</li> }</ul> }</div></details>
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

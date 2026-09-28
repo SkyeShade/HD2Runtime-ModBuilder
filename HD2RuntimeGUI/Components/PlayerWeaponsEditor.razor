@@ -41,9 +41,10 @@
             @foreach (var key in sections)
             {
                 if (key == HeatSection) { <WeaponHeatEditor Weapon="weapon" Changed="FieldChanged" />; continue; }
-                var sectionRows = rows.Where(r => r.Section == key).ToArray();
+                var sectionRows = rows.Where(r => r.Section == key && r.Field.SemanticFieldId != FireModes.ModesField).ToArray();
                 <section class="semantic-section" data-section="@key"><h2>@key</h2>
                     @if (key == "Ammo / Magazine" && magazines) { <MagazineAttachments Weapon="@weapon.Name" Changed="FieldChanged" /> }
+                    @if (key == FieldPresentation.FireMode) { <PlayerFireModes Weapon="weapon" Changed="FieldChanged" /> }
                     @if (key == "Projectile")
                     {
                         @foreach (var attack in attacks)
@@ -137,7 +138,7 @@
         // Weapon-level fields; with composition, projectile-owned scalars and explosions are edited on their objects instead.
         var rows = weapon.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")
                 && (!composition || f.Domain != "explosion" && !(CompositionChangeService.ProjectileOwned(f) && attacks.Length > 0)))
-            .Select(f => new Row(FieldPresentation.Section(f), f))
+            .Where(f => !LegacyDefaultHidden(weapon, f)).Select(f => new Row(LegacyDefaultMode(weapon, f) ? FieldPresentation.FireMode : FieldPresentation.Section(f), f))
             .Where(r => r.Section is not ("Heat" or "Heatsinks")).ToList();
         foreach (var attack in attacks)
         {
@@ -152,7 +153,13 @@
     private RenderFragment RowEditor(PlayerWeapon weapon, Row row) => row.Role == null
         ? @<WeaponFieldEditor @key="(weapon.Name, row.Field.SemanticFieldId)" Weapon="weapon" Field="row.Field" Changed="FieldChanged" />
         : @<ObjectFieldEditor @key="(weapon.Name, row.Role, row.Kind, row.Phase, row.Target, row.Field.SemanticFieldId)" Weapon="@weapon.Name" Role="@row.Role" Kind="@row.Kind" Phase="@row.Phase" Field="row.Field" Changed="FieldChanged" />;
-    private static int Order(string section) => section == HeatSection ? 3 : FieldPresentation.SectionOrder(section);
+    // 0.26.0: the older weapon.default_fire_mode view covers the same native slots as fire_mode.modes (Runtime rejects both in one plan).
+    // Where the mode list is editable it sets the default by its first entry, so the older control is shown only for an existing edit.
+    private static bool HasModeList(PlayerWeapon w) => w.Fields.Any(f => f.SemanticFieldId == FireModes.ModesField);
+    private static bool LegacyDefaultMode(PlayerWeapon w, WeaponCapability f) => f.SemanticFieldId == "weapon.default_fire_mode" && f.Editable && HasModeList(w);
+    private bool LegacyDefaultHidden(PlayerWeapon w, WeaponCapability f) => LegacyDefaultMode(w, f)
+        && w.Fields.Any(x => x.SemanticFieldId == FireModes.ModesField && x.Editable) && !Workspace.WeaponGroups.Any(g => g.Weapon == w.Name && g.FieldId == f.SemanticFieldId);
+    private static int Order(string section) => section == HeatSection ? 4 : FieldPresentation.SectionOrder(section);
     private async Task Reset(string name) { try { await Workspace.ResetWeaponsAsync(name); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
     private async Task FieldChanged() => await Changed.InvokeAsync();
 }

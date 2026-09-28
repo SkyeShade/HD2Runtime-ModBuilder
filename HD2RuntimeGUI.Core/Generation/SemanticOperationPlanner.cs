@@ -30,6 +30,8 @@ public sealed record PlannedSemanticChange(string Field, string Expected, string
 public sealed record PlannedSemanticOperation(SemanticBackingObject Owner, string Target, bool Ensure, bool AllowShared,
     IReadOnlyList<PlannedSemanticChange> Changes)
 {
+    // 0.26.0: Runtime requires allow_unverified_effect for at least one field of this operation (reticle, fire modes).
+    public bool AllowUnverifiedEffect { get; init; }
     public string Family { get; init; } = "";
     public IReadOnlyList<ProjectileReference> Contexts { get; init; } = [];
     public ProjectileReference? Replacement { get; init; }
@@ -39,6 +41,7 @@ public sealed record PlannedSemanticOperation(SemanticBackingObject Owner, strin
         var id = "gui-object-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..24].ToLowerInvariant();
         var body = new StringBuilder("{\n    id=" + LuaGenerator.Quote(id) + ",\n    target=" + Target + ",\n");
         if (AllowShared) body.Append("    allow_shared=true,\n");
+        if (AllowUnverifiedEffect) body.Append("    allow_unverified_effect=true,\n");
         if (Changes.Count == 1)
         {
             var c = Changes[0]; body.Append($"    field={c.Field},\n    expect={c.Expected},\n    value={options?.Value(c.Keys, c.Desired) ?? c.Desired},\n");
@@ -62,7 +65,7 @@ public interface ISemanticOperationPlanner
 public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
 {
     private sealed record Edit(SemanticBackingObject Owner, string Weapon, string Family, string Target, string Semantic,
-        string Field, string Expected, string Desired, bool Ensure, bool Shared, ProjectileReference? Context = null, ProjectileReference? Replacement = null, string? Key = null);
+        string Field, string Expected, string Desired, bool Ensure, bool Shared, ProjectileReference? Context = null, ProjectileReference? Replacement = null, string? Key = null, bool Unverified = false);
     public IReadOnlyList<PlannedSemanticOperation> Plan(ModProject project, SdkMetadata sdk)
     {
         var edits = new List<Edit>();
@@ -71,6 +74,8 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
         var aliases = WeaponAliasResolver.Group(sdk, project.WeaponChanges);
         if (aliases.FirstOrDefault(g => g.Conflict != null) is { } conflict) throw new InvalidDataException(conflict.Conflict);
         foreach (var change in project.WeaponChanges.Where(c => c.Enabled)) weaponService.Validate(sdk, change);
+        foreach (var weapon in project.WeaponChanges.Select(c => c.Weapon).Distinct())
+            if (WeaponChangeService.FireModeConflict(project.WeaponChanges, weapon) is { } modeConflict) throw new InvalidDataException(modeConflict);
         foreach (var group in aliases.Where(g => g.Enabled))
         {
             var c = group.Sources.Where(c => c.Enabled).OrderBy(c => c.SemanticFieldId != group.FieldId).ThenBy(c => c.Id).First();
@@ -83,7 +88,8 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                 if (attack != null) { context = new(c.Weapon, attack.Role); target = CompositionChangeService.ProjectileLua(context); family = "projectile"; semantic = Generic(semantic); }
             }
             edits.Add(new(SemanticBackingObject.For(sdk, c.Weapon, f), c.Weapon, family, target, semantic, Accessor(sdk, semantic),
-                Scalar(f, c.ExpectedValue), Scalar(f, c.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, context, Key: ModOptionsService.WeaponKey(c.Weapon, group.FieldId)));
+                Scalar(f, c.ExpectedValue), Scalar(f, c.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, context, Key: ModOptionsService.WeaponKey(c.Weapon, group.FieldId),
+                Unverified: f.Acknowledgement == "allow_unverified_effect"));
         }
         foreach (var c in project.CompositionChanges.Where(c => c.Enabled))
         {
@@ -160,12 +166,12 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                         : (e.Family == "weapon" ? f.SemanticFieldId : Generic(f.SemanticFieldId)) == request.Semantic))));
             if (candidate == null) throw new InvalidDataException("No published semantic target accepts all fields on this shared backing object. Separate jobs would race; review these changes.");
             result.Add(new(group.Key.Owner, candidate.Target, group.First().Ensure, group.Any(e => e.Shared), values)
-            { Family = candidate.Family, Contexts = group.Where(e => e.Context != null).Select(e => e.Context!).Distinct().OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal).ToArray(), Replacement = candidate.Replacement });
+            { AllowUnverifiedEffect = group.Any(e => e.Unverified), Family = candidate.Family, Contexts = group.Where(e => e.Context != null).Select(e => e.Context!).Distinct().OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal).ToArray(), Replacement = candidate.Replacement });
         }
         return result;
     }
     private static string Generic(string id) => Regex.Replace(id, @"\.(primary|alternate|feed_primary|feed_alternate|impact|expiry)(?=\.)", "");
-    private static string Scalar(WeaponCapability f, JsonElement value) => f.SemanticFieldId == "weapon.default_fire_mode"
+    private static string Scalar(WeaponCapability f, JsonElement value) => f.Type == WeaponCapability.FireModeSet ? FireModes.Lua(value) : f.SemanticFieldId == "weapon.default_fire_mode"
         ? "hd2.enums.fire_mode." + f.EnumValues!.Single(p => JsonElement.DeepEquals(p.Value, value)).Key
         : value.ValueKind == JsonValueKind.String ? LuaGenerator.Quote(value.GetString()!) : f.Format(value);
     private static string Accessor(SdkMetadata sdk, string semantic)

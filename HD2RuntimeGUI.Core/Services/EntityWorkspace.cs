@@ -92,6 +92,23 @@ public sealed partial class BuilderWorkspace
         var fields = (catalog.Boosters ?? throw new InvalidDataException("Rebind to SDK 0.24.0 or newer for booster authoring.")).FieldInstances.Where(f => f.Target.Booster == booster).ToArray();
         return fields.Length > 0 ? fields : throw new InvalidDataException("This booster has no published writable fields.");
     }
+    // 0.26.0 groups (backpack ammo, vehicle weapons, drop-pod racks): one checkbox acknowledges Runtime's published opt-in
+    // (allow_unverified_effect / allow_unverified_reference) for every saved edit that currently requires it.
+    public Task SetEntityAcknowledgedAsync(IEnumerable<string> instances, bool acknowledged) => EditEntityAsync(p =>
+    {
+        var catalog = EntityChangeService.Catalog(Metadata!); var keys = instances.ToHashSet(StringComparer.Ordinal);
+        p.EntityChanges = p.EntityChanges.Select(c => keys.Contains(c.InstanceKey) && catalog.Field(c.InstanceKey) is { } f && EntityScalar.AcknowledgementRequired(f, c.DesiredValue)
+            ? c with { ReferenceAcknowledgement = acknowledged ? EntityChangeService.ReferenceEvidence(f, c.DesiredValue) : null } : c).ToList();
+    });
+    public static bool EntityAcknowledged(ModProject? p, EntityAuthoring catalog, IEnumerable<string> instances) => p != null && instances.All(k =>
+        catalog.Field(k) is not { } f || EntityChangeService.Saved(p, f) is not { } c || !EntityScalar.AcknowledgementRequired(f, c.DesiredValue)
+        || c.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(f, c.DesiredValue));
+    // allow_shared for one published shared scope (a shared rack, projectile row or mounted weapon), recorded with its current evidence.
+    public Task SetEntityApprovalAsync(string instance, bool approved) => EditEntityAsync(p =>
+    {
+        var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException("Capability is missing.");
+        if (approved && f.AllowSharedRequired) p.EntityApprovals[f.SharedScopeKey] = EntityChangeService.ApprovalEvidence(f); else p.EntityApprovals.Remove(f.SharedScopeKey);
+    });
     public Task ResetEntityAsync(string? resource = null, string? entity = null, string? instance = null) => EditEntityAsync(p =>
         p.EntityChanges.RemoveAll(c => (resource == null || c.Resource == resource) && (entity == null || c.Entity == entity) && (instance == null || c.InstanceKey == instance)));
     public Task ToggleEntityAsync(string instance) => EditEntityAsync(p =>

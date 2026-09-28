@@ -64,6 +64,7 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     public string Format(JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.Null or JsonValueKind.Undefined => "Unavailable",
+        JsonValueKind.Array when Type == FireModeSet => FireModes.Text(value),
         JsonValueKind.String => value.GetString()!,
         JsonValueKind.Number when Backing?.Storage == "f32" => ((float)value.GetDouble()).ToString("R", CultureInfo.InvariantCulture),
         _ => value.GetRawText()

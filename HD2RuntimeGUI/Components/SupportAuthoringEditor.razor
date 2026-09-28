@@ -19,8 +19,13 @@
     {
         <section class="panel" data-support-authoring-branch="@(branch.Key.AttackRole ?? "weapon")"><h3>@(branch.Key.AttackRole == null ? "Weapon" : "Attack · " + string.Join(" / ", branch.First().Target.WritableCatalogBranches.Select(b => b.Name)))</h3>
             @foreach (var domain in FieldGroups.Group(branch, f => f.SemanticFieldId, f => f.Display.Domain))
-            { <h3 class="group-title">@domain.Key</h3><div class="stat-grid">@foreach (var f in domain) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
-            @{ var unverified = branch.Where(f => f.Operation.Acknowledgement == "allow_unverified_effect" && Saved(f) != null).ToArray(); }
+            {
+                <h3 class="group-title">@domain.Key</h3>
+                @* 0.26.0 fire modes: the native mode list has its own editor (and its own acknowledgement); burst length stays a row. *@
+                @if (domain.Any(f => f.SemanticFieldId == FireModes.ModesField) && !ModifiedOnly) { <SupportFireModes Weapon="@Weapon" Changed="Refresh" /> }
+                <div class="stat-grid">@foreach (var f in domain.Where(f => f.SemanticFieldId != FireModes.ModesField || ModifiedOnly)) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+            }
+            @{ var unverified = branch.Where(f => f.Operation.Acknowledgement == "allow_unverified_effect" && Saved(f) != null && (f.SemanticFieldId != FireModes.ModesField || ModifiedOnly)).ToArray(); }
             @if (unverified.Length > 0)
             {
                 <AckPanel Title="Unverified effects" Kind="unverified" Checked="unverified.All(f => Saved(f)!.EffectAcknowledgement == SupportChangeService.EffectEvidence(f))"
@@ -32,6 +37,16 @@
     }
     @if (Error != null) { <p class="notice warning">@Error</p> }
 }
+@* 0.26.0: read-only reticle and fire modes show Runtime's blocker compactly (no invented controls); backpack-fed weapons show their
+   backpack ammunition even when the weapon's own fields are blocked (the Cremator resolves to two native roots). *@
+@if (!ModifiedOnly && (Workspace.Metadata ?? Workspace.SdkStatus?.Installed) is { Has026: true } sdk026)
+{
+    var blocked = sdk026.SupportAuthoring?.Weapons.FirstOrDefault(w => w.Name == Weapon)?.BlockedFields.Where(b => b.Field is FireModes.ReticleField or FireModes.ModesField).ToArray() ?? [];
+    @if (fields.All(f => f.SemanticFieldId != FireModes.ModesField) && sdk026.FireModes?.Find("support", Weapon) is { Writable: false }) { <SupportFireModes Weapon="@Weapon" Changed="Refresh" /> }
+    @foreach (var b in blocked.Where(b => b.Field == FireModes.ReticleField && fields.All(f => f.SemanticFieldId != FireModes.ReticleField)))
+    { <p class="subtle field-blocker" data-reticle-blocked="@Weapon"><strong>Third-person reticle:</strong> read-only · @b.Reason</p> }
+}
+<SupportBackpackAmmo Weapon="@Weapon" ModifiedOnly="ModifiedOnly" Changed="Refresh" />
 @code {
     [Parameter] public bool ModifiedOnly { get; set; }
     [Parameter] public string Weapon { get; set; } = "";

@@ -51,7 +51,7 @@ The product was renamed from HD2RuntimeGUI to HD2Runtime ModBuilder, and the rep
 git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
 ```
 
-A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.0.1 supports **HD2Runtime SDK 0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
+A Windows-first .NET 10 MAUI Blazor Hybrid app. This build supports **HD2Runtime SDK 0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,574 entries, 89 field definitions (69 writable, 20 read-only, 9 derived)**. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
@@ -156,6 +156,21 @@ SDK 0.18 adds a dedicated **Heat / Heatsink** section for seven energy weapons. 
 
 Direct heat mechanics and heatsink inventory are separate from read-only attachment presets. Warmup, post-overheat cooldown and derived values remain read-only with SDK explanations. Heat overrides use the existing project format, baseline-aware autosave, reset and Changes/Lua Preview paths. Sibling heat/heatsink edits share one component transaction and ensure. See [0.18 verification and sample](docs/runtime018-verification.md).
 
+## SDK 0.26.0 authoring
+
+Every control below comes from the 0.26.0 capability files; nothing is inferred from names. Projects bound to an older SDK keep their old feature set and show none of these controls until they are rebound.
+
+- **Magazines** (`MagazineAttachmentCapabilities.json` schema 2): every resolved option of a weapon appears in a compact variant switcher, with its default badge, semantic ID, compatible weapons, capacity, starting/supply/spare magazines, reload duration and ergonomics modifier. Each option is edited independently (`hd2.weapon_attachment(semanticId)` with `allow_shared` and `allow_unverified_effect`). Editing an option never changes which magazine is equipped; selection stays read-only. Unresolved options (the LAS-5 heatsinks) are listed without controls.
+- **Third-person reticle** (`hd2.fields.weapon.third_person_reticle`): an On/Off switch on 70 player weapons (`allow_unverified_effect`) and on the Support pages of 14 support weapons. The APW-1 change is gameplay-proven and needs no acknowledgement. Read-only reticles show Runtime's blocker only.
+- **Fire modes** (`WeaponFireModeCapabilities.json`): the native four-slot list, with slot 1 as the default. Modes can be added, removed or reordered only where Runtime publishes the field (`hd2.fields.fire_mode.modes`, `allow_unverified_effect`). Beam, charge and special fire-control weapons show their blocker. The older single default-fire-mode row is hidden where the list is editable.
+- **Mounted vehicle weapons** (`VehicleWeaponCapabilities.json`), under Stratagems → Support → Vehicles: one section per mount (`hd2.vehicle(v):weapon(label)`), with Weapon, Projectile, Damage and Explosion groups. Each group is labelled mount-local, shared with other mounts, or a shared definition with its other users; `allow_shared` is acknowledged at the shared group. Exosuit arms and tank cannon/machine-gun mounts stay separate.
+- **Mission uses** (`hd2.fields.stratagem.max_uses`): (o) Unlimited ( ) Limited: [N], offering only the transitions Runtime publishes and writing Runtime's `'unlimited'` token. Exosuit 3 → Unlimited is gameplay-proven; every other change needs `allow_unverified_effect`. Eagles keep `uses_per_rearm` and have no mission-use control.
+- **Backpack ammo** for the M-1000 Maxigun, B/FLAM-80 Cremator and GL-28: capacity, starting ammo and ammo from supply on the weapon's Support page, written through `hd2.support_weapon(name):backpack()` with `allow_unverified_effect`.
+- **Drop pod contents** (`PodPayloadCapabilities.json`): the call-in's rack with its spawn count and slots 1–4. Each slot offers Empty or a pickup from Runtime's catalog, grouped by published category, with Proven / Rack-compatible / Unverified / World pickup / Package risk badges. Slots 5–8 and read-only racks have no controls. Non-vanilla contents need `allow_unverified_reference` (“I understand this replacement may not load correctly”), and the spawn count needs `allow_unverified_effect`. Shared racks such as EAT-17 + Surplus EAT Allocation explain that the edit changes both and need `allow_shared`. Surplus EAT shows Granted stratagem → Drop pod → Spawn count → Slots on its booster page.
+- **Mod Options:** spawn counts, magazine and vehicle numbers, and finite mission-use counts can become in-game sliders within the published ranges. Pickups, fire-mode lists, Unlimited and reticles cannot, because Runtime binds option values only to numbers.
+
+A 0.26 edit raises the project to format 8. Projects from 0.25.x open and rebind without migration, and their edits and Lua are unchanged. See [0.26 verification](docs/runtime026-verification.md).
+
 ## Composition, fire modes and read-only catalogs
 
 Published Runtime contracts drive these controls; there are no manually maintained capability tables:
@@ -204,7 +219,7 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 This section is about the HD2Runtime SDK; ModBuilder application updates are described in [docs/app-updates.md](docs/app-updates.md).
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.25.1 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.26.0 metadata supports first launch offline.
 
 Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only nineteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities, CompositionPlanCapabilities, VehicleAuthoringCapabilities, BackpackAuthoringCapabilities, MagazineAttachmentCapabilities and BoosterAuthoringCapabilities contracts (the last four only for the SDK versions that publish them, and then required). Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 

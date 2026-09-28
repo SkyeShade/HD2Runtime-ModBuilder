@@ -1,0 +1,87 @@
+@inject BuilderWorkspace Workspace
+@* 0.26.0 mounted vehicle weapons (VehicleWeaponCapabilities): one coherent section per mount. Each mount is its own weapon
+   (hd2.vehicle(v):weapon(label)); Exosuit arms and tank weapons are never merged. Values are grouped as Runtime publishes them:
+   the mount's own weapon (fire rate, ammo, reload, mount health/armor and hit zone), then its projectile, damage and explosion,
+   which are shared rows. allow_shared is acknowledged once per shared native owner, next to the group it covers. *@
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var entities = sdk?.Entities; var weapons = entities?.VehicleWeapons; var vehicle = weapons?.Find(Vehicle); }
+@if (entities != null && weapons != null && vehicle != null)
+{
+    var byKey = weapons.FieldInstances.ToDictionary(f => f.InstanceKey);
+    bool Show(EntityField f) => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null;
+    var mounts = vehicle.Mounts.Where(m => !ModifiedOnly || m.Weapon != null && m.Weapon.FieldGroups.Values.SelectMany(k => k).Any(k => Show(byKey[k]))).ToArray();
+    @foreach (var m in mounts)
+    {
+        var swap = entities.Vehicles.Find(Vehicle)?.Mounts.FirstOrDefault(x => x.SlotIndex == m.Slot);
+        var keys = m.Weapon?.FieldGroups.Values.SelectMany(k => k).ToArray() ?? [];
+        var edited = keys.Any(k => EntityChangeService.Saved(Workspace.Project, byKey[k]) != null);
+        <section class="panel vehicle-weapon @(edited ? "modified" : "")" data-vehicle-weapon="@(m.Weapon?.Key ?? Vehicle + " / " + m.Label)" data-mount-slot="@m.Slot">
+            <div class="panel-heading"><h2>@m.Title</h2><span class="badge" title="Mount label">slot @m.Slot · @m.Label</span>
+                @if (swap?.Current is { } current) { <span class="badge" data-mounted-weapon>@current.DisplayName</span> }
+                @if (m.Weapon?.Ownership.AlsoMountedAt is { Length: > 0 } also) { <span class="badge amber" title="The same weapon entity sits in these mounts">Also mounted at @string.Join(", ", also)</span> }
+                @if (edited) { <span class="badge modified-badge">Modified</span> }
+                @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => ResetMount(keys))'>Reset mount</button> }</div>
+            @if (m.Weapon == null) { <p class="subtle" data-mount-no-weapon>@m.Reason</p> }
+            else
+            {
+                @if (swap is { Swappable: true } && !ModifiedOnly) { <details class="mount-swap"><summary>Swap mounted weapon…</summary><MountEditor Mount="swap" Vehicle="@Vehicle" Changed="Refresh" /></details> }
+                @foreach (var (group, title) in Groups)
+                {
+                    var fields = (m.Weapon.FieldGroups.GetValueOrDefault(group) ?? []).Select(k => byKey[k]).Where(Show).ToArray();
+                    if (fields.Length == 0) continue;
+                    var published = fields.Select(f => weapons.Published[f.InstanceKey]).ToArray();
+                    <div class="vehicle-weapon-group" data-vehicle-weapon-group="@group">
+                        <h3 class="group-title">@title <span class="subtle scope-line" data-scope-line>@ScopeLine(published)</span></h3>
+                        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="VehicleWeaponCatalog.Tiers" AcknowledgedInGroup="true" Changed="Refresh" /> }</div>
+                        @foreach (var scope in fields.Where(f => f.AllowSharedRequired && EntityChangeService.Saved(Workspace.Project, f) != null).GroupBy(f => f.SharedScopeKey))
+                        {
+                            var p = weapons.Published[scope.First().InstanceKey];
+                            <AckPanel Title="@SharedTitle(p.Scope)" Kind="shared" Checked="EntityChangeService.Approved(Workspace.Project!, scope.First())"
+                                Description="@weapons.Scopes.GetValueOrDefault(p.Scope)" Items="@(p.OtherConsumers.Length > 0 ? p.OtherConsumers.Distinct().ToArray() : null)" ItemsLabel="Also used by:"
+                                Label="I understand this affects other users of this object" OnChange="v => Run(() => Workspace.SetEntityApprovalAsync(scope.First().InstanceKey, v))"
+                                PanelAttributes='@(new() { ["data-vehicle-shared-scope"] = p.Scope })' />
+                        }
+                    </div>
+                }
+                var unverified = keys.Where(k => EntityChangeService.Saved(Workspace.Project, byKey[k]) is { } c && EntityScalar.AcknowledgementRequired(byKey[k], c.DesiredValue)).ToArray();
+                @if (unverified.Length > 0)
+                {
+                    <AckPanel Title="Effect not gameplay-confirmed" Kind="unverified" Checked="BuilderWorkspace.EntityAcknowledged(Workspace.Project, entities, unverified)"
+                        Items="@unverified.Select(k => byKey[k].DisplayName).Distinct().ToArray()" ItemsLabel="Edited:"
+                        Description="No working reference mod has changed these values in game (allow_unverified_effect). Fields a reference mod has changed need no acknowledgement."
+                        Label="I understand this effect is not gameplay-confirmed" OnChange="v => Run(() => Workspace.SetEntityAcknowledgedAsync(unverified, v))"
+                        CheckboxAttributes='@(new() { ["data-vehicle-effect-ack"] = m.Weapon.Key })' />
+                }
+                @if (!ModifiedOnly && m.Weapon.Blocked.Length > 0)
+                { <details class="blocked-fields"><summary>Not writable · @m.Weapon.Blocked.Length</summary>@foreach (var b in m.Weapon.Blocked) { <p data-blocked-field="@b.Field"><strong>@b.Field@(b.Attack != null ? " (" + b.Attack + ")" : ""):</strong> @b.Reason</p> }</details> }
+            }
+        </section>
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+}
+@code {
+    [Parameter, EditorRequired] public string Vehicle { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private static readonly (string Group, string Title)[] Groups = [("local", "Weapon"), ("projectile", "Projectile"), ("damage", "Damage"), ("explosion", "Explosion")];
+    // Distinguishes mount-local values, one weapon shared by several mounts, and shared projectile/damage/explosion definitions.
+    private static string ScopeLine(IReadOnlyList<VehicleWeaponFieldInstance> fields)
+    {
+        var scopes = fields.Select(f => f.Scope).Distinct().ToArray();
+        var others = fields.SelectMany(f => f.OtherConsumers).Distinct().ToArray();
+        if (scopes.All(s => s == "weapon_local")) return "· mount-local";
+        var kind = scopes.Contains("shared_mounted_weapon") ? "shared with other mounts" : "shared definition";
+        return others.Length == 0 ? "· " + kind : $"· {kind} · also used by {others.Length}";
+    }
+    private static string SharedTitle(string scope) => scope switch
+    {
+        "shared_mounted_weapon" => "Shared mounted weapon",
+        "shared_projectile" => "Shared projectile definition",
+        "shared_damage" => "Shared damage definition",
+        "shared_explosion" => "Shared explosion definition",
+        _ => "Shared object",
+    };
+    private async Task ResetMount(IEnumerable<string> keys) { foreach (var k in keys) await Workspace.ResetEntityAsync(instance: k); }
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

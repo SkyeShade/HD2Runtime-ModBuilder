@@ -108,6 +108,7 @@ public static class PodPayloadReader
     public static string SpawnKey(PodRack r) => "pod_rack:" + r.SemanticId + ":spawn_count";
 
     // One operation per slot and one for the spawn count, all in one plan per rack; a shared rack is one shared scope.
+    // Each slot is its own native value (its own backing object), so distinct slots never look like one value reached twice.
     private static IEnumerable<EntityField> Adapt(PodRack r, PodPayloadCatalogJson c)
     {
         var owner = "pod-rack:" + r.SemanticId; var plan = "pod-rack-plan:" + r.SemanticId; var scope = "pod-rack-scope:" + r.SemanticId;
@@ -117,7 +118,7 @@ public static class PodPayloadReader
         foreach (var s in r.AuthoredSlots)
             yield return new EntityField(SlotKey(r, s.Slot), "payload.entity", "Slot " + s.Slot, EntityField.PickupType, null,
                 JsonSerializer.SerializeToElement(s.Current?.Pickup ?? Empty), s.Writable, s.Reason ?? (s.Writable ? null : r.Reason ?? "Read-only slot."),
-                new EntityTarget("pod_rack", "slot", Rack: r.Name, Slot: s.Slot), owner, "pod-rack-op:" + r.SemanticId + ":slot-" + s.Slot, plan, "patch_or_transaction",
+                new EntityTarget("pod_rack", "slot", Rack: r.Name, Slot: s.Slot), owner + ":slot-" + s.Slot, "pod-rack-op:" + r.SemanticId + ":slot-" + s.Slot, plan, "patch_or_transaction",
                 r.Shared, r.Shared, [], scope, !r.Shared, false, "HellpodRackComponent", "payload", "hd2.fields.payload.entity", 1, [], tier, provenance,
                 AllowedValues: offered, Acknowledgement: "allow_unverified_reference", ValueKind: "pickup_semantic_id", ResidencyWarning: c.PackageRisk);
         if (r.SpawnCount.Value is int count)

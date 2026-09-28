@@ -1,0 +1,29 @@
+@inject BuilderWorkspace Workspace
+@* Support-weapon fire modes (SDK 0.26.0) through the support change pipeline: the published fire_mode.modes instance, or Runtime's
+   read-only entry (observed modes and reason) where the weapon has no writable mode set. *@
+@if (Model() is { } model)
+{
+    <FireModeEditor Model="model" SetModes="Set" Reset="Reset" Acknowledge="Acknowledge" />
+}
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    private SupportField? Field => (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.SupportAuthoring?.FieldInstances
+        .FirstOrDefault(f => f.SupportWeapon == Weapon && f.SemanticFieldId == FireModes.ModesField);
+    private FireModeEditor.FireModeModel? Model()
+    {
+        var f = Field; var entry = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.FireModes?.Find("support", Weapon);
+        if (f == null && entry == null) return null;
+        var writable = f is { Writable: true, FireMode: { AllowedModes: not null, MaxModes: not null } };
+        var saved = f == null ? null : Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);
+        var baseline = writable ? FireModes.Modes(f!.Value.Baseline) : [];
+        var current = writable && saved != null ? FireModes.Modes(saved.DesiredValue) : baseline;
+        return new(Weapon, f?.FireMode?.FireModeState ?? entry?.State ?? "blocked", writable && Workspace.Project != null, f?.BlockedReason ?? entry?.Reason ?? "Create or open a project to author fire modes.",
+            baseline, current, f?.FireMode?.AllowedModes ?? [], f?.FireMode?.MaxModes ?? 0, f?.Operation.Acknowledgement == "allow_unverified_effect",
+            saved != null && saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(f!), f?.Operation.AcknowledgementReason,
+            f?.FireMode?.Evidence?.NativeOwner, writable ? [] : entry?.ModeLabels.ToArray() ?? []);
+    }
+    private async Task Set(string json) { await Workspace.SetSupportAsync(Field!.InstanceKey, json); await Changed.InvokeAsync(); }
+    private async Task Reset() { await Workspace.ResetSupportAsync(Weapon, Field!.InstanceKey); await Changed.InvokeAsync(); }
+    private async Task Acknowledge(bool value) { await Workspace.SetSupportEffectAcknowledgedAsync(Field!.InstanceKey, value); await Changed.InvokeAsync(); }
+}

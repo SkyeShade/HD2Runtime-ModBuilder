@@ -264,7 +264,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             var saved = WeaponGroups.SingleOrDefault(g => g.Weapon == weapon && g.FieldId == next.SemanticFieldId);
             if (saved?.Conflict != null) throw new InvalidDataException(saved.Conflict);
             var old = saved?.Representative;
-            if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; }
+            if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.EffectAcknowledgement = old.EffectAcknowledgement; }
             next.Group = string.IsNullOrWhiteSpace(group) ? "Gameplay" : group.Trim(); next.Notes = notes;
             Project.WeaponChanges.RemoveAll(c => saved?.Sources.Contains(c) == true);
             if (!WeaponScalar.IsNoOp(Metadata!, next)) Project.WeaponChanges.Add(next);
@@ -290,6 +290,24 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             if (field == null) Project.CompositionChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
             if (field == null) Project.ProjectileChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
             try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; Project.CompositionChanges = oldObjects; throw; }
+        }
+        finally { weaponEditGate.Release(); }
+    }
+    // 0.26.0: Runtime's allow_unverified_effect opt-in for one saved player-weapon field (reticle, fire modes). Kept when the value changes.
+    public async Task SetWeaponEffectAcknowledgedAsync(string weapon, string field, bool acknowledged)
+    {
+        var project = Project;
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the acknowledgement could be saved.");
+            var f = Metadata!.PlayerWeapons!.FindCanonicalField(weapon, field) ?? throw new InvalidDataException("Field no longer exists in this SDK: " + field);
+            if (f.Acknowledgement != "allow_unverified_effect") throw new InvalidDataException("This field does not require an unverified-effect acknowledgement.");
+            var changes = project.WeaponChanges.Where(c => c.Weapon == weapon && c.SemanticFieldId == f.SemanticFieldId).ToList();
+            if (changes.Count == 0) throw new InvalidDataException("Change the value before acknowledging.");
+            var previous = changes.Select(c => c.EffectAcknowledgement).ToList();
+            foreach (var c in changes) c.EffectAcknowledgement = acknowledged ? WeaponChangeService.EffectEvidence(weapon, f) : null;
+            try { await SaveChangesAsync(); } catch { for (var i = 0; i < changes.Count; i++) changes[i].EffectAcknowledgement = previous[i]; throw; }
         }
         finally { weaponEditGate.Release(); }
     }

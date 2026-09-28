@@ -50,6 +50,12 @@
             </section>
         }
     }
+    @* 0.26.0: the drop pod of the stratagem this booster grants (for Surplus EAT: the EAT-17 rack, shared with the normal call-in). *@
+    @foreach (var pod in (ModifiedOnly ? null : entities.Pods?.ForBooster(Name)) ?? [])
+    {
+        <section class="panel" data-booster-pod="@pod.Name"><h2>Granted stratagem · drop pod</h2><p class="subtle">@string.Join(" · ", pod.Consumers.Where(c => c.Booster == Name).Select(c => c.Name))</p>
+            <PodPayloadEditor Rack="@pod.Name" Changed="Refresh" /></section>
+    }
     @if (edited && Workspace.Project != null)
     {
         <AckPanel Title="@(fields.Any(f => f.AllowSharedRequired) ? "Unverified booster effect · shared status effect" : "Unverified booster effect")" Kind="unverified" Checked="acknowledged"

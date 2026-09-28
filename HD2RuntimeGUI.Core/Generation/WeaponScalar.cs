@@ -9,6 +9,7 @@ public static class WeaponScalar
     public static JsonElement Normalize(WeaponCapability field, JsonElement value)
     {
         WeaponChangeService.ValidateValue(field, value);
+        if (field.Type == WeaponCapability.FireModeSet) return JsonSerializer.SerializeToElement(FireModes.Modes(value));
         if (field.Type == "integer")
         {
             if (!value.TryGetDecimal(out var integer) || decimal.Truncate(integer) != integer)
@@ -26,6 +27,7 @@ public static class WeaponScalar
     public static bool Equal(WeaponCapability field, JsonElement a, JsonElement b)
     {
         if (field.Type == "boolean") return a.ValueKind is JsonValueKind.True or JsonValueKind.False && b.ValueKind == a.ValueKind;
+        if (field.Type == WeaponCapability.FireModeSet) return FireModes.Equal(a, b);
         if (a.ValueKind != JsonValueKind.Number || b.ValueKind != JsonValueKind.Number)
             return JsonElement.DeepEquals(a, b);
         if (field.Type == "integer") return a.TryGetDecimal(out var x) && decimal.Truncate(x) == x

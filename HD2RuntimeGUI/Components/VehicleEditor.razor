@@ -42,7 +42,13 @@
             }
         </details>
     }
-    var mounts = vehicle.Mounts.Where(m => !ModifiedOnly || catalog.FieldInstances.Any(f => f.Target.Vehicle == Name && f.Target.Mount == m.MountId && EntityChangeService.Saved(Workspace.Project, f) != null)).ToArray();
+    @* 0.26.0: mounts with a published weapon get a full weapon section (which hosts the swap selector); the older mount panel keeps
+       non-weapon slots, and in the Changes view every saved swap. *@
+    var weaponSlots = entities.VehicleWeapons?.Find(Name)?.Mounts.Where(m => m.Weapon != null).Select(m => m.Slot).ToHashSet() ?? [];
+    <VehicleWeaponsPanel Vehicle="@Name" ModifiedOnly="ModifiedOnly" Changed="Changed" />
+    var mounts = vehicle.Mounts.Where(m => ModifiedOnly
+        ? catalog.FieldInstances.Any(f => f.Target.Vehicle == Name && f.Target.Mount == m.MountId && EntityChangeService.Saved(Workspace.Project, f) != null)
+        : !weaponSlots.Contains(m.SlotIndex)).ToArray();
     @if (mounts.Length > 0)
     {
         <section class="panel" data-vehicle-mounts><h2>Weapon mounts</h2>
