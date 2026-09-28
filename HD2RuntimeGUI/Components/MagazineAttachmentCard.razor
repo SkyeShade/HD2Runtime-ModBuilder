@@ -1,6 +1,6 @@
 @inject BuilderWorkspace Workspace
-@* One resolved magazine attachment definition (hd2.weapon_attachment). Writes need allow_shared and allow_unverified_effect;
-   both are acknowledged once for the definition. Selection of which magazine a player uses is not editable. *@
+@* One resolved magazine attachment definition (hd2.weapon_attachment) as a compact group. Writes need allow_shared and
+   allow_unverified_effect; both are acknowledged once for the definition. Selection of which magazine a player uses is not editable. *@
 @{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.Attachments; var a = catalog?.Attachment(Attachment); }
 @if (catalog != null && a != null)
 {
@@ -8,26 +8,30 @@
         .Where(f => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null).ToArray();
     var edited = a.FieldInstanceKeys.Any(k => Workspace.Project?.EntityChanges.Any(c => c.InstanceKey == k) == true);
     var acknowledged = BuilderWorkspace.AttachmentAcknowledged(Workspace.Project, catalog, a.SemanticId);
-    <article class="panel magazine-attachment @(edited ? "modified" : "")" data-attachment-id="@a.SemanticId" data-relationship="@Relationship">
-        <div class="panel-heading"><h3>@(Option ?? a.Name)</h3>
+    <article class="magazine-attachment @(edited ? "modified" : "")" data-attachment-id="@a.SemanticId" data-relationship="@Relationship">
+        <div class="attachment-head"><strong>@(Option ?? a.Name)</strong>
             @if (Relationship == "native_resource_default") { <span class="badge green" data-default-magazine>Default magazine</span> }
             else if (Relationship == "catalog_effect_fingerprint_unique") { <span class="badge" title="The catalog option's published capacity and magazines match exactly one native attachment.">Unique catalog match</span> }
+            @if (edited) { <span class="badge modified-badge">Modified</span> }
+            <span class="badge amber" data-flag="allow_shared" title="@catalog.Acknowledgements["allow_shared"]">Shared</span>
+            <span class="badge amber" data-flag="allow_unverified_effect" title="@catalog.Acknowledgements["allow_unverified_effect"]">Effect unverified</span>
             <EvidenceBadge Evidence="new EntityEvidence(a.Evidence.Tier)" />
-            @if (edited) { <span class="badge modified-badge">Modified</span> }</div>
-        <p class="subtle">@a.Name · <code data-semantic-id>@a.SemanticId</code></p>
-        <div class="field-badges"><span class="badge amber" data-flag="allow_shared" title="@catalog.Acknowledgements["allow_shared"]">allow_shared · applies to every weapon using it</span>
-            <span class="badge amber" data-flag="allow_unverified_effect" title="@catalog.Acknowledgements["allow_unverified_effect"]">allow_unverified_effect · re-application unproven</span></div>
-        @if (!ModifiedOnly)
-        {
-            <p class="subtle">@(a.Consumers.NativeDefaultOf.Length > 0 ? "Native default magazine of " + string.Join(", ", a.Consumers.NativeDefaultOf) + ". " : "")@a.Consumers.ScopeNote</p>
-            @if (a.OtherPatchedEffects.Length > 0) { <p class="subtle">This definition also patches @string.Join(", ", a.OtherPatchedEffects) (not editable).</p> }
-        }
-        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Changed="Changed" /> }</div>
+            <details class="field-info"><summary title="Definition and consumers">ⓘ</summary><div class="field-info-body">
+                <p>@a.Name · <code data-semantic-id>@a.SemanticId</code></p>
+                <p>@(a.Consumers.NativeDefaultOf.Length > 0 ? "Native default magazine of " + string.Join(", ", a.Consumers.NativeDefaultOf) + ". " : "")@a.Consumers.ScopeNote</p>
+                @if (a.OtherPatchedEffects.Length > 0) { <p>This definition also patches @string.Join(", ", a.OtherPatchedEffects) (not editable).</p> }
+            </div></details>
+            @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("weapon_attachment", a.SemanticId))'>Reset attachment</button> }
+        </div>
+        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" AcknowledgedInGroup="true" Changed="FieldChanged" /> }</div>
         @if (edited && Workspace.Project != null)
         {
-            <label class="attachment-ack @(acknowledged ? "" : "notice warning")"><input type="checkbox" data-attachment-ack checked="@acknowledged" @onchange="e => Run(() => Workspace.SetAttachmentAcknowledgedAsync(a.SemanticId, (bool)e.Value!))" />
-                I understand this edits a shared attachment definition (every weapon that equips it; consumer list incomplete) and that its in-game re-application is unproven.</label>
-            <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("weapon_attachment", a.SemanticId))'>Reset attachment</button>
+            <AckPanel Title="Shared magazine definition · unverified effect" Kind="unverified" Checked="acknowledged"
+                OnChange='v => Run(() => Workspace.SetAttachmentAcknowledgedAsync(a.SemanticId, v))'
+                Description="This edits the attachment definition itself: every weapon that fits it changes, the consumer list may be incomplete, and in-game re-application is unproven (allow_shared + allow_unverified_effect)."
+                Items="@(a.Consumers.NativeDefaultOf.Length > 0 ? a.Consumers.NativeDefaultOf : null)" ItemsLabel="Known consumers:"
+                Label="I understand this edits a shared attachment definition and that its effect is unverified"
+                CheckboxAttributes='@(new() { ["data-attachment-ack"] = "true" })' />
         }
         @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
     </article>
@@ -39,5 +43,7 @@
     [Parameter] public bool ModifiedOnly { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
+    // Handled here (not passed straight through) so this card re-renders its modified / acknowledgement state after a field edit.
+    private Task FieldChanged() => Changed.InvokeAsync();
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

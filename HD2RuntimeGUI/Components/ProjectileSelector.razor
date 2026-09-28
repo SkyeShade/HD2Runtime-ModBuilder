@@ -2,7 +2,7 @@
 @{ var saved = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Attack.Role);
    var sources = Workspace.ProjectileSources(Weapon, Attack.Role);
    var baseline = new ProjectileReference(Weapon, Attack.Role); }
-<article class="stat-card @(saved != null ? "modified" : "")" data-projectile="@Attack.Role">
+<div class="composition-control @(saved != null ? "modified" : "")" data-projectile="@Attack.Role">
     <div class="panel-heading"><h3>Projectile · @Attack.Role.Replace('_', ' ')</h3><span class="badge @(saved != null ? "modified-badge" : "")">@(saved != null ? "Modified" : Attack.WritableReferenceSwap ? "Guarded" : "Read-only")</span></div>
     <p class="@(saved != null ? "modified-value" : "subtle")">@baseline.Label @if (saved != null) { <span> → <strong>@saved.ReplacementProjectile.Label</strong></span> }</p>
     @if (sources.Count > 0)
@@ -29,7 +29,7 @@
         @if (Workspace.ProjectileIssue(saved) is { } issue) { <p class="notice warning" role="alert">@issue</p> }
     }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
-</article>
+</div>
 @code {
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";
     [Parameter, EditorRequired] public ProjectileAttack Attack { get; set; } = default!;

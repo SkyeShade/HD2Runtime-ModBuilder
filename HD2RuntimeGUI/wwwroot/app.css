@@ -1128,3 +1128,73 @@ input[type=checkbox]:checked:before {
 .icon-import-prompt button { margin-left:auto }
 .icon-import-prompt button.primary { background:var(--cat-booster); color:#15171c; border-color:transparent; font-weight:600 }
 .icon-import-prompt button.primary:disabled { opacity:.6 }
+
+/* ---- Authoring layout: sticky summary, grouped acknowledgements, collapsed secondary sections ---- */
+.weapon-detail { container-type:inline-size; max-width:2200px }
+.authoring-summary { position:sticky; top:-36px; z-index:6; display:flex; align-items:center; flex-wrap:wrap; gap:10px 20px; padding:14px 18px; margin-bottom:18px;
+    background:color-mix(in srgb, var(--surface2) 94%, transparent); backdrop-filter:blur(6px); box-shadow:0 6px 18px #0006 }
+.authoring-summary .summary-main { display:flex; align-items:center; flex-wrap:wrap; gap:6px 14px; min-width:0; flex:1 1 320px }
+.authoring-summary h2 { margin:0; font-size:18px }
+.authoring-summary .actions { margin-left:auto; display:flex; gap:8px }
+.authoring-summary .summary-wide { flex-basis:100%; margin:0 }
+.summary-stats { display:flex; gap:8px; flex-wrap:wrap }
+.summary-stat { padding:3px 10px; border:1px solid var(--border); border-radius:999px; font-size:12px; color:var(--muted); white-space:nowrap }
+.summary-stat strong { color:var(--text); margin-right:3px; font-variant-numeric:tabular-nums }
+.summary-stat.active { border-color:#796934; color:var(--accent) } .summary-stat.active strong { color:var(--accent) }
+.summary-stat.shared { border-color:#e9c86942 }
+.summary-stat.warn { border-color:var(--danger); color:var(--danger); background:color-mix(in srgb, var(--danger) 8%, transparent) } .summary-stat.warn strong { color:var(--danger) }
+
+/* Primary: name, editor, modified state. Secondary: baseline, units, badges. Tertiary: schema and provenance behind ⓘ. */
+.semantic-section > h2 { font-size:13px; letter-spacing:.06em; text-transform:uppercase; margin:6px 0 8px }
+.field-name > span:first-child { font-weight:600; color:var(--text) }
+.field-baseline.subtle { opacity:.8 }
+.field-info > summary { opacity:.55 } .field-info > summary:hover, .field-info[open] > summary { opacity:1 }
+
+/* Dense groups use 2-4 columns when the editor is wide (1440p and ultrawide); one column otherwise. */
+@container (min-width:1250px) { .stat-grid:has(> .field-row) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:0 }
+    .stat-grid:has(> .field-row) > .field-row { border-right:1px solid var(--border) } }
+@container (min-width:1900px) { .stat-grid:has(> .field-row) { grid-template-columns:repeat(3,minmax(0,1fr)) } }
+@container (min-width:2150px) { .stat-grid:has(> .field-row) { grid-template-columns:repeat(4,minmax(0,1fr)) } }
+
+/* One acknowledgement box per shared object or unverified effect/reference. */
+.ack-panel { margin:10px 0; padding:10px 14px; border:1px solid #e9c86955; border-radius:10px; background:#e9c8690b; font-size:13px; max-width:1100px }
+.ack-panel.acknowledged { border-color:color-mix(in srgb, var(--green) 40%, transparent); background:color-mix(in srgb, var(--green) 5%, transparent) }
+.ack-panel.ack-unverified.required { border-style:dashed }
+.ack-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+.ack-icon { color:var(--accent) } .ack-panel.acknowledged .ack-icon { color:var(--green) }
+.ack-panel p { margin:6px 0; color:var(--muted) }
+.ack-items { color:var(--text) !important }
+.ack-check { display:flex; align-items:center; gap:10px; margin-top:8px; font-weight:600; cursor:pointer }
+
+/* Collapsed sections and compact one-line summaries. */
+.collapsed-section { border:1px solid var(--border); border-radius:10px; background:var(--surface) }
+.collapsed-section > summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; padding:10px 14px; cursor:pointer }
+.collapsed-section > summary h2 { display:inline; margin:0; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted) }
+.collapsed-section[open] > summary { border-bottom:1px solid var(--border) }
+.collapsed-section > :not(summary) { margin-left:14px; margin-right:14px }
+.section-summary { color:var(--muted); font-size:12px }
+.collapsed-group { margin:8px 0; border:1px solid var(--border); border-radius:8px; padding:0 12px }
+.collapsed-group > summary { padding:8px 0; cursor:pointer }
+.collapsed-group[open] { padding-bottom:10px }
+.composition-line { margin:0 0 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface); padding:0 14px }
+.composition-line > summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:9px 0; cursor:pointer; list-style:none }
+.composition-line > summary::-webkit-details-marker { display:none }
+.composition-action { margin-left:auto; font-size:12px; color:var(--accent); border:1px solid #796934; border-radius:6px; padding:2px 8px }
+.composition-line[open] > summary .composition-action { display:none }
+.composition-line[open] { padding-bottom:12px }
+.composition-control { padding:10px 0; border-top:1px solid var(--border) }
+.composition-control h3 { font-size:13px; margin:0 }
+.composition-control label { display:block; max-width:560px }
+.explosion-group { margin-bottom:14px }
+
+/* Magazine attachment as one compact group within Ammo / Magazine. */
+.ownership-note { margin:0 0 8px; color:var(--muted); font-size:12.5px }
+.magazine-attachment { margin:0 0 10px }
+.magazine-attachment.modified > .attachment-head strong { color:var(--accent) }
+.attachment-head { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0 0 6px }
+.attachment-head .badge { font-size:10.5px; padding:1px 6px }
+.attachment-head .reset-action { margin-left:auto }
+.unresolved-option { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:6px 0; border-bottom:1px solid var(--border) }
+.authoring-summary .actions button { padding:6px 14px; min-height:0; font-size:13px }
+.authoring-summary .summary-main { flex:1 1 240px }
+.ack-list { margin:4px 0; padding-left:1.3rem; color:var(--text) } .ack-list li { margin:2px 0 }

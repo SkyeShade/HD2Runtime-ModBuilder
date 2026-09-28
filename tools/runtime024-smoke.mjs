@@ -36,7 +36,7 @@ try {
     const colours = await evaluate(`Object.fromEntries(['stratagems:support','stratagems:offensive','stratagems:defensive','boosters'].map(k => [k, getComputedStyle(document.querySelector('[data-nav="' + k + '"] .cat-dot')).backgroundColor]))`);
     assert.equal(colours.boosters, 'rgb(242, 201, 76)'); assert.equal(new Set(Object.values(colours)).size, 4);
 
-    await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
+    await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name', 'Booster Smoke'); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");
     await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'project created');
@@ -85,9 +85,10 @@ try {
     assert.equal(await count(`${reload} [data-flag="allow_unverified_effect"]`), 1);
     const baseline = await evaluate(`document.querySelector('${reload} input[type=number]').value`);
     await fill(`${reload} input[type=number]`, String(Number(baseline) + 1));
-    await waitFor(`document.querySelector('${reload} [data-support-effect-ack]')`, 'reload acknowledgement');
+    const effectAck = `document.querySelector('${reload}').closest('[data-support-authoring-branch]').querySelector('[data-support-effect-ack]')`; // one grouped acknowledgement per branch
+    await waitFor(effectAck, 'reload acknowledgement');
     assert((await text()).includes('Acknowledge the unverified gameplay effect'));
-    await click(`${reload} [data-support-effect-ack]`); await sleep(300);
+    await evaluate(`${effectAck}.click()`); await sleep(400);
     await evaluate(`document.querySelector('${reload}').scrollIntoView({block: 'center'})`); await screenshot('runtime0240-mg43-reload');
     script = await lua();
     assert(script.includes("target=hd2.support_weapon('MG-43 Machine Gun'),")); assert(script.includes('field=hd2.fields.reload.duration,'));

@@ -24,11 +24,7 @@
             @if (UnverifiedEffect) { <p><strong>Effect unproven:</strong> @Field.Operation.AcknowledgementReason</p> }
             <p>@Field.Provenance.Baseline · @Field.Provenance.Ownership</p><p>@Field.Backing.SemanticType · @Field.Target.AttackRole</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
-    @if (saved != null && UnverifiedEffect)
-    {
-        <label class="field-wide attachment-ack @(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field) ? "" : "notice warning")"><input type="checkbox" data-support-effect-ack checked="@(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field))" @onchange="e => Run(() => Workspace.SetSupportEffectAcknowledgedAsync(Field.InstanceKey, (bool)e.Value!))" />
-            I understand the gameplay effect of this edit is unproven (<code>allow_unverified_effect</code>).</label>
-    }
+    @* allow_unverified_effect is acknowledged once per group in SupportAuthoringEditor's panel. *@
     @if (saved != null && Workspace.SupportIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>

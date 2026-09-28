@@ -46,14 +46,16 @@
                 <div class="field-badges">@foreach (var ack in raw.SelectMany(r => r.Acknowledgements).Distinct().OrderBy(a => a, StringComparer.Ordinal))
                     { <span class="badge amber" data-flag="@ack" title="@catalog.Acknowledgements.GetValueOrDefault(ack)">@ack</span> }</div>
                 @if (!ModifiedOnly) { <p class="subtle">@raw[0].SharedScope.Note</p> }
-                <div class="stat-grid">@foreach (var f in shown) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+                <div class="stat-grid">@foreach (var f in shown) { <EntityFieldEditor @key="f.InstanceKey" Field="f" AcknowledgedInGroup="true" Changed="Refresh" /> }</div>
             </section>
         }
     }
     @if (edited && Workspace.Project != null)
     {
-        <label class="attachment-ack @(acknowledged ? "" : "notice warning")"><input type="checkbox" data-booster-ack checked="@acknowledged" @onchange="e => Run(() => Workspace.SetBoosterAcknowledgedAsync(Name, (bool)e.Value!))" />
-            I understand no booster edit is gameplay-proven yet (<code>allow_unverified_effect</code>)@(fields.Any(f => f.AllowSharedRequired) ? " and that this status effect may have other consumers (allow_shared)" : "").</label>
+        <AckPanel Title="@(fields.Any(f => f.AllowSharedRequired) ? "Unverified booster effect · shared status effect" : "Unverified booster effect")" Kind="unverified" Checked="acknowledged"
+            OnChange="v => Run(() => Workspace.SetBoosterAcknowledgedAsync(Name, v))"
+            Description="@($"No booster edit is gameplay-proven yet (allow_unverified_effect).{(fields.Any(f => f.AllowSharedRequired) ? " This status effect may have other consumers (allow_shared)." : "")}")"
+            Label="I understand these booster effects are unverified" CheckboxAttributes='@(new() { ["data-booster-ack"] = "true" })' />
         <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("booster", Name))'>Reset booster</button>
     }
     @if (!ModifiedOnly && booster.BlockedFields.Length > 0)

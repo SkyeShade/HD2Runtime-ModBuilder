@@ -41,8 +41,11 @@ public sealed class WeaponChangeService : IWeaponChangeService
         if (c.FieldType != f.Type) throw new InvalidDataException("The capability type changed; review this modification.");
         ValidateValue(f, c.ExpectedValue); ValidateValue(f, c.DesiredValue);
         if (f.Format(c.ExpectedValue) != f.Format(f.CurrentDefault)) throw new InvalidDataException($"SDK baseline changed: saved {f.Format(c.ExpectedValue)}, current {f.Format(f.CurrentDefault)}. Review and explicitly accept the new baseline.");
-        if (f.AffectsMultipleWeapons && (!c.SharedAcknowledged || c.AcknowledgedWriteScope != f.WriteScope || c.AcknowledgedConsumerCount != f.Backing.ConsumerCount || !c.AcknowledgedAffectedWeapons.Order(StringComparer.Ordinal).SequenceEqual(f.SharedWithWeapons.Order(StringComparer.Ordinal)))) throw new InvalidDataException("Shared setting requires acknowledgement of the current affected weapons and write scope.");
+        if (f.AffectsMultipleWeapons && !SharedAcknowledgementCurrent(f, c)) throw new InvalidDataException("Shared setting requires acknowledgement of the current affected weapons and write scope.");
     }
+    // A shared-setting acknowledgement covers the exact write scope, consumer count and affected weapons published today.
+    public static bool SharedAcknowledgementCurrent(WeaponCapability f, WeaponChange c) => c.SharedAcknowledged && c.AcknowledgedWriteScope == f.WriteScope
+        && c.AcknowledgedConsumerCount == f.Backing?.ConsumerCount && c.AcknowledgedAffectedWeapons.Order(StringComparer.Ordinal).SequenceEqual(f.SharedWithWeapons.Order(StringComparer.Ordinal));
     public IReadOnlyList<WeaponChangeIssue> Review(SdkMetadata sdk, IEnumerable<WeaponChange> changes)
     {
         var issues = new List<WeaponChangeIssue>();

@@ -65,7 +65,10 @@ try {
     assert.equal(await count(`${reload} [data-flag="allow_unverified_effect"]`), 1); assert.equal(await count(`${reload} details.field-info`), 1);
     const baseline = await evaluate(`document.querySelector('${reload} input[type=number]').value`);
     await fill(`${reload} input[type=number]`, String(Number(baseline) + 1));
-    await waitFor(`document.querySelector('${reload} [data-support-effect-ack]')`, 'reload acknowledgement'); await click(`${reload} [data-support-effect-ack]`);
+    // allow_unverified_effect is acknowledged once for the branch's edited fields.
+    const effectAck = `document.querySelector('${reload}').closest('[data-support-authoring-branch]').querySelector('[data-support-effect-ack]')`;
+    await waitFor(effectAck, 'reload acknowledgement'); await evaluate(`${effectAck}.click()`); await sleep(400);
+    await waitFor(`document.querySelector('${reload}').closest('[data-support-authoring-branch]').querySelector('[data-ack-panel].acknowledged')`, 'effect acknowledged');
     await shot('[data-stratagem-header]', 'ia-support-mg43');
     await evaluate(`document.querySelector('${reload}').scrollIntoView({block: 'center'})`); await sleep(250); await screenshot('ia-support-mg43-ammo');
 

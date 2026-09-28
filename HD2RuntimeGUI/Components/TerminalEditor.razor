@@ -1,7 +1,7 @@
 @inject BuilderWorkspace Workspace
 @using HD2RuntimeGUI.Core.Generation
 @{ var target = Workspace.EffectiveProjectile(Weapon, Role); var field = CompositionChangeService.TerminalField(Workspace.Metadata!, target, Phase); var baseline = CompositionChangeService.BaselineExplosion(Workspace.Metadata!, target, Phase); }
-<article class="stat-card @(Saved != null ? "modified" : "")" data-terminal="@Phase">
+<div class="composition-control @(Saved != null ? "modified" : "")" data-terminal="@Phase">
     <div class="panel-heading"><h3>@FieldPresentation.EnumLabel(Phase) Explosion</h3><span class="badge @(Saved != null ? "modified-badge" : "")">@(Saved != null ? "Modified" : field.Editable ? "Guarded" : "Read-only")</span></div>
     <p class="@(Saved != null ? "modified-value" : "subtle")">@baseline.Label @if (Saved != null) { <span> → <strong>@Saved.DesiredExplosion!.Label</strong></span> }</p>
     @if (field.Editable)
@@ -11,12 +11,13 @@
             @foreach (var source in Workspace.ExplosionSources) { <option value="@Key(source)">@source.Label</option> }
         </select></label>
         @if (field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
-        { <div class="shared-warning"><strong>Shared terminal setting</strong><p>Affected: @string.Join(", ", field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct())</p><label class="switch-label"><input type="checkbox" @bind="Acknowledged" @bind:after="Commit" disabled="@Busy" />I acknowledge these shared effects.</label></div> }
+        { <AckPanel Title="Shared terminal setting" Items="@field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="Affected weapons:"
+            Checked="Acknowledged" Disabled="Busy" OnChange="v => { Acknowledged = v; return Commit(); }" /> }
     }
     else { <p>@field.Reason</p> }
     @if (Saved != null) { <button class="reset-action" @onclick="() => Run(() => Workspace.RemoveCompositionAsync(Saved.Id))">Reset terminal action</button> }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
-</article>
+</div>
 @code {
     [Parameter] public string Weapon { get; set; } = "";
     [Parameter] public string Role { get; set; } = "";

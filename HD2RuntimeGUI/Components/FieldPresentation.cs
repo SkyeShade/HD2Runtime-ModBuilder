@@ -27,16 +27,19 @@ internal static class FieldPresentation
     public static string Unit(WeaponCapability? field) => field?.Unit == "rpm" ? "RPM" : field?.Unit?.Replace('_', ' ') ?? "";
     public static string? Explanation(WeaponCapability field) => field.SemanticFieldId == "weapon.suppressed" && field.Backing?.Component == "WeaponDataComponentData"
         ? "Runtime weapon-data flag; it does not necessarily indicate a visible or selectable suppressor attachment." : null;
+    // Authoring-first grouping: what a modder edits first comes first. Everything not writable (including derived values and
+    // placeholder weapon-level magazine fields) lives in the one collapsed Advanced / Read-only section.
+    public const string Advanced = "Advanced / Read-only";
     public static string Section(WeaponCapability f)
     {
-        if (f.SemanticFieldId == "weapon.default_fire_mode") return "Fire Mode";
-        if (f.Domain is "magazine" or "rounds") return "Ammo / Magazine";
+        if (!f.Editable || f.DerivedReadOnly) return Advanced;
         if (f.Domain == "heat") return "Heat";
         if (f.Domain == "heatsink") return "Heatsinks";
-        if (!f.Editable) return "Advanced / Read-only";
-        if (f.Domain == "weapon") return f.SemanticFieldId.Contains("capacity") ? "Ammo / Feed" : f.SemanticFieldId.Contains("recoil") || f.SemanticFieldId.Contains("spread") || f.SemanticFieldId.Contains("sway") || f.SemanticFieldId.Contains("ergonomics") ? "Handling" : "Weapon";
-        if (f.Domain == "damage") return f.SemanticFieldId.Contains(".ap_") ? "Penetration" : f.SemanticFieldId.Contains("status_") ? "Special Effects" : "Damage";
+        if (f.SemanticFieldId == "weapon.default_fire_mode") return "Weapon";
+        if (f.Domain is "magazine" or "rounds") return "Ammo / Magazine";
+        if (f.Domain == "weapon") return f.SemanticFieldId.Contains("capacity") ? "Ammo / Magazine" : f.SemanticFieldId.Contains("recoil") || f.SemanticFieldId.Contains("spread") || f.SemanticFieldId.Contains("sway") || f.SemanticFieldId.Contains("ergonomics") ? "Handling" : "Weapon";
+        if (f.Domain == "damage") return f.SemanticFieldId.Contains("status_") ? "Status Effects" : "Damage";
         return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(f.Domain.Replace('_', ' '));
     }
-    public static int SectionOrder(string name) => name switch { "Weapon" => 0, "Handling" => 1, "Ammo / Feed" or "Ammo / Magazine" => 2, "Heat" => 3, "Heatsinks" => 4, "Projectile" => 5, "Damage" => 6, "Penetration" => 7, "Special Effects" => 8, "Advanced / Read-only" => 99, _ => 9 };
+    public static int SectionOrder(string name) => name switch { "Weapon" => 0, "Ammo / Magazine" => 1, "Handling" => 2, "Heat" => 3, "Heatsinks" => 4, "Projectile" => 5, "Damage" => 6, "Status Effects" => 7, "Explosion" => 8, Advanced => 99, _ => 9 };
 }

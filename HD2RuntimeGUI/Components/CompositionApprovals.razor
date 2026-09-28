@@ -1,25 +1,21 @@
 @inject BuilderWorkspace Workspace
 @using HD2RuntimeGUI.Core.Generation
+@* One acknowledgement per shared projectile / damage / explosion definition edited for this weapon (allow_shared). *@
 @if (Workspace.Metadata?.Plans != null)
 {
     @foreach (var scope in Scopes())
     {
         var change = scope.First();
         var field = Field(change);
-        if (field == null || !field.AffectsMultipleWeapons) { continue; }
-        var label = field.Domain switch { "damage" => "Projectile damage", "terminal" => "Terminal actions", "explosion" => field.SemanticFieldId.Contains(".damage.") ? "Explosion damage" : "Explosion settings", _ => "Projectile settings" };
-        <div class="shared-warning" data-shared-scope="@field.Backing?.Settings" data-scope-domain="@field.Domain">
-            <strong>@label · shared definition</strong>
-            <p>Affected weapons: @string.Join(", ", field.SharedWithWeapons.Append(change.Target.Weapon).Append(Weapon).Distinct())</p>
+        if (field == null || !field.AffectsMultipleWeapons || Domains != null && !Domains.Contains(field.Domain)) { continue; }
+        var label = field.Domain switch { "damage" => "Shared projectile damage", "terminal" => "Shared terminal actions", "explosion" => field.SemanticFieldId.Contains(".damage.") ? "Shared explosion damage" : "Shared explosion settings", _ => "Shared projectile definition" };
+        <AckPanel Title="@label" Kind="shared" Checked="@scope.All(c => CompositionChangeService.ApprovalCurrent(Workspace.Metadata!, c))" OnChange="v => Approve(change.Id, v)"
+            Description="@($"{(scope.Count() == 1 ? "This edit changes" : $"These {scope.Count()} edits change")} one definition that other weapons also use.{(field.DynamicConsumersPossible == true ? " Other and future consumers may also use it." : "")}")"
+            Items="@field.SharedWithWeapons.Append(change.Target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="Affected weapons:"
+            PanelAttributes="@(new() { ["data-shared-scope"] = field.Backing?.Settings ?? "", ["data-scope-domain"] = field.Domain })">
             @if (field.SharedWithResources is { Count: > 0 } resources)
-            {
-                <p>The SDK identifies @resources.Count resource consumers; some may not have catalog names.</p>
-                <details><summary>Advanced consumer evidence</summary><p>@string.Join(", ", resources)</p><p>Scope: @field.WriteScope</p></details>
-            }
-            @if (field.DynamicConsumersPossible == true) { <p>Other and future consumers may also use this definition.</p> }
-            <label class="switch-label"><input type="checkbox" checked="@scope.All(c => CompositionChangeService.ApprovalCurrent(Workspace.Metadata!, c))" @onchange="e => Approve(change.Id, (bool)e.Value!)" />I acknowledge these effects for this shared definition.</label>
-            <small>Applies to @scope.Count() modified fields in this scope. Other shared definitions require their own approval.</small>
-        </div>
+            { <details class="subtle"><summary>@resources.Count resource consumers (some unnamed)</summary><p>@string.Join(", ", resources)</p><p>Scope: @field.WriteScope</p></details> }
+        </AckPanel>
     }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 }
@@ -27,6 +23,8 @@
     [Parameter] public string Weapon { get; set; } = "";
     [Parameter] public IReadOnlyList<CompositionChange> Changes { get; set; } = [];
     [Parameter] public EventCallback Changed { get; set; }
+    // Shows only the scopes whose first edit is in one of these domains, so each panel sits next to its section.
+    [Parameter] public IReadOnlyCollection<string>? Domains { get; set; }
     private string? Error;
     private WeaponCapability? Field(CompositionChange c) { try { return c.Scalar == null ? CompositionChangeService.TerminalField(Workspace.Metadata!, c.Target, c.Phase!) : Workspace.Metadata!.PlayerWeapons!.Field(c.Scalar.Weapon, c.Scalar.SemanticFieldId); } catch (InvalidDataException) { return null; } }
     private IEnumerable<IGrouping<string, CompositionChange>> Scopes() => Changes.Where(c => c.Enabled && c.Weapon == Weapon)

@@ -22,9 +22,11 @@
         <p class="subtle">@field.AllowedValues!.Length published @Mount.Current.AttackFamily replacements · <span class="badge amber" title="Runtime requires this opt-in for mount reference swaps">allow_unverified_reference=true</span></p>
         @if (saved != null)
         {
-            <div class="notice warning" data-residency-warning><p>@field.ResidencyWarning</p>
-                <label><input type="checkbox" data-reference-ack checked="@(saved.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(field, saved.DesiredValue))"
-                    @onchange="e => Run(() => Workspace.SetEntityReferenceAcknowledgedAsync(field.InstanceKey, (bool)e.Value!))" /> I understand this swap is unverified and the replacement may be missing if its package is not loaded.</label></div>
+            <AckPanel Title="Unverified reference swap" Kind="unverified" Description="@field.ResidencyWarning"
+                Checked="saved.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(field, saved.DesiredValue)"
+                OnChange="v => Run(() => Workspace.SetEntityReferenceAcknowledgedAsync(field.InstanceKey, v))"
+                Label="I understand this swap is unverified and the replacement may be missing if its package is not loaded"
+                PanelAttributes='@(new() { ["data-residency-warning"] = "true" })' CheckboxAttributes='@(new() { ["data-reference-ack"] = "true" })' />
             <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> Enabled</label>
             <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: field.InstanceKey))">Reset slot</button>
             @if (Workspace.EntityIssue(saved) is { } issue && !issue.Contains("Acknowledge the unverified")) { <p class="notice warning">@issue</p> }

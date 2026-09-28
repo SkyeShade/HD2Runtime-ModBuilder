@@ -85,7 +85,7 @@
         {
             <div class="page-heading"><div><div class="eyebrow">@PageTitle.ToUpperInvariant()</div><h1>@active.DisplayName</h1><code class="subtle">@active.ResourceId</code></div><button class="primary" @onclick="BuildExport">↗ Build / Export Mod</button></div>
             @if (Workspace.BuildError != null) { <div class="notice warning" role="alert"><span>Build requires review: @Workspace.BuildError</span><button @onclick='() => Navigate("changes")'>Review changes</button></div> }
-            @if (Page == "player-weapons") { <PlayerWeaponsEditor InitialWeapon="@EditingWeapon" Changed="RefreshWeaponUI" /> }
+            @if (Page == "player-weapons") { <PlayerWeaponsEditor InitialWeapon="@EditingWeapon" Changed="RefreshWeaponUI" Review='() => Navigate("changes")' /> }
             else if (Page == "lua") { <LuaPreview Source="@Workspace.LuaPreview" /> }
             else if (Page == "overview")
             {

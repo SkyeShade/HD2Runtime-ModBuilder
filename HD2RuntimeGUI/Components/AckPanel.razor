@@ -1,0 +1,24 @@
+@* One explicit acknowledgement box: shared definitions (allow_shared) and unconfirmed effects/references
+   (allow_unverified_effect / allow_unverified_reference). The Runtime flag is only emitted once this is checked. *@
+<div class="ack-panel ack-@Kind @(Checked ? "acknowledged" : "required")" data-ack-panel="@Kind" @attributes="PanelAttributes">
+    <div class="ack-head"><span class="ack-icon" aria-hidden="true">@(Checked ? "✓" : "⚠")</span><strong>@Title</strong>
+        <span class="badge @(Checked ? "green" : "amber")" data-ack-state>@(Checked ? "Acknowledged" : "Acknowledgement required")</span></div>
+    @if (Description != null) { <p>@Description</p> }
+    @if (Items is { Count: > 0 }) { <p class="ack-items"><span class="subtle">@ItemsLabel</span> @string.Join(" · ", Items)</p> }
+    @ChildContent
+    <label class="ack-check"><input type="checkbox" checked="@Checked" disabled="@Disabled" @onchange="e => OnChange.InvokeAsync((bool)e.Value!)" @attributes="CheckboxAttributes" /> <span>@Label</span></label>
+</div>
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string Kind { get; set; } = "shared";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public IReadOnlyList<string>? Items { get; set; }
+    [Parameter] public string ItemsLabel { get; set; } = "Affects:";
+    [Parameter] public string Label { get; set; } = "I understand this edit affects shared game data";
+    [Parameter] public bool Checked { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<bool> OnChange { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public Dictionary<string, object>? CheckboxAttributes { get; set; }
+    [Parameter] public Dictionary<string, object>? PanelAttributes { get; set; }
+}

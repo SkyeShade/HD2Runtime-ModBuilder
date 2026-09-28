@@ -1,28 +1,20 @@
 @inject BuilderWorkspace Workspace
 
-@if (Workspace.Metadata?.PlayerHeat?.Weapons.SingleOrDefault(w => w.Weapon == Weapon.Name) is { HeatMechanismPresent: true } heat)
+@* Writable heat / heatsink mechanics. Read-only heat values are listed in the weapon's Advanced / Read-only section. *@
+@if (Workspace.Metadata?.PlayerHeat?.Weapons.SingleOrDefault(w => w.Weapon == Weapon.Name) is { HeatMechanismPresent: true } heat
+    && Weapon.Fields.Where(f => f.IsPreferred && f.Domain is "heat" or "heatsink" && FieldPresentation.Section(f) != FieldPresentation.Advanced).ToArray() is { Length: > 0 } fields)
 {
     <section class="semantic-section" data-section="Heat / Heatsink">
         <h2>Heat / Heatsink</h2>
         <p class="subtle">Direct heat and heatsink mechanics. These changes do not edit the read-only attachment presets.</p>
-        @foreach (var section in Weapon.Fields.Where(f => f.IsPreferred && f.Domain is "heat" or "heatsink")
-            .GroupBy(f => f.Editable ? FieldPresentation.Section(f) : "Advanced / Read-only")
-            .OrderBy(g => FieldPresentation.SectionOrder(g.Key)))
+        @foreach (var section in fields.GroupBy(FieldPresentation.Section).OrderBy(g => FieldPresentation.SectionOrder(g.Key)))
         {
-            <h3>@section.Key</h3>
-            <div class="stat-grid">
-                @foreach (var field in section)
-                {
-                    <div>
-                        <WeaponFieldEditor @key="(Weapon.Name, field.SemanticFieldId)" Weapon="Weapon" Field="field" Changed="Changed" />
-                        @if (heat.Fields.Single(f => f.Id == field.SemanticFieldId) is { CorrelationMatches: false } evidence && evidence.WikiValue.ValueKind == System.Text.Json.JsonValueKind.Number)
-                        {
-                            <p class="notice warning">Catalog comparison: @evidence.WikiValue. The SDK native baseline is preserved; scaling/correlation is not proven.</p>
-                        }
-                    </div>
-                }
-            </div>
+            <h3 class="group-title">@section.Key</h3>
+            <div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(Weapon.Name, field.SemanticFieldId)" Weapon="Weapon" Field="field" Changed="Changed" /> }</div>
         }
+        @foreach (var evidence in heat.Fields.Where(e => e.CorrelationMatches == false && e.WikiValue.ValueKind == System.Text.Json.JsonValueKind.Number && fields.Any(f => f.SemanticFieldId == e.Id)))
+        { <p class="notice warning">@fields.First(f => f.SemanticFieldId == evidence.Id).DisplayName · catalog comparison: @evidence.WikiValue. The SDK native baseline is preserved; scaling/correlation is not proven.</p> }
+        <WeaponSharedAcks Weapon="@Weapon.Name" FieldIds="@fields.Select(f => f.SemanticFieldId).ToArray()" Changed="Changed" />
     </section>
 }
 

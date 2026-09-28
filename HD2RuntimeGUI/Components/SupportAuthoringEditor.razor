@@ -9,18 +9,25 @@
         var f = scope.First();
         @if (Workspace.Project != null && scope.Any(f => Workspace.Project.SupportChanges.Any(c => c.InstanceKey == f.InstanceKey)))
         {
-            <section class="panel notice warning" data-support-scope="@scope.Key"><strong>Shared @f.Backing.SemanticType</strong>
-                <p>Changing this object may affect these consumers:</p><ul>@foreach (var consumer in f.SharedScope.AffectedSemanticConsumers) { <li>@consumer.Weapon · @consumer.AttackRole</li> }</ul>
-                @if (f.SharedScope.DynamicConsumersPossible) { <p>Additional runtime consumers are possible.</p> }
-                <label><input type="checkbox" checked="@SupportChangeService.Approved(Workspace.Project, f)" @onchange="e => Approve(f, (bool)e.Value!)" /> I acknowledge writes to this shared object.</label>
-            </section>
+            <AckPanel Title="@($"Shared {f.Backing.SemanticType}")" Kind="shared" Checked="SupportChangeService.Approved(Workspace.Project, f)" OnChange="v => Approve(f, v)"
+                Description="@($"Changing this object may affect these consumers.{(f.SharedScope.DynamicConsumersPossible ? " Additional runtime consumers are possible." : "")}")"
+                Items="@f.SharedScope.AffectedSemanticConsumers.Select(c => $"{c.Weapon} · {c.AttackRole}").ToArray()" ItemsLabel="Affected:"
+                PanelAttributes="@(new() { ["data-support-scope"] = scope.Key })" />
         }
     }
     @foreach (var branch in fields.Where(f => !ModifiedOnly || Workspace.Project!.SupportChanges.Any(c => c.InstanceKey == f.InstanceKey)).GroupBy(f => (f.Target.Path, f.Target.AttackRole)))
     {
-        <section class="panel" data-support-authoring-branch="@branch.Key.AttackRole"><h3>@(branch.Key.AttackRole == null ? "Weapon" : "Attack · " + string.Join(" / ", branch.First().Target.WritableCatalogBranches.Select(b => b.Name)))</h3>
+        <section class="panel" data-support-authoring-branch="@(branch.Key.AttackRole ?? "weapon")"><h3>@(branch.Key.AttackRole == null ? "Weapon" : "Attack · " + string.Join(" / ", branch.First().Target.WritableCatalogBranches.Select(b => b.Name)))</h3>
             @foreach (var domain in FieldGroups.Group(branch, f => f.SemanticFieldId, f => f.Display.Domain))
             { <h3 class="group-title">@domain.Key</h3><div class="stat-grid">@foreach (var f in domain) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+            @{ var unverified = branch.Where(f => f.Operation.Acknowledgement == "allow_unverified_effect" && Saved(f) != null).ToArray(); }
+            @if (unverified.Length > 0)
+            {
+                <AckPanel Title="Unverified effects" Kind="unverified" Checked="unverified.All(f => Saved(f)!.EffectAcknowledgement == SupportChangeService.EffectEvidence(f))"
+                    OnChange="v => AcknowledgeEffects(unverified, v)" Items="@unverified.Select(f => f.Display.Name).ToArray()" ItemsLabel="Edited:"
+                    Description="The gameplay effect of these edits is not proven in game (allow_unverified_effect)." Label="I understand these effects are unverified"
+                    CheckboxAttributes='@(new() { ["data-support-effect-ack"] = "true" })' />
+            }
         </section>
     }
     @if (Error != null) { <p class="notice warning">@Error</p> }
@@ -35,4 +42,7 @@
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
     private Task Reset() => Run(() => Workspace.ResetSupportAsync(Weapon));
     private Task Approve(SupportField f, bool approved) => Run(() => Workspace.SetSupportApprovalAsync(f.InstanceKey, approved));
+    private SupportChange? Saved(SupportField f) => Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);
+    // One checkbox for the group; Runtime still receives allow_unverified_effect on each edited field.
+    private Task AcknowledgeEffects(IEnumerable<SupportField> fields, bool value) => Run(async () => { foreach (var f in fields) await Workspace.SetSupportEffectAcknowledgedAsync(f.InstanceKey, value); });
 }

@@ -33,3 +33,32 @@ public static class SupportEquipment
             : catalog.Weapons.Keys.Where(w => sdk.SupportLinks?.ForWeapon(w) == null).Order(StringComparer.Ordinal).ToArray();
     public static bool Linked(SdkMetadata? sdk, string weapon) => sdk?.SupportLinks?.ForWeapon(weapon) != null;
 }
+
+// One logical shared object a weapon's saved edits write. Runtime's acknowledgement stays per change (allow_shared on each
+// request); the GUI presents and sets it once per shared object.
+public sealed record SharedAckGroup(string Key, string Title, IReadOnlyList<string> AffectedWeapons, IReadOnlyList<string> FieldIds,
+    IReadOnlyList<string> FieldNames, bool Acknowledged);
+public static class WeaponAcknowledgements
+{
+    public static string ScopeKey(Metadata.WeaponCapability f) => string.Join("|", f.WriteScope, f.Backing?.Kind, f.Backing?.Settings ?? f.Backing?.Component,
+        f.Backing?.RecordIndex, f.Backing?.Row, string.Join(",", f.SharedWithWeapons.Order(StringComparer.Ordinal)));
+    public static string Title(Metadata.WeaponCapability f) => f.Domain switch
+    {
+        "projectile" => "Shared projectile definition", "damage" => "Shared damage definition", "explosion" => "Shared explosion definition",
+        _ => "Shared " + (f.Backing?.Settings ?? f.Backing?.Component ?? "setting").Replace("ComponentData", "").Replace("Settings", " settings"),
+    };
+    // Saved (non-conflicting) shared edits of one weapon, grouped by the shared object they write.
+    public static IReadOnlyList<SharedAckGroup> Groups(IEnumerable<Generation.WeaponChangeGroup> saved, string weapon) =>
+        saved.Where(g => g.Weapon == weapon && g.Conflict == null && g.Field is { AffectsMultipleWeapons: true })
+            .GroupBy(g => ScopeKey(g.Field!))
+            .Select(s => new SharedAckGroup(s.Key, Title(s.First().Field!), s.First().Field!.SharedWithWeapons.Append(weapon).Distinct().Order(StringComparer.Ordinal).ToArray(),
+                s.Select(g => g.FieldId).ToArray(), s.Select(g => g.Field!.DisplayName).ToArray(),
+                s.All(g => Generation.WeaponChangeService.SharedAcknowledgementCurrent(g.Field!, g.Representative))))
+            .OrderBy(g => g.Title, StringComparer.Ordinal).ToArray();
+    // A new edit inherits the acknowledgement of its shared object when every saved edit of that object is acknowledged.
+    public static bool Inherited(IEnumerable<Generation.WeaponChangeGroup> saved, string weapon, Metadata.WeaponCapability field) =>
+        field.AffectsMultipleWeapons && Groups(saved, weapon).FirstOrDefault(g => g.Key == ScopeKey(field)) is { Acknowledged: true };
+}
+
+// Compact authoring summary of one weapon: what is modified and what still needs the user's acknowledgement.
+public sealed record WeaponAuthoringSummary(int ModifiedFields, int SharedChanges, int AcknowledgementsRequired);

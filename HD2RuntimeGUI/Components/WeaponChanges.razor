@@ -12,11 +12,14 @@
         .Concat(group.Where(g => g.Field == null).Select(g => new Row(null, g)))
         .Where(r => showAll || r.Group?.Conflict != null || FieldPresentation.Modified(r.Field, r.Change) || Workspace.WeaponIssues.Any(i => r.Group?.Sources.Any(c => c.Id == i.ChangeId) == true));
     <details class="weapon-change-group" data-weapon-group="@weaponName" @key="weaponName">
-        <summary><strong>@weaponName</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@count @(count == 1 ? "change" : "changes")</span></summary>
+        <summary><strong>@weaponName</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@count @(count == 1 ? "change" : "changes")</span>@if (Workspace.WeaponSummary(weaponName).AcknowledgementsRequired is > 0 and var acks) { <span class="badge amber" data-acks-required="@acks">@acks @(acks == 1 ? "acknowledgement" : "acknowledgements") required</span> }</summary>
         <div class="weapon-group-content"><div class="panel-heading">
             <label class="switch-label"><input type="checkbox" checked="@showAll" @onchange="e => ShowAll(weaponName, (bool)e.Value!)" />Show all fields</label>
             <div class="actions"><button @onclick="() => Edit.InvokeAsync(weaponName)">Edit weapon</button>@if (count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(weaponName))">Reset weapon</button> }</div>
         </div>
+        @* The same acknowledgement panels as the editor, so a blocked build can be resolved here. *@
+        <WeaponSharedAcks Weapon="@weaponName" Changed="AliasResolved" />
+        @if (Workspace.Metadata?.Advanced != null) { <CompositionApprovals Weapon="@weaponName" Changes="Workspace.Project!.CompositionChanges" Changed="AliasResolved" /> }
         @foreach (var section in rows.GroupBy(r => r.Field == null ? "Unavailable" : FieldPresentation.Section(r.Field)).OrderBy(g => FieldPresentation.SectionOrder(g.Key)))
         {
             <h3 class="summary-section">@section.Key</h3>

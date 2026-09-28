@@ -1,4 +1,5 @@
 @inject BuilderWorkspace Workspace
+@using HD2RuntimeGUI.Core.Generation
 
 @if (Workspace.Metadata?.PlayerWeapons is { } catalog)
 {
@@ -8,24 +9,104 @@
             <div class="filter-grid"><label>Slot<select aria-label="Weapon slot" @bind="Slot"><option value="">All slots</option><option value="primary">Primary</option><option value="secondary">Secondary</option></select></label>
             <label>Family<select aria-label="Implementation family" @bind="Family"><option value="">All families</option>@foreach (var f in catalog.Weapons.SelectMany(w => w.ImplementationFamilies).Distinct().Order()) { <option value="@f">@f.Replace('_', ' ')</option> }</select></label></div>
             <label>Category<select aria-label="Weapon category" @bind="Category"><option value="">All categories</option>@foreach (var c in catalog.Weapons.Select(w => w.Category).Distinct().Order()) { <option>@c</option> }</select></label>
-            <div class="filter-grid"><label class="switch-label"><input type="checkbox" @bind="EditableOnly" />Editable only</label><label class="switch-label"><input type="checkbox" @bind="SharedOnly" />Shared settings</label></div>
+            <div class="filter-grid"><label class="switch-label" title="Also hides the Advanced / Read-only section"><input type="checkbox" data-editable-only @bind="EditableOnly" />Editable only</label><label class="switch-label"><input type="checkbox" @bind="SharedOnly" />Shared settings</label></div>
             <div class="weapon-list">@foreach (var w in Visible(catalog))
             { <button class="resource-item @(Selected == w.Name ? "active" : "")" data-weapon="@w.Name" @onclick="() => Selected = w.Name"><strong>@w.Name</strong><small>@w.Slot · @w.Category @(w.OrdinaryWritesBlocked ? "· Writes blocked" : "")</small></button> }</div>
         </section>
         <div class="weapon-detail">
         @if (catalog.Weapons.FirstOrDefault(w => w.Name == Selected) is { } weapon)
         {
-            <section class="panel weapon-heading"><div class="panel-heading"><h2>@weapon.Name</h2>@if (Workspace.Project!.CompositionChanges.Any(c => c.Weapon == weapon.Name) || Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weapon.Name) || Workspace.WeaponGroups.Any(g => g.Weapon == weapon.Name && (g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative)))) { <button class="reset-action" @onclick="() => Reset(weapon.Name)">Reset weapon</button> }</div><div class="field-badges"><span class="badge">@weapon.Slot</span><span class="badge">@weapon.Category</span>@foreach (var family in weapon.ImplementationFamilies) { <span class="badge">@family.Replace('_', ' ')</span> }</div>
-                @if (weapon.OrdinaryWritesBlocked) { <div class="notice warning"><div><strong>Ordinary writes unavailable</strong><p>@weapon.BlockReason</p></div></div> }
+            var summary = Workspace.WeaponSummary(weapon.Name);
+            var attacks = Attacks(weapon.Name);
+            var rows = Rows(weapon, attacks);
+            var magazines = Workspace.Metadata.Entities?.Attachments?.Weapon(weapon.Name) != null;
+            var explosions = attacks.SelectMany(a => Phases.Select(p => (Attack: a, Phase: p, Explosion: Workspace.EffectiveExplosion(weapon.Name, a.Role, p))))
+                .Where(e => !e.Explosion.IsNone || Workspace.Project!.CompositionChanges.Any(c => c.Weapon == weapon.Name && c.AttackRole == e.Attack.Role && c.Phase == e.Phase)).ToArray();
+            var sections = rows.Select(r => r.Section).Append("Weapon").Concat(magazines ? ["Ammo / Magazine"] : []).Concat(attacks.Length > 0 ? ["Projectile"] : [])
+                .Concat(explosions.Length > 0 ? ["Explosion"] : []).Append(HeatSection)
+                .Where(s => s is not (FieldPresentation.Advanced or "Heat" or "Heatsinks")).Distinct().OrderBy(Order).ToArray();
+            var damageSection = sections.FirstOrDefault(s => s is "Damage" or "Status Effects");
+            var advanced = rows.Where(r => r.Section == FieldPresentation.Advanced).ToArray();
+            <section class="panel authoring-summary" data-authoring-summary="@weapon.Name">
+                <div class="summary-main"><h2>@weapon.Name</h2><div class="field-badges"><span class="badge">@weapon.Slot</span><span class="badge">@weapon.Category</span>@foreach (var family in weapon.ImplementationFamilies) { <span class="badge">@family.Replace('_', ' ')</span> }</div></div>
+                <div class="summary-stats">
+                    <span class="summary-stat @(summary.ModifiedFields > 0 ? "active" : "")" data-summary-modified="@summary.ModifiedFields"><strong>@summary.ModifiedFields</strong> modified</span>
+                    <span class="summary-stat @(summary.SharedChanges > 0 ? "shared" : "")" data-summary-shared="@summary.SharedChanges"><strong>@summary.SharedChanges</strong> shared</span>
+                    <span class="summary-stat @(summary.AcknowledgementsRequired > 0 ? "warn" : "")" data-summary-acks="@summary.AcknowledgementsRequired"><strong>@summary.AcknowledgementsRequired</strong> @(summary.AcknowledgementsRequired == 1 ? "acknowledgement" : "acknowledgements") required</span>
+                </div>
+                <div class="actions"><button class="primary" data-review-changes @onclick="() => Review.InvokeAsync()">Review changes</button>
+                    @if (summary.ModifiedFields > 0 || Workspace.WeaponGroups.Any(g => g.Weapon == weapon.Name)) { <button class="reset-action" @onclick="() => Reset(weapon.Name)">Reset weapon</button> }</div>
+                @if (weapon.OrdinaryWritesBlocked) { <div class="notice warning summary-wide"><div><strong>Ordinary writes unavailable</strong><p>@weapon.BlockReason</p></div></div> }
             </section>
-            <MagazineAttachments Weapon="@weapon.Name" Changed="FieldChanged" />
-            <WeaponHeatEditor Weapon="weapon" Changed="FieldChanged" />
-            @if (Workspace.Metadata.Advanced != null) { <AdvancedWeaponComposition Weapon="@weapon.Name" Changed="FieldChanged" /> } else { <WeaponComposition Weapon="@weapon.Name" Changed="FieldChanged" /> }
-            @foreach (var section in weapon.Fields.Where(f => f.IsPreferred && f.Domain is not ("heat" or "heatsink") && f.Type is not ("projectile_reference" or "explosion_reference") && (Workspace.Metadata.Advanced == null || f.Domain != "explosion" && !(HD2RuntimeGUI.Core.Generation.CompositionChangeService.ProjectileOwned(f) && Workspace.Metadata.Composition!.Projectiles.Weapons.Single(w => w.Weapon == weapon.Name).Attacks.Count > 0))).GroupBy(Section).OrderBy(g => SectionOrder(g.Key)))
-            { <section class="semantic-section" data-section="@section.Key"><h2>@section.Key</h2>
-                @if (section.Key == "Ammo / Magazine" && Workspace.Metadata.PlayerAmmo is { } ammo) { <AmmoEvidence Catalog="ammo" WeaponName="@weapon.Name" /> }
-                @if (section.Key == "Ammo / Magazine" && Workspace.Metadata.Entities?.Attachments?.Weapon(weapon.Name) != null) { <p class="notice" data-ammo-owned-by-attachment>Magazine ammo for this weapon is edited through its <strong>Magazine attachments</strong> above; these weapon-level values stay read-only.</p> }
-                <div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(weapon.Name, field.SemanticFieldId)" Weapon="weapon" Field="field" Changed="FieldChanged" /> }</div></section> }
+            @foreach (var key in sections)
+            {
+                if (key == HeatSection) { <WeaponHeatEditor Weapon="weapon" Changed="FieldChanged" />; continue; }
+                var sectionRows = rows.Where(r => r.Section == key).ToArray();
+                <section class="semantic-section" data-section="@key"><h2>@key</h2>
+                    @if (key == "Ammo / Magazine" && magazines) { <MagazineAttachments Weapon="@weapon.Name" Changed="FieldChanged" /> }
+                    @if (key == "Projectile")
+                    {
+                        @foreach (var attack in attacks)
+                        {
+                            var target = Workspace.EffectiveProjectile(weapon.Name, attack.Role);
+                            var swap = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == weapon.Name && c.AttackRole == attack.Role);
+                            <details class="composition-line" data-composition-attack="@attack.Role" open="@(swap != null)">
+                                <summary><span class="subtle">Projectile@(attacks.Length > 1 ? " · " + attack.Role.Replace('_', ' ') : ""):</span> <strong data-projectile-object="@target.Weapon" data-projectile-role="@target.AttackRole">@target.Label</strong>
+                                    @if (swap != null) { <span class="badge modified-badge">Replaced</span> }<span class="composition-action">Change projectile…</span></summary>
+                                <ProjectileSelector @key="(weapon.Name, attack.Role)" Weapon="@weapon.Name" Attack="attack" Changed="FieldChanged" />
+                                @foreach (var phase in Phases.Where(p => !explosions.Any(e => e.Attack == attack && e.Phase == p)))
+                                { <TerminalEditor @key="(weapon.Name, attack.Role, target, phase)" Weapon="@weapon.Name" Role="@attack.Role" Phase="@phase" Changed="FieldChanged" /> }
+                            </details>
+                        }
+                    }
+                    @if (key == "Explosion")
+                    {
+                        @foreach (var (attack, phase, explosion) in explosions)
+                        {
+                            var terminal = Workspace.Project!.CompositionChanges.Any(c => c.Weapon == weapon.Name && c.AttackRole == attack.Role && c.Kind == "terminal" && c.Phase == phase);
+                            var explosionRows = rows.Where(r => r.Kind == "explosion" && r.Role == attack.Role && r.Phase == phase && r.Section == key).ToArray();
+                            <div class="explosion-group" data-explosion="@phase">
+                                <details class="composition-line" open="@terminal">
+                                    <summary><span class="subtle">@FieldPresentation.EnumLabel(phase) explosion@(attacks.Length > 1 ? " · " + attack.Role.Replace('_', ' ') : ""):</span> <strong>@explosion.Label</strong>
+                                        @if (terminal) { <span class="badge modified-badge">Replaced</span> }<span class="composition-action">Change explosion…</span></summary>
+                                    <TerminalEditor @key="(weapon.Name, attack.Role, Workspace.EffectiveProjectile(weapon.Name, attack.Role), phase)" Weapon="@weapon.Name" Role="@attack.Role" Phase="@phase" Changed="FieldChanged" />
+                                </details>
+                                @if (explosionRows.Length > 0) { <div class="stat-grid">@foreach (var row in explosionRows) { @RowEditor(weapon, row) }</div> }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @foreach (var byRole in sectionRows.GroupBy(r => r.Role))
+                        {
+                            @if (attacks.Length > 1 && byRole.Key != null) { <h3 class="group-title">@byRole.Key.Replace('_', ' ')</h3> }
+                            <div class="stat-grid">@foreach (var row in byRole) { @RowEditor(weapon, row) }</div>
+                        }
+                    }
+                    <WeaponSharedAcks Weapon="@weapon.Name" FieldIds="@sectionRows.Where(r => r.Role == null).Select(r => r.Field.SemanticFieldId).ToArray()" Changed="FieldChanged" />
+                    @if (Workspace.Metadata.Advanced != null)
+                    {
+                        var domains = key switch { "Projectile" => new[] { "projectile", "terminal" }, "Explosion" => ["explosion"], _ when key == damageSection => ["damage"], _ => null };
+                        @if (domains != null) { <CompositionApprovals Weapon="@weapon.Name" Changes="Workspace.Project!.CompositionChanges" Domains="domains" Changed="FieldChanged" /> }
+                    }
+                </section>
+            }
+            @if (Workspace.Metadata.Advanced == null) { <WeaponComposition Weapon="@weapon.Name" Changed="FieldChanged" /> }
+            <AttachmentBrowser Weapon="@weapon.Name" />
+            @if (!EditableOnly && advanced.Length > 0)
+            {
+                <details class="semantic-section collapsed-section" data-section="@FieldPresentation.Advanced">
+                    <summary><h2>Advanced / Read-only</h2><span class="section-summary" data-advanced-count="@advanced.Length">@advanced.Length read-only or derived values</span></summary>
+                    @foreach (var group in advanced.GroupBy(r => r.Field.Domain))
+                    { <h3 class="group-title">@FieldPresentation.EnumLabel(group.Key)</h3><div class="stat-grid">@foreach (var row in group) { @RowEditor(weapon, row) }</div> }
+                </details>
+            }
+            <details class="semantic-section collapsed-section" data-section="Evidence">
+                <summary><h2>Evidence / provenance</h2><span class="section-summary">@string.Join(" · ", weapon.Fields.Where(f => f.IsPreferred).GroupBy(f => f.Provenance.Label).OrderByDescending(g => g.Count()).Select(g => $"{g.Count()} {g.Key}"))</span></summary>
+                <p class="subtle">SDK @catalog.Hd2RuntimeVersion · families @string.Join(", ", weapon.ImplementationFamilies). Each value's own source, backing and semantic ID are behind its ⓘ button.</p>
+                @if (Workspace.Metadata.PlayerAmmo is { } ammo) { <AmmoEvidence Catalog="ammo" WeaponName="@weapon.Name" /> }
+                @if (explosions.Length > 0) { <p class="subtle">Explosions: no independent outer-damage scalar is proven. Native radial falloff and shrapnel remain read-only.</p> }
+            </details>
         }
         else { <section class="panel empty-state"><h2>Choose a player weapon</h2><p>Search by name, then edit its supported semantic values.</p><p>SDK @catalog.Hd2RuntimeVersion · @catalog.Summary.WritableSemanticFieldDefinitions writable field definitions</p></section> }
         </div>
@@ -34,17 +115,44 @@
 }
 @code {
     [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public EventCallback Review { get; set; }
     [Parameter] public string? InitialWeapon { get; set; }
+    private const string HeatSection = "Heat / Heatsink";
+    private static readonly string[] Phases = ["impact", "expiry"];
     private string Search = "", Slot = "", Category = "", Family = "", Selected = "";
     private bool EditableOnly, SharedOnly;
     private string? Error;
+    // Role == null: a weapon-level field. Otherwise an object scalar of the attack's effective projectile or explosion.
+    private sealed record Row(string Section, WeaponCapability Field, string? Role = null, string Kind = "projectile", string? Phase = null, object? Target = null);
     protected override void OnInitialized() => Selected = InitialWeapon ?? "";
     private IEnumerable<PlayerWeapon> Visible(PlayerWeaponCatalog c) => c.Weapons.Where(w =>
         (w.Name.Contains(Search, StringComparison.OrdinalIgnoreCase) || w.Category.Contains(Search, StringComparison.OrdinalIgnoreCase)) &&
         (Slot == "" || w.Slot == Slot) && (Category == "" || w.Category == Category) && (Family == "" || w.ImplementationFamilies.Contains(Family)) &&
         (!EditableOnly || w.Fields.Any(f => f.Editable)) && (!SharedOnly || w.Fields.Any(f => f.AffectsMultipleWeapons)));
+    private ProjectileAttack[] Attacks(string weapon) => Workspace.Metadata!.Advanced != null
+        ? Workspace.Metadata.Composition!.Projectiles.Weapons.Single(w => w.Weapon == weapon).Attacks.ToArray() : [];
+    private IReadOnlyList<Row> Rows(PlayerWeapon weapon, ProjectileAttack[] attacks)
+    {
+        var composition = Workspace.Metadata!.Advanced != null;
+        // Weapon-level fields; with composition, projectile-owned scalars and explosions are edited on their objects instead.
+        var rows = weapon.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")
+                && (!composition || f.Domain != "explosion" && !(CompositionChangeService.ProjectileOwned(f) && attacks.Length > 0)))
+            .Select(f => new Row(FieldPresentation.Section(f), f))
+            .Where(r => r.Section is not ("Heat" or "Heatsinks")).ToList();
+        foreach (var attack in attacks)
+        {
+            var target = Workspace.EffectiveProjectile(weapon.Name, attack.Role);
+            rows.AddRange(Workspace.ObjectFields(weapon.Name, attack.Role, "projectile").Select(f => new Row(FieldPresentation.Section(f), f, attack.Role, "projectile", null, target)));
+            foreach (var phase in Phases)
+                if (Workspace.EffectiveExplosion(weapon.Name, attack.Role, phase) is { IsNone: false } explosion)
+                    rows.AddRange(Workspace.ObjectFields(weapon.Name, attack.Role, "explosion", phase).Select(f => new Row(f.Editable && !f.DerivedReadOnly ? "Explosion" : FieldPresentation.Advanced, f, attack.Role, "explosion", phase, explosion)));
+        }
+        return rows;
+    }
+    private RenderFragment RowEditor(PlayerWeapon weapon, Row row) => row.Role == null
+        ? @<WeaponFieldEditor @key="(weapon.Name, row.Field.SemanticFieldId)" Weapon="weapon" Field="row.Field" Changed="FieldChanged" />
+        : @<ObjectFieldEditor @key="(weapon.Name, row.Role, row.Kind, row.Phase, row.Target, row.Field.SemanticFieldId)" Weapon="@weapon.Name" Role="@row.Role" Kind="@row.Kind" Phase="@row.Phase" Field="row.Field" Changed="FieldChanged" />;
+    private static int Order(string section) => section == HeatSection ? 3 : FieldPresentation.SectionOrder(section);
     private async Task Reset(string name) { try { await Workspace.ResetWeaponsAsync(name); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
     private async Task FieldChanged() => await Changed.InvokeAsync();
-    private static string Section(WeaponCapability f) => FieldPresentation.Section(f);
-    private static int SectionOrder(string name) => FieldPresentation.SectionOrder(name);
 }

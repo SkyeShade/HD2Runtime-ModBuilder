@@ -11,14 +11,12 @@
         var field = scope.First(); var consumers = catalog.Backing(field)?.SharedConsumers ?? field.SharedConsumers;
         @if (Workspace.Project != null && scope.Any(f => StratagemChangeService.Saved(Workspace.Project, catalog, f) != null))
         {
-            <section class="panel notice warning stratagem-approval" data-stratagem-approval="@field.Target.Path" data-shared-scope="@field.ScopeKey">
-                <strong>@(field.Target.Path == "eagle_rearm" ? "Eagle Rearm Time — Shared across all Eagle stratagems" : "Shared " + field.BackingObjectKind)</strong>
-                <p>Changing this object may affect @consumers.Length reviewed @(consumers.Length == 1 ? "consumer" : "consumers"):</p>
-                <ul>@foreach (var consumer in consumers) { <li data-shared-consumer>@consumer.Stratagem · @ConsumerPath(consumer.Path)</li> }</ul>
-                @if (field.DynamicConsumersPossible) { <p>Additional runtime consumers are possible.</p> }
-                @if (!field.ReviewedScopeComplete) { <p>The reviewed consumer scope is incomplete.</p> }
-                <label><input type="checkbox" checked="@StratagemChangeService.Approved(Workspace.Project, field)" @onchange="e => Run(() => Workspace.SetStratagemApprovalAsync(field.InstanceKey, (bool)e.Value!))" /> I acknowledge writes to this shared object.</label>
-            </section>
+            <AckPanel Title="@(field.Target.Path == "eagle_rearm" ? "Eagle Rearm Time — Shared across all Eagle stratagems" : "Shared " + field.BackingObjectKind)" Kind="shared"
+                Checked="StratagemChangeService.Approved(Workspace.Project, field)" OnChange="v => Run(() => Workspace.SetStratagemApprovalAsync(field.InstanceKey, v))"
+                Description="@($"Changing this object may affect {consumers.Length} reviewed {(consumers.Length == 1 ? "consumer" : "consumers")}.{(field.DynamicConsumersPossible ? " Additional runtime consumers are possible." : "")}{(!field.ReviewedScopeComplete ? " The reviewed consumer scope is incomplete." : "")}")"
+                PanelAttributes="@(new() { ["data-stratagem-approval"] = field.Target.Path, ["data-shared-scope"] = field.ScopeKey })">
+                <ul class="ack-list">@foreach (var consumer in consumers) { <li data-shared-consumer>@consumer.Stratagem · @ConsumerPath(consumer.Path)</li> }</ul>
+            </AckPanel>
         }
     }
     @if (graph.Definition.Length > 0 || graph.EagleRearm.Length > 0)
