@@ -14,6 +14,16 @@ public partial class Home
     private string ModName = "", Author = "", ResourceId = "", ModVersion = "0.1.0", Description = "";
     private string OverviewName = "", OverviewAuthor = "", OverviewVersion = "", OverviewDescription = "";
     private string? EditingWeapon;
+    private string StratagemCategory = "";
+    private bool IsSelected(NavItem item) => item.Page.StartsWith("stratagems:", StringComparison.Ordinal)
+        ? Page == "stratagems" && StratagemCategory == item.Page["stratagems:".Length..] : Page == item.Page && (item.Page != "stratagems" || StratagemCategory == "");
+    private void NavigateTo(string page)
+    {
+        if (page.StartsWith("stratagems:", StringComparison.Ordinal)) { StratagemCategory = page["stratagems:".Length..]; Navigate("stratagems"); }
+        else if (page == "stratagems") { StratagemCategory = ""; Navigate(page); }
+        else if (page == "export" && Workspace.Project != null) ShowExport();
+        else Navigate(page);
+    }
     private void RefreshWeaponUI() => StateHasChanged();
     private void EditWeapon(string weapon) { EditingWeapon = weapon; Navigate("player-weapons"); }
     private bool HadDialog;

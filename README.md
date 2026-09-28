@@ -12,6 +12,14 @@ For a development build, run `./scripts/publish-windows.ps1` and launch the stag
 
 This repository is separate from HD2Runtime. It does not launch the game, deploy mods, or access game processes. Snapshot inspection reads only a user-selected local file.
 
+## Navigation
+
+The sidebar lists only public authoring destinations: **Overview, Player Weapons, Stratagems** (Support · Offensive · Defensive), **Support Weapons, Changes, Lua Preview, Build / Export**, with **Snapshot Research** in a separate Developer / Research group. Legacy mapped-resource categories (Vehicles, Equipment, legacy mapped stratagems) are no longer navigation destinations. Existing legacy changes still appear on Changes and can be edited, toggled or removed there. Navigation stays visible without a project; project destinations then show "Select or create a project to begin editing." Counts come from the installed SDK; the Changes count appears only with an open project.
+
+Stratagem categories come from published families: Support (`support`, blue), Offensive (`orbital`, `eagle`, red) and Defensive (`sentry`, `emplacement`, `mine`, including the Shield Generator Relay, green). Reusable `cat-support` / `cat-offensive` / `cat-defensive` classes set a `--cat` token used by pills, dots, list accents and panel headers.
+
+Support call-ins and support weapons are **not merged**. HD2Runtime 0.22 publishes no support weapon ↔ call-in identity (`linkedStratagem.known` is false for 34 of 35 weapons, and Solo Silo's known link carries no identity), so the GUI does not pair them by name. Call-in cooldowns are edited under Stratagems → Support, and weapon equipment under Support Weapons. See the [merge blocker report](docs/support-stratagem-merge-blocker.md).
+
 ## Authoring
 
 **Stratagems** has its own browser with All, Orbital, Eagle, Support Call-Ins, Sentries, Emplacements and Mines / Deployables tabs. The published Runtime 0.22 canonical catalog supplies 73 roots, 1,382 field instances (1,311 writable), 226 backing semantic objects, 327 target-specific operation groups and 115 reviewed shared scopes. The two unresolved call-ins remain read-only. Branch-specific fields retain separate identities; search and system/availability filters come from metadata. Every field autosaves with baseline → desired comparisons and reset actions.

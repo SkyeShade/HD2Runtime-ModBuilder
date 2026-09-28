@@ -11,7 +11,7 @@
     @foreach (var group in Workspace.Project.StratagemChanges.GroupBy(c => c.Path == "eagle_rearm" ? "Eagle Shared System" : c.Stratagem).OrderBy(g => g.Key))
     {
         var shared = group.All(c => c.Path == "eagle_rearm");
-        <details class="panel" data-stratagem-change-group="@group.Key"><summary><strong>@group.Key</strong> <span class="badge">@group.Count() @(group.Count() == 1 ? "change" : "changes")</span> <small class="subtle">@string.Join(" · ", group.Select(Section).Distinct())</small></summary>
+        <details class="panel" data-stratagem-change-group="@group.Key"><summary>@if (group.Key != "Eagle Shared System" && catalog?.Root(group.Key) is { } root && StratagemCategories.Of(root.Family) is { } category) { <span class="category-pill static @category.CssClass" data-change-category="@category.Key"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }<strong>@group.Key</strong> <span class="badge">@group.Count() @(group.Count() == 1 ? "change" : "changes")</span> <small class="subtle">@string.Join(" · ", group.Select(Section).Distinct())</small></summary>
             <label><input type="checkbox" checked="@ShowAll.Contains(group.Key)" @onchange="e => Toggle(group.Key, (bool)e.Value!)" /> Show all fields</label>
             <StratagemEditor Name="@group.First().Stratagem" ModifiedOnly="@(!ShowAll.Contains(group.Key))" ExcludeRearm="@(!shared)" RearmOnly="@shared" Changed="Refresh" />
             @foreach (var c in group.Where(c => catalog?.Resolve(c) == null))

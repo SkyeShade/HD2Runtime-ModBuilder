@@ -27,8 +27,10 @@ public sealed record SupportField(string InstanceKey, string SupportWeapon, Supp
     bool Writable, bool ReadOnly, string? BlockedReason, SupportBacking Backing, SupportScope SharedScope,
     SupportOperation Operation, SupportResolution Resolution, SupportProvenance Provenance);
 public sealed record SupportBlock(string Field, string Reason);
+// Runtime's published call-in linkage. 0.22 publishes only known/kind, never the linked stratagem identity.
+public sealed record SupportLinkedStratagem(bool Known, string? Kind = null);
 public sealed record SupportAuthoringWeapon(string Name, string IdentityStatus, string Confidence, string[] Family,
-    bool Writable, int WritableFieldCount, string[] FieldInstanceKeys, SupportBlock[] BlockedFields);
+    bool Writable, int WritableFieldCount, string[] FieldInstanceKeys, SupportBlock[] BlockedFields, SupportLinkedStratagem? LinkedStratagem = null);
 public sealed record SupportObject(string ObjectKey, string Kind, string SemanticType, string[] Domains, bool Shared,
     bool RequiresSharedAcknowledgement, string SharedScopeKey, int ReviewedConsumerCount, SupportConsumer[] AffectedSemanticConsumers,
     bool ReviewedScopeComplete, bool DynamicConsumersPossible, string[] FieldInstanceKeys);

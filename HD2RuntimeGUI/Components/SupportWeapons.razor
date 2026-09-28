@@ -1,7 +1,7 @@
 @inject BuilderWorkspace Workspace
 @using System.Text.Json
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Advanced?.Support; var authoring = sdk?.SupportAuthoring; }
-<div class="page-heading"><div><div class="eyebrow">@(authoring == null ? "READ-ONLY CATALOG" : "GUARDED AUTHORING") · SDK @sdk?.Version</div><h1>Support Weapons</h1></div></div>
+<div class="page-heading"><div><div class="eyebrow">@(authoring == null ? "READ-ONLY CATALOG" : "GUARDED AUTHORING") · SDK @sdk?.Version</div><h1>Support Weapons</h1><p><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span>Weapon equipment for support stratagems. Call-in cooldowns are under Stratagems → Support; HD2Runtime @sdk?.Version does not publish which call-in delivers each weapon, so the two are edited separately.</p></div></div>
 @if (Workspace.Project is { } active) { <p class="subtle">@active.DisplayName / Changes save automatically / SDK @active.SdkVersion</p> }
 @if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert"><strong>Build requires review</strong><p>@issue</p></div> }
 @if (catalog == null)

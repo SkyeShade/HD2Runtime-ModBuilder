@@ -5,21 +5,17 @@
 <div class="desktop-shell" inert="@(Dialog != null)">
     <aside class="sidebar">
         <div class="brand"><span class="brand-mark">H<span>2</span></span><div>HD2Runtime<small>MOD BUILDER</small></div></div>
-        <button class="nav-item @(Page == "library" ? "selected" : "")" @onclick="ShowLibrary">▦ <span>Project library</span></button>
-        @if (Workspace.Project is { } project)
-        {
-            <div class="nav-caption">WORKSPACE</div><div class="project-label">@project.DisplayName</div>
-            <button class="nav-item @(Page == "overview" ? "selected" : "")" @onclick='() => Navigate("overview")'>◈ <span>Overview</span></button>
-            @if (Workspace.Metadata!.PlayerWeapons != null) { <button class="nav-item @(Page == "player-weapons" ? "selected" : "")" @onclick='() => Navigate("player-weapons")'><span>Player Weapons</span><small>@Workspace.Metadata.PlayerWeapons.Weapons.Count</small></button> }
-            @foreach (var kind in Workspace.Metadata!.Builders.Keys.Where(k => k != "weapon" || Workspace.Metadata.PlayerWeapons == null))
-            { <button class="nav-item @(Page == kind ? "selected" : "")" @onclick="() => SelectCategory(kind)">◇ <span>@(kind == "stratagem" && Workspace.Metadata.Stratagems != null ? "Legacy mapped stratagems" : Workspace.Metadata.CategoryName(kind))</span><small>@Workspace.Metadata.Resources.Values.Count(r => r.Kind == kind)</small></button> }
-            <button class="nav-item @(Page == "changes" ? "selected" : "")" @onclick='() => Navigate("changes")'>≡ <span>Changes</span><small>@ModificationCount</small></button>
-            <button class="nav-item @(Page == "lua" ? "selected" : "")" @onclick='() => Navigate("lua")'><span>Lua Preview</span></button>
-            <button class="nav-item @(Page == "export" ? "selected" : "")" @onclick="ShowExport">↗ <span>Build / Export</span></button>
-        }
-        <button class="nav-item @(Page == "stratagems" ? "selected" : "")" @onclick='() => Navigate("stratagems")'><span>Stratagems</span></button>
-        <button class="nav-item @(Page == "support" ? "selected" : "")" @onclick='() => Navigate("support")'><span>Support Weapons</span></button>
-        <button class="nav-item @(Page == "research" ? "selected" : "")" @onclick='() => Navigate("research")'><span>Snapshot Research</span></button>
+        <button class="nav-item @(Page == "library" ? "selected" : "")" data-nav="library" @onclick="ShowLibrary">▦ <span>Project library</span></button>
+        @{ var nav = Navigation.Build(Workspace.Metadata ?? Workspace.SdkStatus?.Installed, Workspace.Project, ModificationCount); }
+        <nav class="nav-group" aria-label="Workspace">
+            <div class="nav-caption">WORKSPACE</div>
+            <div class="project-label @(Workspace.Project == null ? "empty" : "")">@(Workspace.Project?.DisplayName ?? "No project selected")</div>
+            @foreach (var item in nav.Where(i => i.Section == Navigation.Workspace)) { @NavButton(item) }
+        </nav>
+        <nav class="nav-group research" aria-label="Developer and research">
+            <div class="nav-caption">DEVELOPER / RESEARCH</div>
+            @foreach (var item in nav.Where(i => i.Section == Navigation.Research)) { @NavButton(item) }
+        </nav>
         <div class="sidebar-bottom"><button class="nav-item @(Page == "settings" ? "selected" : "")" @onclick='() => Navigate("settings")'>⚙ <span>Settings &amp; SDK</span></button><div class="sdk-mini"><span class="status-dot @(Workspace.SdkStatus?.VerifiedOnline == true ? "online" : "")"></span><div>SDK @(Workspace.SdkStatus?.Installed.Version ?? "loading")<small>@(Workspace.SdkStatus?.VerifiedOnline == true ? "Release verified" : "Offline / not verified")</small></div></div></div>
     </aside>
     <main class="workspace">
@@ -45,7 +41,12 @@
             }
             <div class="library-footnote"><span>01 &nbsp; Create a project</span><span>02 &nbsp; Configure changes</span><span>03 &nbsp; Export your mod</span></div>
         }
-        else if (Page == "stratagems") { <Stratagems Changed="RefreshWeaponUI" /> }
+        else if (Workspace.Project == null && Page != "research" && Page != "settings")
+        {
+            <section class="empty-state workspace-empty" data-empty-workspace="@Page"><div class="empty-icon">◇</div><h2>@PageTitle</h2><p>Select or create a project to begin editing.</p>
+                <div class="actions"><button @onclick="ShowLibrary">Open project library</button><button class="primary" @onclick="BeginCreate">+ Create New Mod</button></div></section>
+        }
+        else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => StratagemCategory = c" Changed="RefreshWeaponUI" /> }
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
@@ -70,7 +71,6 @@
                 <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@ModificationCount</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
                 @if (Workspace.SdkStatus?.Installed.Version != active.SdkVersion) { <section class="panel"><h2>New SDK available for this project</h2><p>Rebind semantic identifiers to SDK @Workspace.SdkStatus?.Installed.Version. Your desired values and saved baselines are preserved. Any changed capabilities must be reviewed before building.</p><button @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">Rebind to installed SDK</button></section> }
                 @if (Workspace.Metadata!.PlayerWeapons != null) { <section class="panel"><h2>Author player weapons</h2><p>@Workspace.Metadata.PlayerWeapons.Weapons.Count weapons ? @Workspace.Metadata.PlayerWeapons.Summary.FieldInstances capability entries</p><button class="primary" @onclick='() => Navigate("player-weapons")'>Browse Player Weapons</button></section> }
-                <section class="panel"><h2>Other mapped resources</h2><div class="category-grid">@foreach (var kind in Workspace.Metadata!.Builders.Keys.Where(k => k != "weapon" || Workspace.Metadata.PlayerWeapons == null)) { <button @onclick="() => SelectCategory(kind)">◇ &nbsp; @Workspace.Metadata.CategoryName(kind) <span>→</span></button> }</div><p class="subtle">Categories, resources and controls come from SDK @active.SdkVersion metadata.</p></section>
                 <section class="panel"><h2>Project details</h2><form @onsubmit="SaveDetails" @onsubmit:preventDefault><label for="overview-name">Mod name</label><input id="overview-name" @bind="OverviewName" required maxlength="120" /><div class="form-grid"><div><label for="overview-author">Author</label><input id="overview-author" @bind="OverviewAuthor" required maxlength="120" /></div><div><label for="overview-version">Version</label><input id="overview-version" @bind="OverviewVersion" required /></div></div><label for="overview-description">Description</label><textarea id="overview-description" @bind="OverviewDescription" maxlength="8000" rows="3"></textarea><div class="actions end"><button class="primary" type="submit">Save project details</button></div></form></section>
             }
             else if (Page == "changes")
@@ -139,4 +139,9 @@
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
     @if (Busy) { <p role="status">@BusyMessage</p> }
     </fieldset></section></div>
+}
+@code {
+    private RenderFragment NavButton(NavItem item) => @<button class="nav-item @(item.Child ? "nav-child" : "") @item.CssClass @(IsSelected(item) ? "selected" : "") @(item.RequiresProject && Workspace.Project == null ? "no-project" : "")"
+        data-nav="@item.Page" aria-current="@(IsSelected(item) ? "page" : null)" @onclick="() => NavigateTo(item.Page)">
+        @if (item.CssClass != null) { <span class="cat-dot" aria-hidden="true"></span> }<span>@item.Label</span>@if (item.Count is { } count) { <small>@count</small> }</button>;
 }

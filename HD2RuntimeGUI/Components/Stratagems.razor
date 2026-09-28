@@ -5,21 +5,26 @@
 @if (catalog == null) { <section class="panel"><h2>Stratagem authoring requires SDK 0.21</h2><p>Install a compatible SDK in Settings. Existing projects stay pinned until you explicitly rebind from Overview.</p></section> }
 else
 {
-    <div class="family-tabs" role="tablist">
-        @foreach (var tab in StratagemBrowser.Tabs(catalog))
-        { <button role="tab" class="family-tab @(Family == tab.Family ? "active" : "")" aria-selected="@(Family == tab.Family)" data-family-tab="@(tab.Family == "" ? "all" : tab.Family)" @onclick="() => Family = tab.Family">@tab.Label <small>@tab.Count</small></button> }
+    <div class="category-pills" role="tablist" aria-label="Stratagem categories">
+        <button role="tab" class="category-pill @(Category == "" ? "active" : "")" aria-selected="@(Category == "")" data-category="all" @onclick='() => SelectCategory("")'>All <small>@catalog.Stratagems.Length</small></button>
+        @foreach (var c in StratagemCategories.All)
+        { <button role="tab" class="category-pill @c.CssClass @(Category == c.Key ? "active" : "")" aria-selected="@(Category == c.Key)" data-category="@c.Key" @onclick="() => SelectCategory(c.Key)"><span class="cat-dot" aria-hidden="true"></span>@c.Label <small>@StratagemCategories.Count(catalog, c)</small></button> }
     </div>
-    <div class="weapon-editor"><section class="panel weapon-browser">@{ var shown = catalog.Stratagems.Count(s => StratagemBrowser.Matches(catalog, s, Family, Search, System, Availability)); }<h2>@shown @(shown == 1 ? "stratagem" : "stratagems")</h2>
+    <div class="family-tabs" role="tablist" aria-label="Stratagem families">
+        @foreach (var tab in StratagemBrowser.Tabs(catalog).Where(t => t.Family == "" || InCategory(t.Family)))
+        { <button role="tab" class="family-tab @((tab.Family == "" ? StratagemCategories.Find(Category) : StratagemCategories.Of(tab.Family))?.CssClass) @(Family == tab.Family ? "active" : "")" aria-selected="@(Family == tab.Family)" data-family-tab="@(tab.Family == "" ? "all" : tab.Family)" @onclick="() => Family = tab.Family">@(tab.Family == "" ? "All " + (StratagemCategories.Find(Category)?.Label ?? "families") : tab.Label) <small>@(tab.Family == "" ? catalog.Stratagems.Count(s => InCategory(s.Family)) : tab.Count)</small></button> }
+    </div>
+    <div class="weapon-editor"><section class="panel weapon-browser">@{ var shown = catalog.Stratagems.Count(s => Visible(catalog, s)); }<h2>@shown @(shown == 1 ? "stratagem" : "stratagems")</h2>
         <label>Search<input id="stratagem-search" @bind="Search" @bind:event="oninput" placeholder="Stratagem name" /></label>
         <label>System<select id="stratagem-system" @bind="System"><option value="">All systems</option><option value="cooldown">Cooldown</option>@foreach (var domain in catalog.FieldInstances.Select(f => f.Domain).Distinct().Order()) { <option value="@domain">@SupportAuthoringEditor.Label(domain)</option> }<option value="beam">Beam</option></select></label>
         <label>Availability<select @bind="Availability"><option value="">All capabilities</option><option value="writable">Writable</option><option value="blocked">Read-only / blocked</option><option value="shared">Shared</option></select></label>
-        <div class="weapon-list">@foreach (var root in catalog.Stratagems.Where(s => StratagemBrowser.Matches(catalog, s, Family, Search, System, Availability)))
-        { <button class="resource-item @(Selected == root.Name ? "active" : "")" data-stratagem="@root.Name" data-family="@root.Family" @onclick="() => Selected = root.Name"><strong>@root.Name</strong><small>@FamilyLabel(root.Family) · @(root.RootResolution == "UNIQUE" ? "Writable" : "Read-only") · @Summary(catalog, root)</small></button> }</div>
+        <div class="weapon-list">@foreach (var root in catalog.Stratagems.Where(s => Visible(catalog, s)))
+        { <button class="resource-item @(StratagemCategories.Of(root.Family)?.CssClass) @(Selected == root.Name ? "active" : "")" data-stratagem="@root.Name" data-family="@root.Family" @onclick="() => Selected = root.Name"><strong>@root.Name</strong><small>@FamilyLabel(root.Family) · @(root.RootResolution == "UNIQUE" ? "Writable" : "Read-only") · @Summary(catalog, root)</small></button> }</div>
     </section><div class="weapon-detail">
         @if (catalog.Root(Selected) is { } stratagem)
         {
             var graph = StratagemGraph.Build(catalog, stratagem.Name);
-            <section class="panel"><h2>@stratagem.Name</h2><span class="badge">@FamilyLabel(stratagem.Family)</span><span class="badge">@stratagem.RootResolution</span>
+            <section class="panel category-panel @(StratagemCategories.Of(stratagem.Family)?.CssClass)" data-stratagem-category="@(StratagemCategories.Of(stratagem.Family)?.Key)"><h2>@stratagem.Name</h2>@if (StratagemCategories.Of(stratagem.Family) is { } category) { <span class="category-pill static @category.CssClass"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }<span class="badge">@FamilyLabel(stratagem.Family)</span><span class="badge">@stratagem.RootResolution</span>
                 @if (stratagem.DeployedEntity is { } entity) { <span class="badge">@EntityStats.KindLabel(entity)</span> }
                 @if (stratagem.BlockedReason != null) { <p class="notice warning">@stratagem.BlockedReason</p> }
                 @if (graph.Entities.Length > 0)
@@ -34,6 +39,8 @@ else
                         }
                     </ol>
                 }
+                @if (stratagem.Family == "support")
+                { <p class="notice cat-note cat-support" data-support-link-blocker>Support weapon equipment (ammo, projectile, damage, explosion, …) is edited under <strong>Support Weapons</strong>. HD2Runtime @sdk?.Version does not publish which support weapon a call-in delivers, so this call-in and its weapon are not paired automatically.</p> }
                 @if (stratagem.Family == "mine" && stratagem.MineInstanceResolved != true)
                 { <p class="notice" data-mine-scope>Runtime resolves this minefield's stratagem and deployment entity only. Individual mines, their triggers, distribution and explosion/status attacks are not resolved, so they have no controls here.</p> }
                 <details open="@(graph.Blocked.Length > 0)" data-blocked-capabilities><summary>Not currently writable</summary>
@@ -61,13 +68,20 @@ else
     </div></div>
 }
 @code {
+    [Parameter] public string Category { get; set; } = "";
+    [Parameter] public EventCallback<string> CategoryChanged { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
+    private string? shownCategory;
+    protected override void OnParametersSet() { if (shownCategory != Category) { shownCategory = Category; Family = ""; } }
+    private bool InCategory(string family) => StratagemCategories.Find(Category) is not { } c || c.Families.Contains(family);
+    private bool Visible(StratagemCatalog c, StratagemDefinition s) => InCategory(s.Family) && StratagemBrowser.Matches(c, s, Family, Search, System, Availability);
+    private async Task SelectCategory(string key) { Category = shownCategory = key; Family = ""; await CategoryChanged.InvokeAsync(key); }
     private string Search = "", Family = "", System = "", Availability = "", Selected = "";
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     public static string FamilyLabel(string family) => StratagemBrowser.FamilyLabel(family);
     private static string Summary(StratagemCatalog c, StratagemDefinition s) => s.DeployedEntity is { } e
         ? EntityStats.KindLabel(e) + (e.WeaponBranches.Length > 0 ? " · " + e.WeaponBranches.Length + " mounted weapon" + (e.WeaponBranches.Length == 1 ? "" : "s") : "")
-        : s.AttackRoles.Length + " branches";
+        : s.AttackRoles.Length == 0 ? "Call-in definition" : s.AttackRoles.Length + " branches";
     private static string BlockedLabel(string field) => field switch
     {
         "targeting.*" => "Targeting (range, traverse, tracking, firing arc)",
