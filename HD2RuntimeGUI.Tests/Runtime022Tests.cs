@@ -16,10 +16,10 @@ public sealed class Runtime022Tests
     private const string AntiTank = "E/AT-12 Anti-Tank Emplacement";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e, string resource = "mods/tests/defensive")
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync();
+        var sdk = await SdkFixtures.Install(e, "0.22.1");
         var w = e.Workspace(); await w.CreateAsync(new("Defensive", "Tests", resource, "0.1.0"), sdk); return w;
     }
-    private static StratagemCatalog Catalog() => new StratagemCatalogReader().Read(SdkCache.BundledComposition()[StratagemCatalogReader.FileName]);
+    private static StratagemCatalog Catalog() => new StratagemCatalogReader().Read(SdkFixtures.Entry("0.22.1", StratagemCatalogReader.FileName));
     private static StratagemField Field(StratagemCatalog c, string name, string id, string? attack = null) => c.FieldInstances.Single(f =>
         f.Target.Stratagem == name && f.SemanticFieldId == id && (attack == null || f.Target.Attack == attack));
     private static StratagemField Field(BuilderWorkspace w, string name, string id, string? attack = null) => Field(w.Metadata!.Stratagems!, name, id, attack);
@@ -81,7 +81,7 @@ public sealed class Runtime022Tests
     [InlineData("fire-rate")] [InlineData("audit")] [InlineData("entity-path")] [InlineData("missing-scope")] [InlineData("contract")]
     public void Malformed_022_catalog_fails_closed(string fault)
     {
-        var json = JsonNode.Parse(SdkCache.BundledComposition()[StratagemCatalogReader.FileName])!;
+        var json = JsonNode.Parse(SdkFixtures.Entry("0.22.1", StratagemCatalogReader.FileName))!;
         var fields = json["fieldInstances"]!.AsArray(); var at = fields.First(f => (string?)f!["target"]!["stratagem"] == AntiTank && (string?)f!["semanticFieldId"] == "projectile.mass")!;
         switch (fault)
         {
@@ -346,7 +346,7 @@ public sealed class Runtime022Tests
         var rearm = c21.FieldInstances.First(f => f.SemanticFieldId == "eagle.rearm_time");
         foreach (var (f, v) in new[] { (cooldown, "180"), (laser, "400"), (napalm, "12"), (rearm, "90") }) await Edit(w, f, v);
         Assert.Null(w.BuildError); var saved = w.Project!.StratagemChanges.ToDictionary(x => x.SemanticFieldId);
-        File.Delete(e.Paths.CachePath("current.json")); await e.Cache.GetCurrentAsync();
+        await SdkFixtures.Install(e, "0.22.1");
         await w.OpenAsync(w.Project.Id); Assert.Equal("0.21.0", w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(989, w.Metadata!.Stratagems!.FieldInstances.Length);
         await w.RebindToInstalledSdkAsync(); var c22 = w.Metadata!.Stratagems!;
         Assert.Equal("0.22.1", w.Project.SdkVersion); Assert.Equal(4, w.Project.StratagemChanges.Count);

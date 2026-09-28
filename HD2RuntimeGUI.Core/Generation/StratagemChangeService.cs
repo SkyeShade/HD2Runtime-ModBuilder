@@ -31,7 +31,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
     public static StratagemCatalog Catalog(SdkMetadata sdk) => sdk.Stratagems ?? throw new InvalidDataException("Explicitly rebind to SDK 0.21 or newer for stratagem authoring.");
     public static string TargetKind(StratagemField f) => f.Target.Path switch
     {
-        "deployed_entity" => "deployed_entity",
+        "deployed_entity" or "damage_zone" or "shield" => "deployed_entity",
         "weapon" => "mounted_weapon",
         "attack" when f.Target.Weapon != null => "mounted_weapon",
         _ => "stratagem",
@@ -43,7 +43,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
         {
             using var doc = JsonDocument.Parse(value);
             return new() { InstanceKey = instance, TargetKind = TargetKind(f), Stratagem = f.Target.Stratagem, Path = f.Target.Path,
-                Entity = f.Target.Entity, Weapon = f.Target.Weapon, Attack = f.Target.Attack,
+                Entity = f.Target.Entity, Weapon = f.Target.Weapon, Zone = f.Target.Zone, Attack = f.Target.Attack,
                 SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(), DesiredValue = StratagemScalar.Normalize(f, doc.RootElement),
                 BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f) };
         }
@@ -56,7 +56,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
     {
         var f = Resolve(Catalog(sdk), c); Writable(f);
         if (c.InstanceKey != f.InstanceKey || c.TargetKind != TargetKind(f) || c.Stratagem != f.Target.Stratagem || c.Path != f.Target.Path
-            || c.Entity != f.Target.Entity || c.Weapon != f.Target.Weapon || c.Attack != f.Target.Attack
+            || c.Entity != f.Target.Entity || c.Weapon != f.Target.Weapon || c.Zone != f.Target.Zone || c.Attack != f.Target.Attack
             || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Type || c.CapabilityEvidence != Evidence(f))
             throw new InvalidDataException("Stratagem capability or ownership changed. Review and accept the current capability, or reset the change.");
         if (!StratagemScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Stratagem baseline changed. Review the saved and current values before accepting the new baseline.");
@@ -104,7 +104,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
             if (unchanged && old!.AllowSharedRequired && Approved(p, old) && ScopeContent(old) == ScopeContent(f))
                 approvals[f.ScopeKey] = ApprovalEvidence(f);
             moved++;
-            return c with { InstanceKey = f.InstanceKey, TargetKind = TargetKind(f), Entity = f.Target.Entity, Weapon = f.Target.Weapon,
+            return c with { InstanceKey = f.InstanceKey, TargetKind = TargetKind(f), Entity = f.Target.Entity, Weapon = f.Target.Weapon, Zone = f.Target.Zone,
                 CapabilityEvidence = unchanged ? Evidence(f) : c.CapabilityEvidence };
         }).ToList();
         foreach (var (key, value) in approvals) p.StratagemApprovals[key] = value;

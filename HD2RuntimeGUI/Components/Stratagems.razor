@@ -6,14 +6,16 @@
 else
 {
     <div class="category-pills" role="tablist" aria-label="Stratagem categories">
-        <button role="tab" class="category-pill @(Category == "" ? "active" : "")" aria-selected="@(Category == "")" data-category="all" @onclick='() => SelectCategory("")'>All <small>@catalog.Stratagems.Length</small></button>
+        <button role="tab" class="category-pill @(Category == "" ? "active" : "")" aria-selected="@(Category == "")" data-category="all" @onclick='() => SelectCategory("")'>All <small>@catalog.Stratagems.Count(s => StratagemCategories.Listed(s, sdk?.Entities))</small></button>
         @foreach (var c in StratagemCategories.All)
-        { <button role="tab" class="category-pill @c.CssClass @(Category == c.Key ? "active" : "")" aria-selected="@(Category == c.Key)" data-category="@c.Key" @onclick="() => SelectCategory(c.Key)"><span class="cat-dot" aria-hidden="true"></span>@c.Label <small>@StratagemCategories.Count(catalog, c)</small></button> }
+        { <button role="tab" class="category-pill @c.CssClass @(Category == c.Key ? "active" : "")" aria-selected="@(Category == c.Key)" data-category="@c.Key" @onclick="() => SelectCategory(c.Key)"><span class="cat-dot" aria-hidden="true"></span>@c.Label <small>@StratagemCategories.Count(catalog, c, sdk?.Entities)</small></button> }
     </div>
     <div class="family-tabs" role="tablist" aria-label="Stratagem families">
-        @foreach (var tab in StratagemBrowser.Tabs(catalog).Where(t => t.Family == "" || InCategory(t.Family)))
-        { <button role="tab" class="family-tab @((tab.Family == "" ? StratagemCategories.Find(Category) : StratagemCategories.Of(tab.Family))?.CssClass) @(Family == tab.Family ? "active" : "")" aria-selected="@(Family == tab.Family)" data-family-tab="@(tab.Family == "" ? "all" : tab.Family)" @onclick="() => Family = tab.Family">@(tab.Family == "" ? "All " + (StratagemCategories.Find(Category)?.Label ?? "families") : tab.Label) <small>@(tab.Family == "" ? catalog.Stratagems.Count(s => InCategory(s.Family)) : tab.Count)</small></button> }
+        @foreach (var tab in StratagemBrowser.Tabs(catalog).Where(t => t.Family == "" || InCategory(t.Family) && catalog.Stratagems.Any(s => s.Family == t.Family && StratagemCategories.Listed(s, sdk?.Entities))))
+        { <button role="tab" class="family-tab @((tab.Family == "" ? StratagemCategories.Find(Category) : StratagemCategories.Of(tab.Family))?.CssClass) @(Family == tab.Family ? "active" : "")" aria-selected="@(Family == tab.Family)" data-family-tab="@(tab.Family == "" ? "all" : tab.Family)" @onclick="() => Family = tab.Family">@(tab.Family == "" ? "All " + (StratagemCategories.Find(Category)?.Label ?? "families") : tab.Label) <small>@(catalog.Stratagems.Count(s => (tab.Family == "" ? InCategory(s.Family) : s.Family == tab.Family) && StratagemCategories.Listed(s, sdk?.Entities)))</small></button> }
     </div>
+    @if (sdk?.Entities is { } linkedEntities && (Category == "" || Category == "support"))
+    { <p class="notice cat-note cat-support" data-entity-callins-moved>@linkedEntities.CallIns.Count(c => c.Value.Resource == "vehicle") vehicle and @linkedEntities.CallIns.Count(c => c.Value.Resource == "backpack") backpack call-ins are edited in <strong>Vehicles</strong> and <strong>Backpacks</strong>, together with the vehicle or backpack they deliver.</p> }
     <div class="weapon-editor"><section class="panel weapon-browser">@{ var shown = catalog.Stratagems.Count(s => Visible(catalog, s)); }<h2>@shown @(shown == 1 ? "stratagem" : "stratagems")</h2>
         <label>Search<input id="stratagem-search" @bind="Search" @bind:event="oninput" placeholder="Stratagem name" /></label>
         <label>System<select id="stratagem-system" @bind="System"><option value="">All systems</option><option value="cooldown">Cooldown</option>@foreach (var domain in catalog.FieldInstances.Select(f => f.Domain).Distinct().Order()) { <option value="@domain">@SupportAuthoringEditor.Label(domain)</option> }<option value="beam">Beam</option></select></label>
@@ -78,7 +80,7 @@ else
     private string? shownCategory;
     protected override void OnParametersSet() { if (shownCategory != Category) { shownCategory = Category; Family = ""; } }
     private bool InCategory(string family) => StratagemCategories.Find(Category) is not { } c || c.Families.Contains(family);
-    private bool Visible(StratagemCatalog c, StratagemDefinition s) => InCategory(s.Family) && StratagemBrowser.Matches(c, s, Family, Search, System, Availability);
+    private bool Visible(StratagemCatalog c, StratagemDefinition s) => StratagemCategories.Listed(s, (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities) && InCategory(s.Family) && StratagemBrowser.Matches(c, s, Family, Search, System, Availability);
     private async Task SelectCategory(string key) { Category = shownCategory = key; Family = ""; await CategoryChanged.InvokeAsync(key); }
     private string Search = "", Family = "", System = "", Availability = "", Selected = "";
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }

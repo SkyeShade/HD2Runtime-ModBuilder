@@ -26,14 +26,15 @@ const count = selector => evaluate(`document.querySelectorAll(${JSON.stringify(s
 const list = (selector, map) => evaluate(`[...document.querySelectorAll(${JSON.stringify(selector)})].map(${map})`);
 const color = selector => evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).color`);
 const open = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')",'open '+name); };
-const expectedNav = ['library','overview','player-weapons','stratagems','stratagems:support','stratagems:offensive','stratagems:defensive','support','changes','lua','export','research'];
+const expectedNav = ['library','overview','player-weapons','stratagems','stratagems:support','stratagems:offensive','stratagems:defensive','vehicles','backpacks','support','changes','lua','export','research'];
 try {
     await waitFor("!!document.querySelector('.desktop-shell') && !document.querySelector('.activity')",'startup');
     assert.deepEqual(await list('.sidebar [data-nav]', 'b=>b.dataset.nav'), expectedNav);
     const labels = (await evaluate("document.querySelector('.sidebar').innerText")).split('\n');
-    for (const hidden of ['Vehicles','Legacy mapped stratagems','Equipment']) assert(!labels.some(l => l.includes(hidden)), hidden + ' must be hidden');
+    // 'Vehicles' is the hd2.vehicle destination since 0.23.0; the legacy mapped categories stay hidden.
+    for (const hidden of ['Legacy mapped stratagems','Equipment']) assert(!labels.some(l => l.includes(hidden)), hidden + ' must be hidden');
     assert((await evaluate("document.querySelector('.project-label').innerText")).includes('No project selected'));
-    for (const page of ['overview','player-weapons','stratagems','stratagems:defensive','support','changes','lua','export']) {
+    for (const page of ['overview','player-weapons','stratagems','stratagems:defensive','vehicles','backpacks','support','changes','lua','export']) {
         await go(page); assert.equal(await count('[data-empty-workspace]'), 1, page);
         assert((await evaluate("document.querySelector('[data-empty-workspace]').innerText")).includes('Select or create a project to begin editing.'));
         assert.deepEqual(await list('.sidebar [data-nav]', 'b=>b.dataset.nav'), expectedNav, 'navigation persists on ' + page);

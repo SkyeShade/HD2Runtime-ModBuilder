@@ -80,3 +80,16 @@ public sealed class FakeGitHub : IGitHubReleaseClient
     public async Task DownloadAsync(SdkRelease release, string destination, CancellationToken ct = default)
     { await File.WriteAllBytesAsync(destination, CandidateArchives.GetValueOrDefault(release.Version) ?? Archive, ct); if (FailDownload) throw new HttpRequestException("Interrupted download"); }
 }
+
+// Published SDK archives kept as fixtures so version-specific regressions stay pinned when the bundled SDK moves on.
+public static class SdkFixtures
+{
+    public static byte[] Archive(string version) => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", $"sdk-{version}.zip"));
+    public static byte[] Entry(string version, string name)
+    {
+        using var zip = System.IO.Compression.ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", $"sdk-{version}.zip"));
+        using var input = zip.GetEntry(name)!.Open(); using var output = new MemoryStream(); input.CopyTo(output); return output.ToArray();
+    }
+    public static async Task<HD2RuntimeGUI.Core.Metadata.SdkMetadata> Install(TestEnvironment e, string version)
+    { e.GitHub.Archive = Archive(version); return await e.Cache.InstallAsync(FakeGitHub.MakeRelease(version, e.GitHub.Archive)); }
+}

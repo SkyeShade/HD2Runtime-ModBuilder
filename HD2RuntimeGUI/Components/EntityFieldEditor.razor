@@ -1,0 +1,39 @@
+@inject BuilderWorkspace Workspace
+@* One published vehicle/backpack scalar field. Evidence tiers are shown as published; schema-proven never looks like in-game tested. *@
+@{ var saved = Saved; }
+<article class="stat-card @(saved != null ? "modified" : "")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
+    <div class="panel-heading"><h3>@(Label ?? Field.DisplayName)</h3>
+        <EvidenceBadge Evidence="Field.Evidence" Tiers="Tiers" />
+        @if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
+    @if (saved != null) { <p class="modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong> @Unit</p> }
+    else { <p class="subtle" data-baseline="@Format(Field.CurrentDefault)">Baseline: @Format(Field.CurrentDefault) @Unit</p> }
+    @if (!Field.Editable) { <span class="badge">Not currently writable</span><p class="subtle">@Field.Reason</p> }
+    else
+    {
+        <label>Current value <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" /></label>
+    }
+    @if (saved != null)
+    {
+        <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> Enabled</label>
+        <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: Field.InstanceKey))">Reset field</button>
+        @if (Workspace.EntityIssue(saved) is { } issue)
+        {
+            <p class="notice warning">@issue</p>
+            @if (Field.Editable && (saved.CapabilityEvidence != EntityChangeService.Evidence(Field) || !EntityScalar.Equal(Field, saved.ExpectedValue, Field.CurrentDefault)))
+            { <button @onclick="() => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }
+        }
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+</article>
+@code {
+    [Parameter, EditorRequired] public EntityField Field { get; set; } = null!;
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, string>? Tiers { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private EntityChange? Saved => EntityChangeService.Saved(Workspace.Project, Field);
+    private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
+    private string Value => Format(Saved?.DesiredValue ?? Field.CurrentDefault);
+    private string Format(System.Text.Json.JsonElement v) { try { return EntityScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

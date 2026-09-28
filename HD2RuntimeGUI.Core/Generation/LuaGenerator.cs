@@ -26,6 +26,7 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
     private readonly IStratagemLua stratagemLua = new StratagemLua(new StratagemChangeService());
     public LuaGenerator(IChangeService changes, IWeaponChangeService weaponChanges, IProjectileChangeService projectileChanges, ICompositionChangeService compositionChanges, ISemanticOperationPlanner planner, ISupportLua supportLua, IStratagemLua stratagemLua)
         : this(changes, weaponChanges, projectileChanges, compositionChanges, planner, supportLua) => this.stratagemLua = stratagemLua;
+    private readonly IEntityLua entityLua = new EntityLua(new EntityChangeService());
     public string Generate(ModProject project, SdkMetadata sdk)
     {
         ProjectIdentity.Validate(project);
@@ -77,6 +78,7 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
         }
         operations.AddRange(supportLua.Operations(project, sdk));
         operations.AddRange(stratagemLua.Operations(project, sdk));
+        operations.AddRange(entityLua.Operations(project, sdk));
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
         if (project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1)

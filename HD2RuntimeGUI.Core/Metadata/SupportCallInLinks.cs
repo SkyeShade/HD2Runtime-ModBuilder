@@ -91,7 +91,8 @@ public static class SupportCallInLinker
         // No one-sided links: every other entry must be explicitly unknown, without an identity, and carry Runtime's blocker.
         Check(support.Weapons.Where(w => !byWeapon.ContainsKey(w.Name)).All(w => w.LinkedStratagem is { Known: false, SemanticId: null, RelationshipId: null } l && !string.IsNullOrWhiteSpace(l.Blocker)));
         Check(roots.Where(s => !byStratagem.ContainsKey(s.Name)).All(s => s.Delivers is { Known: false, SemanticId: null, RelationshipId: null } d && !string.IsNullOrWhiteSpace(d.Blocker)));
-        Check(stratagems.Stratagems.Where(s => s.Family != "support").All(s => s.Delivers == null || !s.Delivers.Known));
+        // Vehicle and backpack call-in links are validated by the entity authoring reader.
+        Check(stratagems.Stratagems.Where(s => s.Family != "support").All(s => s.Delivers == null || !s.Delivers.Known || s.Delivers.Kind == s.Family && s.Family is "vehicle" or "backpack"));
         var a = linkage.Audit;
         Check(a.SupportWeapons == support.Weapons.Length && a.SupportStratagems == roots.Length && a.KnownLinks == byWeapon.Count
             && a.ReverseLinksKnown == byStratagem.Count && a.Relationships == linkage.Relationships.Length

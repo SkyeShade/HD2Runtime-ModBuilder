@@ -48,6 +48,8 @@
         }
         else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => StratagemCategory = c" Changed="RefreshWeaponUI" /> }
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
+        else if (Page == "vehicles") { <Vehicles Changed="RefreshWeaponUI" /> }
+        else if (Page == "backpacks") { <Backpacks Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
@@ -68,7 +70,10 @@
                 <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
                 <SupportChanges Changed="RefreshWeaponUI" />
                 <StratagemChanges Changed="RefreshWeaponUI" />
+                <EntityChanges Changed="RefreshWeaponUI" />
                 <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@ModificationCount</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
+                @if (Workspace.SdkStatus?.Installed is { } installed && SemVersion.Parse(installed.Version).CompareTo(SemVersion.Parse("0.23.0")) >= 0 && SemVersion.Parse(active.SdkVersion).CompareTo(SemVersion.Parse("0.23.0")) < 0 && (active.StratagemChanges.Count > 0 || active.SupportChanges.Count > 0))
+                { <p class="notice warning" data-runtime023-fixes>HD2Runtime 0.23.0 fixes typed stratagem writes (cooldowns, Eagle settings) that earlier releases rejected, and restores <code>hd2.support_weapon</code> in the public module. Rebinding this project to SDK @installed.Version is recommended; saved field keys are unchanged.</p> }
                 @if (Workspace.SdkStatus?.Installed.Version != active.SdkVersion) { <section class="panel"><h2>New SDK available for this project</h2><p>Rebind semantic identifiers to SDK @Workspace.SdkStatus?.Installed.Version. Your desired values and saved baselines are preserved. Any changed capabilities must be reviewed before building.</p><button @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">Rebind to installed SDK</button></section> }
                 @if (Workspace.Metadata!.PlayerWeapons != null) { <section class="panel"><h2>Author player weapons</h2><p>@Workspace.Metadata.PlayerWeapons.Weapons.Count weapons ? @Workspace.Metadata.PlayerWeapons.Summary.FieldInstances capability entries</p><button class="primary" @onclick='() => Navigate("player-weapons")'>Browse Player Weapons</button></section> }
                 <section class="panel"><h2>Project details</h2><form @onsubmit="SaveDetails" @onsubmit:preventDefault><label for="overview-name">Mod name</label><input id="overview-name" @bind="OverviewName" required maxlength="120" /><div class="form-grid"><div><label for="overview-author">Author</label><input id="overview-author" @bind="OverviewAuthor" required maxlength="120" /></div><div><label for="overview-version">Version</label><input id="overview-version" @bind="OverviewVersion" required /></div></div><label for="overview-description">Description</label><textarea id="overview-description" @bind="OverviewDescription" maxlength="8000" rows="3"></textarea><div class="actions end"><button class="primary" type="submit">Save project details</button></div></form></section>
@@ -78,6 +83,7 @@
                 <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
                 <SupportChanges Changed="RefreshWeaponUI" />
                 <StratagemChanges Changed="RefreshWeaponUI" />
+                <EntityChanges Changed="RefreshWeaponUI" />
                 @if (active.Changes.Count > 0) {
                 <section class="panel"><div class="panel-heading"><h2>Other configured modifications</h2><span class="badge">@active.Changes.Count(c => c.Enabled) enabled</span></div>
                     @foreach (var group in active.Changes.GroupBy(c => c.Group))

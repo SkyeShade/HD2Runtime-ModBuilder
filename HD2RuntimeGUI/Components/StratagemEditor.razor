@@ -43,10 +43,21 @@
     }
     @foreach (var entity in graph.Entities)
     {
-        <EntityStats TField="StratagemField" Title="Deployed Entity" Identity="@entity.Entity" Kind="@EntityStats.KindLabel(entity.Identity)" Items="entity.Stats"
-                     Description="@(graph.Root.Family == "mine" ? "Deployment entity of the minefield. Individual mines are not resolved by Runtime." : null)">
+        <EntityStats TField="StratagemField" Title="@(entity.Shield != null ? "Physical emitter / base" : "Deployed Entity")" Identity="@entity.Entity" Kind="@EntityStats.KindLabel(entity.Identity)" Items="entity.Stats"
+                     Description="@(graph.Root.Family == "mine" ? "Deployment entity of the minefield. Individual mines are not resolved by Runtime." : entity.Shield != null ? "The physical emitter that can be destroyed. Its shield projector is a separate component of the same entity and is edited below." : null)">
             <Editor Context="f"><StratagemFieldEditor @key="f.InstanceKey" Field="f" Label="@EntityStats.Label(f.SemanticFieldId)" Changed="Refresh" /></Editor>
             <ChildContent>
+                @if (entity.Zones.Length > 0)
+                {
+                    <div class="entity-zones" data-entity-zones="@entity.Entity">
+                        <h3 class="group-title">@(entity.Shield != null ? "Body damage zones" : "Damage zones")</h3>
+                        @foreach (var zone in entity.Zones)
+                        {
+                            <div class="zone-row" data-zone="@zone.Zone.ZoneId"><strong>@(zone.Zone.Name?.Replace('_', ' ') ?? zone.Zone.ZoneId)</strong> <small class="subtle">@zone.Zone.ZoneId</small>
+                                <div class="stat-grid">@foreach (var f in zone.Fields) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div></div>
+                        }
+                    </div>
+                }
                 @foreach (var weapon in entity.Weapons)
                 {
                     <div class="mounted-weapon" data-mounted-weapon="@weapon.Weapon">
@@ -64,6 +75,16 @@
                 }
             </ChildContent>
         </EntityStats>
+        @if (entity.Shield is { } shield)
+        {
+            <section class="panel category-panel cat-defensive shield-projector" data-shield-projector="@entity.Entity">
+                <div class="panel-heading"><h2>Shield projector</h2><span class="badge">@shield.Config.Component</span></div>
+                <p class="subtle">The @shield.Config.IdentityRole on the same deployed entity as the emitter. The spawned runtime shield instance is @shield.Config.RuntimeShieldInstance, so the shield is edited through its typed configuration.</p>
+                @if (shield.Fields.Length > 0) { <div class="stat-grid">@foreach (var f in shield.Fields) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+                @if (!ModifiedOnly && shield.Config.BlockedFields.Length > 0)
+                { <details data-shield-blocked><summary>Not currently writable</summary>@foreach (var b in shield.Config.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@b.Field:</strong> @b.Reason</p> }</details> }
+            </section>
+        }
     }
     @foreach (var attack in graph.Attacks)
     {

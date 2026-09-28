@@ -1,0 +1,65 @@
+@inject BuilderWorkspace Workspace
+@{ var entities = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities; var vehicle = entities?.Vehicles.Find(Name); }
+@if (entities != null && vehicle != null)
+{
+    var catalog = entities.Vehicles; var fields = catalog.FieldInstances.Where(f => f.Target.Vehicle == Name).ToDictionary(f => f.InstanceKey);
+    bool Show(EntityField f) => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null;
+    var callIn = entities.CallInFor("vehicle", Name);
+    @if (!ModifiedOnly)
+    {
+        <section class="panel category-panel cat-support" data-vehicle="@vehicle.Name">
+            <div class="eyebrow">VEHICLE · @(vehicle.VehicleClass?.ToUpperInvariant() ?? "NATIVE")</div><h2>@vehicle.Name</h2>
+            <div class="field-badges"><span class="badge">@(vehicle.CatalogSource == "native_only" ? "Native-only vehicle" : "Stratagem vehicle")</span>
+                <span class="badge">@vehicle.Durability.Zones.Length damage zones</span><span class="badge">@vehicle.Mounts.Count(m => m.Swappable) swappable mounts</span></div>
+            @if (!vehicle.CallInStratagem.Known) { <p class="subtle" data-callin-unknown>@vehicle.CallInStratagem.Reason</p> }
+            @if (Workspace.Project != null && Workspace.Project.EntityChanges.Any(c => c.Resource == "vehicle" && c.Entity == Name))
+            { <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("vehicle", Name))'>Reset vehicle</button> }
+        </section>
+    }
+    @if (callIn != null) { <CallInFields Stratagem="@callIn" ModifiedOnly="ModifiedOnly" Changed="Changed" /> }
+    var main = vehicle.Durability.FieldInstanceKeys.Select(k => fields[k]).Where(Show).OrderBy(f => EntityStats.Order(f.SemanticFieldId)).ToArray();
+    @if (main.Length > 0)
+    {
+        <section class="panel" data-vehicle-durability><h2>Durability</h2>
+            <div class="stat-grid">@foreach (var f in main) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@EntityStats.Label(f.SemanticFieldId)" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
+        </section>
+    }
+    var zones = vehicle.Durability.Zones.Where(z => z.FieldInstanceKeys.Any(k => Show(fields[k]))).Where(z => ZoneFilter.Length == 0 || (z.Label + " " + z.ZoneId).Contains(ZoneFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
+    @if (vehicle.Durability.Zones.Length > 0 && (!ModifiedOnly || zones.Length > 0))
+    {
+        <details class="panel" data-vehicle-zones open="@ModifiedOnly">
+            <summary><strong>Damage zones</strong> <span class="badge">@vehicle.Durability.Zones.Length</span>
+                <small class="subtle">@vehicle.Durability.Zones.Count(z => z.NameResolved) named · @vehicle.Durability.UnpopulatedZoneSlots unpopulated slots hidden</small></summary>
+            <p class="subtle">Each native zone keeps its own health, armor and share of damage forwarded to main health. Zones are never merged.</p>
+            @if (!ModifiedOnly) { <label>Filter zones<input data-zone-filter @bind="ZoneFilter" @bind:event="oninput" placeholder="zone_3, name…" /></label> }
+            @foreach (var zone in zones)
+            {
+                <details class="zone-row" data-zone="@zone.ZoneId" open="@ModifiedOnly">
+                    <summary><strong>@zone.Label</strong> <small class="subtle">@zone.ZoneId@(zone.ChildZones.Length > 0 ? " · children " + string.Join(", ", zone.ChildZones) : "") · @zone.ActorCount actor@(zone.ActorCount == 1 ? "" : "s")</small>
+                        @if (zone.FieldInstanceKeys.Any(k => EntityChangeService.Saved(Workspace.Project, fields[k]) != null)) { <span class="badge modified-badge">Modified</span> }</summary>
+                    <div class="stat-grid">@foreach (var f in zone.FieldInstanceKeys.Select(k => fields[k]).Where(Show)) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
+                </details>
+            }
+        </details>
+    }
+    var mounts = vehicle.Mounts.Where(m => !ModifiedOnly || catalog.FieldInstances.Any(f => f.Target.Vehicle == Name && f.Target.Mount == m.MountId && EntityChangeService.Saved(Workspace.Project, f) != null)).ToArray();
+    @if (mounts.Length > 0)
+    {
+        <section class="panel" data-vehicle-mounts><h2>Weapon mounts</h2>
+            <p class="subtle">Replacements are limited to Runtime-discovered mounted weapons of the same attack family. Non-weapon slots are shown without controls.</p>
+            <div class="stat-grid">@foreach (var m in mounts) { <MountEditor @key="m.MountId" Mount="m" Vehicle="@Name" Changed="Changed" /> }</div>
+        </section>
+    }
+    @if (!ModifiedOnly && vehicle.BlockedFields.Length > 0)
+    {
+        <details class="panel" data-blocked-capabilities><summary>Not currently writable</summary>@foreach (var b in vehicle.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@b.Field:</strong> @b.Reason</p> }</details>
+    }
+    @if (Error != null) { <p class="notice warning">@Error</p> }
+}
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string ZoneFilter = ""; private string? Error;
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

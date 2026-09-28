@@ -39,7 +39,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     private readonly IStratagemCatalogReader stratagemReader = new StratagemCatalogReader();
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader, IStratagemCatalogReader stratagemReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
-    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName);
+    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -96,6 +96,11 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 ?? throw new InvalidDataException("SDK is missing canonical stratagem capabilities.")) };
         }
         if (sdk.Stratagems != null && sdk.SupportAuthoring != null) sdk = sdk with { SupportLinks = SupportCallInLinker.Link(sdk.Stratagems, sdk.SupportAuthoring) };
+        if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.23.0")) >= 0)
+            sdk = sdk with { Entities = EntityAuthoringReader.Read(
+                payload.Composition!.GetValueOrDefault(EntityAuthoringReader.VehicleFile) ?? throw new InvalidDataException("SDK is missing vehicle authoring capabilities."),
+                payload.Composition!.GetValueOrDefault(EntityAuthoringReader.BackpackFile) ?? throw new InvalidDataException("SDK is missing backpack authoring capabilities."),
+                sdk.Version, sdk.Stratagems ?? throw new InvalidDataException("SDK is missing canonical stratagem capabilities.")) };
         return sdk;
     }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)
@@ -227,6 +232,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     {
         SupportAuthoringReader.FileName => SupportAuthoringReader.MaxBytes,
         StratagemCatalogReader.FileName => StratagemCatalogReader.MaxBytes,
+        EntityAuthoringReader.VehicleFile or EntityAuthoringReader.BackpackFile => EntityAuthoringReader.MaxBytes,
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };
     public static void ValidateEntryPath(string name)

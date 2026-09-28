@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "runtime_version": "0.22.1",
+  "runtime_version": "0.23.0",
   "api_version": 1,
   "evidence_categories": [
     "structural_candidate",
@@ -2716,7 +2716,10 @@
         "status": "string",
         "result?": "table",
         "error?": "string",
-        "cancel": "fun()"
+        "cancel": "fun()",
+        "attempts?": "integer",
+        "max_attempts?": "integer",
+        "last_transient?": "string"
       },
       "HD2EnsureWatch": {
         "status": "string",
@@ -2726,7 +2729,11 @@
         "runs": "integer",
         "interval": "number",
         "id": "string",
-        "kind": "string"
+        "kind": "string",
+        "current_interval": "number",
+        "max_interval": "number",
+        "verifications": "integer",
+        "drifts": "integer"
       },
       "HD2ObserveRequest": {
         "targets": "HD2ReadTarget[]",
@@ -2801,7 +2808,14 @@
         "transaction?": "HD2TransactionRequest",
         "plan?": "HD2PlanRequest",
         "interval?": "number",
-        "startup_delay?": "number"
+        "startup_delay?": "number",
+        "max_interval?": "number"
+      },
+      "HD2RuntimeMetrics": {
+        "counters": "table<string, number>",
+        "worst_seconds": "table<string, number>",
+        "total_seconds": "table<string, number>",
+        "timed": "boolean"
       }
     },
     "functions": {
@@ -2913,7 +2927,12 @@
           ]
         ],
         "returns": "HD2EnsureWatch",
-        "doc": "Wrap exactly one patch, transaction, or composition plan. Default 60 update seconds, three-second startup, terminal conflict rejection."
+        "doc": "Wrap exactly one patch, transaction, or composition plan. The first run is fully guarded; afterwards only the applied target bytes are re-checked, backing off from interval (default 60 s) to max_interval (default 600 s). Drift triggers the full guarded path again; conflicts are terminal. Each guarded run retries transient not-ready failures up to 6 attempts, 5 s apart."
+      },
+      "metrics": {
+        "params": [],
+        "returns": "HD2RuntimeMetrics",
+        "doc": "Process-wide counters (scans, lookups, hashes, writes, verifications, scheduler ticks) and worst durations for performance audits."
       }
     },
     "target_methods": {

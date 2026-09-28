@@ -5,7 +5,11 @@ namespace HD2RuntimeGUI.Core.Metadata;
 public sealed record StratagemFieldGroup(string Key, string Title, StratagemField[] Fields);
 public sealed record StratagemAttackNode(StratagemAttack Attack, string Title, StratagemField[] Fields);
 public sealed record StratagemWeaponNode(string Entity, string Weapon, string Title, StratagemFieldGroup[] Groups, StratagemAttackNode[] Attacks);
-public sealed record StratagemEntityNode(string Entity, StratagemEntityIdentity Identity, StratagemField[] Stats, StratagemWeaponNode[] Weapons);
+public sealed record StratagemZoneNode(StratagemDamageZone Zone, StratagemField[] Fields);
+public sealed record StratagemShieldNode(StratagemShieldConfig Config, StratagemField[] Fields);
+// Stats are the physical base (entity health/armor and other deployed-entity fields); zones and the shield projector stay separate nodes.
+public sealed record StratagemEntityNode(string Entity, StratagemEntityIdentity Identity, StratagemField[] Stats, StratagemWeaponNode[] Weapons,
+    StratagemZoneNode[] Zones, StratagemShieldNode? Shield);
 
 // Presentation graph for one stratagem: Stratagem → Deployed Entity → Mounted Weapon(s) → Attack branches.
 // Nodes are grouped only by the published semantic target identity of each canonical instance; no native relationship
@@ -14,7 +18,8 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
     StratagemEntityNode[] Entities, StratagemAttackNode[] Attacks, StratagemBlockedField[] Blocked)
 {
     public IEnumerable<StratagemField> AllFields => Definition.Concat(EagleRearm).Concat(Attacks.SelectMany(a => a.Fields))
-        .Concat(Entities.SelectMany(e => e.Stats.Concat(e.Weapons.SelectMany(w => w.Groups.SelectMany(g => g.Fields).Concat(w.Attacks.SelectMany(a => a.Fields))))));
+        .Concat(Entities.SelectMany(e => e.Stats.Concat(e.Zones.SelectMany(z => z.Fields)).Concat(e.Shield?.Fields ?? [])
+            .Concat(e.Weapons.SelectMany(w => w.Groups.SelectMany(g => g.Fields).Concat(w.Attacks.SelectMany(a => a.Fields))))));
     public static StratagemGraph Build(StratagemCatalog c, string name, Func<StratagemField, bool>? include = null)
     {
         var root = c.Root(name) ?? throw new InvalidDataException("Unknown stratagem.");
@@ -37,8 +42,13 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
                         AttackNodes(attacks.Where(a => a.Entity == entity && a.Weapon == weapon))))
                     .Where(w => w.Groups.Length > 0 || w.Attacks.Length > 0).ToArray();
                 var stats = fields.Where(f => f.Target.Path == "deployed_entity" && f.Target.Entity == entity).OrderBy(f => EntityStats.Order(f.SemanticFieldId)).ToArray();
-                return new StratagemEntityNode(entity, root.DeployedEntity!, stats, weapons);
-            }).Where(e => include == null || e.Stats.Length > 0 || e.Weapons.Length > 0).ToArray();
+                var zones = (root.DeployedEntity!.DamageZones ?? []).Select(z => new StratagemZoneNode(z,
+                        fields.Where(f => f.Target.Path == "damage_zone" && f.Target.Entity == entity && f.Target.Zone == z.ZoneId).ToArray()))
+                    .Where(z => include == null || z.Fields.Length > 0).ToArray();
+                var shieldFields = fields.Where(f => f.Target.Path == "shield" && f.Target.Entity == entity).ToArray();
+                var shield = root.DeployedEntity.Shield is { } config && (include == null || shieldFields.Length > 0) ? new StratagemShieldNode(config, shieldFields) : null;
+                return new StratagemEntityNode(entity, root.DeployedEntity, stats, weapons, zones, shield);
+            }).Where(e => include == null || e.Stats.Length > 0 || e.Weapons.Length > 0 || e.Zones.Length > 0 || e.Shield != null).ToArray();
         return new(root, fields.Where(f => f.Target.Path == "stratagem").ToArray(), fields.Where(f => f.Target.Path == "eagle_rearm").ToArray(),
             entities, AttackNodes(attacks.Where(a => a.Entity == null)), root.DeployedEntity?.BlockedFields ?? []);
     }
@@ -68,11 +78,11 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
 public static class EntityStats
 {
     public static int Order(string semanticFieldId) => semanticFieldId switch { "entity.health" => 0, "entity.armor" => 1, _ => 2 };
-    public static string Label(string semanticFieldId) => semanticFieldId switch
+    public static string? Label(string semanticFieldId) => semanticFieldId switch
     {
         "entity.health" => "Health",
         "entity.armor" => "Armor",
-        _ => StratagemGraph.Title(semanticFieldId[(semanticFieldId.LastIndexOf('.') + 1)..]),
+        _ => null,
     };
     public static string KindLabel(StratagemEntityIdentity identity) => identity.Kind == "DeployableSystem" ? "Deployment system" : identity.Kind;
 }

@@ -12,6 +12,7 @@ public sealed record StratagemChange
     public string Path { get; init; } = "";
     public string? Entity { get; init; }
     public string? Weapon { get; init; }
+    public string? Zone { get; init; }
     public string? Attack { get; init; }
     public string InstanceKey { get; init; } = "";
     public string SemanticFieldId { get; init; } = "";

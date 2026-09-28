@@ -1059,3 +1059,16 @@ input[type=checkbox]:checked:before {
 .delivery-tree li > small { color:var(--muted); margin-left:.6rem }
 .delivery-tree li > .badge { margin-left:.6rem }
 .linked-weapon-changes { margin-top:14px; padding-left:14px; border-left:2px solid color-mix(in srgb, var(--cat-support) 55%, transparent) }
+/* Vehicles, backpacks, zones, mounts and evidence tiers */
+.entity-zones { margin-top:16px }
+.zone-row { margin:10px 0; padding:8px 0 8px 12px; border-left:2px solid var(--border) }
+.zone-row > summary { cursor:pointer }
+.zone-row .stat-grid { margin-top:8px }
+.shield-projector .stat-grid { margin-top:8px }
+.mount-slot select { width:100% }
+.badge.evidence { font-size:11px }
+.badge.tier-gameplay-proven { color:var(--green); border-color:color-mix(in srgb, var(--green) 45%, transparent) }
+.badge.tier-gameplay-proven-combined { color:var(--green); border-style:dashed }
+.badge.tier-schema-proven { color:var(--cat-support); border-color:color-mix(in srgb, var(--cat-support) 40%, transparent) }
+.badge.tier-live-write-verified { color:var(--accent); border-color:#796934 }
+.badge.tier-structural-reference { color:var(--muted); border-style:dashed }

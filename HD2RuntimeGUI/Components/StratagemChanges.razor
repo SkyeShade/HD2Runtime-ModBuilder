@@ -1,11 +1,14 @@
 @inject BuilderWorkspace Workspace
 @{
     var catalog = Workspace.Metadata?.Stratagems; var links = Workspace.Metadata?.SupportLinks; var project = Workspace.Project;
+    // Call-ins of vehicles/backpacks are listed with that vehicle or backpack (EntityChanges), not here.
+    var entityCallIns = Workspace.Metadata?.Entities?.CallIns;
+    var stratagemChanges = project?.StratagemChanges.Where(c => entityCallIns?.ContainsKey(c.Stratagem) != true).ToArray() ?? [];
     // Support weapon edits whose weapon has a published call-in link are shown with that stratagem (one logical entry).
     var linked = project?.SupportChanges.Select(c => (Change: c, Link: links?.ForWeapon(c.Weapon))).Where(x => x.Link != null)
         .ToLookup(x => x.Link!.Stratagem.Name, x => x.Change) ?? Enumerable.Empty<SupportChange>().ToLookup(_ => "");
 }
-@if (project != null && (project.StratagemChanges.Count > 0 || linked.Count > 0))
+@if (project != null && (stratagemChanges.Length > 0 || linked.Count > 0))
 {
     <div class="panel-heading"><h2>Stratagem changes</h2>@if (project.StratagemChanges.Count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetStratagemAsync())">Reset all stratagem changes</button> }</div>
     @if (Workspace.Metadata != null)
@@ -13,9 +16,9 @@
         @foreach (var overlap in StratagemLua.SharedOverlaps(project, Workspace.Metadata))
         { <p class="notice" data-shared-overlap>@string.Join(", ", overlap.Changes.Select(c => c.Stratagem + " · " + c.SemanticFieldId).Distinct()): @overlap.Message</p> }
     }
-    @foreach (var key in project.StratagemChanges.Select(Key).Concat(linked.Select(g => g.Key)).Distinct().Order())
+    @foreach (var key in stratagemChanges.Select(Key).Concat(linked.Select(g => g.Key)).Distinct().Order())
     {
-        var group = project.StratagemChanges.Where(c => Key(c) == key).ToArray(); var weaponChanges = linked[key].ToArray();
+        var group = stratagemChanges.Where(c => Key(c) == key).ToArray(); var weaponChanges = linked[key].ToArray();
         var shared = key == "Eagle Shared System"; var name = group.FirstOrDefault()?.Stratagem ?? key;
         <details class="panel" data-stratagem-change-group="@key"><summary>@if (!shared && catalog?.Root(name) is { } root && StratagemCategories.Of(root.Family) is { } category) { <span class="category-pill static @category.CssClass" data-change-category="@category.Key"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }<strong>@key</strong> <span class="badge">@(group.Length + weaponChanges.Length) @(group.Length + weaponChanges.Length == 1 ? "change" : "changes")</span> <small class="subtle">@string.Join(" · ", group.Select(Section).Concat(weaponChanges.Length > 0 ? ["Weapon · " + weaponChanges[0].Weapon] : []).Distinct())</small></summary>
             <label><input type="checkbox" checked="@ShowAll.Contains(key)" @onchange="e => Toggle(key, (bool)e.Value!)" /> Show all fields</label>

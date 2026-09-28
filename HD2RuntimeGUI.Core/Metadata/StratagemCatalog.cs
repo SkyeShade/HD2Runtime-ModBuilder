@@ -8,8 +8,13 @@ namespace HD2RuntimeGUI.Core.Metadata;
 public sealed record StratagemAvailability(JsonElement Value, bool Writable, string? Reason, string? Field, string? Unit);
 public sealed record StratagemBlockedField(string Field, string Reason);
 // Published semantic identity of a deployed entity. No native component records are exposed.
+// Populated native damage zones of a deployed entity (0.23.0+). Distinct zones are never merged.
+public sealed record StratagemDamageZone(string ZoneId, string? Name, JsonElement Armor, JsonElement Health, JsonElement AffectsMainHealth, string[] FieldInstances);
+// Shield projector configuration that is a component of the same deployed entity as the physical base (0.23.0+).
+public sealed record StratagemShieldConfig(string IdentityRole, string Component, bool SameEntityAsBase, string RuntimeShieldInstance,
+    StratagemBlockedField[] BlockedFields, string[] FieldInstances);
 public sealed record StratagemEntityIdentity(string Kind, string IdentityStatus, string IdentityRole, int FieldCount,
-    string[] WeaponBranches, StratagemBlockedField[] BlockedFields);
+    string[] WeaponBranches, StratagemBlockedField[] BlockedFields, StratagemDamageZone[]? DamageZones = null, StratagemShieldConfig? Shield = null);
 public sealed record StratagemDefinition(string Name, string Family, string RootResolution, string? BlockedReason,
     string[] AttackRoles, StratagemAvailability CooldownCapability, StratagemAvailability MaxUses,
     StratagemAvailability CallInTime, int? UsesPerRearm, double? RearmTime,
@@ -27,7 +32,8 @@ public sealed record StratagemAttack(string Stratagem, string Family, string Rol
 // Entity/weapon are omitted when absent so schema-1 capability evidence stays byte-identical.
 public sealed record StratagemTarget(string Resource, string Stratagem, string Path, string? Attack,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Entity = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Weapon = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Weapon = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Zone = null);
 public sealed record StratagemConsumer(string Stratagem, string Path);
 public sealed record StratagemField(string InstanceKey, string SemanticFieldId, string DisplayName, string Type, string? Unit,
     JsonElement CurrentDefault, bool Editable, string? Reason, StratagemTarget Target, string BackingObjectId,
@@ -72,15 +78,15 @@ public sealed record StratagemCatalog(int SchemaVersion, string Contract, string
     public StratagemField Field(string key) => FieldInstances.SingleOrDefault(f => f.InstanceKey == key)
         ?? throw new InvalidDataException("Stratagem capability is missing. Review or reset this modification.");
     public StratagemField? Find(string key) => FieldInstances.FirstOrDefault(f => f.InstanceKey == key);
-    public static bool SameSemanticTarget(StratagemField f, string stratagem, string path, string? entity, string? weapon, string? attack, string field)
-        => f.Target.Stratagem == stratagem && f.Target.Path == path && f.Target.Entity == entity && f.Target.Weapon == weapon
+    public static bool SameSemanticTarget(StratagemField f, string stratagem, string path, string? entity, string? weapon, string? attack, string field, string? zone = null)
+        => f.Target.Stratagem == stratagem && f.Target.Path == path && f.Target.Entity == entity && f.Target.Weapon == weapon && f.Target.Zone == zone
             && f.Target.Attack == attack && f.SemanticFieldId == field;
     // Canonical instance keys may be renamed between SDK releases. The saved semantic target
     // (stratagem, graph path, entity, weapon, attack and field) is the stable identity; it must match exactly one instance.
     public StratagemField? Resolve(Models.StratagemChange c)
     {
         if (Find(c.InstanceKey) is { } exact) return exact;
-        var matches = FieldInstances.Where(f => SameSemanticTarget(f, c.Stratagem, c.Path, c.Entity, c.Weapon, c.Attack, c.SemanticFieldId)).Take(2).ToArray();
+        var matches = FieldInstances.Where(f => SameSemanticTarget(f, c.Stratagem, c.Path, c.Entity, c.Weapon, c.Attack, c.SemanticFieldId, c.Zone)).Take(2).ToArray();
         return matches.Length == 1 ? matches[0] : null;
     }
     public StratagemDefinition? Root(string name) => Stratagems.FirstOrDefault(s => s.Name == name);
@@ -91,6 +97,8 @@ public sealed record StratagemCatalog(int SchemaVersion, string Contract, string
         "eagle_rearm" => "Eagle Shared System",
         "stratagem" => "Stratagem",
         "deployed_entity" => "Deployed Entity",
+        "damage_zone" => "Damage Zone · " + f.Target.Zone,
+        "shield" => "Shield",
         "weapon" => "Mounted Weapon · " + StratagemGraph.Title(f.Target.Weapon!),
         _ => AttackOf(f)!.Path.Replace("/", " → "),
     };
@@ -130,7 +138,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             Check(c.SemanticBranches.All(b => !string.IsNullOrWhiteSpace(b.Id) && !string.IsNullOrWhiteSpace(b.Name) && roots.ContainsKey(b.Stratagem) && b.ChildIds != null
                 && (b.WikiKind != null && b.SemanticRoles != null || v2 && b.Kind != null && b.SourcePath != null)));
             Check(c.Attacks.GroupBy(a => (a.Stratagem, a.Role)).All(g => g.Count() == 1) && c.Attacks.All(a => roots.ContainsKey(a.Stratagem)));
-            string[] paths = v2 ? ["stratagem", "attack", "eagle_rearm", "deployed_entity", "weapon"] : ["stratagem", "attack", "eagle_rearm"];
+            string[] paths = v2 ? ["stratagem", "attack", "eagle_rearm", "deployed_entity", "weapon", "damage_zone", "shield"] : ["stratagem", "attack", "eagle_rearm"];
             foreach (var f in c.FieldInstances)
             {
                 Check(f.InstanceKey.StartsWith("stratagem:", StringComparison.Ordinal) && f.InstanceKey.Length <= 512
@@ -146,13 +154,14 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                 // Deployed targets must carry the published entity/weapon path of their graph node, never an inferred one.
                 Check(f.Target.Path switch
                 {
-                    "deployed_entity" => f.Target.Entity != null && f.Target.Weapon == null,
-                    "weapon" => f.Target.Entity != null && f.Target.Weapon != null,
-                    "attack" => f.Target.Entity == attack!.Entity && f.Target.Weapon == attack.Weapon && (f.Target.Entity == null) == (f.Target.Weapon == null),
-                    _ => f.Target.Entity == null && f.Target.Weapon == null,
+                    "deployed_entity" or "shield" => f.Target.Entity != null && f.Target.Weapon == null && f.Target.Zone == null,
+                    "damage_zone" => f.Target.Entity != null && f.Target.Weapon == null && f.Target.Zone != null,
+                    "weapon" => f.Target.Entity != null && f.Target.Weapon != null && f.Target.Zone == null,
+                    "attack" => f.Target.Zone == null && f.Target.Entity == attack!.Entity && f.Target.Weapon == attack.Weapon && (f.Target.Entity == null) == (f.Target.Weapon == null),
+                    _ => f.Target.Entity == null && f.Target.Weapon == null && f.Target.Zone == null,
                 });
                 Check((f.Target.Entity == null || Identifier.IsMatch(f.Target.Entity)) && (f.Target.Weapon == null || Identifier.IsMatch(f.Target.Weapon))
-                    && (f.Target.Attack == null || Identifier.IsMatch(f.Target.Attack)));
+                    && (f.Target.Attack == null || Identifier.IsMatch(f.Target.Attack)) && (f.Target.Zone == null || Identifier.IsMatch(f.Target.Zone)));
                 if (f.Target.Entity != null) Check(roots[f.Target.Stratagem].DeployedEntity != null);
                 if (v2) Check(!string.IsNullOrWhiteSpace(f.SharedScopeKey));
                 if (f.Editable) { Check(roots[f.Target.Stratagem].RootResolution == "UNIQUE"); _ = Generation.StratagemScalar.Normalize(f, f.CurrentDefault); }
@@ -174,13 +183,16 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or ArgumentException)
         { throw new InvalidDataException("Malformed stratagem capabilities.", e); }
     }
-    private static void RejectNativeIdentifiers(JsonElement node)
+    // Keys of count dictionaries such as summary.writableByDomain are published domain names (for example "payload"), not record properties.
+    private static readonly HashSet<string> NameKeyedCounts = new(StringComparer.Ordinal) { "writableByDomain" };
+    private static void RejectNativeIdentifiers(JsonElement node, bool keysAreNames = false)
     {
         if (node.ValueKind == JsonValueKind.Object)
             foreach (var p in node.EnumerateObject())
             {
-                if (NativeProperties.Contains(p.Name)) throw new InvalidDataException("Stratagem capabilities expose native identifiers.");
-                RejectNativeIdentifiers(p.Value);
+                if (NativeProperties.Contains(p.Name) && !(keysAreNames && p.Value.ValueKind == JsonValueKind.Number))
+                    throw new InvalidDataException("Stratagem capabilities expose native identifiers.");
+                RejectNativeIdentifiers(p.Value, NameKeyedCounts.Contains(p.Name));
             }
         else if (node.ValueKind == JsonValueKind.Array) foreach (var child in node.EnumerateArray()) RejectNativeIdentifiers(child);
         else if (node.ValueKind == JsonValueKind.String && Regex.IsMatch(node.GetString()!, @"\b0x[0-9a-fA-F]+\b"))
@@ -236,7 +248,8 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             Check(IsDefensive(root.Family) == (root.DeployedEntity != null) && (root.Family == "mine") == (root.MineScopeDeferred == true));
             if (root.DeployedEntity is not { } identity) { Check(root.MineInstanceResolved == null); continue; }
             var e = deployed[root.Name];
-            var owned = c.FieldInstances.Where(f => f.Target.Stratagem == root.Name && f.Target.Entity != null).Select(f => f.InstanceKey).Order(StringComparer.Ordinal);
+            // Zone and shield instances are listed by identity.damageZones / identity.shield (checked in ZonesAndShieldMatch).
+            var owned = c.FieldInstances.Where(f => f.Target.Stratagem == root.Name && f.Target.Entity != null && f.Target.Path is not ("damage_zone" or "shield")).Select(f => f.InstanceKey).Order(StringComparer.Ordinal);
             var weapons = c.FieldInstances.Where(f => f.Target.Stratagem == root.Name && f.Target.Weapon != null).Select(f => f.Target.Weapon!)
                 .Concat(c.Attacks.Where(a => a.Stratagem == root.Name && a.Weapon != null).Select(a => a.Weapon!)).Distinct().Order(StringComparer.Ordinal);
             Check(e.Family == root.Family && JsonEquals(e.Identity, identity) && JsonEquals(e.BlockedFields, identity.BlockedFields)
@@ -244,6 +257,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                 && e.AttackRoles.Order(StringComparer.Ordinal).SequenceEqual(c.Attacks.Where(a => a.Stratagem == root.Name).Select(a => a.Role).Order(StringComparer.Ordinal))
                 && identity.WeaponBranches.Order(StringComparer.Ordinal).SequenceEqual(weapons) && identity.WeaponBranches.All(Identifier.IsMatch)
                 && identity.FieldCount == c.FieldInstances.Count(f => f.Target.Stratagem == root.Name && f.Target.Path == "deployed_entity")
+                && ZonesAndShieldMatch(c, root.Name, identity)
                 && identity.BlockedFields.All(b => !string.IsNullOrWhiteSpace(b.Field) && !string.IsNullOrWhiteSpace(b.Reason)));
             // Mines resolve their deployment system only. Unresolved mine attacks must never become controls.
             if (root.Family == "mine" && root.MineInstanceResolved != true)
@@ -272,6 +286,18 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             && s.NativeBranchInstancesByKind != null && s.NativeBranchInstancesByKind.OrderBy(x => x.Key).SequenceEqual(Kinds(c.Attacks).OrderBy(x => x.Key))
             && s.DefensiveNativeBranchInstancesByKind != null
             && s.DefensiveNativeBranchInstancesByKind.OrderBy(x => x.Key).SequenceEqual(Kinds(c.Attacks.Where(a => IsDefensive(a.Family))).OrderBy(x => x.Key)));
+    }
+    // Zone and shield instances must be exactly the ones the deployed entity publishes for each zone / its shield projector.
+    private static bool ZonesAndShieldMatch(StratagemCatalog c, string name, StratagemEntityIdentity identity)
+    {
+        var zones = identity.DamageZones ?? [];
+        IEnumerable<string> Keys(Func<StratagemField, bool> match) => c.FieldInstances.Where(f => f.Target.Stratagem == name && match(f)).Select(f => f.InstanceKey).Order(StringComparer.Ordinal);
+        return zones.Select(z => z.ZoneId).Distinct().Count() == zones.Length && zones.All(z => Identifier.IsMatch(z.ZoneId))
+            && zones.All(z => z.FieldInstances.Order(StringComparer.Ordinal).SequenceEqual(Keys(f => f.Target.Path == "damage_zone" && f.Target.Zone == z.ZoneId)))
+            && Keys(f => f.Target.Path == "damage_zone").Count() == zones.Sum(z => z.FieldInstances.Length)
+            && (identity.Shield == null ? !Keys(f => f.Target.Path == "shield").Any()
+                : identity.Shield.SameEntityAsBase && identity.Shield.FieldInstances.Order(StringComparer.Ordinal).SequenceEqual(Keys(f => f.Target.Path == "shield"))
+                    && identity.Shield.BlockedFields.All(b => !string.IsNullOrWhiteSpace(b.Field) && !string.IsNullOrWhiteSpace(b.Reason)));
     }
     private static bool IsDefensive(string family) => StratagemCatalog.IsDefensive(family);
     private static bool JsonEquals<T>(T a, T b) => JsonSerializer.Serialize(a) == JsonSerializer.Serialize(b);

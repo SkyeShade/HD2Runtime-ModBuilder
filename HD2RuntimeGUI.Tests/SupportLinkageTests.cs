@@ -12,10 +12,10 @@ public sealed class SupportLinkageTests
 {
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e)
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync();
+        var sdk = await SdkFixtures.Install(e, "0.22.1");
         var w = e.Workspace(); await w.CreateAsync(new("Support", "Tests", "mods/tests/support_link", "0.1.0"), sdk); return w;
     }
-    private static JsonNode Json(string file) => JsonNode.Parse(SdkCache.BundledComposition()[file])!;
+    private static JsonNode Json(string file) => JsonNode.Parse(SdkFixtures.Entry("0.22.1", file))!;
     private static SupportCallInIndex? Link(JsonNode stratagems, JsonNode support) => SupportCallInLinker.Link(
         new StratagemCatalogReader().Read(Encoding.UTF8.GetBytes(stratagems.ToJsonString())),
         new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(support.ToJsonString()), "0.22.1"));
@@ -118,7 +118,7 @@ public sealed class SupportLinkageTests
         var cooldown = old.Stratagems!.FieldInstances.Single(f => f.Target.Stratagem == "GR-8 Recoilless Rifle" && f.SemanticFieldId == "stratagem.cooldown");
         var sway = old.SupportAuthoring!.FieldInstances.Single(f => f.SupportWeapon == "GR-8 Recoilless Rifle" && f.SemanticFieldId == "weapon.sway");
         await w.SetStratagemAsync(cooldown.InstanceKey, "300"); await w.SetSupportAsync(sway.InstanceKey, "0.5");
-        File.Delete(e.Paths.CachePath("current.json")); await e.Cache.GetCurrentAsync(); await w.RebindToInstalledSdkAsync();
+        await SdkFixtures.Install(e, "0.22.1"); await w.RebindToInstalledSdkAsync();
         Assert.Equal("0.22.1", w.Project!.SdkVersion); Assert.NotNull(w.Metadata!.SupportLinks); Assert.Null(w.BuildError);
         Assert.Single(w.Project.StratagemChanges); Assert.Single(w.Project.SupportChanges);
         Assert.Null(w.StratagemIssue(w.Project.StratagemChanges.Single()));

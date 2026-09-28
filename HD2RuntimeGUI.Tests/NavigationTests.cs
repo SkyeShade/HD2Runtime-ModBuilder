@@ -12,10 +12,11 @@ public sealed class NavigationTests
     {
         using var e = new TestEnvironment(); var sdk = await Current(e);
         var nav = Navigation.Build(sdk, null);
-        Assert.Equal(["overview", "player-weapons", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "support", "changes", "lua", "export", "research"],
+        Assert.Equal(["overview", "player-weapons", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "vehicles", "backpacks", "support", "changes", "lua", "export", "research"],
             nav.Select(i => i.Page));
         var labels = nav.Select(i => i.Label).ToArray();
-        foreach (var hidden in new[] { "Vehicles", "Legacy mapped stratagems", "Equipment", "Weapons" }) Assert.DoesNotContain(hidden, labels);
+        // "Vehicles" is now the hd2.vehicle destination (page "vehicles"), never the legacy mapped "vehicle" builder category.
+        foreach (var hidden in new[] { "Legacy mapped stratagems", "Equipment", "Weapons" }) Assert.DoesNotContain(hidden, labels);
         Assert.DoesNotContain(nav, i => sdk.Builders.ContainsKey(i.Page));
         Assert.Equal(Navigation.Research, nav.Single(i => i.Page == "research").Section);
         Assert.All(nav.Where(i => i.Page != "research"), i => Assert.Equal(Navigation.Workspace, i.Section));
@@ -36,7 +37,7 @@ public sealed class NavigationTests
     public async Task Categories_count_published_families_and_use_semantic_classes(string key, string css, int count)
     {
         using var e = new TestEnvironment(); var sdk = await Current(e); var c = StratagemCategories.Find(key)!;
-        Assert.Equal(css, c.CssClass); Assert.Equal(count, StratagemCategories.Count(sdk.Stratagems!, c));
+        Assert.Equal(css, c.CssClass); Assert.Equal(count, StratagemCategories.Count(sdk.Stratagems!, c, sdk.Entities));
         Assert.Contains(Navigation.Build(sdk, null), i => i.Page == "stratagems:" + key && i.Count == count && i.CssClass == css && i.Child);
     }
     [Fact] public async Task Every_published_stratagem_belongs_to_exactly_one_category()
@@ -48,6 +49,7 @@ public sealed class NavigationTests
         foreach (var name in new[] { "A/MG-43 Machine Gun Sentry", "E/AT-12 Anti-Tank Emplacement", "MD-6 Anti-Personnel Minefield", "FX-12 Shield Generator Relay" })
             Assert.Equal(StratagemCategories.Defensive, StratagemCategories.Of(c.Root(name)!.Family));
         Assert.Equal(StratagemCategories.Support, StratagemCategories.Of(c.Root("GR-8 Recoilless Rifle")!.Family));
-        Assert.Null(StratagemCategories.Of("vehicle"));
+        Assert.Equal(StratagemCategories.Support, StratagemCategories.Of("vehicle")); Assert.Equal(StratagemCategories.Support, StratagemCategories.Of("backpack"));
+        Assert.Null(StratagemCategories.Of("unmapped_family"));
     }
 }

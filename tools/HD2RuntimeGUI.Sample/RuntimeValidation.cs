@@ -76,6 +76,44 @@ internal static class RuntimeValidation
             catch (InvalidDataException e) when (e.Message.Contains("plan limits")) { limited++; continue; }
             Expect(root.Name + " (all writable fields)", program, true);
         }
+        // Vehicles and backpacks (0.23.0+): every writable field, every published mount replacement, and whole-entity plans.
+        if (sdk.Entities is { } entities)
+        {
+            var entitySvc = new EntityChangeService();
+            ModProject EntityProject(IEnumerable<(EntityField Field, string? Replacement)> edits)
+            {
+                var p = Project([]);
+                foreach (var (f, replacement) in edits)
+                {
+                    var value = f.IsReference ? replacement! : f.Type == "integer" ? (f.CurrentDefault.GetInt64() + 1).ToString() : JsonSerializer.Serialize((float)(f.CurrentDefault.GetDouble() + 0.5));
+                    var c = entitySvc.Create(sdk, f.InstanceKey, value);
+                    if (f.IsReference) c = c with { ReferenceAcknowledgement = EntityChangeService.ReferenceEvidence(f, c.DesiredValue) };
+                    p.EntityChanges.Add(c);
+                }
+                return p;
+            }
+            foreach (var f in entities.AllFields.Where(f => f.Editable))
+            {
+                foreach (var replacement in f.IsReference ? f.AllowedValues!.Where(v => v != f.CurrentDefault.GetString()).ToArray() : [(string?)null])
+                {
+                    var program = generator.Generate(EntityProject([(f, replacement)]), sdk);
+                    Expect(f.InstanceKey + (replacement == null ? "" : " -> " + replacement), program, true);
+                    if (f.IsReference) { Expect(f.InstanceKey + " without allow_unverified_reference", program.Replace("allow_unverified_reference=true,", ""), false); rejected++; }
+                }
+                if (f.IsReference) continue;
+                var program2 = generator.Generate(EntityProject([(f, null)]), sdk);
+                var expect = "expect=" + EntityScalar.Text(f, f.CurrentDefault) + ",";
+                if (!program2.Contains(expect)) { failed++; Console.WriteLine($"FAIL {f.InstanceKey}: expected baseline not emitted"); }
+                else { Expect(f.InstanceKey + " stale baseline", program2.Replace(expect, expect[..^1] + "1,"), false); rejected++; }
+            }
+            foreach (var group in entities.AllFields.Where(f => f.Editable).GroupBy(f => f.PlanGroup))
+            {
+                string program;
+                try { program = generator.Generate(EntityProject(group.Select(f => (f, f.IsReference ? f.AllowedValues![0] == f.CurrentDefault.GetString() ? f.AllowedValues[1] : f.AllowedValues[0] : null))), sdk); }
+                catch (InvalidDataException e) when (e.Message.Contains("plan limits")) { limited++; continue; }
+                Expect(group.Key + " (all writable fields)", program, true);
+            }
+        }
         foreach (var file in Directory.Exists(samples) ? Directory.GetFiles(samples, "*.lua").Order(StringComparer.Ordinal).ToArray() : [])
             Expect(Path.GetFileName(file), File.ReadAllText(file), true);
         Console.WriteLine($"Runtime validation: {passed} passed, {failed} failed ({rejected} unsafe variants (missing allow_shared or stale baseline) correctly rejected; {limited} whole-stratagem edits blocked by published plan limits).");

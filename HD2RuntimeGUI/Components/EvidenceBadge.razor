@@ -1,0 +1,17 @@
+@* Runtime-published evidence tier. Labels deliberately distinguish in-game testing from schema proof, live writes and structure-only references. *@
+<span class="badge evidence tier-@Evidence.Tier.Replace('_', '-')" data-evidence-tier="@Evidence.Tier" title="@Tooltip">@Label(Evidence.Tier)</span>
+@code {
+    [Parameter, EditorRequired] public EntityEvidence Evidence { get; set; } = null!;
+    [Parameter] public IReadOnlyDictionary<string, string>? Tiers { get; set; }
+    public static string Label(string tier) => tier switch
+    {
+        "gameplay_proven" => "In-game tested",
+        "gameplay_proven_combined" => "In-game (combined edit)",
+        "schema_proven" => "Schema-proven",
+        "live_write_verified" => "Live write confirmed",
+        "structural_reference" => "Structure only",
+        _ => tier.Replace('_', ' '),
+    };
+    private string Tooltip => string.Join("\n", new[] { Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,
+        Evidence.ProvenOn is { Length: > 0 } on ? "Proven on: " + string.Join(", ", on) : null, Evidence.Proof }.Where(s => !string.IsNullOrWhiteSpace(s)));
+}

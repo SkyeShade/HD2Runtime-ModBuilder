@@ -73,6 +73,8 @@ public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLu
             "stratagem" => root,
             "eagle_rearm" => root + ":eagle_rearm()",
             "deployed_entity" => Entity(),
+            "shield" => Entity() + ":shield()",
+            "damage_zone" => Entity() + ":damage_zone(" + LuaGenerator.Quote(target.Zone!) + ")",
             "weapon" => Weapon(),
             "attack" when target.Weapon == null => root + ":attack(" + LuaGenerator.Quote(target.Attack!) + ")",
             "attack" when target.Weapon == "primary" => Weapon() + ":attack(" + LuaGenerator.Quote(target.Attack!) + ")",

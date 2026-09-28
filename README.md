@@ -1,6 +1,6 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports the **0.22 guarded defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports the **0.23 guarded vehicle, backpack, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
@@ -14,11 +14,26 @@ This repository is separate from HD2Runtime. It does not launch the game, deploy
 
 ## Navigation
 
-The sidebar lists only public authoring destinations: **Overview, Player Weapons, Stratagems** (Support · Offensive · Defensive), **Support Weapons** (unlinked only), **Changes, Lua Preview, Build / Export**, with **Snapshot Research** in a separate Developer / Research group. Legacy mapped-resource categories (Vehicles, Equipment, legacy mapped stratagems) are no longer navigation destinations. Existing legacy changes still appear on Changes and can be edited, toggled or removed there. Navigation stays visible without a project; project destinations then show "Select or create a project to begin editing." Counts come from the installed SDK; the Changes count appears only with an open project.
+The sidebar lists only public authoring destinations: **Overview, Player Weapons, Stratagems** (Support · Offensive · Defensive), **Vehicles**, **Backpacks**, **Support Weapons** (unlinked only), **Changes, Lua Preview, Build / Export**, with **Snapshot Research** in a separate Developer / Research group. Legacy mapped-resource categories (the old mapped Vehicles and Equipment resources and legacy mapped stratagems) are no longer navigation destinations; the Vehicles page is the new `hd2.vehicle` editor. Existing legacy changes still appear on Changes and can be edited, toggled or removed there. Navigation stays visible without a project; project destinations then show "Select or create a project to begin editing." Counts come from the installed SDK; the Changes count appears only with an open project.
 
 Stratagem categories come from published families: Support (`support`, blue), Offensive (`orbital`, `eagle`, red) and Defensive (`sentry`, `emplacement`, `mine`, including the Shield Generator Relay, green). Reusable `cat-support` / `cat-offensive` / `cat-defensive` classes set a `--cat` token used by pills, dots, list accents and panel headers.
 
 Support call-ins and their support weapons are shown as one entry when HD2Runtime publishes a structural link (SDK 0.22.1+, `hd2runtime.support_callin_linkage.v1`). The GUI joins `weapons[].semanticId` ↔ `stratagems[].semanticId` through `linkedStratagem`, `delivers` and `supportCallInLinks.relationships`, and requires the forward link, reverse link, relationship and audit to agree; any mismatch rejects the SDK. Display names are never link evidence. For the 32 linked pairs, Stratagems → Support shows the call-in controls (cooldown; max uses read-only), the published delivery graph (for example Solo Silo: call-in → deployable silo → missile → detonation/impact explosions), and the weapon's existing guarded controls. Write targets and saved changes stay separate: `hd2.stratagem(...)` and `hd2.support_weapon(...)` with their own operation groups, guards and acknowledgements. The seven linked weapons with duplicate runtime identities stay read-only. Changes groups linked weapon edits under their stratagem. **Support Weapons** now lists only the three unlinked weapons (B/MD C4 Pack, SG-88, CQC-72), which show Runtime's blocker instead of being paired. Projects pinned to 0.22.0 or older keep separate editors. See the [linkage notes](docs/support-stratagem-linkage.md).
+
+## Vehicles, backpacks and the Shield Generator Relay (SDK 0.23.0)
+
+**Vehicles** (`hd2.vehicle`) covers 11 vehicles (9 stratagem vehicles plus the native-only Super Earth FRV and GATER Oil Rig). Each editor shows:
+
+- the linked call-in (cooldown);
+- main health and armor;
+- 226 native damage zones, kept separate, each with its own health, armor and damage forwarded to main health, in a collapsible, filterable list;
+- weapon mounts.
+
+Mount selectors list only Runtime-published replacements of the same attack family. Non-weapon slots have no control. Each swap requires an explicit acknowledgement of Runtime's package-loading warning before `allow_unverified_reference=true` is generated.
+
+**Backpacks** (`hd2.backpack`) covers 13 backpacks: 9 writable fields (Jump Pack recharge and launch velocity, Hover Pack recharge, Shield Generator Pack radius and health, Ballistic and Directional Shield health and armor) and read-only fields with Runtime's reasons.
+
+The **FX-12 Shield Generator Relay** separates the physical emitter/base (health, armor, lifetime, body zone) from its shield projector (radius, shield health). Evidence badges distinguish in-game tested, schema-proven, live-write confirmed and structure-only fields. See [0.23 verification](docs/runtime023-verification.md).
 
 ## Authoring
 

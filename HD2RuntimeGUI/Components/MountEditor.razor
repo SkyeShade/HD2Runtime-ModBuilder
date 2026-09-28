@@ -1,0 +1,52 @@
+@inject BuilderWorkspace Workspace
+@* One vehicle mount slot. Only weapon slots Runtime marks swappable get a selector, and it offers only the published
+   compatible replacements (same attack family). Values are published mounted-weapon semantic IDs. *@
+@{ var field = Field; var saved = field == null ? null : EntityChangeService.Saved(Workspace.Project, field); var catalog = Catalog; }
+<article class="stat-card mount-slot @(saved != null ? "modified" : "")" data-mount="@Mount.MountId" data-mount-kind="@Mount.CurrentKind">
+    <div class="panel-heading"><h3>@Title(Mount.Label)</h3><span class="badge">@Mount.MountId</span>
+        @if (field != null) { <EvidenceBadge Evidence="field.Evidence" Tiers="catalog.EvidenceTiers" /> }
+        @if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
+    @if (!Mount.Swappable || field == null)
+    { <p class="subtle" data-mount-blocked>Not a weapon swap slot. @Mount.BlockedReason</p> }
+    else
+    {
+        <p class="subtle">Current: <strong>@Describe(catalog.Weapon(Mount.Current!.SemanticId)!)</strong> · @Mount.Current.AttackFamily family</p>
+        @if (saved != null) { <p class="modified-value" data-desired="@saved.DesiredValue.GetString()">→ <strong>@Describe(catalog.Weapon(saved.DesiredValue.GetString()!)!)</strong></p> }
+        <label>Mounted weapon
+            <select data-mount-select disabled="@(Workspace.Project == null || !field.Editable)" @onchange="e => Run(() => Workspace.SetEntityAsync(field.InstanceKey, e.Value?.ToString() ?? string.Empty))">
+                <option value="@Mount.Current!.SemanticId" selected="@(saved == null)">@Describe(catalog.Weapon(Mount.Current.SemanticId)!) (vanilla)</option>
+                @foreach (var w in field.AllowedValues!.Where(v => v != Mount.Current.SemanticId).Select(v => catalog.Weapon(v)!).OrderBy(w => Describe(w), StringComparer.OrdinalIgnoreCase))
+                { <option value="@w.SemanticId" selected="@(saved?.DesiredValue.GetString() == w.SemanticId)">@Describe(w)</option> }
+            </select>
+        </label>
+        <p class="subtle">@field.AllowedValues!.Length published @Mount.Current.AttackFamily replacements · <span class="badge amber" title="Runtime requires this opt-in for mount reference swaps">allow_unverified_reference=true</span></p>
+        @if (saved != null)
+        {
+            <div class="notice warning" data-residency-warning><p>@field.ResidencyWarning</p>
+                <label><input type="checkbox" data-reference-ack checked="@(saved.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(field, saved.DesiredValue))"
+                    @onchange="e => Run(() => Workspace.SetEntityReferenceAcknowledgedAsync(field.InstanceKey, (bool)e.Value!))" /> I understand this swap is unverified and the replacement may be missing if its package is not loaded.</label></div>
+            <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> Enabled</label>
+            <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: field.InstanceKey))">Reset slot</button>
+            @if (Workspace.EntityIssue(saved) is { } issue && !issue.Contains("Acknowledge the unverified")) { <p class="notice warning">@issue</p> }
+        }
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+</article>
+@code {
+    [Parameter, EditorRequired] public VehicleMount Mount { get; set; } = null!;
+    [Parameter, EditorRequired] public string Vehicle { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private VehicleCatalog Catalog => (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Entities!.Vehicles;
+    private EntityField? Field => Catalog.FieldInstances.SingleOrDefault(f => f.Target.Vehicle == Vehicle && f.Target.Path == "mount" && f.Target.Mount == Mount.MountId);
+    private static string Title(string s) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s);
+    // Published display names repeat (for example several "unnamed mounted weapon" entities), so show the semantic-ID suffix
+    // and who references the weapon to keep entries distinguishable. The value written is always the semantic ID.
+    public static string Describe(MountedWeapon w)
+    {
+        var name = w.DisplayName.Replace('_', ' '); var suffix = w.SemanticId[(w.SemanticId.LastIndexOf('/') + 1)..][..6];
+        var users = w.ReferencedBy.Select(r => r.Vehicle).Where(v => v != null).Distinct().Take(2).ToArray();
+        return $"{name}{(w.Turret ? " · turret" : "")} · {suffix}" + (users.Length > 0 ? " · on " + string.Join(", ", users) : "");
+    }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

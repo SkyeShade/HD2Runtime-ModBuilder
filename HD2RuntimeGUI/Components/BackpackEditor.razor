@@ -1,0 +1,43 @@
+@inject BuilderWorkspace Workspace
+@{ var entities = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities; var backpack = entities?.Backpacks.Find(Name); }
+@if (entities != null && backpack != null)
+{
+    var catalog = entities.Backpacks; var fields = catalog.FieldInstances.Where(f => f.Target.Backpack == Name).ToDictionary(f => f.InstanceKey);
+    bool Show(EntityField f) => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null;
+    var callIn = entities.CallInFor("backpack", Name);
+    // Published setting groups first; any remaining instances keep their own group so nothing is hidden.
+    var grouped = backpack.SettingGroups.Select(g => (Title: Title(g.Group), Fields: g.FieldInstanceKeys.Select(k => fields[k]).ToArray()))
+        .Append((Title: "Other", Fields: backpack.FieldInstanceKeys.Where(k => backpack.SettingGroups.All(g => !g.FieldInstanceKeys.Contains(k))).Select(k => fields[k]).ToArray()))
+        .Select(g => (g.Title, Fields: g.Fields.Where(Show).ToArray())).Where(g => g.Fields.Length > 0).ToArray();
+    @if (!ModifiedOnly)
+    {
+        <section class="panel category-panel cat-support" data-backpack="@backpack.Name">
+            <div class="eyebrow">BACKPACK@(backpack.Components.Any(c => c != "Backpack") ? " · " + string.Join(" · ", backpack.Components.Where(c => c != "Backpack")).ToUpperInvariant() : "")</div><h2>@backpack.Name</h2>
+            <div class="field-badges"><span class="badge">@fields.Values.Count(f => f.Editable) writable</span><span class="badge">@fields.Values.Count(f => !f.Editable) read-only</span>
+                <span class="badge" title="Structural delivery chain published by Runtime">@string.Join(" → ", backpack.DeliveryChain).Replace('_', ' ')</span></div>
+            @if (fields.Count == 0) { <p class="notice" data-backpack-empty>Runtime publishes no behavior fields for this backpack.</p> }
+            @if (Workspace.Project != null && Workspace.Project.EntityChanges.Any(c => c.Resource == "backpack" && c.Entity == Name))
+            { <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", Name))'>Reset backpack</button> }
+        </section>
+    }
+    @if (callIn != null) { <CallInFields Stratagem="@callIn" ModifiedOnly="ModifiedOnly" Changed="Changed" /> }
+    @foreach (var group in grouped)
+    {
+        <section class="panel" data-backpack-group="@group.Title"><h2>@group.Title</h2>
+            <div class="stat-grid">@foreach (var f in group.Fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@EntityStats.Label(f.SemanticFieldId)" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
+        </section>
+    }
+    @if (!ModifiedOnly && backpack.BlockedFields.Length > 0)
+    {
+        <details class="panel" data-blocked-capabilities open="@(fields.Values.All(f => !f.Editable))"><summary>Not currently writable</summary>@foreach (var b in backpack.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@b.Field:</strong> @b.Reason</p> }</details>
+    }
+    @if (Error != null) { <p class="notice warning">@Error</p> }
+}
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private static string Title(string s) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.Replace('_', ' '));
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+}

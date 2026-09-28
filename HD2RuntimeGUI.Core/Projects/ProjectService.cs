@@ -57,9 +57,11 @@ public static class ProjectIdentity
         static bool Id(string? s) => s != null && Regex.IsMatch(s, @"\A[a-z][a-z0-9_]{0,63}\z");
         return (c.TargetKind, c.Path) switch
         {
+            _ when c.Zone != null && (c.TargetKind, c.Path) != ("deployed_entity", "damage_zone") => false,
             ("stratagem", "stratagem" or "eagle_rearm") => c.Entity == null && c.Weapon == null && c.Attack == null,
             ("stratagem", "attack") => c.Entity == null && c.Weapon == null && Id(c.Attack),
-            ("deployed_entity", "deployed_entity") => Id(c.Entity) && c.Weapon == null && c.Attack == null,
+            ("deployed_entity", "deployed_entity" or "shield") => Id(c.Entity) && c.Weapon == null && c.Attack == null,
+            ("deployed_entity", "damage_zone") => Id(c.Entity) && Id(c.Zone) && c.Weapon == null && c.Attack == null,
             ("mounted_weapon", "weapon") => Id(c.Entity) && Id(c.Weapon) && c.Attack == null,
             ("mounted_weapon", "attack") => Id(c.Entity) && Id(c.Weapon) && Id(c.Attack),
             _ => false,
@@ -67,7 +69,7 @@ public static class ProjectIdentity
     }
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -107,6 +109,30 @@ public static class ProjectIdentity
             throw new InvalidDataException("Invalid semantic stratagem overrides.");
         foreach (var c in p.StratagemChanges) SemVersion.Parse(c.BaselineSdkVersion);
         foreach (var a in p.StratagemApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid stratagem approval.");
+        // Format 6: vehicle/backpack changes. Targets are published names and zone_N / slot_N identities; mount values are published semantic IDs.
+        static bool Slot(string? s, string prefix) => s != null && Regex.IsMatch(s, @"\A" + prefix + @"_[0-9]{1,3}\z");
+        if (p.EntityChanges == null || p.EntityApprovals == null || p.EntityChanges.Count > 4000 || p.EntityApprovals.Count > 2000
+            || p.EntityChanges.Select(c => c.Id).Distinct().Count() != p.EntityChanges.Count
+            || p.EntityChanges.Select(c => c.InstanceKey).Distinct().Count() != p.EntityChanges.Count
+            || p.EntityChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Entity) || c.Entity.Length > 256 || c.SemanticFieldId.Length > 128
+                || !c.InstanceKey.StartsWith(c.Resource + ":", StringComparison.Ordinal) || c.InstanceKey.Length > 512
+                || !((c.Resource, c.Path) switch
+                {
+                    ("vehicle", "entity") => c.Zone == null && c.Mount == null,
+                    ("vehicle", "damage_zone") => Slot(c.Zone, "zone") && c.Mount == null,
+                    ("vehicle", "mount") => Slot(c.Mount, "slot") && c.Zone == null && c.FieldType == EntityField.ReferenceType,
+                    ("backpack", "backpack") => c.Zone == null && c.Mount == null,
+                    _ => false,
+                })
+                || (c.FieldType == EntityField.ReferenceType
+                    ? c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.String || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.String
+                        || !Regex.IsMatch(c.DesiredValue.GetString()!, @"\Amounted-weapon/v1/[a-z0-9-]{1,96}/[0-9a-f]{16}\z")
+                    : c.FieldType is not ("integer" or "number") || c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.Number || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.Number)
+                || c.Group.Length > 120 || c.Notes?.Length > 4000 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")
+                || c.ReferenceAcknowledgement != null && !Regex.IsMatch(c.ReferenceAcknowledgement, @"\A[a-f0-9]{64}\z")))
+            throw new InvalidDataException("Invalid semantic vehicle/backpack overrides.");
+        foreach (var c in p.EntityChanges) SemVersion.Parse(c.BaselineSdkVersion);
+        foreach (var a in p.EntityApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid vehicle/backpack approval.");
         if (p.CompositionChanges == null || p.CompositionChanges.Count > 1000 || p.CompositionChanges.Select(c => c.Id).Distinct().Count() != p.CompositionChanges.Count) throw new InvalidDataException("Invalid composition changes.");
         foreach (var c in p.CompositionChanges)
         {
@@ -211,6 +237,8 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         project.SupportApprovals = new(source.SupportApprovals);
         project.StratagemChanges = source.StratagemChanges.Select(c => c with { Id = Guid.NewGuid() }).ToList();
         project.StratagemApprovals = new(source.StratagemApprovals);
+        project.EntityChanges = source.EntityChanges.Select(c => c with { Id = Guid.NewGuid() }).ToList();
+        project.EntityApprovals = new(source.EntityApprovals);
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)
