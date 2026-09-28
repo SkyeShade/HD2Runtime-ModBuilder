@@ -1,0 +1,11 @@
+@* HD2Runtime ModBuilder lockup: reticle mark + wordmark (Big Shoulders Display, bundled under the OFL in wwwroot/brand/fonts). *@
+<div class="brand-lockup @Size" data-brand-lockup="@Size">
+    <BrandMark Size="@(Size == "lg" ? 112 : 38)" />
+    <div class="brand-wordmark"><span class="brand-line1"><b>HD2</b>Runtime</span><strong class="brand-line2">ModBuilder</strong>
+        @if (Tagline) { <small class="brand-tagline">mod authoring for hd2runtime</small> }</div>
+</div>
+@code {
+    // "sm" (sidebar) or "lg" (About, project library).
+    [Parameter] public string Size { get; set; } = "sm";
+    [Parameter] public bool Tagline { get; set; }
+}

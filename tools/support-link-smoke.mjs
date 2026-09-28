@@ -25,7 +25,7 @@ const go = async page => { await evaluate(`document.querySelector('[data-nav="${
 const count = selector => evaluate(`document.querySelectorAll(${JSON.stringify(selector)}).length`);
 const list = (selector, map) => evaluate(`[...document.querySelectorAll(${JSON.stringify(selector)})].map(${map})`);
 const fill = async (selector, value) => { await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing '+${JSON.stringify(selector)}); el.value=${JSON.stringify(value)}; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); })()`); await sleep(300); };
-const open = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')",'open '+name); };
+const open = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')",'open '+name); };
 const pick = async name => { await go('stratagems:support'); await evaluate(`document.querySelector('[data-stratagem='+CSS.escape(${JSON.stringify(name)})+']').click()`); await sleep(400); };
 const GR8 = 'GR-8 Recoilless Rifle';
 try {

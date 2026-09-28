@@ -10,6 +10,6 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(new MainPage()) { Title = "HD2Runtime Mod Builder", Width = 1360, Height = 900, MinimumWidth = 820, MinimumHeight = 600 };
+        return new Window(new MainPage()) { Title = "HD2Runtime ModBuilder", Width = 1360, Height = 900, MinimumWidth = 820, MinimumHeight = 600 };
     }
 }

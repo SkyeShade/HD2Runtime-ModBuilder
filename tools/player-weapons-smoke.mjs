@@ -72,7 +72,7 @@ try {
             await nav('Project library'); await click('+ Create New Mod');
             await waitFor("!!document.querySelector('#mod-name')",'new project');
             await fill('#mod-name',name); await fill('#author','SkyeShade'); await fill('#resource-id','mods/skyeshade/'+name.toLowerCase());
-            await click('Create project →'); await waitFor("document.body.innerText.includes('Project overview')",'project saved');
+            await click('Create project →'); await waitFor("!!document.querySelector('[data-overview]')",'project saved');
             await nav('Player Weapons'); await choose(weapon);
             if(name==='Concussive1100') await saveField('weapon.fire_rate','1100');
             else { await saveField('projectile.drag','0.1'); await saveField('projectile.gravity','0.2'); }

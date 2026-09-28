@@ -28,7 +28,7 @@ const click = async selector => { await evaluate(`(() => { const el = document.q
 const fill = async (selector, value) => { await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing ' + ${JSON.stringify(selector)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); })()`); await sleep(450); };
 const text = () => evaluate('document.body.innerText');
 const lua = async () => { await go('lua'); await sleep(300); return evaluate('document.querySelector("pre")?.innerText ?? ""'); };
-const openProject = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b => b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'open ' + name); };
+const openProject = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b => b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'open ' + name); };
 const report = {};
 try {
     await waitFor("!!document.querySelector('.desktop-shell') && !document.querySelector('.activity')", 'startup');
@@ -46,7 +46,7 @@ try {
     assert(!(await text()).includes('UPDATE AVAILABLE'));
     const name = 'Local025 ' + Date.now(); await fill('#mod-name', name); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");
-    await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'project created');
+    await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'project created');
 
     // 3. Boosters: 20 listed, 19 writable; range-checked tuning; one acknowledgement; Lua.
     await go('boosters'); await sleep(400);

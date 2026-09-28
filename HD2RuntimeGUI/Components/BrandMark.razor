@@ -1,0 +1,14 @@
+@* HD2Runtime ModBuilder reticle mark (same geometry as Resources/AppIcon/appicon.svg), coloured from the central
+   --brand-yellow / --brand-ink theme tokens so the brand colour is defined once. *@
+<svg class="brand-icon @CssClass" viewBox="0 0 512 512" width="@Size" height="@Size" role="img" aria-label="HD2Runtime ModBuilder" focusable="false">
+    <rect width="512" height="512" rx="112" style="fill:var(--brand-yellow)" />
+    <g fill="none" style="stroke:var(--brand-ink)" stroke-width="34" stroke-linecap="square" stroke-linejoin="miter">
+        <path d="M104 196V104H196" /><path d="M316 104H408V196" /><path d="M408 316V408H316" /><path d="M196 408H104V316" />
+        <path d="M174 190L240 250L174 310" stroke-width="40" />
+    </g>
+    <rect x="270" y="266" width="60" height="60" style="fill:var(--brand-ink)" />
+</svg>
+@code {
+    [Parameter] public int Size { get; set; } = 40;
+    [Parameter] public string? CssClass { get; set; }
+}

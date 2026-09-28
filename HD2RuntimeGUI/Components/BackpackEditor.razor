@@ -11,8 +11,8 @@
         .Select(g => (g.Title, Fields: g.Fields.Where(Show).ToArray())).Where(g => g.Fields.Length > 0).ToArray();
     @if (!ModifiedOnly)
     {
-        <section class="panel category-panel cat-support" data-backpack="@backpack.Name">
-            <div class="eyebrow">BACKPACK@(backpack.Components.Any(c => c != "Backpack") ? " · " + string.Join(" · ", backpack.Components.Where(c => c != "Backpack")).ToUpperInvariant() : "")</div><h2>@backpack.Name</h2>
+        <section class="panel @(Embedded ? "delivered-panel" : "category-panel cat-support")" data-backpack="@backpack.Name">
+            <div class="eyebrow">@(Embedded ? "DELIVERED " : "")BACKPACK@(backpack.Components.Any(c => c != "Backpack") ? " · " + string.Join(" · ", backpack.Components.Where(c => c != "Backpack")).ToUpperInvariant() : "")</div>@if (Embedded) { <h3>@backpack.Name</h3> } else { <h2>@backpack.Name</h2> }
             <div class="field-badges"><span class="badge">@fields.Values.Count(f => f.Editable) writable</span><span class="badge">@fields.Values.Count(f => !f.Editable) read-only</span>
                 <span class="badge" title="Structural delivery chain published by Runtime">@string.Join(" → ", backpack.DeliveryChain).Replace('_', ' ')</span></div>
             @if (fields.Count == 0) { <p class="notice" data-backpack-empty>Runtime publishes no behavior fields for this backpack.</p> }
@@ -36,6 +36,8 @@
 @code {
     [Parameter, EditorRequired] public string Name { get; set; } = "";
     [Parameter] public bool ModifiedOnly { get; set; }
+    // Hosted under its Support stratagem entry (Stratagems → Support): the stratagem header is shown above, so this header is compact.
+    [Parameter] public bool Embedded { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     private static string Title(string s) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.Replace('_', ' '));

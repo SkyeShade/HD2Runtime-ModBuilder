@@ -29,6 +29,10 @@ try {
     if (Test-Path $zip) { Remove-Item -LiteralPath $zip -Force }
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
+    # Resizetizer can keep previously generated icons (appicon.ico, tiles); regenerate them from Resources/AppIcon/appicon.svg.
+    $resizetizer = Join-Path $repoRoot "HD2RuntimeGUI\obj\$Configuration\net10.0-windows10.0.19041.0\win-x64\resizetizer"
+    if (Test-Path $resizetizer) { Remove-Item -LiteralPath $resizetizer -Recurse -Force }
+
     Write-Host "Publishing HD2RuntimeGUI $version ($Configuration, win-x64, self-contained)..."
     & dotnet restore $project --nologo
     if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed with exit code $LASTEXITCODE." }

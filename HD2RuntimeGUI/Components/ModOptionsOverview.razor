@@ -1,74 +1,96 @@
 @inject BuilderWorkspace Workspace
 @using HD2RuntimeGUI.Core.Generation
-@* Project-level in-game options (HD2Runtime 0.25.0 hd2.options → CowboyBingus Mod Options Menu). Rows are listed in the order
-   Mod Options Menu shows them: the master toggle first, then each exposed field. *@
+@* Project feature card: in-game options (HD2Runtime hd2.options → CowboyBingus Mod Options Menu). A clear on/off control and a
+   one-line status; page settings, fallback and the ordered rows (master toggle first) are under "Manage options". *@
 @if (Workspace.Project is { } project)
 {
-    <section class="panel mod-options" data-mod-options>
-        <div class="panel-heading"><h2>In-game options</h2>
-            @if (Workspace.OptionsSupported)
-            { <label class="switch-label"><input type="checkbox" data-options-enabled checked="@Workspace.OptionsEnabled" @onchange="e => Run(() => Workspace.SetModOptionsEnabledAsync((bool)e.Value!))" />Enable in-game Mod Options</label> }
+    var supported = Workspace.OptionsSupported; var enabled = Workspace.OptionsEnabled;
+    var settings = project.ModOptions ?? ModOptionsService.Defaults(project); var targets = enabled ? Workspace.OptionTargets : [];
+    var active = enabled ? ModOptionsService.ActiveRows(project, Workspace.Metadata!) : [];
+    var issues = enabled ? Workspace.OptionIssues : [];
+    <section class="panel feature-card mod-options @(enabled ? "on" : "")" data-mod-options>
+        <div class="feature-head">
+            <div><h2>In-game Mod Options</h2>
+                <p class="subtle">Create configurable sliders and choices, with one master toggle, under Helldivers 2's MODS menu.</p></div>
+            @if (supported)
+            {
+                <label class="feature-switch" title="@(enabled ? "Turn in-game options off (exposed fields are kept)" : "Turn in-game options on")">
+                    <input type="checkbox" role="switch" data-options-enabled checked="@enabled" @onchange="e => Run(() => Workspace.SetModOptionsEnabledAsync((bool)e.Value!))" />
+                    <span class="feature-switch-track" aria-hidden="true"></span><span class="feature-switch-label">@(enabled ? "Enabled" : "Enable in-game options")</span>
+                </label>
+            }
         </div>
-        @if (!Workspace.OptionsSupported)
-        { <p class="subtle" data-options-unsupported>In-game options need HD2Runtime SDK 0.25.0 or newer. This project is bound to SDK @project.SdkVersion.</p> }
-        else if (!Workspace.OptionsEnabled)
-        { <p class="subtle">Turn edited values into sliders and choices on the in-game MODS tab. Nothing changes in your mod until an edited field is exposed.</p> }
+        @if (!supported)
+        { <p class="subtle" data-options-unsupported>Needs HD2Runtime SDK 0.25.0 or newer. This project is bound to SDK @project.SdkVersion.</p> }
+        else if (!enabled)
+        { <p class="feature-status" data-options-status="off">Off · nothing extra is generated.</p> }
         else
         {
-            var settings = project.ModOptions!; var targets = Workspace.OptionTargets;
             var usesDefaults = ModOptionsService.UsesDefaultsWithoutMenu(Workspace.Metadata!, settings);
-            <p class="notice warning" data-options-optional data-options-fallback="@(usesDefaults ? "default" : "disable")"><span><strong>Mod Options Menu is optional.</strong> Players without CowboyBingus Mod Options Menu v1+ (Bingus Shared Loader v18+)
-                get one warning, and @(usesDefaults ? "the option-bound edits apply with each option's default value (the master toggle's default is On)." : "the option-bound edits stay inactive for that session.")
-                Edits that are not exposed always apply. The GUI adds the optional dependency to hd2runtime.json only while at least one field is exposed.</span></p>
-            @if (ModOptionsService.FallbackSupported(Workspace.Metadata))
-            {
-                <label class="option-fallback">Without Mod Options Menu
-                    <select data-options-fallback-select value="@settings.Fallback" @onchange="e => Run(() => Workspace.SetOptionsFallbackAsync(e.Value?.ToString() ?? ModOptionsService.FallbackDefault))">
-                        <option value="default">Apply the option defaults (recommended)</option>
-                        <option value="disable">Keep option-bound edits inactive (strict)</option>
-                    </select></label>
-            }
-            <form class="form-grid option-page" @onsubmit="SavePage" @onsubmit:preventDefault data-options-page>
-                <label>Page title<input @bind="Title" maxlength="40" data-options-title /></label>
-                <label>Page id<input @bind="PageId" maxlength="40" data-options-page-id /></label>
-                <label>Master toggle label<input @bind="MasterLabel" maxlength="64" data-options-master-label /></label>
-                <label>Master toggle description<input @bind="MasterDescription" maxlength="400" placeholder="Optional" /></label>
-                <div class="actions"><button type="submit">Save page settings</button></div>
-            </form>
-            <table class="option-rows" data-option-rows>
-                <thead><tr><th>#</th><th>Row</th><th>Control</th><th>Range / values</th><th>Default</th><th>Field</th><th></th></tr></thead>
-                <tbody>
-                    <tr data-option-row="master"><td>1</td><td><strong>@settings.MasterLabel</strong></td><td>Toggle</td><td>On / Off</td><td>On</td><td class="subtle">Controls every option-bound operation; off restores reviewed baselines.</td><td></td></tr>
-                    @for (var i = 0; i < settings.Rows.Count; i++)
+            <p class="feature-status" data-options-status="@(active.Count == 0 ? "empty" : "active")">
+                @if (active.Count == 0) { <span data-options-empty>No fields exposed yet. Use <strong>Expose as option</strong> on an edited field.</span> }
+                else { <strong>@active.Count configurable @(active.Count == 1 ? "field" : "fields")</strong><span> · master toggle “@settings.MasterLabel”</span> }
+                @if (issues.Count > 0) { <span class="badge amber" data-options-issue-count>@issues.Count to review</span> }
+            </p>
+            <div class="feature-note" data-options-optional data-options-fallback="@(usesDefaults ? "default" : "disable")">
+                Mod Options Menu is optional: @(usesDefaults ? "without it, each option's default applies." : "without it, option-bound edits stay inactive.")
+                <details class="field-info inline-info"><summary title="More about in-game options">ⓘ</summary><div class="field-info-body">
+                    <p>Players need CowboyBingus Mod Options Menu v1+ (Bingus Shared Loader v18+) to change options in game. The GUI declares it as an optional dependency only while at least one field is exposed; edits that are not exposed always apply.</p>
+                    <p>Expose a field from its editor row (Player Weapons, Stratagems, Boosters…). The master toggle turns every option-bound operation on or off; off restores reviewed baselines.</p></div></details>
+            </div>
+            <details class="options-manage" data-options-manage open="@(issues.Count > 0)">
+                <summary><span class="options-manage-button">Manage options</span> <small class="subtle">page, fallback, order</small></summary>
+                <div class="options-manage-body">
+                    <form class="option-page" @onsubmit="SavePage" @onsubmit:preventDefault data-options-page>
+                        <label>Page title<input @bind="Title" maxlength="40" data-options-title /></label>
+                        <label>Page id<input @bind="PageId" maxlength="40" data-options-page-id /></label>
+                        <label>Master toggle label<input @bind="MasterLabel" maxlength="64" data-options-master-label /></label>
+                        <label>Master toggle description<input @bind="MasterDescription" maxlength="400" placeholder="Optional" /></label>
+                        <div class="actions"><button type="submit">Save page settings</button>
+                            @if (ModOptionsService.FallbackSupported(Workspace.Metadata))
+                            {
+                                <label class="option-fallback">Without Mod Options Menu
+                                    <select data-options-fallback-select value="@settings.Fallback" @onchange="e => Run(() => Workspace.SetOptionsFallbackAsync(e.Value?.ToString() ?? ModOptionsService.FallbackDefault))">
+                                        <option value="default">Apply the option defaults (recommended)</option>
+                                        <option value="disable">Keep option-bound edits inactive (strict)</option>
+                                    </select></label>
+                            }</div>
+                    </form>
+                    <table class="option-rows" data-option-rows>
+                        <thead><tr><th>#</th><th>Row</th><th>Control</th><th>Range / values</th><th>Default</th><th>Field</th><th></th></tr></thead>
+                        <tbody>
+                            <tr data-option-row="master"><td>1</td><td><strong>@settings.MasterLabel</strong></td><td>Toggle</td><td>On / Off</td><td>On</td><td class="subtle">All option-bound operations</td><td></td></tr>
+                            @for (var i = 0; i < settings.Rows.Count; i++)
+                            {
+                                var row = settings.Rows[i]; var target = targets.FirstOrDefault(t => t.Key == row.Key); var index = i;
+                                var state = target == null ? "Edit removed" : !target.Eligible ? "Not configurable" : !target.Active ? "Edit disabled" : null;
+                                <tr class="@(state != null ? "inactive" : "")" data-option-row="@row.Id">
+                                    <td>@(i + 2)</td><td><strong>@row.Label</strong>@if (row.Gap) { <small class="subtle"> · space above</small> }</td>
+                                    <td>@(row.Kind == ModOptionsService.Choice ? "Choice" : "Slider")</td>
+                                    <td>@(row.Kind == ModOptionsService.Choice ? string.Join(", ", row.Choices.Zip(row.Values, (c, v) => $"{c} ({ModOptionsService.Format(v)})")) : $"{ModOptionsService.Format(row.Min)}–{ModOptionsService.Format(row.Max)} · step {ModOptionsService.Format(row.Step)}")</td>
+                                    <td>@(row.Kind == ModOptionsService.Choice ? row.Choices.ElementAtOrDefault(row.DefaultIndex - 1) : ModOptionsService.Format(row.Default))</td>
+                                    <td>@(target?.Title ?? "—")@if (state != null) { <span class="badge amber" title="Not generated until the edit is present and enabled"> @state</span> }</td>
+                                    <td class="row-actions">
+                                        <button class="small" title="Move up" disabled="@(index == 0)" @onclick="() => Run(() => Workspace.MoveOptionRowAsync(row.Key, -1))">↑</button>
+                                        <button class="small" title="Move down" disabled="@(index == settings.Rows.Count - 1)" @onclick="() => Run(() => Workspace.MoveOptionRowAsync(row.Key, 1))">↓</button>
+                                        @if (target is { Eligible: true }) { <button class="small" data-option-edit="@row.Id" @onclick="() => Editing = target">Edit</button> }
+                                        <button class="small reset-action" @onclick="() => Run(() => Workspace.RemoveOptionRowAsync(row.Key))">Remove</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @{ var available = targets.Where(t => t.Eligible && t.Active && settings.Rows.All(r => r.Key != t.Key)).ToArray(); }
+                    @if (available.Length > 0)
                     {
-                        var row = settings.Rows[i]; var target = targets.FirstOrDefault(t => t.Key == row.Key); var index = i;
-                        var state = target == null ? "Edit removed" : !target.Eligible ? "Not configurable" : !target.Active ? "Edit disabled" : null;
-                        <tr class="@(state != null ? "inactive" : "")" data-option-row="@row.Id">
-                            <td>@(i + 2)</td><td><strong>@row.Label</strong>@if (row.Gap) { <small class="subtle"> · space above</small> }</td>
-                            <td>@(row.Kind == ModOptionsService.Choice ? "Choice" : "Slider")</td>
-                            <td>@(row.Kind == ModOptionsService.Choice ? string.Join(", ", row.Choices.Zip(row.Values, (c, v) => $"{c} ({ModOptionsService.Format(v)})")) : $"{ModOptionsService.Format(row.Min)}–{ModOptionsService.Format(row.Max)} · step {ModOptionsService.Format(row.Step)}")</td>
-                            <td>@(row.Kind == ModOptionsService.Choice ? row.Choices.ElementAtOrDefault(row.DefaultIndex - 1) : ModOptionsService.Format(row.Default))</td>
-                            <td>@(target?.Title ?? "—")@if (state != null) { <span class="badge amber" title="Not generated until the edit is present and enabled"> @state</span> }</td>
-                            <td class="row-actions">
-                                <button class="small" title="Move up" disabled="@(index == 0)" @onclick="() => Run(() => Workspace.MoveOptionRowAsync(row.Key, -1))">↑</button>
-                                <button class="small" title="Move down" disabled="@(index == settings.Rows.Count - 1)" @onclick="() => Run(() => Workspace.MoveOptionRowAsync(row.Key, 1))">↓</button>
-                                @if (target is { Eligible: true }) { <button class="small" data-option-edit="@row.Id" @onclick="() => Editing = target">Edit</button> }
-                                <button class="small reset-action" @onclick="() => Run(() => Workspace.RemoveOptionRowAsync(row.Key))">Remove</button>
-                            </td>
-                        </tr>
+                        <details class="collapsed-group" data-options-available><summary><strong>Edited fields that can be exposed</strong> <span class="subtle">@available.Length</span></summary>
+                            @foreach (var t in available) { <div class="option-available"><span>@t.Title</span><button class="small" data-expose-option="@t.Key" @onclick="() => Editing = t">Expose</button></div> }
+                        </details>
                     }
-                </tbody>
-            </table>
-            @if (settings.Rows.Count == 0) { <p class="subtle" data-options-empty>No field is exposed yet. Use <strong>Expose as option</strong> on an edited field, or pick one below.</p> }
-            var available = targets.Where(t => t.Eligible && t.Active && settings.Rows.All(r => r.Key != t.Key)).ToArray();
-            @if (available.Length > 0)
-            {
-                <details class="collapsed-group" data-options-available><summary><strong>Edited fields that can be exposed</strong> <span class="subtle">@available.Length</span></summary>
-                    @foreach (var t in available) { <div class="option-available"><span>@t.Title</span><button class="small" data-expose-option="@t.Key" @onclick="() => Editing = t">Expose</button></div> }
-                </details>
-            }
-            @if (Workspace.OptionIssues is { Count: > 0 } issues) { <ul class="notice warning" data-options-issues>@foreach (var issue in issues) { <li>@issue</li> }</ul> }
-            <p class="subtle">@(ModOptionsService.ActiveRows(project, Workspace.Metadata!).Count + 1) of @ModOptionsService.MaxRows Mod Options Menu rows used.</p>
+                    @if (issues.Count > 0) { <ul class="notice warning" data-options-issues>@foreach (var issue in issues) { <li>@issue</li> }</ul> }
+                    <p class="subtle">@(active.Count + 1) of @ModOptionsService.MaxRows Mod Options Menu rows used.</p>
+                </div>
+            </details>
         }
         @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
     </section>

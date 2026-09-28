@@ -4,7 +4,7 @@
 
 <div class="desktop-shell" inert="@(Dialog != null)">
     <aside class="sidebar">
-        <div class="brand"><span class="brand-mark">H<span>2</span></span><div>HD2Runtime<small>MOD BUILDER</small></div></div>
+        <div class="brand"><BrandLockup Size="sm" /></div>
         <button class="nav-item @(Page == "library" ? "selected" : "")" data-nav="library" @onclick="ShowLibrary">▦ <span>Project library</span></button>
         @{ var nav = Navigation.Build(Workspace.Metadata ?? Workspace.SdkStatus?.Installed, Workspace.Project, ModificationCount); }
         <nav class="nav-group" aria-label="Workspace">
@@ -19,7 +19,7 @@
         <div class="sidebar-bottom"><button class="nav-item @(Page == "settings" ? "selected" : "")" @onclick='() => Navigate("settings")'>⚙ <span>Settings &amp; SDK</span></button><div class="sdk-mini"><span class="status-dot @(Workspace.SdkStatus?.VerifiedOnline == true ? "online" : "")"></span><div>SDK @(Workspace.SdkStatus?.Installed.Version ?? (Workspace.SdkError != null ? "unavailable" : "loading"))<small>@(Workspace.SdkStatus?.LocalSource != null ? "Local SDK · development" : Workspace.SdkStatus?.VerifiedOnline == true ? "Release verified" : "Offline / not verified")</small></div></div></div>
     </aside>
     <main class="workspace">
-        <header class="titlebar"><span>HD2Runtime Mod Builder <span class="crumb">/ @PageTitle</span></span><span class="subtle">@(Workspace.Project is null ? "LOCAL WORKSPACE" : "SDK " + Workspace.Project.SdkVersion + " · API " + Workspace.Project.RuntimeApi)</span></header>
+        <header class="titlebar"><span><span class="titlebar-product">HD2Runtime ModBuilder</span> <span class="crumb">/ @PageTitle</span></span><span class="subtle">@(Workspace.Project is null ? "LOCAL WORKSPACE" : "SDK " + Workspace.Project.SdkVersion + " · API " + Workspace.Project.RuntimeApi)</span></header>
         @if (Busy) { <div class="activity" role="status">@BusyMessage</div> }
         @if (Error != null) { <div class="notice error" role="alert">@Error <button @onclick="() => Error = null" aria-label="Dismiss error">×</button></div> }
         @if (Notice != null) { <div class="notice success" role="status">@Notice <button @onclick="() => Notice = null" aria-label="Dismiss notification">×</button></div> }
@@ -29,7 +29,7 @@
             <div class="page-heading"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>Project library</h1><p>Build your next drop. No Lua required.</p></div><div class="actions"><button @onclick="ImportProject">Open project…</button><button class="primary" @onclick="BeginCreate">+ Create New Mod</button></div></div>
             @if (Workspace.SdkStatus?.UpdateAvailable == true) { <div class="notice warning"><div><strong>SDK update available · @Workspace.SdkStatus.Latest!.Version</strong><p>Your projects stay pinned to their original SDK.</p></div><button @onclick='() => Navigate("settings")'>Review update →</button></div> }
             @if (Workspace.Library.Count == 0)
-            { <section class="empty-state"><div class="empty-icon">◇</div><h2>A new mod starts here</h2><p>Create a project, explore mapped resources, and turn your changes into a ready-to-install gameplay ZIP.</p><button class="primary" @onclick="BeginCreate">+ Create your first mod</button><small>HD2Runtime and Bingus are installed separately.</small></section> }
+            { <section class="empty-state"><BrandLockup Size="lg" Tagline="true" /><h2>A new mod starts here</h2><p>Create a project, explore mapped resources, and turn your changes into a ready-to-install gameplay ZIP.</p><button class="primary" @onclick="BeginCreate">+ Create your first mod</button><small>HD2Runtime and Bingus are installed separately.</small></section> }
             else
             {
                 <div class="section-label">PROJECTS <span>@Workspace.Library.Count</span></div><div class="project-grid">
@@ -46,10 +46,8 @@
             <section class="empty-state workspace-empty" data-empty-workspace="@Page"><div class="empty-icon">◇</div><h2>@PageTitle</h2><p>Select or create a project to begin editing.</p>
                 <div class="actions"><button @onclick="ShowLibrary">Open project library</button><button class="primary" @onclick="BeginCreate">+ Create New Mod</button></div></section>
         }
-        else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => StratagemCategory = c" Changed="RefreshWeaponUI" /> }
+        else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => { StratagemCategory = c; StratagemSupportTab = null; }" SupportTab="@StratagemSupportTab" Changed="RefreshWeaponUI" /> }
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
-        else if (Page == "vehicles") { <Vehicles Changed="RefreshWeaponUI" /> }
-        else if (Page == "backpacks") { <Backpacks Changed="RefreshWeaponUI" /> }
         else if (Page == "boosters") { <Boosters Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
@@ -74,7 +72,7 @@
                     var sdkIcons = Workspace.Metadata ?? Workspace.SdkStatus?.Installed;
                     var boosters = sdkIcons?.Entities?.Boosters?.Boosters ?? [];
                     <p class="subtle" data-icon-status>@Icons.Count("booster") booster and @Icons.Count("stratagem") stratagem icons imported @icons.ImportedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm") from <code>@icons.GameDataPath</code>.
-                        @if (boosters.Length > 0) { <span data-booster-icon-count>@boosters.Count(b => Icons.BoosterIcon(b) is { } k && Icons.Svg("booster", k) != null) of @boosters.Length boosters show their game icon.</span> }
+                        @if (boosters.Length > 0) { <span data-booster-icon-count>@boosters.Count(b => Icons.BoosterIcon(b) is { } k && Icons.Svg("booster", k) != null) of @boosters.Length boosters show their game icon. </span> }
                         @if (sdkIcons?.Stratagems is { } catalog && catalog.Stratagems.Any(s => s.UiIcon != null))
                         {
                             var roots = catalog.Stratagems;
@@ -89,7 +87,7 @@
                 @if (Icons.LastError != null) { <p class="notice warning" data-icon-import-error>Automatic icon import failed: @Icons.LastError. Category glyphs are used meanwhile.</p> }
             </section>
             <section class="panel"><h2>Project storage</h2><code class="path">@Workspace.StorageLocation</code><p>Projects and the library index are human-readable JSON. Removing a project from the library keeps its files. Open project restores it to the library.</p></section>
-            <section class="panel"><h2>About this builder</h2><p>HD2RuntimeGUI <span data-build-identity title="@BuildInfo.Commit">@BuildInfo.Identity</span> · .NET 10 · MAUI Blazor Hybrid</p><p>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</p></section>
+            <section class="panel about-panel" data-about><BrandLockup Size="lg" Tagline="true" /><p>HD2Runtime ModBuilder <span data-build-identity title="@BuildInfo.Commit">@BuildInfo.Identity</span> · .NET 10 · MAUI Blazor Hybrid</p><p>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</p></section>
         }
         else if (Workspace.Project is { } active)
         {
@@ -99,17 +97,53 @@
             else if (Page == "lua") { <LuaPreview Source="@Workspace.LuaPreview" /> }
             else if (Page == "overview")
             {
-                <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
-                <SupportChanges Changed="RefreshWeaponUI" />
-                <StratagemChanges Changed="RefreshWeaponUI" />
-                <EntityChanges Changed="RefreshWeaponUI" />
-                <section class="panel"><div class="panel-heading"><h2>Project overview</h2><span class="badge green">Saved locally</span></div><p>@(string.IsNullOrWhiteSpace(active.Description) ? "Your gameplay mod, built from the public HD2Runtime SDK." : active.Description)</p><div class="stats"><div><small>AUTHOR</small><strong>@active.Author</strong></div><div><small>VERSION</small><strong>@active.Version</strong></div><div><small>MODIFICATIONS</small><strong>@ModificationCount</strong></div></div><div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div><div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div><button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open project folder</button></section>
-                <ModOptionsOverview Changed="RefreshWeaponUI" />
-                @if (Workspace.SdkStatus?.Installed is { } installed && SemVersion.Parse(installed.Version).CompareTo(SemVersion.Parse("0.23.0")) >= 0 && SemVersion.Parse(active.SdkVersion).CompareTo(SemVersion.Parse("0.23.0")) < 0 && (active.StratagemChanges.Count > 0 || active.SupportChanges.Count > 0))
-                { <p class="notice warning" data-runtime023-fixes>HD2Runtime 0.23.0 fixes typed stratagem writes (cooldowns, Eagle settings) that earlier releases rejected, and restores <code>hd2.support_weapon</code> in the public module. Rebinding this project to SDK @installed.Version is recommended; saved field keys are unchanged.</p> }
-                @if (Workspace.SdkStatus?.Installed.Version != active.SdkVersion) { <section class="panel" data-rebind-panel><h2>@(Workspace.SdkStatus?.LocalSource != null ? "Local SDK available for this project" : "New SDK available for this project")</h2><p>Rebind semantic identifiers to SDK @Workspace.SdkStatus?.Installed.Version. Your desired values and saved baselines are preserved. Any changed capabilities must be reviewed before building.</p>@if (Workspace.SdkStatus?.LocalSource != null) { <p class="notice warning" data-local-rebind-warning>SDK @Workspace.SdkStatus.Installed.Version is an unpublished local development build. A project rebound to it opens only with the same local SDK (HD2RUNTIME_SDK_PATH / --sdk-path) until SDK @Workspace.SdkStatus.Installed.Version is installed from a published release. Test on a copy of important projects.</p> }<button data-rebind @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">@(Workspace.SdkStatus?.LocalSource != null ? "Rebind to local SDK " + Workspace.SdkStatus.Installed.Version : "Rebind to installed SDK")</button></section> }
-                @if (Workspace.Metadata!.PlayerWeapons != null) { <section class="panel"><h2>Author player weapons</h2><p>@Workspace.Metadata.PlayerWeapons.Weapons.Count weapons ? @Workspace.Metadata.PlayerWeapons.Summary.FieldInstances capability entries</p><button class="primary" @onclick='() => Navigate("player-weapons")'>Browse Player Weapons</button></section> }
-                <section class="panel"><h2>Project details</h2><form @onsubmit="SaveDetails" @onsubmit:preventDefault><label for="overview-name">Mod name</label><input id="overview-name" @bind="OverviewName" required maxlength="120" /><div class="form-grid"><div><label for="overview-author">Author</label><input id="overview-author" @bind="OverviewAuthor" required maxlength="120" /></div><div><label for="overview-version">Version</label><input id="overview-version" @bind="OverviewVersion" required /></div></div><label for="overview-description">Description</label><textarea id="overview-description" @bind="OverviewDescription" maxlength="8000" rows="3"></textarea><div class="actions end"><button class="primary" type="submit">Save project details</button></div></form></section>
+                @* Compact, authoring-focused Overview: facts strip, SDK notices, in-game options, details form and quick links.
+                   Change lists live on the Changes page; the count here links to it. *@
+                var sdkLabel = Workspace.Metadata?.Version ?? active.SdkVersion; var rebind = Workspace.SdkStatus?.Installed.Version != active.SdkVersion;
+                <div class="overview-grid" data-overview>
+                    <section class="panel overview-facts" data-overview-facts>
+                        <dl class="fact-strip">
+                            <div><dt>Author</dt><dd data-fact="author">@active.Author</dd></div>
+                            <div><dt>Version</dt><dd data-fact="version">@active.Version</dd></div>
+                            <div><dt>Changes</dt><dd data-fact="changes"><button class="link-button" @onclick='() => Navigate("changes")'>@ModificationCount</button></dd></div>
+                            <div><dt>SDK</dt><dd data-fact="sdk">@sdkLabel@if (rebind) { <span class="badge amber" title="SDK @Workspace.SdkStatus?.Installed.Version is installed">update</span> }</dd></div>
+                            <div><dt>Storage</dt><dd><span class="status-dot online"></span> Saved locally</dd></div>
+                        </dl>
+                        <div class="actions overview-actions">
+                            <button @onclick="() => Run(() => Workspace.OpenProjectFolderAsync(active.Id))">Open folder</button>
+                            <button @onclick='() => Navigate("changes")'>Review changes</button>
+                            <details class="identity-info"><summary>Identity</summary><div class="identity-body">
+                                <div class="metadata-row"><span>Manager GUID</span><code>@active.ManagerGuid</code></div>
+                                <div class="metadata-row"><span>Created</span><span>@active.CreatedAt.ToLocalTime().ToString("f")</span></div>
+                                <div class="metadata-row"><span>Project format</span><span>@active.FormatVersion</span></div></div></details>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(active.Description)) { <p class="subtle overview-description">@active.Description</p> }
+                        @if (Workspace.SdkStatus?.Installed is { } installed && SemVersion.Parse(installed.Version).CompareTo(SemVersion.Parse("0.23.0")) >= 0 && SemVersion.Parse(active.SdkVersion).CompareTo(SemVersion.Parse("0.23.0")) < 0 && (active.StratagemChanges.Count > 0 || active.SupportChanges.Count > 0))
+                        { <p class="notice warning" data-runtime023-fixes>HD2Runtime 0.23.0 fixes typed stratagem writes (cooldowns, Eagle settings) that earlier releases rejected, and restores <code>hd2.support_weapon</code> in the public module. Rebinding this project to SDK @installed.Version is recommended; saved field keys are unchanged.</p> }
+                        @if (rebind)
+                        {
+                            <div class="notice rebind-notice" data-rebind-panel><div><strong>@(Workspace.SdkStatus?.LocalSource != null ? "Local SDK available for this project" : "New SDK available for this project")</strong>
+                                <p>Rebind to SDK @Workspace.SdkStatus?.Installed.Version. Desired values and saved baselines are kept; changed capabilities are flagged for review before building.</p>
+                                @if (Workspace.SdkStatus?.LocalSource != null) { <p class="notice warning" data-local-rebind-warning>SDK @Workspace.SdkStatus.Installed.Version is an unpublished local development build. A project rebound to it opens only with the same local SDK (HD2RUNTIME_SDK_PATH / --sdk-path) until SDK @Workspace.SdkStatus.Installed.Version is installed from a published release. Test on a copy of important projects.</p> }</div>
+                                <button data-rebind @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">@(Workspace.SdkStatus?.LocalSource != null ? "Rebind to local SDK " + Workspace.SdkStatus.Installed.Version : "Rebind to installed SDK")</button></div>
+                        }
+                    </section>
+                    <ModOptionsOverview Changed="RefreshWeaponUI" />
+                    <section class="panel overview-details" data-project-details><h2>Project details</h2>
+                        <form class="details-form" @onsubmit="SaveDetails" @onsubmit:preventDefault>
+                            <label class="span-name">Mod name<input id="overview-name" @bind="OverviewName" required maxlength="120" /></label>
+                            <label class="span-version">Version<input id="overview-version" @bind="OverviewVersion" required /></label>
+                            <label class="span-author">Author<input id="overview-author" @bind="OverviewAuthor" required maxlength="120" /></label>
+                            <label class="span-full">Description<textarea id="overview-description" @bind="OverviewDescription" maxlength="8000" rows="3"></textarea></label>
+                            <div class="actions span-full"><button class="primary" type="submit">Save project details</button></div>
+                        </form>
+                    </section>
+                    <nav class="panel quick-author" data-quick-author aria-label="Start authoring"><span class="quick-author-label">Author</span>
+                        @if (Workspace.Metadata!.PlayerWeapons != null) { <button @onclick='() => Navigate("player-weapons")'>Player Weapons</button> }
+                        @if (Workspace.Metadata.Stratagems != null) { <button @onclick='() => NavigateTo("stratagems")'>Stratagems</button> }
+                        @if (Workspace.Metadata.Entities?.Boosters != null) { <button @onclick='() => Navigate("boosters")'>Boosters</button> }
+                    </nav>
+                </div>
             }
             else if (Page == "changes")
             {
@@ -158,7 +192,7 @@
             }
         }
         </fieldset>
-        <footer class="statusbar"><span><span class="status-dot online"></span> Local project workspace</span><span>@(Workspace.Project is null ? "HD2RuntimeGUI " + BuildInfo.Identity : "Changes saved automatically · SDK " + Workspace.Project.SdkVersion)</span></footer>
+        <footer class="statusbar"><span><span class="status-dot online"></span> Local project workspace</span><span>@(Workspace.Project is null ? "HD2Runtime ModBuilder " + BuildInfo.Identity : "Changes saved automatically · SDK " + Workspace.Project.SdkVersion)</span></footer>
     </main>
 </div>
 

@@ -32,10 +32,10 @@ const state = async field => evaluate(`({modified:document.querySelector('[data-
 const create = async name => {
     await nav('Project library'); await click('+ Create New Mod'); await waitFor("!!document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name',name); await fill('#author','SkyeShade'); await fill('#resource-id','mods/skyeshade/'+name.toLowerCase());
-    await click('Create project →'); await waitFor("document.body.innerText.includes('Project overview')",'saved project'); await nav('Player Weapons');
+    await click('Create project →'); await waitFor("!!document.querySelector('[data-overview]')",'saved project'); await nav('Player Weapons');
 };
 const build = async () => { await click('↗ Build / Export Mod'); await waitFor("document.body.innerText.includes('Export complete')",'export'); console.log('GUI ZIP: '+await evaluate("document.querySelector('.export-success code').innerText")); };
-const openProject = async name => { await nav('Project library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')",'open '+name); };
+const openProject = async name => { await nav('Project library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')",'open '+name); };
 const approve = async (domain, value=true) => {
     const selector=`[data-scope-domain="${domain}"] input[type=checkbox]`;
     await evaluate(`(()=>{const input=document.querySelector(${JSON.stringify(selector)});if(!input)throw new Error('Missing shared approval scope');if(input.checked!==${value})input.click();})()`); await sleep(200);

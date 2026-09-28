@@ -20,7 +20,7 @@ public sealed class ProjectFilePicker : IProjectFilePicker
     public async Task<string?> PickAsync()
     {
         var result = await FilePicker.Default.PickAsync(new PickOptions
-        { PickerTitle = "Open HD2RuntimeGUI project", FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>> { [DevicePlatform.WinUI] = [".json"] }) });
+        { PickerTitle = "Open HD2Runtime ModBuilder project", FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>> { [DevicePlatform.WinUI] = [".json"] }) });
         return result?.FullPath;
     }
 }

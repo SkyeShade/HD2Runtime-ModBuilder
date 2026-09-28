@@ -36,10 +36,12 @@ public partial class Home : IDisposable
     private string OverviewName = "", OverviewAuthor = "", OverviewVersion = "", OverviewDescription = "";
     private string? EditingWeapon;
     private string StratagemCategory = "";
+    private string? StratagemSupportTab;
     private bool IsSelected(NavItem item) => item.Page.StartsWith("stratagems:", StringComparison.Ordinal)
         ? Page == "stratagems" && StratagemCategory == item.Page["stratagems:".Length..] : Page == item.Page && (item.Page != "stratagems" || StratagemCategory == "");
     private void NavigateTo(string page)
     {
+        StratagemSupportTab = null;
         if (page.StartsWith("stratagems:", StringComparison.Ordinal)) { StratagemCategory = page["stratagems:".Length..]; Navigate("stratagems"); }
         else if (page == "stratagems") { StratagemCategory = ""; Navigate(page); }
         else if (page == "export" && Workspace.Project != null) ShowExport();
@@ -80,6 +82,8 @@ public partial class Home : IDisposable
     }
     private void Navigate(string page)
     {
+        // Vehicles and Backpacks moved into Stratagems → Support; old routes open the matching Support tab.
+        if (page is "vehicles" or "backpacks") { StratagemCategory = "support"; StratagemSupportTab = page == "vehicles" ? "vehicle" : "backpack"; page = "stratagems"; }
         Page = page; Notice = null; Error = null;
         if (page == "overview" && Workspace.Project is { } p)
             (OverviewName, OverviewAuthor, OverviewVersion, OverviewDescription) = (p.DisplayName, p.Author, p.Version, p.Description);

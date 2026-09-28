@@ -62,7 +62,7 @@ try {
         await click('+ Create New Mod'); await waitFor("!!document.querySelector('#mod-name')", 'create dialog');
         await fill('#mod-name','Jar5VerdictProjectile'); await fill('#author','SkyeShade'); await fill('#resource-id','mods/skyeshade/jar5_verdict_projectile');
         await fill('#description','Guarded JAR-5 primary projectile replacement with the P-113 Verdict conventional projectile.');
-        await click('Create project →'); await waitFor("document.body.innerText.includes('Project overview')", 'project saved');
+        await click('Create project →'); await waitFor("!!document.querySelector('[data-overview]')", 'project saved');
         await nav('Player Weapons'); await choose('JAR-5 Dominator');
         assert.equal(await evaluate("document.querySelectorAll('[data-field*=\"attack.\"]').length"),0);
         assert.equal(await evaluate("document.querySelector('[data-projectile=primary] select').options.length"),45);

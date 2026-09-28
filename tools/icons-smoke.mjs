@@ -26,13 +26,13 @@ const click = async selector => { await evaluate(`(() => { const el = document.q
 const fill = async (selector, value) => { await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing ' + ${JSON.stringify(selector)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); })()`); await sleep(450); };
 const text = () => evaluate('document.body.innerText');
 const lua = async () => { await go('lua'); await sleep(300); return evaluate('document.querySelector("pre")?.innerText ?? ""'); };
-const openProject = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b => b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'open ' + name); };
+const openProject = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b => b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'open ' + name); };
 const mode = process.argv[2] ?? 'fresh';
 const settings = async () => { await evaluate(`[...document.querySelectorAll('.nav-item')].find(b => b.innerText.includes('Settings')).click()`); await sleep(500); };
 const report = { mode };
 try {
     await waitFor("!!document.querySelector('.desktop-shell')", 'startup');
-    report.brand = await evaluate(`({ accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(), booster: getComputedStyle(document.documentElement).getPropertyValue('--cat-booster').trim(), mark: getComputedStyle(document.querySelector('.brand-mark')).backgroundColor })`);
+    report.brand = await evaluate(`({ accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(), booster: getComputedStyle(document.documentElement).getPropertyValue('--cat-booster').trim(), mark: getComputedStyle(document.querySelector('.sidebar .brand-icon rect')).fill })`);
     assert.equal(report.brand.accent, '#fdd00e'); assert.equal(report.brand.mark, 'rgb(253, 208, 14)'); assert.equal(report.brand.booster, '#f2c94c');
     await waitFor("!document.querySelector('.activity')", 'initial load');
     await settings();
@@ -62,7 +62,7 @@ try {
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name', 'Icons ' + mode + ' ' + Date.now()); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");
-    await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'project created');
+    await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'project created');
     await go('stratagems'); await sleep(800);
     report.stratagems = await evaluate(`(() => { const rows = [...document.querySelectorAll('.weapon-list [data-stratagem]')];
         return { listed: rows.length, svg: rows.filter(r => r.querySelector('.game-icon img')).length,
@@ -70,7 +70,7 @@ try {
     await screenshot('icons-' + mode + '-stratagems');
     await go('boosters'); await sleep(600);
     report.boosters = { listed: await count('[data-booster-item]'), svg: await count('[data-booster-item] .game-icon img') };
-    if (mode !== 'off') { assert.equal(report.stratagems.svg, 67); assert.equal(report.boosters.svg, 18); }
+    if (mode !== 'off') { assert.equal(report.stratagems.listed, 93); assert.equal(report.stratagems.svg, 84); assert.equal(report.boosters.svg, 18); }
     else { assert.equal(report.stratagems.svg, 0); assert.equal(report.boosters.svg, 0); }
     console.log(JSON.stringify(report, null, 1)); console.log('icons smoke passed: ' + mode);
 } finally { socket.close(); }

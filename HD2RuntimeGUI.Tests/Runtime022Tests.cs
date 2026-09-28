@@ -110,7 +110,7 @@ public sealed class Runtime022Tests
     }
     [Fact] public void Tabs_follow_editor_order_and_labels()
     {
-        Assert.Equal(["All", "Orbital", "Eagle", "Support Call-Ins", "Sentries", "Emplacements", "Mines / Deployables"], StratagemBrowser.Tabs(Catalog()).Select(t => t.Label));
+        Assert.Equal(["All", "Orbital", "Eagle", "Support Weapons", "Sentries", "Emplacements", "Mines / Deployables"], StratagemBrowser.Tabs(Catalog()).Select(t => t.Label));
         var c = Catalog(); Assert.Contains(c.Stratagems, s => s.Name == AntiTank && StratagemBrowser.Matches(c, s, "emplacement", "anti-tank", "entity", "writable"));
         Assert.Contains(c.Stratagems, s => s.Name == "A/LAS-98 Laser Sentry" && StratagemBrowser.Matches(c, s, "sentry", system: "beam"));
     }

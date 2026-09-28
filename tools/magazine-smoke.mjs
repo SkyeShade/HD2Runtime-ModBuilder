@@ -24,7 +24,7 @@ const go = async target => { await evaluate(`document.querySelector('[data-nav="
 const count = selector => evaluate(`document.querySelectorAll(${JSON.stringify(selector)}).length`);
 const click = async selector => { await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing '+${JSON.stringify(selector)}); el.click(); })()`); await sleep(350); };
 const fill = async (selector, value) => { await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing '+${JSON.stringify(selector)}); el.value=${JSON.stringify(value)}; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); })()`); await sleep(350); };
-const open = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')",'open '+name); };
+const open = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')",'open '+name); };
 const weapon = async name => { await go('player-weapons'); await evaluate(`document.querySelector('[data-weapon=${JSON.stringify(name)}]').click()`); await sleep(400); };
 const DRUM = 'weapon-attachment/v1/magazine/rifle-5-5x50mm-drum/fa499a29b375c6cf';
 const card = `[data-attachment-id="${DRUM}"]`;

@@ -49,7 +49,7 @@ try {
             await waitFor("!!document.querySelector('#mod-name')",'new project');
             await fill('#mod-name',sample.name); await fill('#author','SkyeShade');
             await fill('#resource-id','mods/skyeshade/'+sample.name.toLowerCase()); await fill('#description',sample.description);
-            await click('Create project →'); await waitFor("document.body.innerText.includes('Project overview')",'project saved');
+            await click('Create project →'); await waitFor("!!document.querySelector('[data-overview]')",'project saved');
             await nav('Player Weapons'); await choose(sample.weapon);
             assert(await evaluate("!!document.querySelector('[data-section=\"Ammo / Magazine\"]')"));
             for(const c of sample.changes) {

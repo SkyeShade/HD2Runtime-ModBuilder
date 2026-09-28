@@ -90,10 +90,10 @@ public static class EntityStats
 // Stratagem browser filters. Families come from metadata; known families use the editor's tab labels and order.
 public static class StratagemBrowser
 {
-    private static readonly string[] KnownOrder = ["orbital", "eagle", "support", "sentry", "emplacement", "mine"];
+    private static readonly string[] KnownOrder = ["orbital", "eagle", "support", "vehicle", "backpack", "sentry", "emplacement", "mine"];
     public static string FamilyLabel(string family) => family switch
     {
-        "orbital" => "Orbital", "eagle" => "Eagle", "support" => "Support Call-Ins", "sentry" => "Sentries",
+        "orbital" => "Orbital", "eagle" => "Eagle", "support" => "Support Weapons", "vehicle" => "Vehicles", "backpack" => "Backpacks", "sentry" => "Sentries",
         "emplacement" => "Emplacements", "mine" => "Mines / Deployables", _ => StratagemGraph.Title(family),
     };
     public static IReadOnlyList<(string Family, string Label, int Count)> Tabs(StratagemCatalog c) =>

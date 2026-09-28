@@ -35,7 +35,7 @@ try {
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name', 'Layout Smoke ' + Date.now()); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");
-    await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'project created');
+    await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'project created');
 
     await weapon(CARBINE);
     const order = await evaluate(`[...document.querySelectorAll('.weapon-detail > .semantic-section')].map(s => s.dataset.section)`);

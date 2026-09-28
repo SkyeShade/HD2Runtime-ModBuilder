@@ -1,5 +1,6 @@
 // Developer-only smoke test against a running isolated MAUI app's WebView2 CDP port.
 // Node 22+ is used only for UI verification, never by the shipped application.
+// NOTE: HD2Runtime ModBuilder moved Vehicles / Backpacks into Stratagems → Support (see tools/modbuilder-ui-smoke.mjs); the vehicles/backpacks steps below describe the 0.23 layout.
 // Launch Debug with HD2RUNTIMEGUI_DATA_ROOT=<0.23 sample workspace> and
 // WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9236, then run: node tools/runtime023-smoke.mjs
 import fs from 'node:fs/promises';
@@ -28,7 +29,7 @@ const count = selector => evaluate(`document.querySelectorAll(${JSON.stringify(s
 const list = (selector, map) => evaluate(`[...document.querySelectorAll(${JSON.stringify(selector)})].map(${map})`);
 const click = async selector => { await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing '+${JSON.stringify(selector)}); el.click(); })()`); await sleep(350); };
 const fill = async (selector, value) => { await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing '+${JSON.stringify(selector)}); el.value=${JSON.stringify(value)}; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); })()`); await sleep(350); };
-const open = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')",'open '+name); };
+const open = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b=>b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')",'open '+name); };
 const field = (id, scope = '') => `${scope} [data-semantic-field="${id}"]`;
 const lua = async () => { await go('lua'); return evaluate('document.querySelector("pre").innerText'); };
 try {

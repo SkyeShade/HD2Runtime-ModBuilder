@@ -63,7 +63,7 @@ try {
         await fill('#description','JAR-5 armor penetration 3 → 4, configured through SDK metadata.');
         await screenshot('create-project');
         await click('Create project →');
-        await waitFor("document.body.innerText.includes('Project overview')", 'project creation');
+        await waitFor("!!document.querySelector('[data-overview]')", 'project creation');
         await evaluate("[...document.querySelectorAll('.nav-item')].find(b=>b.innerText.includes('Weapons')).click()"); await sleep(150);
         await evaluate("[...document.querySelectorAll('.resource-item')].find(b=>b.innerText.includes('JAR-5 Dominator')).click()"); await sleep(150);
         assert.equal(await evaluate("document.querySelector('#field').value"),'armor_penetration');

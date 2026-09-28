@@ -7,8 +7,8 @@
     var callIn = entities.CallInFor("vehicle", Name);
     @if (!ModifiedOnly)
     {
-        <section class="panel category-panel cat-support" data-vehicle="@vehicle.Name">
-            <div class="eyebrow">VEHICLE · @(vehicle.VehicleClass?.ToUpperInvariant() ?? "NATIVE")</div><h2>@vehicle.Name</h2>
+        <section class="panel @(Embedded ? "delivered-panel" : "category-panel cat-support")" data-vehicle="@vehicle.Name">
+            <div class="eyebrow">@(Embedded ? "DELIVERED " : "")VEHICLE · @(vehicle.VehicleClass?.ToUpperInvariant() ?? "NATIVE")</div>@if (Embedded) { <h3>@vehicle.Name</h3> } else { <h2>@vehicle.Name</h2> }
             <div class="field-badges"><span class="badge">@(vehicle.CatalogSource == "native_only" ? "Native-only vehicle" : "Stratagem vehicle")</span>
                 <span class="badge">@vehicle.Durability.Zones.Length damage zones</span><span class="badge">@vehicle.Mounts.Count(m => m.Swappable) swappable mounts</span></div>
             @if (!vehicle.CallInStratagem.Known) { <p class="subtle" data-callin-unknown>@vehicle.CallInStratagem.Reason</p> }
@@ -59,6 +59,8 @@
 @code {
     [Parameter, EditorRequired] public string Name { get; set; } = "";
     [Parameter] public bool ModifiedOnly { get; set; }
+    // Hosted under its Support stratagem entry (Stratagems → Support): the stratagem header is shown above, so this header is compact.
+    [Parameter] public bool Embedded { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string ZoneFilter = ""; private string? Error;
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }

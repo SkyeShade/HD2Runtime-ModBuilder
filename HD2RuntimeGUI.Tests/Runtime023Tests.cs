@@ -177,12 +177,14 @@ public sealed class Runtime023Tests
             var root = s.Stratagems!.Root(stratagem)!; Assert.Equal(resource, root.Family); Assert.Equal(resource, root.Delivers!.Kind);
             var semanticId = resource == "vehicle" ? entities.Vehicles.Find(entity)!.SemanticId : entities.Backpacks.Find(entity)!.SemanticId;
             Assert.Equal(semanticId, root.Delivers.SemanticId); Assert.Equal(stratagem, entities.CallInFor(resource, entity));
-            Assert.False(StratagemCategories.Listed(root, entities));
+            Assert.True(StratagemCategories.Listed(root, entities)); // listed once, under Support (its vehicle/backpack editor opens from there)
         }
         Assert.All(entities.Vehicles.Vehicles.Where(v => v.CatalogSource == "native_only"), v => { Assert.False(v.CallInStratagem.Known); Assert.Null(entities.CallInFor("vehicle", v.Name)); });
         var nav = Navigation.Build(s, null);
-        Assert.Equal(73, nav.Single(i => i.Page == "stratagems").Count); Assert.Equal(35, nav.Single(i => i.Page == "stratagems:support").Count);
-        Assert.Equal(11, nav.Single(i => i.Page == "vehicles").Count); Assert.Equal(13, nav.Single(i => i.Page == "backpacks").Count);
+        Assert.Equal(s.Stratagems!.Stratagems.Count(r => r.Delivers?.IsNoCallIn != true), nav.Single(i => i.Page == "stratagems").Count);
+        Assert.Equal(s.Stratagems.Stratagems.Count(r => r.Family is "support" or "vehicle" or "backpack" && r.Delivers?.IsNoCallIn != true), nav.Single(i => i.Page == "stratagems:support").Count);
+        Assert.DoesNotContain(nav, i => i.Page is "vehicles" or "backpacks");
+        Assert.Equal(["FRV (Super Earth variant)", "GATER Oil Rig"], StratagemCategories.EntitiesWithoutCallIn(entities).Select(x => x.Name).Order(StringComparer.Ordinal));
         // The call-in cooldown stays an hd2.stratagem write even when edited from the vehicle editor.
         await w.SetStratagemAsync(Strat(w, Bastion, "stratagem.cooldown").InstanceKey, "300"); await w.SetEntityAsync(Entity(w, Bastion, "entity.armor").InstanceKey, "5");
         Assert.Contains("target=hd2.stratagem('TD-220 Bastion MK XVI'),", w.LuaPreview); Assert.Contains("target=hd2.vehicle('TD-220 Bastion MK XVI'),", w.LuaPreview);

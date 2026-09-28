@@ -26,7 +26,7 @@ const click = async selector => { await evaluate(`(() => { const el = document.q
 const fill = async (selector, value) => { await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Missing ' + ${JSON.stringify(selector)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); })()`); await sleep(450); };
 const text = () => evaluate('document.body.innerText');
 const lua = async () => { await go('lua'); await sleep(300); return evaluate('document.querySelector("pre")?.innerText ?? ""'); };
-const openProject = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b => b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'open ' + name); };
+const openProject = async name => { await go('library'); await evaluate(`[...document.querySelectorAll('.project-open')].find(b => b.innerText.includes(${JSON.stringify(name)})).click()`); await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'open ' + name); };
 const report = {};
 const weapon = async name => { await go('player-weapons'); await evaluate(`document.querySelector('[data-weapon=${JSON.stringify(name)}]').click()`); await sleep(700); };
 const damageRow = '[data-section="Damage"] [data-object-field="damage.standard_damage"]';
@@ -35,7 +35,7 @@ try {
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name', 'Options Smoke ' + Date.now()); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");
-    await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'project created');
+    await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'project created');
     const baseline = await lua();
 
     // Liberator damage 90 -> 110 (shared object, acknowledged once).

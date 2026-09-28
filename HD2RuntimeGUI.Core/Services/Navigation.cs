@@ -7,8 +7,8 @@ namespace HD2RuntimeGUI.Core.Services;
 public sealed record StratagemCategory(string Key, string Label, string CssClass, string[] Families);
 public static class StratagemCategories
 {
-    // Vehicles and backpacks are support stratagems. When Runtime publishes their call-in link they are edited in the
-    // Vehicles / Backpacks areas together with the call-in, so the Stratagems list does not repeat them.
+    // Vehicles and backpacks are support stratagems (SDK families "vehicle" / "backpack"). They are listed once, under Support,
+    // and a call-in Runtime links to a vehicle or backpack opens that vehicle/backpack editor together with its call-in settings.
     public static readonly StratagemCategory Support = new("support", "Support", "cat-support", ["support", "vehicle", "backpack"]);
     public static readonly StratagemCategory Offensive = new("offensive", "Offensive", "cat-offensive", ["orbital", "eagle"]);
     public static readonly StratagemCategory Defensive = new("defensive", "Defensive", "cat-defensive", ["sentry", "emplacement", "mine"]);
@@ -17,9 +17,15 @@ public static class StratagemCategories
     public static StratagemCategory? Find(string key) => All.FirstOrDefault(c => c.Key == key);
     // Boosters (SDK 0.24.0+) are their own authoring domain, not a stratagem family; yellow alongside the stratagem categories.
     public const string BoosterCssClass = "cat-booster";
-    // A root is listed under Stratagems unless it is a call-in whose vehicle/backpack editor already includes it.
+    // Every call-in root is listed, including vehicle and backpack call-ins (edited through their Support entry).
     // 0.25.0+: a catalog root Runtime proves has no call-in (no_call_in) is not a stratagem; its equipment is listed as standalone.
-    public static bool Listed(StratagemDefinition s, EntityAuthoring? entities) => entities?.CallIns.ContainsKey(s.Name) != true && s.Delivers?.IsNoCallIn != true;
+    public static bool Listed(StratagemDefinition s, EntityAuthoring? entities = null) => s.Delivers?.IsNoCallIn != true;
+    // Support subcategories: family tabs plus "Other / Standalone" for items without a call-in stratagem.
+    public const string OtherSupport = "other";
+    // Vehicles/backpacks the SDK publishes without a call-in link (native-only), listed under Support → Other / Standalone.
+    public static IReadOnlyList<(string Resource, string Name)> EntitiesWithoutCallIn(EntityAuthoring? entities) => entities == null ? [] :
+        [.. entities.Vehicles.Vehicles.Where(v => entities.CallInFor("vehicle", v.Name) == null).Select(v => ("vehicle", v.Name)),
+         .. entities.Backpacks.Backpacks.Where(b => entities.CallInFor("backpack", b.Name) == null).Select(b => ("backpack", b.Name))];
     public static int Count(StratagemCatalog catalog, StratagemCategory category, EntityAuthoring? entities = null)
         => catalog.Stratagems.Count(s => category.Families.Contains(s.Family) && Listed(s, entities));
 }
@@ -42,12 +48,8 @@ public static class Navigation
         };
         if (sdk?.Stratagems is { } catalog)
             items.AddRange(StratagemCategories.All.Select(c => new NavItem("stratagems:" + c.Key, c.Label, Workspace, StratagemCategories.Count(catalog, c, entities), c.CssClass, true)));
-        // hd2.vehicle / hd2.backpack authoring (SDK 0.23.0+). Linked call-in cooldowns are edited inside these editors.
-        if (entities != null)
-        {
-            items.Add(new("vehicles", "Vehicles", Workspace, entities.Vehicles.Vehicles.Length, StratagemCategories.Support.CssClass));
-            items.Add(new("backpacks", "Backpacks", Workspace, entities.Backpacks.Backpacks.Length, StratagemCategories.Support.CssClass));
-        }
+        // hd2.vehicle / hd2.backpack authoring (SDK 0.23.0+) lives in Stratagems → Support (Vehicles / Backpacks tabs);
+        // the old "vehicles" / "backpacks" pages redirect there.
         // Support equipment lives in Stratagems → Support: linked weapons inside their call-in, unlinked ones in its
         // "Unlinked support equipment" group. Only SDKs without a stratagem catalog (0.17–0.20.x) keep a separate destination.
         if (sdk?.Stratagems == null && sdk?.Advanced?.Support is { } support)

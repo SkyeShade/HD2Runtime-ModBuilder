@@ -39,7 +39,7 @@ try {
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name', 'Booster Smoke'); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");
-    await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'project created');
+    await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'project created');
 
     // Every published booster is listed; unresolved ones render Runtime's blocker and no controls.
     await go('boosters'); assert.equal(await count('[data-booster-item]'), 20); assert.equal(await count('[data-booster-item][data-booster-writable="true"]'), 2);

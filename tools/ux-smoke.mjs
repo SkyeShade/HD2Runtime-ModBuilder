@@ -59,7 +59,7 @@ try {
     } else {
         await click('+ Create New Mod'); await waitFor("!!document.querySelector('#mod-name')",'create');
         await fill('#mod-name','UX polish validation'); await fill('#author','SkyeShade'); await fill('#resource-id','mods/skyeshade/ux_polish');
-        await click('Create project →'); await waitFor("document.body.innerText.includes('Project overview')",'saved');
+        await click('Create project →'); await waitFor("!!document.querySelector('[data-overview]')",'saved');
         await nav('Player Weapons'); await choose('AR-23C Liberator Concussive');
         assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.innerText.trim()==='Save change')"),false);
         assert.equal((await state('weapon.suppressed')).modified,false);

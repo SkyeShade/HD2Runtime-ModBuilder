@@ -1,3 +1,4 @@
+using Microsoft.Maui.LifecycleEvents;
 using Microsoft.Extensions.Logging;
 using HD2RuntimeGUI.Core.Generation;
 using HD2RuntimeGUI.Core.GitHub;
@@ -17,6 +18,14 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .ConfigureFonts(fonts => { fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular"); });
+#if WINDOWS
+        // Window title-bar and taskbar icon: the HD2Runtime ModBuilder reticle (appicon.ico generated from Resources/AppIcon/appicon.svg).
+        builder.ConfigureLifecycleEvents(events => events.AddWindows(windows => windows.OnWindowCreated(window =>
+        {
+            var icon = Path.Combine(AppContext.BaseDirectory, "appicon.ico");
+            if (File.Exists(icon)) window.AppWindow.SetIcon(icon);
+        })));
+#endif
 
         builder.Services.AddMauiBlazorWebView();
         var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HD2RuntimeGUI");

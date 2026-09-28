@@ -34,7 +34,7 @@ try {
     // Sidebar: no leftover Support Weapons category; Boosters stays yellow.
     assert.equal(await count('[data-nav="support"]'), 0);
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('.nav-group:not(.research) [data-nav]')].map(b => b.dataset.nav)`),
-        ['overview', 'player-weapons', 'stratagems', 'stratagems:support', 'stratagems:offensive', 'stratagems:defensive', 'vehicles', 'backpacks', 'boosters', 'changes', 'lua', 'export']);
+        ['overview', 'player-weapons', 'stratagems', 'stratagems:support', 'stratagems:offensive', 'stratagems:defensive', 'boosters', 'changes', 'lua', 'export']);
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-nav="boosters"] .cat-dot')).backgroundColor`), 'rgb(242, 201, 76)');
     await evaluate(`[...document.querySelectorAll('.nav-item')].find(b => b.innerText.includes('Settings')).click()`); await sleep(500);
     assert((await evaluate("document.querySelector('[data-icon-status]').innerText")).includes('18 of 20 boosters'));
@@ -43,7 +43,7 @@ try {
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name', 'IA Smoke'); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");
-    await waitFor("document.body.innerText.includes('Project overview') && !document.querySelector('.activity')", 'project created');
+    await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'project created');
 
     // Support: merged call-in + equipment, one conceptual entry; unresolved items only in the small unlinked group.
     await go('stratagems:support');
