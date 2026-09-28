@@ -77,3 +77,7 @@ Run `dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/grouped-genera
 - `ConcussiveGroupedExpiry-0.1.0.zip`: adds expiry None → Eruptor explosion; three ensures.
 
 ZIPs are in `artifacts/grouped-generation/Exports/`. The terminal variants are alternatives to test individually, not together. The combined impact+expiry project is saved but blocked because the released transaction API accepts only one terminal phase. No deployment or game launch is performed.
+
+## Runtime 0.22 defensive samples
+
+`dotnet run --project tools/HD2RuntimeGUI.Sample -- artifacts/runtime022/samples --defensive` generates AntiTankEmplacement022, ConventionalSentry022, ExplosiveSentry022 and UnusualSentry022 through the same project, persistence, generation and export services as the UI. Shared scopes are acknowledged explicitly for these samples. No mine attack sample exists because Runtime 0.22 does not resolve individual mine attacks. Nothing is deployed. See [0.22 verification](../docs/runtime022-verification.md).

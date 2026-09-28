@@ -1,10 +1,10 @@
 @inject BuilderWorkspace Workspace
 @{ var saved = Saved; }
 <article class="stat-card @(saved != null ? "modified" : "")" data-stratagem-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
-    <div class="panel-heading"><h3>@Field.DisplayName</h3>@if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
-    @if (saved != null) { <p class="modified-value">@Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong> @Field.Unit</p> }
-    else { <p class="subtle">Vanilla: @Format(Field.CurrentDefault) @Field.Unit</p> }
-    @if (!Field.Editable) { <span class="badge">Read-only</span><p>@Field.Reason</p> }
+    <div class="panel-heading"><h3>@(Label ?? Field.DisplayName)</h3>@if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
+    @if (saved != null) { <p class="modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong> @Unit</p> }
+    else { <p class="subtle" data-baseline="@Format(Field.CurrentDefault)">Baseline: @Format(Field.CurrentDefault) @Unit</p> }
+    @if (!Field.Editable) { <span class="badge">Not currently writable</span><p class="subtle">@Field.Reason</p> }
     else
     {
         <label>Current value
@@ -12,7 +12,7 @@
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" /> }
         </label>
     }
-    @if (Field.Shared) { <span class="badge">Shared</span> }
+    @if (Field.Shared) { <span class="badge amber" title="Requires acknowledgement of every reviewed consumer">Shared · @Field.SharedConsumers.Length @(Field.SharedConsumers.Length == 1 ? "consumer" : "consumers")</span> }
     @if (saved != null)
     {
         <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleStratagemAsync(saved.InstanceKey))" /> Enabled</label>
@@ -24,16 +24,22 @@
         }
     }
     @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
-    <details><summary>Provenance</summary><p>@Field.Provenance</p><p>@Field.BackingObjectKind · @Field.Target.Attack</p><code>@Field.SemanticFieldId</code></details>
+    <details><summary>Provenance</summary><p>@Field.Provenance</p><p>@Field.BackingObjectKind · @(Field.Target.Attack ?? Field.Target.Weapon ?? Field.Target.Entity ?? Field.Target.Path)</p><code>@Field.SemanticFieldId</code></details>
 </article>
 @code {
     [Parameter, EditorRequired] public StratagemField Field { get; set; } = null!;
+    [Parameter] public string? Label { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     private StratagemChange? Saved => StratagemChangeService.Saved(Workspace.Project, (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!, Field);
+    private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
     private string Value => Format(Saved?.DesiredValue ?? Field.CurrentDefault);
     private string Format(System.Text.Json.JsonElement v) { try { return StratagemScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
-    private bool NeedsReview(StratagemChange c) => c.CapabilityEvidence != StratagemChangeService.Evidence(Field) || !StratagemScalar.Equal(Field, c.ExpectedValue, Field.CurrentDefault);
+    private bool NeedsReview(StratagemChange c)
+    {
+        var handle = (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!.Resolve(c) ?? Field;
+        return c.InstanceKey != handle.InstanceKey || c.CapabilityEvidence != StratagemChangeService.Evidence(handle) || !StratagemScalar.Equal(Field, c.ExpectedValue, Field.CurrentDefault);
+    }
     private Task Commit(string value) => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, value));
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

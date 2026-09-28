@@ -1,6 +1,6 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.3.0 supports the **0.21 guarded stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports the **0.22 guarded defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
@@ -14,11 +14,13 @@ This repository is separate from HD2Runtime. It does not launch the game, deploy
 
 ## Authoring
 
-**Stratagems** has its own browser for Orbital, Eagle and Support Call-Ins. The published canonical catalog supplies 55 visible roots (20 offensive and 35 support call-ins), 989 field instances and 936 writable instances. The two unresolved call-ins remain read-only. Branch-specific fields retain separate identities; search and family/system/availability filters come from metadata. Cooldown, damage, explosion, projectile, status and OrbitalAbility fields autosave with vanilla comparisons and reset actions.
+**Stratagems** has its own browser with All, Orbital, Eagle, Support Call-Ins, Sentries, Emplacements and Mines / Deployables tabs. The published Runtime 0.22 canonical catalog supplies 73 roots, 1,382 field instances (1,311 writable), 226 backing semantic objects, 327 target-specific operation groups and 115 reviewed shared scopes. The two unresolved call-ins remain read-only. Branch-specific fields retain separate identities; search and system/availability filters come from metadata. Every field autosaves with baseline → desired comparisons and reset actions.
+
+Defensive stratagems render their published graph: **Stratagem → Deployed Entity → Mounted Weapon → Attack branches**. All 10 sentries, 4 conventional emplacements and the 4 mine deployment entities expose cooldown and reusable **Entity Stats** (health and armor). Twelve mounted weapons show only the sections present in metadata: Ammo, Weapon (the 9 published fire-rate fields), Heat/Heatsinks, Projectile, Damage, Explosion, Explosion Damage, Beam, Arc and per-slot Status. Mines expose only the stratagem root and deployment entity; individual mines, triggers, distribution and mine attacks have no controls. The Grenadier Battlement's unproven mounted weapon, targeting, deployed and projectile lifetime, penetration slowdown, max uses and spray remain "Not currently writable" with Runtime's reasons. See [0.22 verification](docs/runtime022-verification.md).
 
 Eagle cooldown and uses-per-rearm are per stratagem. Eagle rearm time is one shared system: all eight handles show the same saved override and use one acknowledgement of its reviewed consumers. Max uses, call-in time and unproven barrage scheduling remain read-only with SDK reasons. Projects stay pinned until explicitly rebound; changed baselines and ownership require review.
 
-See [0.21 verification and the remaining status-target grouping limitation](docs/runtime021-verification.md). Runtime 0.21's canonical operation groups cannot always express simultaneous edits to distinct status slots on one DamageInfo object; those combinations fail closed before export. No Runtime safety workaround is generated.
+Runtime 0.21 projects stay pinned to 0.21 and keep its conservative status-slot limitation ([0.21 verification](docs/runtime021-verification.md)). After an explicit rebind, saved changes move to the 0.22 canonical instance with the same semantic target; changed shared scopes require review and a fresh acknowledgement. 0.22's target-specific operation groups allow distinct status slots on one DamageInfo object in one `hd2.plan`.
 
 Create a mod with a display name, author, resource ID such as `mods/skyeshade/my_mod`, version and optional description. The library supports open, rename, duplicate, remove from library, open project folder and export. Removing a library entry preserves its files.
 
@@ -87,9 +89,9 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 ## SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.20.1 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.22.0 metadata supports first launch offline.
 
-Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only fourteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities and CompositionPlanCapabilities contracts. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
+Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only fifteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities and CompositionPlanCapabilities contracts. Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
 The SDK metadata and capability catalog must agree on version and supported schemas/API. For 0.20.1's reused 0.19 player artifacts, only the exact published bytes are accepted by digest; all other checks still apply. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
 
@@ -114,7 +116,7 @@ Exports/<mod-name>-<version>.zip
 research.json
 ```
 
-Project format 4 retains support for formats 1, 2 and 3 and legacy reviewed changes. `weaponChanges` stores weapon name, semantic field ID, expected and desired scalar values, scalar type, baseline SDK version, enabled/persistence state, group, notes and explicit shared acknowledgement/scope/affected identities. It stores no resolved addresses. Stable manager GUID generation matches the ModTemplate's resource-ID algorithm.
+Project format 5 adds published entity/weapon graph identities and a target kind (stratagem, deployed_entity or mounted_weapon) to stratagem changes; it retains support for formats 1–4 and legacy reviewed changes. `weaponChanges` stores weapon name, semantic field ID, expected and desired scalar values, scalar type, baseline SDK version, enabled/persistence state, group, notes and explicit shared acknowledgement/scope/affected identities. It stores no resolved addresses. Stable manager GUID generation matches the ModTemplate's resource-ID algorithm.
 
 Rebinding keeps desired values and saved baselines. Missing fields, changed types, read-only capabilities, changed shared scope and changed defaults block affected builds and appear in Changes. A changed default requires an explicit **Accept baseline** action; opening or rebinding never silently rewrites it. Older SDK cache entries remain available.
 

@@ -8,10 +8,10 @@ using HD2RuntimeGUI.Core.Storage;
 internal static class StratagemSamples
 {
     public static async Task<int> Run(AppPaths paths, SdkMetadata sdk, ISdkCache cache, IGitHubReleaseClient github,
-        IProjectStore store, IProjectService projects, ILuaGenerator generator)
+        IProjectStore store, IProjectService projects, ILuaGenerator generator, bool defensive = false)
     {
         var catalog = StratagemChangeService.Catalog(sdk); var desktop = new NoDesktop();
-        var samples = new[] {
+        var samples = defensive ? Defensive : new[] {
             ("OrbitalLaser021", "Orbital Laser", new[] { ("stratagem.cooldown", "180", (string?)null), ("damage.standard_damage", "400", "beam_damage") }),
             ("OrbitalPrecision021", "Orbital Precision Strike", new[] { ("stratagem.cooldown", "40", (string?)null), ("explosion.outer_radius", "20", "delivery_1_projectile_impact") }),
             ("Eagle021", "Eagle Airstrike", new[] { ("stratagem.cooldown", "10", (string?)null), ("eagle.uses_per_rearm", "4", (string?)null), ("eagle.rearm_time", "90", (string?)null) }),
@@ -37,6 +37,15 @@ internal static class StratagemSamples
         }
         return 0;
     }
+    // Runtime 0.22 defensive samples. No mine attack sample: individual mine attacks are not resolved by Runtime.
+    private static readonly (string, string, (string, string, string?)[])[] Defensive = [
+        ("AntiTankEmplacement022", "E/AT-12 Anti-Tank Emplacement", [("stratagem.cooldown", "90", null), ("entity.health", "600", null), ("entity.armor", "3", null),
+            ("projectile.mass", "7000", "primary"), ("explosion.outer_radius", "8", "primary_impact")]),
+        ("ConventionalSentry022", "A/MG-43 Machine Gun Sentry", [("stratagem.cooldown", "60", null), ("entity.health", "800", null), ("entity.armor", "3", null),
+            ("weapon.capacity", "350", null), ("weapon.fire_rate", "900", null)]),
+        ("ExplosiveSentry022", "A/MLS-4X Rocket Sentry", [("explosion.outer_radius", "8", "primary_impact"), ("explosion.damage.standard_damage", "220", "primary_impact_damage")]),
+        ("UnusualSentry022", "A/LAS-98 Laser Sentry", [("beam.length", "240", "primary"), ("heat.capacity", "400", null)]),
+    ];
     private sealed class NoDesktop : IFolderOpener, IProjectFilePicker
     {
         public Task OpenAsync(string path, bool selectFile = false) => throw new NotSupportedException();

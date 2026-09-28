@@ -12,7 +12,7 @@ public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLu
         if (active.Length == 0) return [];
         var catalog = StratagemChangeService.Catalog(sdk);
         foreach (var c in active) service.Validate(project, sdk, c);
-        var rows = active.Where(c => !StratagemChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: catalog.Field(c.InstanceKey))).ToArray();
+        var rows = active.Where(c => !StratagemChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: StratagemChangeService.Resolve(catalog, c))).ToArray();
         var plans = rows.GroupBy(r => r.Field.PlanGroup).OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
         var parent = Enumerable.Range(0, plans.Length).ToArray();
         int Root(int i) { while (parent[i] != i) i = parent[i]; return i; }
@@ -59,6 +59,38 @@ public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLu
         }
         return output;
     }
-    public static string Target(StratagemTarget target) => "hd2.stratagem(" + LuaGenerator.Quote(target.Stratagem) + ")" + (target.Path switch
-    { "stratagem" => "", "attack" => ":attack(" + LuaGenerator.Quote(target.Attack!) + ")", "eagle_rearm" => ":eagle_rearm()", _ => throw new InvalidDataException("Unsupported stratagem target.") });
+    // Graph path targets follow the public API: stratagem → deployed_entity() → weapon(id) → attack(role).
+    // Runtime 0.22 exposes only the "main" deployed entity, and attack handles resolve under the "primary" mounted weapon.
+    // Any other published identity cannot be expressed through the public API and fails closed.
+    public static string Target(StratagemTarget target)
+    {
+        var root = "hd2.stratagem(" + LuaGenerator.Quote(target.Stratagem) + ")";
+        string Entity() => target.Entity == "main" ? root + ":deployed_entity()"
+            : throw new InvalidDataException("The public Runtime API cannot target deployed entity '" + target.Entity + "'.");
+        string Weapon() => Entity() + ":weapon(" + LuaGenerator.Quote(target.Weapon!) + ")";
+        return target.Path switch
+        {
+            "stratagem" => root,
+            "eagle_rearm" => root + ":eagle_rearm()",
+            "deployed_entity" => Entity(),
+            "weapon" => Weapon(),
+            "attack" when target.Weapon == null => root + ":attack(" + LuaGenerator.Quote(target.Attack!) + ")",
+            "attack" when target.Weapon == "primary" => Weapon() + ":attack(" + LuaGenerator.Quote(target.Attack!) + ")",
+            "attack" => throw new InvalidDataException("The public Runtime API resolves attack branches only under the primary mounted weapon."),
+            _ => throw new InvalidDataException("Unsupported stratagem target."),
+        };
+    }
+    // Distinct instances on one backing object may be distinct fields (for example status slots stored on a parent DamageInfo)
+    // or the same field reached through different consumers. The GUI never merges them; it only warns when enabled edits
+    // with the same API field on one object disagree, because Runtime rejects the plan if they resolve to the same bytes.
+    public static IReadOnlyList<(StratagemChange[] Changes, string Message)> SharedOverlaps(ModProject project, SdkMetadata sdk)
+    {
+        if (sdk.Stratagems is not { } catalog) return [];
+        return project.StratagemChanges.Where(c => c.Enabled).Select(c => (Change: c, Field: catalog.Resolve(c))).Where(r => r.Field != null)
+            .GroupBy(r => (r.Field!.BackingObjectId, r.Field.ApiFieldConstant)).Where(g => g.Count() > 1
+                && g.Select(r => StratagemScalar.Text(r.Field!, r.Change.DesiredValue)).Distinct().Count() > 1)
+            .Select(g => (g.Select(r => r.Change).ToArray(), "These edits use the same API field on one shared " + g.First().Field!.BackingObjectKind
+                + " object. If Runtime resolves them to the same field, it rejects the differing values; otherwise they apply independently."))
+            .ToArray();
+    }
 }

@@ -20,9 +20,15 @@ public sealed partial class BuilderWorkspace
         try
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
-            var previous = project.StratagemChanges.ToList(); var approvals = new Dictionary<string, string>(project.StratagemApprovals);
-            try { edit(project); project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(Metadata!, c)); await SaveChangesAsync(); }
-            catch { project.StratagemChanges = previous; project.StratagemApprovals = approvals; throw; }
+            var previous = project.StratagemChanges.ToList(); var approvals = new Dictionary<string, string>(project.StratagemApprovals); var format = project.FormatVersion;
+            try
+            {
+                edit(project); project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(Metadata!, c));
+                // Format 5 adds entity/weapon graph identities to stratagem changes.
+                if (project.StratagemChanges.Count > 0) project.FormatVersion = 5;
+                await SaveChangesAsync();
+            }
+            catch { project.StratagemChanges = previous; project.StratagemApprovals = approvals; project.FormatVersion = format; throw; }
         }
         finally { weaponEditGate.Release(); }
     }
@@ -34,10 +40,12 @@ public sealed partial class BuilderWorkspace
         if (old != null)
         {
             // Keep the original scoped handle when editing the Eagle shared system through another consumer.
-            next = stratagemChanges.Create(Metadata!, old.InstanceKey, value) with { Id = old.Id, Enabled = old.Enabled, EnsureEnabled = old.EnsureEnabled,
+            var handle = catalog.Resolve(old)!;
+            next = stratagemChanges.Create(Metadata!, handle.InstanceKey, value) with { Id = old.Id, Enabled = old.Enabled, EnsureEnabled = old.EnsureEnabled,
                 Notes = old.Notes, Group = old.Group, ExpectedValue = acceptBaseline ? f.CurrentDefault : old.ExpectedValue,
-                CapabilityEvidence = acceptBaseline ? StratagemChangeService.Evidence(catalog.Field(old.InstanceKey)) : old.CapabilityEvidence,
+                CapabilityEvidence = acceptBaseline ? StratagemChangeService.Evidence(handle) : old.CapabilityEvidence,
                 BaselineSdkVersion = acceptBaseline ? Metadata!.Version : old.BaselineSdkVersion };
+            if (!acceptBaseline && old.InstanceKey != handle.InstanceKey) next = next with { InstanceKey = old.InstanceKey };
             p.StratagemChanges.Remove(old);
         }
         if (!StratagemScalar.Equal(f, next.DesiredValue, f.CurrentDefault)) p.StratagemChanges.Add(next);
@@ -45,14 +53,15 @@ public sealed partial class BuilderWorkspace
     public Task ResetStratagemAsync(string? stratagem = null, string? instance = null) => EditStratagemAsync(p =>
     {
         var catalog = StratagemChangeService.Catalog(Metadata!);
-        var saved = instance == null ? null : catalog.FieldInstances.FirstOrDefault(f => f.InstanceKey == instance) is { } f ? StratagemChangeService.Saved(p, catalog, f) : null;
+        var saved = instance == null ? null : catalog.Find(instance) is { } f ? StratagemChangeService.Saved(p, catalog, f) : null;
         p.StratagemChanges.RemoveAll(c => (stratagem == null || c.Stratagem == stratagem) && (instance == null || c.InstanceKey == instance || c == saved));
     });
+    // One acknowledgement per exact published shared scope; it records the reviewed consumer list so scope changes invalidate it.
     public Task SetStratagemApprovalAsync(string instance, bool approved) => EditStratagemAsync(p =>
     {
         var f = StratagemChangeService.Catalog(Metadata!).Field(instance);
-        if (approved && f.AllowSharedRequired) p.StratagemApprovals[f.BackingObjectId] = StratagemChangeService.ApprovalEvidence(f);
-        else p.StratagemApprovals.Remove(f.BackingObjectId);
+        if (approved && f.AllowSharedRequired) p.StratagemApprovals[f.ScopeKey] = StratagemChangeService.ApprovalEvidence(f);
+        else p.StratagemApprovals.Remove(f.ScopeKey);
     });
     public Task ToggleStratagemAsync(string instance) => EditStratagemAsync(p =>
         p.StratagemChanges = p.StratagemChanges.Select(c => c.InstanceKey == instance ? c with { Enabled = !c.Enabled } : c).ToList());

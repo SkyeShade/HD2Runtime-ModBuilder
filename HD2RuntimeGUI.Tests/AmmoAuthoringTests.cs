@@ -181,7 +181,7 @@ public sealed class AmmoAuthoringTests
     [Fact] public async Task Fresh_offline_cache_contains_all_three_published_metadata_files()
     {
         using var env = new TestEnvironment(); File.Delete(env.Paths.CachePath("current.json")); env.GitHub.Offline = true;
-        var sdk = await env.Cache.GetCurrentAsync(); Assert.Equal("0.21.0", sdk.Version); Assert.NotNull(sdk.PlayerAmmo);
+        var sdk = await env.Cache.GetCurrentAsync(); Assert.Equal("0.22.0", sdk.Version); Assert.NotNull(sdk.PlayerAmmo);
         Assert.Equal(SdkCache.BundledAmmoCapabilities(), await File.ReadAllBytesAsync(env.Paths.CachePath(sdk.Version, PlayerWeaponAmmoCatalogReader.FileName)));
         Assert.NotNull((await env.Cache.GetVersionAsync(sdk.Version)).PlayerAmmo);
     }

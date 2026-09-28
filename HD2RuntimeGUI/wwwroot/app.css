@@ -1010,3 +1010,14 @@ input[type=checkbox]:checked:before {
 .stratagem-approval ul { padding-left: 1.4rem; margin: .8rem 0; }
 .stratagem-approval li { margin: .3rem 0; }
 .stratagem-approval label { display: flex; gap: .6rem; align-items: center; }
+.family-tabs { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 14px }
+.family-tab { border-radius:999px; padding:6px 14px }
+.family-tab small { color:var(--muted); margin-left:4px }
+.family-tab.active { border-color:var(--accent); color:var(--accent); background:#e9c86910 }
+.graph-outline { margin:.8rem 0; padding-left:1.4rem }
+.graph-outline ol { padding-left:1.2rem; margin:.3rem 0 }
+.graph-outline li { margin:.25rem 0 }
+.graph-outline small { color:var(--muted); margin-left:.4rem }
+.mounted-weapon { margin-top:18px; padding:14px 0 0 16px; border-left:2px solid var(--border) }
+.attack-branch { margin:14px 0 0; padding-left:12px; border-left:2px solid var(--accent) }
+.attack-branch > small { display:block; margin:-4px 0 8px }

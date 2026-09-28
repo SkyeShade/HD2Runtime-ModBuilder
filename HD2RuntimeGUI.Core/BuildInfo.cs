@@ -7,7 +7,7 @@ public static class BuildInfo
 {
     public static string Version =>
         typeof(BuildInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?.Split('+', 2)[0] ?? "0.3.0";
+        ?.Split('+', 2)[0] ?? "0.4.0";
 
     public static string UserAgent => $"HD2RuntimeGUI/{Version}";
 }

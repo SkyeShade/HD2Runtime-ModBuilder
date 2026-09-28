@@ -24,7 +24,9 @@ var catalog = WeaponChangeService.Catalog(sdk);
 Console.WriteLine($"Catalog: {catalog.Weapons.Count} weapons; {catalog.Summary.FieldInstances} capability entries.");
 var store = new JsonProjectStore(paths); var service = new ProjectService(store, paths);
 var changes = new WeaponChangeService(); var generator = new LuaGenerator(new ChangeService(), changes);
-if (args.Contains("--stratagems")) return await StratagemSamples.Run(paths, sdk, cache, github, store, service, generator);
+if (args.Contains("--runtime-validate")) return RuntimeValidation.Run(sdk, new LuaGenerator(new ChangeService()), Arg("--runtime-src=") ?? throw new ArgumentException("--runtime-src=<HD2Runtime source> is required"),
+    Arg("--lua-dll=") ?? Path.Combine(Environment.GetEnvironmentVariable("HD2_GAME_ROOT") ?? @"C:\Program Files (x86)\Steam\steamapps\common\Helldivers 2", "bin", "lua51.dll"), root);
+if (args.Contains("--stratagems") || args.Contains("--defensive")) return await StratagemSamples.Run(paths, sdk, cache, github, store, service, generator, args.Contains("--defensive"));
 if (args.Contains("--grouping")) return await GroupingSamples.Run(paths, sdk, cache, github, store, service, generator);
 if (args.Contains("--support")) return await SupportSamples.Run(paths, sdk, cache, github, store, service, generator);
 if (args.Contains("--plans")) return await PlanSamples.Run(paths, sdk, cache, github, store, service, generator);
@@ -41,5 +43,6 @@ foreach (var sample in presets)
     Console.WriteLine(paths.ProjectFile(project.Id));
 }
 return 0;
+string? Arg(string prefix) => args.FirstOrDefault(a => a.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
 internal sealed record Sample(string Name, string Description, string Weapon, IReadOnlyList<SampleChange> Changes);
 internal sealed record SampleChange(string Field, JsonElement Value);

@@ -24,9 +24,23 @@ public static class ProjectIdentity
         bytes[7] = (byte)((bytes[7] & 0x0F) | 0x50); bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);
         return new Guid(bytes);
     }
+    // Semantic graph identity only: target kind must agree with the graph path, and entity/weapon/attack are short published identifiers.
+    private static bool ValidStratagemTarget(StratagemChange c)
+    {
+        static bool Id(string? s) => s != null && Regex.IsMatch(s, @"\A[a-z][a-z0-9_]{0,63}\z");
+        return (c.TargetKind, c.Path) switch
+        {
+            ("stratagem", "stratagem" or "eagle_rearm") => c.Entity == null && c.Weapon == null && c.Attack == null,
+            ("stratagem", "attack") => c.Entity == null && c.Weapon == null && Id(c.Attack),
+            ("deployed_entity", "deployed_entity") => Id(c.Entity) && c.Weapon == null && c.Attack == null,
+            ("mounted_weapon", "weapon") => Id(c.Entity) && Id(c.Weapon) && c.Attack == null,
+            ("mounted_weapon", "attack") => Id(c.Entity) && Id(c.Weapon) && Id(c.Attack),
+            _ => false,
+        };
+    }
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -56,9 +70,9 @@ public static class ProjectIdentity
         if (p.StratagemChanges == null || p.StratagemApprovals == null || p.StratagemChanges.Count > 2000 || p.StratagemApprovals.Count > 2000
             || p.StratagemChanges.Select(c => c.InstanceKey).Distinct().Count() != p.StratagemChanges.Count
             || p.StratagemChanges.Select(c => c.Id).Distinct().Count() != p.StratagemChanges.Count
-            || p.StratagemChanges.Any(c => c.Id == Guid.Empty || c.TargetKind != "stratagem" || string.IsNullOrWhiteSpace(c.Stratagem)
+            || p.StratagemChanges.Any(c => c.Id == Guid.Empty || !ValidStratagemTarget(c) || string.IsNullOrWhiteSpace(c.Stratagem)
                 || c.Stratagem.Length > 256 || !c.InstanceKey.StartsWith("stratagem:", StringComparison.Ordinal) || c.InstanceKey.Length > 512
-                || c.Path is not ("stratagem" or "attack" or "eagle_rearm") || c.SemanticFieldId.Length > 128
+                || c.SemanticFieldId.Length > 128
                 || c.Group.Length > 120 || c.Notes?.Length > 4000 || c.FieldType is not ("number" or "integer" or "boolean")
                 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")
                 || c.ExpectedValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)

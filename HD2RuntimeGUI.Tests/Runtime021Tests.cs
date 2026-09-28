@@ -11,11 +11,17 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
+// Runtime 0.21 compatibility: these regressions run against the published 0.21.0 SDK archive, not the bundled current SDK.
 public sealed class Runtime021Tests
 {
+    internal static async Task<SdkMetadata> Install021(TestEnvironment e)
+    {
+        e.GitHub.Archive = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.21.0.zip"));
+        return await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.21.0", e.GitHub.Archive));
+    }
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e)
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync();
+        var sdk = await Install021(e);
         var w = e.Workspace(); await w.CreateAsync(new("Stratagem", "Tests", "mods/tests/stratagem", "0.1.0"), sdk); return w;
     }
     private static StratagemField Field(BuilderWorkspace w, string name, string id, string? attack = null) => w.Metadata!.Stratagems!.FieldInstances.Single(f =>
@@ -165,22 +171,22 @@ public sealed class Runtime021Tests
         await w.CreateAsync(new("Pinned", "Tests", "mods/tests/pinned_0201", "0.1.0"), old);
         var f = old.SupportAuthoring!.FieldInstances.First(f => f.SupportWeapon == "APW-1 Anti-Materiel Rifle" && f.SemanticFieldId == "weapon.sway");
         await w.SetSupportAsync(f.InstanceKey, "0.5");
-        e.GitHub.Archive = CurrentArchive(); e.GitHub.Release = FakeGitHub.MakeRelease("0.21.0", e.GitHub.Archive);
+        e.GitHub.Archive = CurrentArchive(); e.GitHub.Release = FakeGitHub.MakeRelease("0.22.0", e.GitHub.Archive);
         var status = await e.Updates.CheckAsync(); Assert.True(status.UpdateAvailable); Assert.True(status.VerifiedOnline);
         await e.Cache.InstallAsync(e.GitHub.Release); await w.OpenAsync(w.Project!.Id);
         Assert.Equal("0.20.1", w.Project!.SdkVersion); Assert.Null(w.Metadata!.Stratagems);
-        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.21.0", w.Project.SdkVersion); Assert.Equal(989, w.Metadata!.Stratagems!.FieldInstances.Length);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.22.0", w.Project.SdkVersion); Assert.Equal(1382, w.Metadata!.Stratagems!.FieldInstances.Length);
         Assert.Equal("0.20.1", w.Project.SupportChanges.Single().BaselineSdkVersion); Assert.Null(w.BuildError);
     }
     [Fact] public async Task Missing_stratagem_artifact_preserves_installed_cache()
     {
         using var e = new TestEnvironment(); e.GitHub.Archive = CurrentArchive(true);
-        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.21.0", e.GitHub.Archive)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.22.0", e.GitHub.Archive)));
         Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);
     }
     [Fact] public void Unknown_stratagem_schema_rejects()
     {
-        var json = JsonNode.Parse(SdkCache.BundledComposition()[StratagemCatalogReader.FileName])!; json["schemaVersion"] = 2;
+        var json = JsonNode.Parse(SdkCache.BundledComposition()[StratagemCatalogReader.FileName])!; json["schemaVersion"] = 1;
         Assert.Throws<UnsupportedSdkException>(() => new StratagemCatalogReader().Read(Encoding.UTF8.GetBytes(json.ToJsonString())));
     }
 }

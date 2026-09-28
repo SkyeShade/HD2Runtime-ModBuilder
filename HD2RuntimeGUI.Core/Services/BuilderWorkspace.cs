@@ -54,7 +54,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             }
             project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
             if (next != null) project.ProjectileChanges.Add(next);
-            project.FormatVersion = 4;
+            project.FormatVersion = Math.Max(project.FormatVersion, 4);
             try { await SaveChangesAsync(); } catch { project.ProjectileChanges = previous; throw; }
         }
         finally { weaponEditGate.Release(); }
@@ -110,7 +110,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
                 ? CompositionChangeService.WithApproval(Metadata!, c, !revokeApproval) : c).ToList();
             project.CompositionChanges.RemoveAll(c => c.Id == old?.Id);
             if (!compositionChanges.IsNoOp(Metadata!, next)) project.CompositionChanges.Add(next);
-            project.FormatVersion = 4;
+            project.FormatVersion = Math.Max(project.FormatVersion, 4);
             try { await SaveChangesAsync(); } catch { project.CompositionChanges = previous; throw; }
         }
         finally { weaponEditGate.Release(); }
@@ -314,8 +314,12 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     public async Task RebindToInstalledSdkAsync()
     {
         var sdk = await cache.GetCurrentAsync(); var old = (Project!.SdkVersion, Metadata);
+        var stratagems = (Project.StratagemChanges.ToList(), new Dictionary<string, string>(Project.StratagemApprovals), Project.FormatVersion);
         Project.SdkVersion = sdk.Version; Metadata = sdk;
-        try { await SaveChangesAsync(); } catch { (Project.SdkVersion, Metadata) = old; throw; }
+        if (sdk.Stratagems != null && StratagemChangeService.Rebind(Project, old.Metadata?.Stratagems, sdk.Stratagems) > 0
+            && Project.StratagemChanges.Count > 0) Project.FormatVersion = 5;
+        try { await SaveChangesAsync(); }
+        catch { (Project.SdkVersion, Metadata) = old; (Project.StratagemChanges, Project.StratagemApprovals, Project.FormatVersion) = stratagems; throw; }
     }
     public async Task SaveExportDirectoryAsync(string path)
     {
