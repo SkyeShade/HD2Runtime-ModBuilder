@@ -10,6 +10,33 @@ namespace HD2RuntimeGUI.Core.Projects;
 public static class ProjectIdentity
 {
     public const string RuntimeModule = "mods/skyeshade/hd2runtime";
+    // Suggested "mods/<author>/<mod>" from free-text names; null until both parts yield a valid identifier.
+    // Taken IDs get a numeric suffix so the suggestion never collides with a library project.
+    public static string? SuggestResourceId(string? author, string? modName, IEnumerable<string>? taken = null)
+    {
+        var (a, m) = (Slug(author, 48), Slug(modName, 64));
+        if (a.Length == 0 || m.Length == 0) return null;
+        var used = new HashSet<string>(taken ?? [], StringComparer.OrdinalIgnoreCase);
+        for (var n = 1; n < 1000; n++)
+        {
+            var candidate = $"mods/{a}/{m}{(n == 1 ? "" : "_" + n)}";
+            if (used.Contains(candidate)) continue;
+            try { ValidateResource(candidate); return candidate; } catch (InvalidDataException) { return null; }
+        }
+        return null;
+    }
+    private static string Slug(string? text, int max)
+    {
+        var builder = new StringBuilder();
+        foreach (var c in (text ?? "").Normalize(NormalizationForm.FormD))
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+            if (char.IsAsciiLetterOrDigit(c)) builder.Append(char.ToLowerInvariant(c));
+            else if (builder.Length > 0 && builder[^1] != '_') builder.Append('_');
+        }
+        var slug = builder.ToString().Trim('_');
+        return slug.Length <= max ? slug : slug[..max].TrimEnd('_');
+    }
     public static void ValidateResource(string resource)
     {
         if (string.IsNullOrEmpty(resource) || !Regex.IsMatch(resource, @"\Amods/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)+\z") ||

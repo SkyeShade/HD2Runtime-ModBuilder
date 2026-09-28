@@ -12,6 +12,10 @@ public partial class Home
     [Inject] private IJSRuntime JS { get; set; } = default!;
     private string Page = "library", Search = "", TargetKey = "", FieldKey = "", NewValue = "", ChangeGroup = "Gameplay", ExportDirectory = "";
     private string ModName = "", Author = "", ResourceId = "", ModVersion = "0.1.0", Description = "";
+    // The resource ID follows author and mod name until the user types their own; clearing it resumes the suggestion.
+    private bool ResourceIdEdited;
+    private void SuggestResourceId() { if (!ResourceIdEdited) ResourceId = HD2RuntimeGUI.Core.Projects.ProjectIdentity.SuggestResourceId(Author, ModName, Workspace.Library.Select(p => p.ResourceId)) ?? ""; }
+    private void ResourceIdTyped() { ResourceIdEdited = !string.IsNullOrWhiteSpace(ResourceId); if (!ResourceIdEdited) SuggestResourceId(); }
     private string OverviewName = "", OverviewAuthor = "", OverviewVersion = "", OverviewDescription = "";
     private string? EditingWeapon;
     private string StratagemCategory = "";
@@ -67,7 +71,7 @@ public partial class Home
     private async Task ImportProject() => await Run(async () => { await Workspace.ImportAsync(); if (Workspace.Project != null) Navigate("overview"); }, "Opening project…");
     private async Task BeginCreate() => await Run(async () =>
     {
-        ModName = Author = ResourceId = Description = ""; ModVersion = "0.1.0"; CreationSdk = null;
+        ModName = Author = ResourceId = Description = ""; ModVersion = "0.1.0"; CreationSdk = null; ResourceIdEdited = false;
         Ticket = await Workspace.BeginCreationAsync();
         if (Ticket.Status.UpdateAvailable) SetDialog("update");
         else { CreationSdk = await Workspace.ResolveCreationAsync(Ticket, UpdateDecision.UseInstalled); SetDialog("create"); }
@@ -75,7 +79,8 @@ public partial class Home
     private async Task ResolveSdk(UpdateDecision decision) => await Run(async () => { CreationSdk = await Workspace.ResolveCreationAsync(Ticket!, decision); SetDialog("create"); }, decision == UpdateDecision.InstallUpdate ? "Downloading and validating SDK…" : "Preparing project…");
     private async Task SubmitProject() => await Run(async () =>
     {
-        var request = new CreateProjectRequest(ModName, Author, ResourceId, ModVersion, Description);
+        if (string.IsNullOrWhiteSpace(ResourceId)) { ResourceIdEdited = false; SuggestResourceId(); }
+        var request = new CreateProjectRequest(ModName, Author, ResourceId.Trim(), ModVersion, Description);
         if (Dialog == "duplicate") await Workspace.DuplicateAsync(ActionProject, request); else await Workspace.CreateAsync(request, CreationSdk!);
         Dialog = null; Navigate("overview");
     }, "Creating project…");
@@ -89,7 +94,7 @@ public partial class Home
     private async Task BeginDuplicate(ProjectSummary p) => await Run(async () =>
     {
         await Workspace.OpenAsync(p.Id); ActionProject = p.Id; CreationSdk = Workspace.Metadata;
-        ModName = p.DisplayName + " Copy"; Author = Workspace.Project!.Author; ResourceId = p.ResourceId + "_copy";
+        ModName = p.DisplayName + " Copy"; Author = Workspace.Project!.Author; ResourceId = p.ResourceId + "_copy"; ResourceIdEdited = true;
         ModVersion = Workspace.Project.Version; Description = Workspace.Project.Description; SetDialog("duplicate");
     });
     private void SelectCategory(string category)
