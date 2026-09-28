@@ -2,6 +2,9 @@
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <!-- Output basename (HD2RuntimeModBuilder.exe/.dll) since 1.0.1; 1.0.0 shipped as HD2RuntimeGUI.exe. Namespaces,
+         ApplicationId and the LocalAppData\HD2RuntimeGUI data folder keep the HD2RuntimeGUI identity. -->
+    <AssemblyName>HD2RuntimeModBuilder</AssemblyName>
     <RootNamespace>HD2RuntimeGUI</RootNamespace>
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
@@ -9,8 +12,7 @@
     <EnableDefaultCssItems>false</EnableDefaultCssItems>
     <Nullable>enable</Nullable>
     <MauiXamlInflator>SourceGen</MauiXamlInflator>
-    <!-- Public product name (window, exe version resource, package display name). AssemblyName, ApplicationId and the
-         LocalAppData\HD2RuntimeGUI data folder keep the technical HD2RuntimeGUI identity so existing installs keep working. -->
+    <!-- Public product name (window, exe version resource, package display name). -->
     <ApplicationTitle>HD2Runtime ModBuilder</ApplicationTitle>
     <Product>HD2Runtime ModBuilder</Product>
     <AssemblyTitle>HD2Runtime ModBuilder</AssemblyTitle>

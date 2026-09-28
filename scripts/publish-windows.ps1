@@ -7,10 +7,13 @@ param(
 )
 
 # Builds an HD2Runtime ModBuilder release in artifacts/release/:
-#   HD2Runtime-ModBuilder-v<version>-win-x64.zip         flat application folder (HD2RuntimeGUI.exe at the root)
+#   HD2Runtime-ModBuilder-v<version>-win-x64.zip         flat application folder (HD2RuntimeModBuilder.exe at the root)
 #   HD2Runtime-ModBuilder-v<version>-win-x64.zip.sha256  "<sha256> *<file>"
-#   modbuilder-update.json                               update manifest read by the in-app updater
-# Upload all three to the GitHub release tagged v<version> on SkyeShade/HD2Runtime-ModBuilder.
+#   modbuilder-update-v2.json                            update manifest read by ModBuilder 1.0.1 and later
+#   modbuilder-update.json                               format-1 manifest read by ModBuilder 1.0.0
+# Upload all four to the GitHub release tagged v<version> on SkyeShade/HD2Runtime-ModBuilder.
+# The package also contains HD2RuntimeGUI.exe, a byte-identical copy of HD2RuntimeModBuilder.exe: ModBuilder 1.0.0 only
+# accepts packages that contain its old entry point. Updaters from 1.0.1 on do not install it (see docs/app-updates.md).
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem, System.Drawing
@@ -19,7 +22,8 @@ $project = Join-Path $repoRoot 'HD2RuntimeGUI\HD2RuntimeGUI.csproj'
 $updaterProject = Join-Path $repoRoot 'HD2RuntimeModBuilder.Updater\HD2RuntimeModBuilder.Updater.csproj'
 $releaseRoot = Join-Path $repoRoot 'artifacts\release'
 $product = 'HD2Runtime ModBuilder'
-$entrypoint = 'HD2RuntimeGUI.exe'
+$entrypoint = 'HD2RuntimeModBuilder.exe'
+$legacyEntrypoint = 'HD2RuntimeGUI.exe'
 $updaterExe = 'HD2RuntimeModBuilder.Updater.exe'
 $inventoryName = 'modbuilder-files.json'
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -54,8 +58,9 @@ try {
     $stage = Assert-ReleasePath (Join-Path $releaseRoot $name)
     $zip = Assert-ReleasePath (Join-Path $releaseRoot "$name.zip")
     $checksum = Assert-ReleasePath (Join-Path $releaseRoot "$name.zip.sha256")
-    $manifestPath = Assert-ReleasePath (Join-Path $releaseRoot 'modbuilder-update.json')
-    foreach ($path in @($stage, $zip, $checksum, $manifestPath)) { if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force } }
+    $manifestPath = Assert-ReleasePath (Join-Path $releaseRoot 'modbuilder-update-v2.json')
+    $legacyManifestPath = Assert-ReleasePath (Join-Path $releaseRoot 'modbuilder-update.json')
+    foreach ($path in @($stage, $zip, $checksum, $manifestPath, $legacyManifestPath)) { if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force } }
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
     # Resizetizer can keep previously generated icons (appicon.ico, tiles); regenerate them from Resources/AppIcon/appicon.svg.
@@ -80,6 +85,8 @@ try {
     Remove-Item -LiteralPath $updaterOut -Recurse -Force
 
     Get-ChildItem -LiteralPath $stage -Filter '*.pdb' -File -Recurse | Remove-Item -Force
+    # Compatibility copy for the ModBuilder 1.0.0 updater (it requires HD2RuntimeGUI.exe in the package); it starts the same app.
+    Copy-Item -LiteralPath (Join-Path $stage $entrypoint) -Destination (Join-Path $stage $legacyEntrypoint)
 
     # ---- Verify the application folder -----------------------------------------------------------------------------
     $exe = Join-Path $stage $entrypoint
@@ -101,6 +108,13 @@ try {
     $forbidden = @($files | Where-Object { $_ -match '(?i)(\.pdb$|\.hd2snap$|(^|/)library\.json$|project\.hd2mod\.json$|(^|/)(Projects|Sdk|Icons|Exports|screenshots|artifacts)/|app-update|\.weapon-map\.json$)' })
     if ($forbidden.Count -gt 0) { throw "Release contains files that must not ship:`n$($forbidden -join "`n")" }
     if ($files -contains $inventoryName) { throw "$inventoryName must be generated, not published." }
+    # Since 1.0.1 the application ships as HD2RuntimeModBuilder.*; only the 1.0.0 compatibility launcher keeps the old name.
+    $oldNames = @($files | Where-Object { $_ -match '(?i)^HD2RuntimeGUI\.' -and $_ -ne $legacyEntrypoint })
+    if ($oldNames.Count -gt 0) { throw "Release still contains HD2RuntimeGUI.* files:`n$($oldNames -join "`n")" }
+    foreach ($required in @('HD2RuntimeModBuilder.dll', 'HD2RuntimeModBuilder.runtimeconfig.json', 'HD2RuntimeModBuilder.deps.json', 'HD2RuntimeModBuilder.Core.dll')) {
+        if ($files -notcontains $required) { throw "Release is missing $required." }
+    }
+    if ((Get-Sha256 (Join-Path $stage $legacyEntrypoint)) -ne (Get-Sha256 $exe)) { throw "$legacyEntrypoint is not a copy of $entrypoint." }
 
     # ---- Inventory, ZIP, manifest -----------------------------------------------------------------------------------
     $entries = foreach ($file in $files) {
@@ -122,22 +136,26 @@ try {
     try {
         $names = @($read.Entries | ForEach-Object { $_.FullName })
         if ($names.Count -ne $files.Count + 1) { throw "ZIP has $($names.Count) entries, expected $($files.Count + 1)." }
-        foreach ($required in @($entrypoint, $updaterExe, $inventoryName, 'appicon.ico')) { if ($names -notcontains $required) { throw "ZIP root is missing $required." } }
+        foreach ($required in @($entrypoint, $legacyEntrypoint, $updaterExe, $inventoryName, 'appicon.ico')) { if ($names -notcontains $required) { throw "ZIP root is missing $required." } }
         $bad = @($names | Where-Object { $_ -match '\\' -or $_.StartsWith('/') -or $_ -match '(^|/)\.\.(/|$)' -or $_.StartsWith("$name/") })
         if ($bad.Count -gt 0) { throw "ZIP has unexpected entry names:`n$($bad -join "`n")" }
     } finally { $read.Dispose() }
 
     $zipInfo = Get-Item -LiteralPath $zip
     $sha = Get-Sha256 $zip
-    $manifest = [ordered]@{
-        format = 1; product = $product; version = $version; tag = $tag; asset = $zipInfo.Name; size = $zipInfo.Length
-        sha256 = $sha; entrypoint = $entrypoint; updater = $updaterExe; commit = $commit
+    # Format 2 (1.0.1+) names the real entry point; format 1 keeps the exact fields ModBuilder 1.0.0 validates.
+    foreach ($m in @(@{ path = $manifestPath; format = 2; entry = $entrypoint }, @{ path = $legacyManifestPath; format = 1; entry = $legacyEntrypoint })) {
+        $manifest = [ordered]@{
+            format = $m.format; product = $product; version = $version; tag = $tag; asset = $zipInfo.Name; size = $zipInfo.Length
+            sha256 = $sha; entrypoint = $m.entry; updater = $updaterExe; commit = $commit
+        }
+        [IO.File]::WriteAllText($m.path, ($manifest | ConvertTo-Json), $utf8)
+        $check = [IO.File]::ReadAllText($m.path) | ConvertFrom-Json
+        if ($check.format -ne $m.format -or $check.entrypoint -ne $m.entry -or $check.sha256 -ne (Get-Sha256 $zip) -or $check.size -ne (Get-Item -LiteralPath $zip).Length -or $check.version -ne $version -or $check.commit -ne $commit) {
+            throw "$([IO.Path]::GetFileName($m.path)) does not match the ZIP."
+        }
     }
-    [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json), $utf8)
     [IO.File]::WriteAllText($checksum, "$sha *$($zipInfo.Name)`n", $utf8)
-
-    $check = [IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
-    if ($check.sha256 -ne (Get-Sha256 $zip) -or $check.size -ne (Get-Item -LiteralPath $zip).Length -or $check.version -ne $version -or $check.commit -ne $commit) { throw 'modbuilder-update.json does not match the ZIP.' }
 
     Write-Host "Version: $version ($tag)"
     Write-Host "Commit: $commit$(if ($dirty) { ' (DIRTY - local test build, do not publish)' })"
@@ -146,7 +164,7 @@ try {
     Write-Host "ZIP: $zip"
     Write-Host ("ZIP size: {0:N1} MB" -f ($zipInfo.Length / 1MB))
     Write-Host "SHA-256: $sha"
-    Write-Host "Manifest: $manifestPath"
+    Write-Host "Manifests: $manifestPath, $legacyManifestPath"
     Write-Host "Checksum: $checksum"
 }
 finally {

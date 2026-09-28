@@ -26,11 +26,14 @@ public interface IAppReleaseClient
 
 /// <summary>
 /// GitHub release contract for SkyeShade/HD2Runtime-ModBuilder: tag v&lt;x.y.z&gt; (stable, not draft or prerelease) with the assets
-/// HD2Runtime-ModBuilder-v&lt;x.y.z&gt;-win-x64.zip and modbuilder-update.json. Releases without both assets are ignored.
+/// HD2Runtime-ModBuilder-v&lt;x.y.z&gt;-win-x64.zip and modbuilder-update-v2.json. Releases without both assets are ignored.
+/// (Releases also carry the format-1 modbuilder-update.json that HD2Runtime ModBuilder 1.0.0 reads.)
 /// </summary>
 public sealed class AppReleaseClient(HttpClient http) : IAppReleaseClient
 {
-    public const string ManifestName = "modbuilder-update.json";
+    public const string ManifestName = "modbuilder-update-v2.json";
+    /// <summary>Format-1 manifest read by HD2Runtime ModBuilder 1.0.0 (entry point HD2RuntimeGUI.exe); published for it, not read here.</summary>
+    public const string LegacyManifestName = "modbuilder-update.json";
     public const long MaxPackageBytes = 512L * 1024 * 1024, MaxManifestBytes = 64 * 1024;
     public static string ReleasesUrl => $"https://api.github.com/repos/{BuildInfo.Repository}/releases?per_page=20";
     public static string PackageName(string version) => $"HD2Runtime-ModBuilder-v{version}-win-x64.zip";

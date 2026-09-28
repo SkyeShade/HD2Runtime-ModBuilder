@@ -3,6 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Ships as HD2RuntimeModBuilder.Core.dll since 1.0.1. The root namespace (and so the embedded Bundled/*.json resource
+         names) stays HD2RuntimeGUI.Core. -->
+    <AssemblyName>HD2RuntimeModBuilder.Core</AssemblyName>
+    <RootNamespace>HD2RuntimeGUI.Core</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Metadata/Bundled/*.json" />

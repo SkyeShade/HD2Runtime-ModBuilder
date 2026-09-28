@@ -5,10 +5,17 @@ namespace HD2RuntimeModBuilder.Updater;
 
 // Contract shared by HD2Runtime ModBuilder (compiled into HD2RuntimeGUI.Core as a linked file) and the standalone updater.
 // A release package is a flat ZIP of the application directory plus modbuilder-files.json, the inventory of every other file.
+// 1.0.0 shipped as HD2RuntimeGUI.exe; from 1.0.1 the application is HD2RuntimeModBuilder.exe. Packages still carry
+// HD2RuntimeGUI.exe (a copy of the new launcher) because the 1.0.0 in-app updater only accepts packages that contain it;
+// updaters from 1.0.1 on never install that copy and remove the old HD2RuntimeGUI.* application files.
 public static class UpdateContract
 {
     public const string Product = "HD2Runtime ModBuilder";
-    public const string EntryPoint = "HD2RuntimeGUI.exe";
+    public const string EntryPoint = "HD2RuntimeModBuilder.exe";
+    /// <summary>The 1.0.0 entry point: shipped in packages for the 1.0.0 updater, never installed by newer updaters.</summary>
+    public const string LegacyEntryPoint = "HD2RuntimeGUI.exe";
+    /// <summary>WebView2 cache that 1.0.0 created next to HD2RuntimeGUI.exe (the app keeps no data in browser storage).</summary>
+    public const string LegacyWebView2Folder = "HD2RuntimeGUI.exe.WebView2";
     public const string UpdaterExe = "HD2RuntimeModBuilder.Updater.exe";
     public const string InventoryFile = "modbuilder-files.json";
     public const string ResultFile = "app-update-result.json";
@@ -49,7 +56,7 @@ public static class UpdateContract
             if (!seen.Add(file.Path)) throw new InvalidDataException($"Duplicate path in the update inventory: {file.Path}");
             if (file.Size < 0 || file.Sha256.Length != 64 || !file.Sha256.All(Uri.IsHexDigit)) throw new InvalidDataException($"Invalid size or digest in the update inventory: {file.Path}");
         }
-        if (!seen.Contains(EntryPoint) || !seen.Contains(UpdaterExe)) throw new InvalidDataException("The update package is missing HD2RuntimeGUI.exe or the updater.");
+        if (!seen.Contains(EntryPoint) || !seen.Contains(UpdaterExe)) throw new InvalidDataException($"The update package is missing {EntryPoint} or the updater.");
     }
 
     public static IReadOnlyList<string> Arguments(UpdaterOptions o) =>
@@ -90,6 +97,7 @@ public sealed partial class UpdateJson : JsonSerializerContext
         if (new FileInfo(path).Length > 64 * 1024) throw new InvalidDataException("The update result is too large.");
         return JsonSerializer.Deserialize(File.ReadAllBytes(path), Default.UpdateResult) ?? throw new InvalidDataException("The update result is empty.");
     }
+    public static void WriteInventory(string path, Inventory inventory) => File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(inventory, Default.Inventory));
     public static void WriteResult(string path, UpdateResult result)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);

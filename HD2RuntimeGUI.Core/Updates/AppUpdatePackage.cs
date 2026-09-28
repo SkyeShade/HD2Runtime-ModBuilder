@@ -7,11 +7,12 @@ using HD2RuntimeModBuilder.Updater;
 namespace HD2RuntimeGUI.Core.Updates;
 
 /// <summary>
-/// modbuilder-update.json, published next to the release ZIP by scripts/publish-windows.ps1:
-/// { "format": 1, "product": "HD2Runtime ModBuilder", "version": "1.0.0", "tag": "v1.0.0",
-///   "asset": "HD2Runtime-ModBuilder-v1.0.0-win-x64.zip", "size": 91234567, "sha256": "&lt;64 hex&gt;",
-///   "entrypoint": "HD2RuntimeGUI.exe", "updater": "HD2RuntimeModBuilder.Updater.exe", "commit": "&lt;40 hex&gt;" }
-/// Paths are fixed by the contract; the manifest cannot name other files.
+/// modbuilder-update-v2.json, published next to the release ZIP by scripts/publish-windows.ps1:
+/// { "format": 2, "product": "HD2Runtime ModBuilder", "version": "1.0.1", "tag": "v1.0.1",
+///   "asset": "HD2Runtime-ModBuilder-v1.0.1-win-x64.zip", "size": 91234567, "sha256": "&lt;64 hex&gt;",
+///   "entrypoint": "HD2RuntimeModBuilder.exe", "updater": "HD2RuntimeModBuilder.Updater.exe", "commit": "&lt;40 hex&gt;" }
+/// Paths are fixed by the contract; the manifest cannot name other files. (modbuilder-update.json, format 1 with
+/// entrypoint HD2RuntimeGUI.exe, has the same fields and exists only for HD2Runtime ModBuilder 1.0.0.)
 /// </summary>
 public sealed record AppUpdateManifest(int Format, string Product, string Version, string Tag, string Asset, long Size, string Sha256, string Entrypoint, string Updater, string Commit)
 {
@@ -23,7 +24,7 @@ public sealed record AppUpdateManifest(int Format, string Product, string Versio
         AppUpdateManifest? manifest;
         try { manifest = JsonSerializer.Deserialize<AppUpdateManifest>(json, Options); }
         catch (JsonException e) { throw new InvalidDataException("The update manifest is malformed.", e); }
-        if (manifest is null || manifest.Format != 1 || manifest.Product != UpdateContract.Product || manifest.Version != release.Version || manifest.Tag != release.Tag
+        if (manifest is null || manifest.Format != Format2 || manifest.Product != UpdateContract.Product || manifest.Version != release.Version || manifest.Tag != release.Tag
             || manifest.Asset != release.Package.Name || manifest.Size != release.Package.Size || manifest.Entrypoint != UpdateContract.EntryPoint || manifest.Updater != UpdateContract.UpdaterExe
             || !IsHex(manifest.Sha256, 64) || !IsHex(manifest.Commit, 40))
             throw new InvalidDataException("The update manifest does not match the release.");
@@ -31,6 +32,8 @@ public sealed record AppUpdateManifest(int Format, string Product, string Versio
         if (release.Package.Digest != null && release.Package.Digest != "sha256:" + manifest.Sha256) throw new InvalidDataException("The release package digest does not match the update manifest.");
         return manifest;
     }
+
+    public const int Format2 = 2;
 
     private static bool IsHex(string? value, int length) => value?.Length == length && value.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
 }

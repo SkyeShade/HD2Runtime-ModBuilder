@@ -7,6 +7,8 @@ namespace HD2RuntimeModBuilder.Updater;
 /// Only files listed in the old or new package inventory are touched; anything else in the folder (and all user data,
 /// which lives in %LOCALAPPDATA%\HD2RuntimeGUI) is left alone. Old files are moved into a backup folder first and moved
 /// back if anything fails, so a failed update leaves the working installation in place.
+/// Updating a 1.0.0 installation (HD2RuntimeGUI.exe) removes its HD2RuntimeGUI.* files, which its inventory lists, and
+/// its WebView2 cache folder; the package's HD2RuntimeGUI.exe compatibility copy is not installed.
 /// </summary>
 public sealed class UpdateInstaller(Action<ProcessStartInfo> start, Func<int, long, TimeSpan, bool> waitForExit)
 {
@@ -16,8 +18,13 @@ public sealed class UpdateInstaller(Action<ProcessStartInfo> start, Func<int, lo
     /// <summary>Test hook: called before each new file is copied into the installation.</summary>
     public Action<string>? BeforeCopy { get; init; }
 
-    public static ProcessStartInfo RestartCommand(string installDirectory) =>
-        new(Path.Combine(installDirectory, UpdateContract.EntryPoint)) { WorkingDirectory = installDirectory, UseShellExecute = false };
+    /// <summary>Starts the installed app: HD2RuntimeModBuilder.exe, or HD2RuntimeGUI.exe when a 1.0.0 installation was restored.</summary>
+    public static ProcessStartInfo RestartCommand(string installDirectory)
+    {
+        var entry = Path.Combine(installDirectory, UpdateContract.EntryPoint);
+        var legacy = Path.Combine(installDirectory, UpdateContract.LegacyEntryPoint);
+        return new(!File.Exists(entry) && File.Exists(legacy) ? legacy : entry) { WorkingDirectory = installDirectory, UseShellExecute = false };
+    }
 
     public UpdateResult Run(UpdaterOptions options)
     {
@@ -32,7 +39,8 @@ public sealed class UpdateInstaller(Action<ProcessStartInfo> start, Func<int, lo
             UpdateContract.Validate(next, options.Version);
             foreach (var file in next.Files)
                 if (new FileInfo(UpdateContract.Resolve(staged, file.Path)) is not { Exists: true } info || info.Length != file.Size) throw new InvalidDataException($"Staged file is missing or incomplete: {file.Path}");
-            if (!File.Exists(Path.Combine(install, UpdateContract.EntryPoint))) throw new InvalidDataException("The installation folder does not contain HD2RuntimeGUI.exe.");
+            if (!File.Exists(Path.Combine(install, UpdateContract.EntryPoint)) && !File.Exists(Path.Combine(install, UpdateContract.LegacyEntryPoint)))
+                throw new InvalidDataException($"The installation folder does not contain {UpdateContract.EntryPoint}.");
             previous = PreviousFiles(install);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException)
@@ -56,7 +64,8 @@ public sealed class UpdateInstaller(Action<ProcessStartInfo> start, Func<int, lo
                 Retry(() => File.Move(source, target));
                 moved.Add(path);
             }
-            foreach (var file in next.Files.Select(f => f.Path).Append(UpdateContract.InventoryFile))
+            var installed = next.Files.Where(f => !f.Path.Equals(UpdateContract.LegacyEntryPoint, StringComparison.OrdinalIgnoreCase)).ToArray();
+            foreach (var file in installed.Select(f => f.Path))
             {
                 BeforeCopy?.Invoke(file);
                 var target = UpdateContract.Resolve(install, file);
@@ -64,6 +73,10 @@ public sealed class UpdateInstaller(Action<ProcessStartInfo> start, Func<int, lo
                 copied.Add(file);
                 Retry(() => File.Copy(UpdateContract.Resolve(staged, file), target, overwrite: false));
             }
+            // The installed inventory, written last, lists exactly the files now installed.
+            BeforeCopy?.Invoke(UpdateContract.InventoryFile);
+            copied.Add(UpdateContract.InventoryFile);
+            UpdateJson.WriteInventory(UpdateContract.Resolve(install, UpdateContract.InventoryFile), next with { Files = installed });
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -75,6 +88,7 @@ public sealed class UpdateInstaller(Action<ProcessStartInfo> start, Func<int, lo
 
         RemoveEmptyDirectories(install, previous);
         TryDelete(backup);
+        if (moved.Contains(UpdateContract.LegacyEntryPoint, StringComparer.OrdinalIgnoreCase)) TryDelete(Path.Combine(install, UpdateContract.LegacyWebView2Folder));
         return Finish(options, true, $"HD2Runtime ModBuilder was updated to {options.Version}.", relaunch: true);
     }
 
@@ -130,8 +144,8 @@ public sealed class UpdateInstaller(Action<ProcessStartInfo> start, Func<int, lo
     {
         var result = new UpdateResult(options.Version, success, message, DateTimeOffset.UtcNow);
         try { UpdateJson.WriteResult(options.ResultPath, result); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-        if (relaunch && File.Exists(Path.Combine(options.InstallDirectory, UpdateContract.EntryPoint)))
-            try { start(RestartCommand(options.InstallDirectory)); } catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+        if (relaunch && RestartCommand(options.InstallDirectory) is { } restart && File.Exists(restart.FileName))
+            try { start(restart); } catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { }
         return result;
     }
 }
