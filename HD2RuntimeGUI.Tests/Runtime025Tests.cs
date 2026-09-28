@@ -6,12 +6,11 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// Runtime 0.25.0 (unpublished local test build, HD2Runtime 2eefaa9 sdk/), bound through the developer local-SDK override:
-// natively traced boosters, resolved support-equipment call-ins and no_call_in equipment. The fixture holds the build's root
-// metadata files; replace it with the published SDK zip once 0.25.0 is released.
+// Runtime 0.25.0 (published HD2Runtime-0.25.0-sdk.zip), bound through the developer local-SDK override:
+// natively traced boosters, resolved support-equipment call-ins and no_call_in equipment.
 public sealed class Runtime025Tests
 {
-    private const string Fixture = "sdk-0.25.0-local.zip";
+    private const string Fixture = "sdk-0.25.0.zip";
     private const string C4 = "B/MD C4 Pack", Shotgun = "SG-88 Break-Action Shotgun", Shovel = "CQC-72 Entrenchment Tool";
     private static string FixturePath => Path.Combine(AppContext.BaseDirectory, "Fixtures", Fixture);
     private static (SdkCache Cache, BuilderWorkspace Workspace) Local(TestEnvironment e)

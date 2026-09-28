@@ -14,6 +14,7 @@
     </div>
     <div class="field-baseline @(Saved != null ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">Base @FieldPresentation.Value(Field, Field.CurrentDefault)@if (Saved != null) { <span> → <strong>@FieldPresentation.Value(Field, Current)</strong></span> }</div>
     <div class="field-tools">
+        @if (Saved?.Scalar != null) { <OptionToggle Key="@ModOptionsService.ObjectKey(Saved)" Changed="Changed" /> }
         @if (Saved != null) { <button class="reset-action small" @onclick="Reset">Reset field</button> }
         <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
             @if (!Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }

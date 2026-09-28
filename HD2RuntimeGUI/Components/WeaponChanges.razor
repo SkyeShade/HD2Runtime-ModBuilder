@@ -29,6 +29,7 @@
                 <div class="weapon-change @(modified ? "modified" : "")" data-change="@(f?.SemanticFieldId ?? c!.SemanticFieldId)">
                     <div class="change-row"><div class="change-name"><strong>@(f?.DisplayName ?? c!.SemanticFieldId)</strong>
                         @if (modified) { <span class="badge modified-badge">Modified</span> }
+                        @if (row.Group != null && Workspace.OptionsEnabled) { <OptionToggle Key="@ModOptionsService.WeaponKey(weaponName, row.Group.FieldId)" Changed="AliasResolved" /> }
                         @if (f?.DerivedReadOnly == true) { <span class="badge">Derived</span> }
                         else if (f?.Editable == false) { <span class="badge">Read-only</span> }
                         @if (c != null) { <small>@c.Group · @(c.EnsureEnabled ? "Ensure · 60 s" : "Apply once") @(row.Group!.Enabled ? "" : "· Disabled")</small> }

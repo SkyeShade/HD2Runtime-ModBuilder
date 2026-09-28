@@ -4,10 +4,10 @@ using HD2RuntimeGUI.Core.Models;
 
 namespace HD2RuntimeGUI.Core.Generation;
 
-public interface ISupportLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk); }
+public interface ISupportLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk, OptionBindings? options = null); }
 public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
 {
-    public IReadOnlyList<string> Operations(ModProject p, SdkMetadata sdk)
+    public IReadOnlyList<string> Operations(ModProject p, SdkMetadata sdk, OptionBindings? options = null)
     {
         if (!p.SupportChanges.Any(c => c.Enabled)) return [];
         var catalog = SupportChangeService.Catalog(sdk);
@@ -51,13 +51,13 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
                 if (group.Any(r => r.Field.Operation.Acknowledgement == "allow_unverified_effect")) body.Append("    allow_unverified_effect=true,\n");
                 if (group.Count() == 1 && !f.Operation.TransactionRequired)
                 {
-                    var r = group.Single(); body.Append($"    field={r.Field.ApiFieldConstant},\n    expect={SupportScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={SupportScalar.Text(r.Field, r.Change.DesiredValue)},\n");
+                    var r = group.Single(); body.Append($"    field={r.Field.ApiFieldConstant},\n    expect={SupportScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={Value(r.Field, r.Change)},\n");
                 }
                 else
                 {
                     body.Append("    changes={\n");
                     foreach (var r in group.OrderBy(r => r.Field.InstanceKey, StringComparer.Ordinal))
-                        body.Append($"        {{field={r.Field.ApiFieldConstant},expect={SupportScalar.Text(r.Field, r.Change.ExpectedValue)},value={SupportScalar.Text(r.Field, r.Change.DesiredValue)}}},\n");
+                        body.Append($"        {{field={r.Field.ApiFieldConstant},expect={SupportScalar.Text(r.Field, r.Change.ExpectedValue)},value={Value(r.Field, r.Change)}}},\n");
                     body.Append("    },\n");
                 }
                 operations.Add(body.Append('}').ToString());
@@ -65,8 +65,15 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
             var kind = usePlan ? "plan" : entries.Length == 1 && !entries[0].Field.Operation.TransactionRequired ? "patch" : "transaction";
             var request = usePlan ? "{\n    id=" + LuaGenerator.Quote("support-plan-" + SupportChangeService.Hash(p.ResourceId + "\n" + string.Join("\n", groups.Select(g => g.Key)))[..24])
                 + ",\n    operations={\n" + string.Join(",\n", operations.Select(o => "        " + o.Replace("\n", "\n        "))) + "\n    },\n}" : operations.Single();
-            output.Add(entries[0].Change.EnsureEnabled ? "hd2.ensure({\n    " + kind + "=" + request.Replace("\n", "\n    ") + "\n})" : "hd2." + kind + "(" + request + ")");
+            output.Add(OptionBindings.Wrap(options, kind, request, entries[0].Change.EnsureEnabled, entries.Select(r => (string?)ModOptionsService.SupportKey(r.Change.InstanceKey))));
         }
         return output;
+        // Changes to the same field of one backing object are one Runtime value: at most one may be bound, and all use it.
+        string Value(SupportField f, SupportChange c)
+        {
+            var literal = SupportScalar.Text(f, c.DesiredValue);
+            return options?.Value(rows.Where(x => x.Field.Backing.ObjectKey == f.Backing.ObjectKey && x.Field.ApiFieldConstant == f.ApiFieldConstant)
+                .Select(x => (string?)ModOptionsService.SupportKey(x.Change.InstanceKey)), literal) ?? literal;
+        }
     }
 }

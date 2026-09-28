@@ -96,12 +96,12 @@ public sealed class EntityChangeService : IEntityChangeService
     }
 }
 
-public interface IEntityLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk); }
+public interface IEntityLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk, OptionBindings? options = null); }
 // One request per vehicle/backpack plan group: patch for one field, transaction for one operation group, hd2.plan across groups.
 // Flags are emitted only when Runtime requires them and the user acknowledged them: allow_shared and allow_unverified_reference.
 public sealed class EntityLua(IEntityChangeService service) : IEntityLua
 {
-    public IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk)
+    public IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk, OptionBindings? options = null)
     {
         var active = project.EntityChanges.Where(c => c.Enabled).OrderBy(c => c.InstanceKey, StringComparer.Ordinal).ToArray();
         if (active.Length == 0) return [];
@@ -127,16 +127,17 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
                 if (rows.Any(r => r.Field.Acknowledgement == "allow_unverified_reference")) body += "    allow_unverified_reference=true,\n";
                 if (rows.Any(r => r.Field.Acknowledgement == "allow_unverified_effect")) body += "    allow_unverified_effect=true,\n";
                 if (rows.Length == 1)
-                { var r = rows[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},\n    value={EntityScalar.Lua(r.Field, r.Change.DesiredValue)},\n"; }
-                else body += "    changes={\n" + string.Join("\n", rows.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},value={EntityScalar.Lua(r.Field, r.Change.DesiredValue)}}},")) + "\n    },\n";
+                { var r = rows[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},\n    value={Value(r.Field, r.Change)},\n"; }
+                else body += "    changes={\n" + string.Join("\n", rows.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},value={Value(r.Field, r.Change)}}},")) + "\n    },\n";
                 operations.Add(body + "}");
             }
             var kind = groups.Length > 1 ? "plan" : operations[0].Contains("    changes={", StringComparison.Ordinal) ? "transaction" : "patch";
             var request = kind == "plan" ? "{\n    id=" + LuaGenerator.Quote("entity-plan-" + SupportChangeService.Hash(project.ResourceId + "\n" + plan.Key)[..24])
                 + ",\n    operations={\n" + string.Join(",\n", operations.Select(o => "        " + o.Replace("\n", "\n        "))) + "\n    },\n}" : operations[0];
-            output.Add(entries[0].Change.EnsureEnabled ? "hd2.ensure({\n    " + kind + "=" + request.Replace("\n", "\n    ") + "\n})" : "hd2." + kind + "(" + request + ")");
+            output.Add(OptionBindings.Wrap(options, kind, request, entries[0].Change.EnsureEnabled, entries.Select(r => (string?)ModOptionsService.EntityKey(r.Change.InstanceKey))));
         }
         return output;
+        string Value(EntityField f, EntityChange c) => options?.Value(ModOptionsService.EntityKey(c.InstanceKey), EntityScalar.Lua(f, c.DesiredValue)) ?? EntityScalar.Lua(f, c.DesiredValue);
     }
     public static string Target(EntityTarget t) => t.Path switch
     {

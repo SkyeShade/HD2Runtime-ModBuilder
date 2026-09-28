@@ -1198,3 +1198,26 @@ input[type=checkbox]:checked:before {
 .authoring-summary .actions button { padding:6px 14px; min-height:0; font-size:13px }
 .authoring-summary .summary-main { flex:1 1 240px }
 .ack-list { margin:4px 0; padding-left:1.3rem; color:var(--text) } .ack-list li { margin:2px 0 }
+
+/* ---- In-game options (HD2Runtime hd2.options / Mod Options Menu) ---- */
+.badge.option-badge { color:var(--cat-support); border-color:color-mix(in srgb, var(--cat-support) 55%, transparent); background:color-mix(in srgb, var(--cat-support) 10%, transparent); cursor:pointer; font-size:10.5px; padding:1px 7px }
+.option-expose { padding:2px 8px; font-size:11px; color:var(--muted); border-style:dashed }
+.option-expose:hover { color:var(--cat-support); border-color:var(--cat-support) }
+.badge.option-na { font-size:10px; color:var(--muted); border-style:dashed }
+.dialog.option-editor { width:600px }
+.option-editor label { display:block; margin-top:10px }
+.option-editor textarea { width:100%; resize:vertical }
+.option-numbers { grid-template-columns:repeat(4, minmax(0, 1fr)) }
+.option-choices { width:100%; border-collapse:collapse; margin:10px 0 }
+.option-choices th { text-align:left; font-size:11px; color:var(--muted); font-weight:500 }
+.option-choices td { padding:3px 4px }
+.option-issues { margin:12px 0 0; padding:10px 14px 10px 28px }
+.option-rows { width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:13px }
+.option-rows th { text-align:left; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border) }
+.option-rows td { padding:7px 8px; border-bottom:1px solid var(--border); vertical-align:middle }
+.option-rows tr.inactive td { opacity:.6 }
+.option-rows .row-actions { white-space:nowrap; text-align:right }
+.option-rows .row-actions button { padding:2px 7px; margin-left:3px }
+.option-page { margin-top:12px }
+.option-page .actions { grid-column:1 / -1 }
+.option-available { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid var(--border) }

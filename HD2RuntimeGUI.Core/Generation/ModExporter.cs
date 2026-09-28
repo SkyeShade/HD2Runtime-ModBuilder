@@ -18,14 +18,22 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
         if (!project.EntityChanges.Any(c => c.Enabled) && !project.StratagemChanges.Any(c => c.Enabled) && !project.SupportChanges.Any(c => c.Enabled) && !project.Changes.Any(c => c.Enabled) && !project.WeaponChanges.Any(c => c.Enabled) && !project.ProjectileChanges.Any(c => c.Enabled) && !project.CompositionChanges.Any(c => c.Enabled)) throw new InvalidDataException("Add at least one enabled modification before exporting.");
         var requires = new { bingus = new { min_release = 15, api = 1 }, hd2runtime = new { module = ProjectIdentity.RuntimeModule, min_version = sdk.Version, api = sdk.ApiVersion } };
         var description = $"Requires Bingus Shared Loader v15+ / API 1 and HD2Runtime {sdk.Version}+ / API {sdk.ApiVersion}; install dependencies separately.";
+        // In-game options: Mod Options Menu is optional (never in requires), declared only when at least one active edit is bound.
+        var usesOptions = ModOptionsService.ActiveRows(project, sdk).Count > 0;
+        if (usesOptions) description += " " + ModOptionsService.DependencyNote;
+        var optional = new { mod_options_menu = ModOptionsService.OptionalDependency };
         byte[] Json(object value) => JsonSerializer.SerializeToUtf8Bytes(value, new JsonSerializerOptions { WriteIndented = true });
         byte[] Text(string value) => Encoding.UTF8.GetBytes(value);
         var entries = new SortedDictionary<string, byte[]>(StringComparer.Ordinal)
         {
             ["manifest.json"] = Json(new { Version = 1, Guid = project.ManagerGuid, Name = project.DisplayName + " " + project.Version, Description = description,
                 Options = new[] { new { Name = project.DisplayName, Description = description, Include = new[] { "mod" } } } }),
-            ["hd2runtime.json"] = Json(new { format = 1, name = project.DisplayName, author = project.Author, version = project.Version, resource = project.ResourceId, guid = project.ManagerGuid, requires }),
-            ["build-report.json"] = Json(new { resource = project.ResourceId, sdk_version = sdk.Version, runtime_bundled = false, sdk_stubs_bundled = false, requires, builder = $"HD2RuntimeGUI {BuildInfo.Version} / .NET 10", deployed = false, game_launched = false }),
+            ["hd2runtime.json"] = usesOptions
+                ? Json(new { format = 1, name = project.DisplayName, author = project.Author, version = project.Version, resource = project.ResourceId, guid = project.ManagerGuid, requires, optional })
+                : Json(new { format = 1, name = project.DisplayName, author = project.Author, version = project.Version, resource = project.ResourceId, guid = project.ManagerGuid, requires }),
+            ["build-report.json"] = usesOptions
+                ? Json(new { resource = project.ResourceId, sdk_version = sdk.Version, runtime_bundled = false, sdk_stubs_bundled = false, requires, optional, builder = $"HD2RuntimeGUI {BuildInfo.Version} / .NET 10", deployed = false, game_launched = false })
+                : Json(new { resource = project.ResourceId, sdk_version = sdk.Version, runtime_bundled = false, sdk_stubs_bundled = false, requires, builder = $"HD2RuntimeGUI {BuildInfo.Version} / .NET 10", deployed = false, game_launched = false }),
             ["README.md"] = Text($"# {project.DisplayName}\n\n{project.Description}\n\nBy {project.Author}.\n\n{description}\n\nInstall this gameplay ZIP through your mod manager after installing both dependencies.\n"),
             ["src/addon.lua"] = Text(lua),
             [$"mod/{GameplayArchive.ArchiveName}"] = GameplayArchive.Build(project.ResourceId, Text(Wrap(project, lua))),

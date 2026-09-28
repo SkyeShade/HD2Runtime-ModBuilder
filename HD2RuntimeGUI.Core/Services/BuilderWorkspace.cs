@@ -247,6 +247,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     });
     private void RefreshPreview()
     {
+        optionTargets = null;
         try { LuaPreview = generator.Generate(Project!, Metadata!); BuildError = null; }
         catch (InvalidDataException e) { LuaPreview = "-- Build blocked: review the Changes page.\n"; BuildError = e.Message; }
     }

@@ -27,6 +27,9 @@ public sealed class ModProject
     public Dictionary<string, string> StratagemApprovals { get; set; } = [];
     public List<EntityChange> EntityChanges { get; set; } = [];
     public Dictionary<string, string> EntityApprovals { get; set; } = [];
+    // Format 7: in-game options. Omitted when never configured, so older projects save unchanged.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ModOptionsSettings? ModOptions { get; set; }
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

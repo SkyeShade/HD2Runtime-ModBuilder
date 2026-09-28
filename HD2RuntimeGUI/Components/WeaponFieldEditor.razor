@@ -24,6 +24,7 @@
     </div>
     <div class="field-baseline @(Modified ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">Base @FieldPresentation.Value(Field, Field.CurrentDefault)@if (Modified) { <span> → <strong>@FieldPresentation.Value(Field, CurrentValue)</strong></span> }</div>
     <div class="field-tools">
+        @if (SavedGroup != null) { <OptionToggle Key="@ModOptionsService.WeaponKey(Weapon.Name, Field.SemanticFieldId)" Changed="Changed" /> }
         @if (Busy) { <small role="status">Saving…</small> }
         @if (CanEdit && (Modified || FieldPresentation.Modified(Field, Change))) { <button class="reset-action small" @onclick="Reset" disabled="@Busy">Reset field</button> }
         <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">

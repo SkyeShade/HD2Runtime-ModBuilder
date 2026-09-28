@@ -3,10 +3,10 @@ using HD2RuntimeGUI.Core.Models;
 
 namespace HD2RuntimeGUI.Core.Generation;
 
-public interface IStratagemLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk); }
+public interface IStratagemLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk, OptionBindings? options = null); }
 public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLua
 {
-    public IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk)
+    public IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk, OptionBindings? options = null)
     {
         var active = project.StratagemChanges.Where(c => c.Enabled).OrderBy(c => c.InstanceKey, StringComparer.Ordinal).ToArray();
         if (active.Length == 0) return [];
@@ -48,16 +48,22 @@ public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLu
                     + ",\n    target=" + Target(f.Target) + ",\n";
                 if (f.AllowSharedRequired) body += "    allow_shared=true,\n";
                 if (unique.Length == 1)
-                { var r = unique[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={StratagemScalar.Text(r.Field, r.Change.DesiredValue)},\n"; }
-                else body += "    changes={\n" + string.Join("\n", unique.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},value={StratagemScalar.Text(r.Field, r.Change.DesiredValue)}}},")) + "\n    },\n";
+                { var r = unique[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={Value(r, group)},\n"; }
+                else body += "    changes={\n" + string.Join("\n", unique.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={StratagemScalar.Text(r.Field, r.Change.ExpectedValue)},value={Value(r, group)}}},")) + "\n    },\n";
                 operations.Add(body + "}");
             }
             var kind = groups.Length > 1 ? "plan" : operations[0].Contains("    changes={", StringComparison.Ordinal) ? "transaction" : "patch";
             var request = kind == "plan" ? "{\n    id=" + LuaGenerator.Quote("stratagem-plan-" + SupportChangeService.Hash(project.ResourceId + "\n" + string.Join("\n", groups.Select(g => g.Key)))[..24])
                 + ",\n    operations={\n" + string.Join(",\n", operations.Select(o => "        " + o.Replace("\n", "\n        "))) + "\n    },\n}" : operations[0];
-            output.Add(entries[0].Change.EnsureEnabled ? "hd2.ensure({\n    " + kind + "=" + request.Replace("\n", "\n    ") + "\n})" : "hd2." + kind + "(" + request + ")");
+            output.Add(OptionBindings.Wrap(options, kind, request, entries[0].Change.EnsureEnabled, entries.Select(r => (string?)ModOptionsService.StratagemKey(r.Change.InstanceKey))));
         }
         return output;
+        // Instances sharing one Runtime value (e.g. the Eagle rearm system) are written once; at most one of them may be bound.
+        string Value((StratagemChange Change, StratagemField Field) r, IEnumerable<(StratagemChange Change, StratagemField Field)> group)
+        {
+            var literal = StratagemScalar.Text(r.Field, r.Change.DesiredValue);
+            return options?.Value(group.Where(x => x.Field.ApiFieldConstant == r.Field.ApiFieldConstant).Select(x => (string?)ModOptionsService.StratagemKey(x.Change.InstanceKey)), literal) ?? literal;
+        }
     }
     // Graph path targets follow the public API: stratagem → deployed_entity() → weapon(id) → attack(role).
     // Runtime 0.22 exposes only the "main" deployed entity, and attack handles resolve under the "primary" mounted weapon.

@@ -39,6 +39,8 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             throw new InvalidDataException("Migrate legacy weapon modifications before combining them with semantic edits; their shared backing scope cannot be safely planned together.");
         if (active.Any(c => sdk.Resources[c.Target].Kind == "weapon" && project.WeaponChanges.Any(w => w.Enabled && w.Weapon == sdk.Resources[c.Target].Label))) throw new InvalidDataException("Remove legacy weapon modifications before using semantic overrides for the same weapon.");
         if (active.GroupBy(c => (c.Target, c.Field)).Any(g => g.Count() > 1)) throw new InvalidDataException("A target field may only be modified once.");
+        // In-game options (0.25.0+): null unless the project enabled them and at least one active edit is bound.
+        var options = ModOptionsService.Bindings(project, sdk);
         var operations = new List<string>();
         foreach (var group in active.GroupBy(c => (c.Target, c.Group, c.EnsureEnabled)))
         {
@@ -64,7 +66,7 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             operations.Add(group.Key.EnsureEnabled ? $"hd2.ensure({{\n    {operation}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{operation}({body})");
         }
         if (sdk.Plans != null)
-            operations.AddRange(CompositionPlanLua.Operations(project.ResourceId, sdk, planner.Plan(project, sdk)));
+            operations.AddRange(CompositionPlanLua.Operations(project.ResourceId, sdk, planner.Plan(project, sdk), options));
         else
         {
             operations.AddRange(ProjectileChangeService.Operations(project, sdk, projectileChanges));
@@ -76,10 +78,12 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
                 operations.AddRange(CompositionChangeService.Operations(project, sdk, compositionChanges));
             }
         }
-        operations.AddRange(supportLua.Operations(project, sdk));
-        operations.AddRange(stratagemLua.Operations(project, sdk));
-        operations.AddRange(entityLua.Operations(project, sdk));
+        operations.AddRange(supportLua.Operations(project, sdk, options));
+        operations.AddRange(stratagemLua.Operations(project, sdk, options));
+        operations.AddRange(entityLua.Operations(project, sdk, options));
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
+        // One options page, its master toggle, then one handle per bound field, in registration (display) order.
+        if (options != null) prefix += options.Header + "\n";
         if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
         if (project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1)
             return prefix + "local operations={}\n" + string.Join("\n", operations.Select(o => "operations[#operations+1]=" + o)) + "\nreturn operations\n";

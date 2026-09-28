@@ -1,0 +1,15 @@
+@inject BuilderWorkspace Workspace
+@* Per-field in-game option control, shown on an edited field when the project enabled in-game options (SDK 0.25.0+). *@
+@if (Key != null && Workspace.OptionsEnabled && Workspace.OptionTarget(Key) is { } target)
+{
+    if (!target.Eligible) { <span class="badge option-na" title="@target.Blocker" data-option-ineligible="@Key">Not configurable</span> }
+    else if (Workspace.OptionRow(Key) is { } row)
+    { <button class="badge option-badge" data-option-badge="@Key" title="@($"{(row.Kind == "choice" ? "Choice" : "Slider")} · {row.Label}. Click to edit the in-game option.")" @onclick="() => Open = true">In-game option</button> }
+    else { <button class="small option-expose" data-expose-option="@Key" title="Expose as in-game option" @onclick="() => Open = true">Expose as option</button> }
+    if (Open) { <OptionEditor Target="target" OnClose="() => Open = false" Changed="Changed" /> }
+}
+@code {
+    [Parameter] public string? Key { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private bool Open;
+}

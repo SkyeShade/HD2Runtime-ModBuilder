@@ -22,14 +22,18 @@ public sealed record SemanticBackingObject(string Kind, string Identity)
     }
 }
 
-public sealed record PlannedSemanticChange(string Field, string Expected, string Desired);
+// Keys: in-game option binding keys of the edits merged into this value (ModOptionsService).
+public sealed record PlannedSemanticChange(string Field, string Expected, string Desired)
+{
+    public IReadOnlyList<string?> Keys { get; init; } = [];
+}
 public sealed record PlannedSemanticOperation(SemanticBackingObject Owner, string Target, bool Ensure, bool AllowShared,
     IReadOnlyList<PlannedSemanticChange> Changes)
 {
     public string Family { get; init; } = "";
     public IReadOnlyList<ProjectileReference> Contexts { get; init; } = [];
     public ProjectileReference? Replacement { get; init; }
-    public string Lua(string resourceId)
+    public string Lua(string resourceId, OptionBindings? options = null)
     {
         var identity = resourceId + "\n" + Owner.Kind + "\n" + Owner.Identity;
         var id = "gui-object-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..24].ToLowerInvariant();
@@ -37,16 +41,16 @@ public sealed record PlannedSemanticOperation(SemanticBackingObject Owner, strin
         if (AllowShared) body.Append("    allow_shared=true,\n");
         if (Changes.Count == 1)
         {
-            var c = Changes[0]; body.Append($"    field={c.Field},\n    expect={c.Expected},\n    value={c.Desired},\n");
+            var c = Changes[0]; body.Append($"    field={c.Field},\n    expect={c.Expected},\n    value={options?.Value(c.Keys, c.Desired) ?? c.Desired},\n");
         }
         else
         {
             body.Append("    changes={\n");
-            foreach (var c in Changes) body.Append($"        {{field={c.Field},expect={c.Expected},value={c.Desired}}},\n");
+            foreach (var c in Changes) body.Append($"        {{field={c.Field},expect={c.Expected},value={options?.Value(c.Keys, c.Desired) ?? c.Desired}}},\n");
             body.Append("    },\n");
         }
         body.Append('}'); var kind = Changes.Count == 1 ? "patch" : "transaction";
-        return Ensure ? $"hd2.ensure({{\n    {kind}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{kind}({body})";
+        return OptionBindings.Wrap(options, kind, body.ToString(), Ensure, Changes.SelectMany(c => c.Keys));
     }
 }
 
@@ -58,7 +62,7 @@ public interface ISemanticOperationPlanner
 public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
 {
     private sealed record Edit(SemanticBackingObject Owner, string Weapon, string Family, string Target, string Semantic,
-        string Field, string Expected, string Desired, bool Ensure, bool Shared, ProjectileReference? Context = null, ProjectileReference? Replacement = null);
+        string Field, string Expected, string Desired, bool Ensure, bool Shared, ProjectileReference? Context = null, ProjectileReference? Replacement = null, string? Key = null);
     public IReadOnlyList<PlannedSemanticOperation> Plan(ModProject project, SdkMetadata sdk)
     {
         var edits = new List<Edit>();
@@ -79,7 +83,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                 if (attack != null) { context = new(c.Weapon, attack.Role); target = CompositionChangeService.ProjectileLua(context); family = "projectile"; semantic = Generic(semantic); }
             }
             edits.Add(new(SemanticBackingObject.For(sdk, c.Weapon, f), c.Weapon, family, target, semantic, Accessor(sdk, semantic),
-                Scalar(f, c.ExpectedValue), Scalar(f, c.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, context));
+                Scalar(f, c.ExpectedValue), Scalar(f, c.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, context, Key: ModOptionsService.WeaponKey(c.Weapon, group.FieldId)));
         }
         foreach (var c in project.CompositionChanges.Where(c => c.Enabled))
         {
@@ -91,7 +95,8 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
             var semantic = c.Kind == "terminal" ? "terminal.explosion" : Generic(f.SemanticFieldId);
             edits.Add(new(SemanticBackingObject.For(sdk, c.Scalar?.Weapon ?? c.Target.Weapon, f), c.Scalar?.Weapon ?? c.Target.Weapon, c.Kind == "terminal" ? "terminal:" + c.Phase : c.Kind,
                 target, semantic, Accessor(sdk, semantic), c.Scalar == null ? Explosion(c.ExpectedExplosion!) : Scalar(f, c.Scalar.ExpectedValue),
-                c.Scalar == null ? Explosion(c.DesiredExplosion!) : Scalar(f, c.Scalar.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, new(c.Weapon, c.AttackRole)));
+                c.Scalar == null ? Explosion(c.DesiredExplosion!) : Scalar(f, c.Scalar.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, new(c.Weapon, c.AttackRole),
+                Key: c.Scalar == null ? null : ModOptionsService.ObjectKey(c)));
         }
         var swaps = project.ProjectileChanges.Where(c => c.Enabled).ToArray();
         if (sdk.Plans != null)
@@ -143,7 +148,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
             {
                 if (fields.Select(e => (e.Expected, e.Desired)).Distinct().Count() != 1)
                     throw new InvalidDataException("Conflicting baselines or values for one shared semantic object field.");
-                var e = fields.First(); values.Add(new(e.Field, e.Expected, e.Desired));
+                var e = fields.First(); values.Add(new(e.Field, e.Expected, e.Desired) { Keys = fields.Select(x => x.Key).ToArray() });
             }
             if (values.Count > 32) throw new InvalidDataException("A backing object exceeds Runtime's 32-change transaction limit. Remove edits; splitting this object into separate jobs is unsafe.");
             // Multiple weapon handles may reach a shared record. Select a handle only

@@ -8,7 +8,7 @@ namespace HD2RuntimeGUI.Core.Generation;
 // No plan requests or native identities are added to project persistence.
 public static class CompositionPlanLua
 {
-    public static IReadOnlyList<string> Operations(string resourceId, SdkMetadata sdk, IReadOnlyList<PlannedSemanticOperation> operations)
+    public static IReadOnlyList<string> Operations(string resourceId, SdkMetadata sdk, IReadOnlyList<PlannedSemanticOperation> operations, OptionBindings? options = null)
     {
         var contract = sdk.Plans ?? throw new InvalidDataException("Composition plan capabilities are unavailable.");
         var parent = Enumerable.Range(0, operations.Count).ToArray();
@@ -43,7 +43,7 @@ public static class CompositionPlanLua
         foreach (var component in Enumerable.Range(0, operations.Count).GroupBy(Root).OrderBy(g => g.Min()))
         {
             var indices = component.ToArray();
-            if (indices.Length == 1) { output.Add(operations[indices[0]].Lua(resourceId)); continue; }
+            if (indices.Length == 1) { output.Add(operations[indices[0]].Lua(resourceId, options)); continue; }
             if (indices.Select(i => operations[i].Ensure).Distinct().Count() != 1)
                 throw new InvalidDataException("Related composition objects have mixed persistence settings. Use the same persistence setting so they can share one guarded plan.");
             if (indices.Length > contract.Limits.Operations) throw new InvalidDataException("Composition exceeds the SDK's plan operation limit.");
@@ -72,12 +72,12 @@ public static class CompositionPlanLua
                 if (op.AllowShared) body.Append("    allow_shared=true,\n");
                 if (op.Changes.Count == 1)
                 {
-                    var c = op.Changes[0]; body.Append($"    field={c.Field},\n    expect={c.Expected},\n    value={c.Desired},\n");
+                    var c = op.Changes[0]; body.Append($"    field={c.Field},\n    expect={c.Expected},\n    value={options?.Value(c.Keys, c.Desired) ?? c.Desired},\n");
                 }
                 else
                 {
                     body.Append("    changes={\n");
-                    foreach (var c in op.Changes) body.Append($"        {{field={c.Field},expect={c.Expected},value={c.Desired}}},\n");
+                    foreach (var c in op.Changes) body.Append($"        {{field={c.Field},expect={c.Expected},value={options?.Value(c.Keys, c.Desired) ?? c.Desired}}},\n");
                     body.Append("    },\n");
                 }
                 return body.Append('}').ToString();
@@ -92,7 +92,8 @@ public static class CompositionPlanLua
                 plan.Append("    },\n");
             }
             plan.Append('}');
-            output.Add(operations[indices[0]].Ensure ? "hd2.ensure({\n    plan=" + plan.ToString().Replace("\n", "\n    ") + "\n})" : "hd2.plan(" + plan + ")");
+            // One plan is one Runtime operation: a bound value anywhere in it puts the whole plan under the master toggle.
+            output.Add(OptionBindings.Wrap(options, "plan", plan.ToString(), operations[indices[0]].Ensure, indices.SelectMany(i => operations[i].Changes.SelectMany(c => c.Keys))));
         }
         return output;
     }

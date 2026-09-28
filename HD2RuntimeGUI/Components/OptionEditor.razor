@@ -1,0 +1,92 @@
+@inject BuilderWorkspace Workspace
+@using HD2RuntimeGUI.Core.Generation
+@* Compact editor for one field's in-game option (Mod Options Menu row). Values are validated exactly as the build validates them:
+   Mod Options Menu limits, then every sampled value through the field's own Runtime rules and published safe range. *@
+<div class="modal-backdrop" @onclick="Close" data-option-editor-backdrop>
+    <section class="dialog option-editor" role="dialog" aria-modal="true" aria-labelledby="option-editor-title" @onclick:stopPropagation data-option-editor="@Target.Key">
+        <div class="eyebrow">IN-GAME OPTION · MOD OPTIONS MENU</div>
+        <h2 id="option-editor-title">@Target.Title</h2>
+        <p class="subtle">Edit @FieldPresentationLabel(Target.Baseline) → <strong>@FieldPresentationLabel(Target.Desired)</strong>@(Target.Unit is { } unit ? " " + unit.Replace('_', ' ') : "") ·
+            @(Target.PublishedRange ? $"Runtime-published safe range {ModOptionsService.Format(Target.RangeMin)}–{ModOptionsService.Format(Target.RangeMax)}" : "No Runtime-published safe range; values are limited by the field's type")</p>
+        <div class="form-grid">
+            <label>Control
+                <select @bind="Row.Kind" data-option-kind disabled="@(Target.EnumValues != null)">
+                    <option value="slider">Slider</option><option value="choice">Choice</option>
+                </select></label>
+            <label>Option id<input @bind="Row.Id" data-option-id maxlength="64" /></label>
+        </div>
+        <label>Label<input @bind="Row.Label" @bind:event="oninput" data-option-label maxlength="64" /></label>
+        <label>Description <small class="subtle">optional · shown in the game's description box</small><textarea @bind="Row.Description" @bind:event="oninput" data-option-description maxlength="400" rows="2"></textarea></label>
+        @if (Row.Kind == ModOptionsService.Slider)
+        {
+            <div class="form-grid option-numbers">
+                <label>Min<input type="number" step="any" @bind="Row.Min" @bind:event="oninput" data-option-min /></label>
+                <label>Max<input type="number" step="any" @bind="Row.Max" @bind:event="oninput" data-option-max /></label>
+                <label>Step<input type="number" step="any" @bind="Row.Step" @bind:event="oninput" data-option-step /></label>
+                <label>Default<input type="number" step="any" @bind="Row.Default" @bind:event="oninput" data-option-default /></label>
+            </div>
+        }
+        else
+        {
+            <table class="option-choices" data-option-choices><thead><tr><th>Default</th><th>Name</th><th>Value</th><th></th></tr></thead><tbody>
+            @for (var i = 0; i < Row.Choices.Count; i++)
+            {
+                var index = i;
+                <tr><td><input type="radio" name="option-default" checked="@(Row.DefaultIndex == index + 1)" @onchange="() => Row.DefaultIndex = index + 1" aria-label="Default choice" /></td>
+                    <td><input value="@Row.Choices[index]" @onchange="e => Row.Choices[index] = e.Value?.ToString() ?? string.Empty" maxlength="48" aria-label="Choice name" /></td>
+                    <td>@if (Target.EnumValues != null) { <span>@ModOptionsService.Format(Row.Values[index])</span> }
+                        else { <input type="number" step="any" value="@ModOptionsService.Format(Row.Values[index])" @onchange="e => SetValue(index, e.Value)" aria-label="Choice value" /> }</td>
+                    <td>@if (Target.EnumValues == null && Row.Choices.Count > ModOptionsService.MinChoices) { <button class="small" @onclick="() => RemoveChoice(index)">Remove</button> }</td></tr>
+            }
+            </tbody></table>
+            @if (Target.EnumValues == null && Row.Choices.Count < ModOptionsService.MaxChoices) { <button class="small" @onclick="AddChoice">Add choice</button> }
+        }
+        <label class="switch-label"><input type="checkbox" @bind="Row.Gap" />Add space above this row</label>
+        <p class="subtle">The project's master toggle (@(Workspace.Project?.ModOptions?.MasterLabel ?? "Enabled")) turns this Runtime operation on and off; off restores the reviewed baseline.
+            Acknowledgements of this edit (shared or unverified) still apply.</p>
+        @if (ModOptionsService.RowIssues(Workspace.Project!.ModOptions ?? ModOptionsService.Defaults(Workspace.Project), Row, Target) is { Count: > 0 } issues)
+        { <ul class="notice warning option-issues" data-option-issues>@foreach (var issue in issues.Take(4)) { <li>@issue</li> }</ul> }
+        @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+        <div class="actions">
+            <button class="primary" data-option-save @onclick="Save" disabled="@Busy">Save option</button>
+            @if (Existing) { <button class="reset-action" data-option-remove @onclick="Remove" disabled="@Busy">Stop exposing</button> }
+            <button @onclick="Close">Cancel</button>
+        </div>
+    </section>
+</div>
+@code {
+    [Parameter, EditorRequired] public OptionTarget Target { get; set; } = default!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private ModOptionRow Row = new(); private bool Existing, Busy; private string? Error;
+    protected override void OnInitialized()
+    {
+        var saved = Workspace.OptionRow(Target.Key); Existing = saved != null;
+        Row = saved == null ? Workspace.SuggestOptionRow(Target) : new ModOptionRow { Key = saved.Key, Id = saved.Id, Kind = saved.Kind, Label = saved.Label, Description = saved.Description,
+            Gap = saved.Gap, Min = saved.Min, Max = saved.Max, Step = saved.Step, Default = saved.Default, Choices = [.. saved.Choices], Values = [.. saved.Values], DefaultIndex = saved.DefaultIndex };
+        // A numeric field switched to a choice starts from its baseline and edited value.
+        if (Row.Kind == ModOptionsService.Slider && Row.Choices.Count == 0) { Row.Choices = ["Default", "Modified"]; Row.Values = [Target.Baseline, Target.Desired]; Row.DefaultIndex = 2; }
+    }
+    private string FieldPresentationLabel(double v) => Target.EnumValues?.FirstOrDefault(e => e.Value == v)?.Name ?? ModOptionsService.Format(v);
+    private void SetValue(int index, object? value) { if (double.TryParse(value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) Row.Values[index] = v; }
+    private void AddChoice() { Row.Choices.Add("Choice " + (Row.Choices.Count + 1)); Row.Values.Add(Target.Desired); }
+    private void RemoveChoice(int index) { Row.Choices.RemoveAt(index); Row.Values.RemoveAt(index); Row.DefaultIndex = Math.Clamp(Row.DefaultIndex, 1, Row.Choices.Count); }
+    private Task Save()
+    {
+        // Save only the active control's settings; the working copy keeps both so switching back does not lose input.
+        var slider = Row.Kind == ModOptionsService.Slider;
+        var row = new ModOptionRow { Key = Row.Key, Id = Row.Id, Kind = Row.Kind, Label = Row.Label, Description = Row.Description, Gap = Row.Gap,
+            Min = slider ? Row.Min : 0, Max = slider ? Row.Max : 0, Step = slider ? Row.Step : 1, Default = slider ? Row.Default : 0,
+            Choices = slider ? [] : [.. Row.Choices], Values = slider ? [] : [.. Row.Values], DefaultIndex = slider ? 1 : Row.DefaultIndex };
+        return Run(() => Workspace.SaveOptionRowAsync(row));
+    }
+    private Task Remove() => Run(() => Workspace.RemoveOptionRowAsync(Target.Key));
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); await OnClose.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+    private Task Close() => OnClose.InvokeAsync();
+}

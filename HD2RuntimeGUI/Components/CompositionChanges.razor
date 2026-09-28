@@ -6,7 +6,7 @@
     {
         var field = change.Scalar == null ? null : Workspace.Metadata?.PlayerWeapons?.FindCanonicalField(change.Scalar.Weapon, change.Scalar.SemanticFieldId);
         <div class="weapon-change modified" data-composition-change="@(change.Scalar?.SemanticFieldId ?? "terminal." + change.Phase)">
-            <div class="change-row"><div class="change-name"><strong>@(field?.DisplayName ?? (change.Kind == "terminal" ? change.Phase + " Explosion" : change.Scalar?.SemanticFieldId))</strong><span class="badge modified-badge">Modified</span><small>@change.AttackRole · @change.Target.Label · @(change.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div>
+            <div class="change-row"><div class="change-name"><strong>@(field?.DisplayName ?? (change.Kind == "terminal" ? change.Phase + " Explosion" : change.Scalar?.SemanticFieldId))</strong><span class="badge modified-badge">Modified</span>@if (change.Scalar != null) { <OptionToggle Key="@ModOptionsService.ObjectKey(change)" Changed="Changed" /> }<small>@change.AttackRole · @change.Target.Label · @(change.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div>
                 @if (change.Scalar != null) { <FieldValue Field="field" Baseline="change.Scalar.ExpectedValue" Current="change.Scalar.DesiredValue" /> }
                 else { <div class="modified-value">@change.ExpectedExplosion!.Label → <strong>@change.DesiredExplosion!.Label</strong></div> }
                 <label class="switch-label"><input type="checkbox" checked="@change.Enabled" @onchange="() => Run(() => Workspace.ToggleCompositionAsync(change.Id))" />Enabled</label>
