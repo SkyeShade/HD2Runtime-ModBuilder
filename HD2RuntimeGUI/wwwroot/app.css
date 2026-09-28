@@ -13,6 +13,7 @@
     --cat-support:#79aefc;
     --cat-offensive:#ff8078;
     --cat-defensive:#62d596;
+    --cat-booster:#f2c94c;
     font-family:'Segoe UI Variable','Segoe UI',sans-serif;
     font-size:14px
 }
@@ -1029,6 +1030,7 @@ input[type=checkbox]:checked:before {
 .cat-support { --cat:var(--cat-support) }
 .cat-offensive { --cat:var(--cat-offensive) }
 .cat-defensive { --cat:var(--cat-defensive) }
+.cat-booster { --cat:var(--cat-booster) }
 .cat-dot { flex:0 0 auto !important; width:7px; height:7px; border-radius:50%; background:var(--cat, var(--muted)); display:inline-block }
 .category-pills { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px }
 .category-pill { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:7px 16px; border:1px solid var(--border); font-weight:600 }

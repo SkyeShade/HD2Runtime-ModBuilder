@@ -66,7 +66,7 @@ public sealed class EntityChangeService : IEntityChangeService
         if (f.AllowSharedRequired && !Approved(p, f)) throw new InvalidDataException("Acknowledge this shared object before building.");
         if (f.Acknowledgement != null && c.ReferenceAcknowledgement != ReferenceEvidence(f, c.DesiredValue))
             throw new InvalidDataException(f.IsReference ? "Acknowledge the unverified mount reference and package-loading risk before building."
-                : "Acknowledge the unverified magazine attachment effect before building.");
+                : f.Target.Resource == "booster" ? "Acknowledge the unverified booster effect before building." : "Acknowledge the unverified magazine attachment effect before building.");
     }
     public static string Evidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
         f.BackingObjectId, f.OperationGroup, f.PlanGroup, f.SharedScopeKey, f.Shared, Tier = f.Evidence.Tier, f.AllowedValues, f.Acknowledgement, f.ResidencyWarning }));
@@ -134,6 +134,7 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         "mount" => "hd2.vehicle(" + LuaGenerator.Quote(t.Vehicle!) + "):mount(" + LuaGenerator.Quote(t.Mount!) + ")",
         "backpack" => "hd2.backpack(" + LuaGenerator.Quote(t.Backpack!) + ")",
         "magazine" when t.Resource == "weapon_attachment" => "hd2.weapon_attachment(" + LuaGenerator.Quote(t.Attachment!) + ")",
+        "deployed_entity" or "status_effect" when t.Resource == "booster" => "hd2.booster(" + LuaGenerator.Quote(t.Booster!) + "):" + t.Path + "()",
         _ => throw new InvalidDataException("Unsupported vehicle/backpack target."),
     };
 }

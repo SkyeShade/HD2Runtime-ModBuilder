@@ -47,7 +47,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     private readonly IStratagemCatalogReader stratagemReader = new StratagemCatalogReader();
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader, IStratagemCatalogReader stratagemReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
-    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName);
+    private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -110,10 +110,14 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 payload.Composition!.GetValueOrDefault(EntityAuthoringReader.BackpackFile) ?? throw MissingFile(EntityAuthoringReader.BackpackFile, "SDK is missing backpack authoring capabilities."),
                 sdk.Version, sdk.Stratagems ?? throw new InvalidDataException("SDK is missing canonical stratagem capabilities.")) };
         // 0.23.1: magazine values on attachment weapons are owned by attachment definitions (supersedes the older attachment ammo-owner data).
+        // 0.24.0: boosters (hd2.booster). Each file is required from the version that publishes it, so an incomplete SDK never activates.
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.23.1")) >= 0)
             sdk = sdk with { Entities = new EntityAuthoring { Vehicles = sdk.Entities!.Vehicles, Backpacks = sdk.Entities.Backpacks, CallIns = sdk.Entities.CallIns,
                 Attachments = MagazineAttachmentReader.Read(payload.Composition!.GetValueOrDefault(MagazineAttachmentReader.FileName)
-                    ?? throw MissingFile(MagazineAttachmentReader.FileName, "SDK is missing magazine attachment capabilities."), sdk.Version, sdk.PlayerWeapons!) } };
+                    ?? throw MissingFile(MagazineAttachmentReader.FileName, "SDK is missing magazine attachment capabilities."), sdk.Version, sdk.PlayerWeapons!),
+                Boosters = Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.24.0")) < 0 ? null
+                    : BoosterAuthoringReader.Read(payload.Composition!.GetValueOrDefault(BoosterAuthoringReader.FileName)
+                        ?? throw MissingFile(BoosterAuthoringReader.FileName, "SDK is missing booster authoring capabilities."), sdk.Version) } };
         return sdk;
     }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)
@@ -282,6 +286,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         StratagemCatalogReader.FileName => StratagemCatalogReader.MaxBytes,
         EntityAuthoringReader.VehicleFile or EntityAuthoringReader.BackpackFile => EntityAuthoringReader.MaxBytes,
         MagazineAttachmentReader.FileName => MagazineAttachmentReader.MaxBytes,
+        BoosterAuthoringReader.FileName => BoosterAuthoringReader.MaxBytes,
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };
     public static void ValidateEntryPath(string name)

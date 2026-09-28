@@ -39,7 +39,7 @@ public partial class Home
     private CreationTicket? Ticket;
     private SdkMetadata? CreationSdk;
     private ElementReference DialogElement;
-    private string PageTitle => Page switch { "stratagems" => "Stratagems", "vehicles" => "Vehicles", "backpacks" => "Backpacks", "support" => "Support Weapons", "player-weapons" => "Player Weapons", "lua" => "Lua Preview", "research" => "Snapshot Research", "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
+    private string PageTitle => Page switch { "stratagems" => "Stratagems", "vehicles" => "Vehicles", "backpacks" => "Backpacks", "boosters" => "Boosters", "support" => "Support Weapons", "player-weapons" => "Player Weapons", "lua" => "Lua Preview", "research" => "Snapshot Research", "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
     private IEnumerable<SdkResource> VisibleResources => Workspace.Metadata!.Resources.Values.Where(r => r.Kind == Page && r.Label.Contains(Search, StringComparison.OrdinalIgnoreCase));
     private SdkResource? SelectedResource => Workspace.Metadata?.Resources.GetValueOrDefault(TargetKey);
     private SdkField? SelectedField => SelectedResource?.Fields.GetValueOrDefault(FieldKey);

@@ -91,7 +91,8 @@ public static class ProjectIdentity
             || p.SupportChanges.Select(c => c.InstanceKey).Distinct().Count() != p.SupportChanges.Count || p.SupportChanges.Select(c => c.Id).Distinct().Count() != p.SupportChanges.Count
             || p.SupportChanges.Any(c => c.Id == Guid.Empty || c.InstanceKey.Length > 512 || !c.InstanceKey.StartsWith("support-field/v1/", StringComparison.Ordinal)
                 || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000
-                || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z") || c.FieldType is not ("number" or "integer" or "boolean")
+                || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z") || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z")
+                || c.FieldType is not ("number" or "integer" or "boolean")
                 || c.ExpectedValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)
                 || c.DesiredValue.ValueKind is not (System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False))) throw new InvalidDataException("Invalid support overrides.");
         foreach (var c in p.SupportChanges) SemVersion.Parse(c.BaselineSdkVersion);
@@ -109,7 +110,7 @@ public static class ProjectIdentity
             throw new InvalidDataException("Invalid semantic stratagem overrides.");
         foreach (var c in p.StratagemChanges) SemVersion.Parse(c.BaselineSdkVersion);
         foreach (var a in p.StratagemApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid stratagem approval.");
-        // Format 6: vehicle/backpack (0.23.0) and magazine attachment (0.23.1) changes. Targets are published names and zone_N / slot_N identities; mount values are published semantic IDs.
+        // Format 6: vehicle/backpack (0.23.0), magazine attachment (0.23.1) and booster (0.24.0) changes. Targets are published names and zone_N / slot_N identities; mount values are published semantic IDs.
         static bool Slot(string? s, string prefix) => s != null && Regex.IsMatch(s, @"\A" + prefix + @"_[0-9]{1,3}\z");
         if (p.EntityChanges == null || p.EntityApprovals == null || p.EntityChanges.Count > 4000 || p.EntityApprovals.Count > 2000
             || p.EntityChanges.Select(c => c.Id).Distinct().Count() != p.EntityChanges.Count
@@ -125,6 +126,8 @@ public static class ProjectIdentity
                     // 0.23.1 magazine attachment definitions: Entity is the published attachment semantic ID.
                     ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType == "integer"
                         && Regex.IsMatch(c.Entity, @"\Aweapon-attachment/v1/magazine/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
+                    // 0.24.0 boosters: Entity is the published booster name; only its reviewed sub-targets carry fields.
+                    ("booster", "deployed_entity" or "status_effect") => c.Zone == null && c.Mount == null && BoosterAuthoringReader.ValidName(c.Entity),
                     _ => false,
                 })
                 || (c.FieldType == EntityField.ReferenceType

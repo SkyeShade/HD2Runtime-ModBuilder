@@ -8,11 +8,17 @@
         @if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" /> }
         else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" /> }
     </label>
-    <div class="field-badges"><span class="badge">@Field.Display.Domain</span>@if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge">Shared</span> }</div>
+    <div class="field-badges"><span class="badge">@Field.Display.Domain</span>@if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge" data-flag="allow_shared">Shared</span> }
+        @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">allow_unverified_effect · effect unproven</span> }</div>
     @if (saved != null)
     {
         <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleSupportAsync(Field.InstanceKey))" /> Enabled</label>
         <button class="reset-action" @onclick="Reset">Reset field</button>
+        @if (UnverifiedEffect)
+        {
+            <label class="attachment-ack @(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field) ? "" : "notice warning")"><input type="checkbox" data-support-effect-ack checked="@(saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(Field))" @onchange="e => Run(() => Workspace.SetSupportEffectAcknowledgedAsync(Field.InstanceKey, (bool)e.Value!))" />
+                I understand the gameplay effect of this edit is unproven: @Field.Operation.AcknowledgementReason</label>
+        }
         @if (Workspace.SupportIssue(saved) is { } issue)
         {
             <p class="notice warning">@issue</p>
@@ -26,6 +32,8 @@
     [Parameter, EditorRequired] public SupportField Field { get; set; } = null!;
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
+    // 0.24.0+: Runtime requires allow_unverified_effect=true for this field.
+    private bool UnverifiedEffect => Field.Operation.Acknowledgement == "allow_unverified_effect";
     private string Value => Format(Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline);
     private string Format(System.Text.Json.JsonElement value)
     {

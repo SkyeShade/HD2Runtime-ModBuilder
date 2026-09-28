@@ -97,7 +97,7 @@ public static class SupportCallInLinker
         Check(a.SupportWeapons == support.Weapons.Length && a.SupportStratagems == roots.Length && a.KnownLinks == byWeapon.Count
             && a.ReverseLinksKnown == byStratagem.Count && a.Relationships == linkage.Relationships.Length
             && a.UnresolvedLinks == support.Weapons.Length - byWeapon.Count && a.BidirectionalMismatches == 0 && a.LinksRelyingOnDisplayNameOnly == 0
-            && a.AmbiguousWeaponIdentityLinks == byWeapon.Values.Count(l => l.Weapon.IdentityStatus != "UNIQUE"));
+            && a.AmbiguousWeaponIdentityLinks == byWeapon.Values.Count(l => !SupportAuthoringWeapon.Resolved(l.Weapon.IdentityStatus)));
         return new() { Linkage = linkage, ByStratagem = byStratagem, ByWeapon = byWeapon };
     }
 }

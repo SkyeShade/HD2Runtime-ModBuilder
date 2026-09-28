@@ -76,7 +76,28 @@ internal static class RuntimeValidation
             catch (InvalidDataException e) when (e.Message.Contains("plan limits")) { limited++; continue; }
             Expect(root.Name + " (all writable fields)", program, true);
         }
-        // Vehicles and backpacks (0.23.0+): every writable field, every published mount replacement, and whole-entity plans.
+        if (sdk.SupportAuthoring is { } support)
+        {
+            // Every published support field (0.24.0: including delivery-resolved weapons and allow_unverified_effect fields).
+            var supportSvc = new SupportChangeService();
+            foreach (var f in support.FieldInstances)
+            {
+                var p = Project([]);
+                var value = f.Value.Type == "integer" ? (f.Value.Baseline.GetInt64() + 1).ToString() : f.Value.Type == "boolean" ? (!f.Value.Baseline.GetBoolean()).ToString().ToLowerInvariant()
+                    : JsonSerializer.Serialize((float)(f.Value.Baseline.GetDouble() + 0.5));
+                var c = supportSvc.Create(sdk, f.InstanceKey, value);
+                if (f.Operation.Acknowledgement != null) c = c with { EffectAcknowledgement = SupportChangeService.EffectEvidence(f) };
+                if (f.SharedScope.RequiresAcknowledgement) p.SupportApprovals[f.SharedScope.ScopeKey] = SupportChangeService.ApprovalEvidence(f);
+                p.SupportChanges.Add(c);
+                var program = generator.Generate(p, sdk);
+                Expect(f.InstanceKey, program, true);
+                if (f.Operation.Acknowledgement == "allow_unverified_effect") { Expect(f.InstanceKey + " without allow_unverified_effect", program.Replace("allow_unverified_effect=true,", ""), false); rejected++; }
+                if (f.Operation.AllowSharedRequired) { Expect(f.InstanceKey + " without allow_shared", program.Replace("allow_shared=true,", ""), false); rejected++; }
+                var expect = "expect=" + SupportScalar.Text(f, f.Value.Baseline) + ",";
+                if (f.Value.Type != "boolean" && program.Contains(expect)) { Expect(f.InstanceKey + " stale baseline", program.Replace(expect, "expect=" + SupportScalar.Text(f, JsonSerializer.SerializeToElement(f.Value.Baseline.GetDouble() + 3)) + ","), false); rejected++; }
+            }
+        }
+        // Vehicles, backpacks, magazine attachments and boosters (0.23.0+): every writable field, every published mount replacement, and whole-target plans.
         if (sdk.Entities is { } entities)
         {
             var entitySvc = new EntityChangeService();
@@ -119,7 +140,7 @@ internal static class RuntimeValidation
         }
         foreach (var file in Directory.Exists(samples) ? Directory.GetFiles(samples, "*.lua").Order(StringComparer.Ordinal).ToArray() : [])
             Expect(Path.GetFileName(file), File.ReadAllText(file), true);
-        Console.WriteLine($"Runtime validation: {passed} passed, {failed} failed ({rejected} unsafe variants (missing allow_shared or stale baseline) correctly rejected; {limited} whole-stratagem edits blocked by published plan limits).");
+        Console.WriteLine($"Runtime validation: {passed} passed, {failed} failed ({rejected} unsafe variants (missing allow_shared / allow_unverified_effect / allow_unverified_reference or stale baseline) correctly rejected; {limited} whole-stratagem edits blocked by published plan limits).");
         return failed == 0 ? 0 : 1;
     }
     private static string Modules(string source)

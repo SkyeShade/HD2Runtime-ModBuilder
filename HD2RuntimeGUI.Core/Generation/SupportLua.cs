@@ -48,6 +48,7 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
                     ? ":attack(" + LuaGenerator.Quote(contract.Target.AttackRole!) + ")" : ":" + accessor + "()";
                 var body = new StringBuilder("{\n    id=" + LuaGenerator.Quote("support-" + SupportChangeService.Hash(p.ResourceId + "\n" + group.Key)[..24]) + ",\n    target=" + target + ",\n");
                 if (contract.AllowSharedRequired) body.Append("    allow_shared=true,\n");
+                if (group.Any(r => r.Field.Operation.Acknowledgement == "allow_unverified_effect")) body.Append("    allow_unverified_effect=true,\n");
                 if (group.Count() == 1 && !f.Operation.TransactionRequired)
                 {
                     var r = group.Single(); body.Append($"    field={r.Field.ApiFieldConstant},\n    expect={SupportScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={SupportScalar.Text(r.Field, r.Change.DesiredValue)},\n");

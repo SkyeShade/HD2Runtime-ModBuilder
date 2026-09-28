@@ -41,7 +41,7 @@ public sealed partial class BuilderWorkspace
                 ReferenceAcknowledgement = old.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(f, next.DesiredValue) ? old.ReferenceAcknowledgement : null };
             p.EntityChanges.Remove(old);
         }
-        // A magazine attachment is acknowledged as a whole: new edits inherit an existing acknowledgement of the same definition.
+        // A magazine attachment or booster target is acknowledged as a whole: new edits inherit an existing acknowledgement of the same scope.
         else if (f.Acknowledgement == "allow_unverified_effect" && EntityChangeService.Approved(p, f))
             next = next with { ReferenceAcknowledgement = EntityChangeService.ReferenceEvidence(f, next.DesiredValue) };
         if (!EntityScalar.Equal(f, next.DesiredValue, f.CurrentDefault)) p.EntityChanges.Add(next);
@@ -70,6 +70,27 @@ public sealed partial class BuilderWorkspace
         var saved = fields.Select(f => (Field: f, Change: EntityChangeService.Saved(p, f))).Where(x => x.Change != null).ToArray();
         return p != null && fields.Length > 0 && EntityChangeService.Approved(p, fields[0])
             && saved.All(x => x.Change!.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(x.Field, x.Change.DesiredValue));
+    }
+    // One acknowledgement per booster (0.24.0+): allow_unverified_effect for every edited field, plus the shared-scope approval
+    // (allow_shared) where Runtime requires it. Each booster target's scope is recorded, so later edits inherit the acknowledgement.
+    public Task SetBoosterAcknowledgedAsync(string booster, bool acknowledged) => EditEntityAsync(p =>
+    {
+        var fields = BoosterFields(EntityChangeService.Catalog(Metadata!), booster);
+        foreach (var scope in fields.GroupBy(f => f.SharedScopeKey))
+            if (acknowledged) p.EntityApprovals[scope.Key] = EntityChangeService.ApprovalEvidence(scope.First()); else p.EntityApprovals.Remove(scope.Key);
+        p.EntityChanges = p.EntityChanges.Select(c => fields.FirstOrDefault(f => f.InstanceKey == c.InstanceKey) is { } f
+            ? c with { ReferenceAcknowledgement = acknowledged ? EntityChangeService.ReferenceEvidence(f, c.DesiredValue) : null } : c).ToList();
+    });
+    public static bool BoosterAcknowledged(ModProject? p, EntityAuthoring catalog, string booster)
+    {
+        var fields = catalog.Boosters?.FieldInstances.Where(f => f.Target.Booster == booster).ToArray() ?? [];
+        return p != null && fields.Length > 0 && fields.GroupBy(f => f.SharedScopeKey).All(s => EntityChangeService.Approved(p, s.First()))
+            && fields.All(f => EntityChangeService.Saved(p, f) is not { } c || c.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(f, c.DesiredValue));
+    }
+    private static EntityField[] BoosterFields(EntityAuthoring catalog, string booster)
+    {
+        var fields = (catalog.Boosters ?? throw new InvalidDataException("Rebind to SDK 0.24.0 or newer for booster authoring.")).FieldInstances.Where(f => f.Target.Booster == booster).ToArray();
+        return fields.Length > 0 ? fields : throw new InvalidDataException("This booster has no published writable fields.");
     }
     public Task ResetEntityAsync(string? resource = null, string? entity = null, string? instance = null) => EditEntityAsync(p =>
         p.EntityChanges.RemoveAll(c => (resource == null || c.Resource == resource) && (entity == null || c.Entity == entity) && (instance == null || c.InstanceKey == instance)));

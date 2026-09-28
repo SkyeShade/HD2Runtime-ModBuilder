@@ -51,13 +51,17 @@ public sealed class SupportChangeService : ISupportChangeService
         if (!SupportScalar.Equal(f, c.ExpectedValue, f.Value.Baseline)) throw new InvalidDataException($"Support SDK baseline changed: saved {SupportScalar.Text(f, c.ExpectedValue)}, current {SupportScalar.Text(f, f.Value.Baseline)}. Review and explicitly accept the new baseline.");
         _ = SupportScalar.Normalize(f, c.DesiredValue);
         if (f.SharedScope.RequiresAcknowledgement && !Approved(project, f)) throw new InvalidDataException("Acknowledge this shared object and its affected consumers before building.");
+        if (f.Operation.Acknowledgement == "allow_unverified_effect" && c.EffectAcknowledgement != EffectEvidence(f))
+            throw new InvalidDataException("Acknowledge the unverified gameplay effect of " + f.Display.Name + " before building.");
     }
     private static void CheckWritable(SdkMetadata sdk, SupportField f)
     {
         var w = Catalog(sdk).Weapons.Single(w => w.Name == f.SupportWeapon);
-        if (!w.Writable || w.IdentityStatus != "UNIQUE" || !f.Writable || f.ReadOnly) throw new InvalidDataException(f.BlockedReason ?? "Duplicate or read-only support identity.");
+        if (!w.Writable || !SupportAuthoringWeapon.Resolved(w.IdentityStatus) || !f.Writable || f.ReadOnly) throw new InvalidDataException(f.BlockedReason ?? "Duplicate or read-only support identity.");
     }
     public static string Evidence(SupportField f) => Hash(JsonSerializer.Serialize(new { f.SupportWeaponIdentity, f.Target, f.ApiFieldConstant, f.Value.Type, f.Backing, f.Operation, f.Resolution, f.SharedScope }));
+    // Acknowledges Runtime's allow_unverified_effect opt-in for one field, regardless of value.
+    public static string EffectEvidence(SupportField f) => Hash(JsonSerializer.Serialize(new { f.InstanceKey, f.Operation.Acknowledgement, f.Operation.AcknowledgementReason }));
     public static string ApprovalEvidence(SupportField f) => Hash(JsonSerializer.Serialize(new { f.Backing.ObjectKey, f.SharedScope }));
     public static bool Approved(ModProject p, SupportField f) => p.SupportApprovals.GetValueOrDefault(f.SharedScope.ScopeKey) == ApprovalEvidence(f);
     public static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();

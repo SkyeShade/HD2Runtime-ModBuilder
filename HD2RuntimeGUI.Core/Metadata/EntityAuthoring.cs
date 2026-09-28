@@ -8,10 +8,10 @@ namespace HD2RuntimeGUI.Core.Metadata;
 // Runtime 0.23.0+ guarded vehicle (hd2.vehicle) and backpack (hd2.backpack) authoring catalogs.
 // Every control comes from a published canonical field instance; mount replacements come only from published allowed values.
 public sealed record EntityTarget(string Resource, string Path, string? Vehicle = null, string? Backpack = null, string? Zone = null, string? Mount = null,
-    string? Attachment = null)
+    string? Attachment = null, string? Booster = null)
 {
-    // Vehicle or backpack name, or the magazine attachment semantic ID (weapon_attachment targets, 0.23.1+).
-    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? "";
+    // Vehicle or backpack name, the magazine attachment semantic ID (weapon_attachment, 0.23.1+) or the booster name (booster, 0.24.0+).
+    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? "";
 }
 public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
     string? NativeOwner = null, string? GameplayWriteEffect = null);
@@ -82,7 +82,9 @@ public sealed class EntityAuthoring
     public required IReadOnlyDictionary<string, (string Resource, string Entity)> CallIns { get; init; }
     // Magazine attachment definitions (hd2.weapon_attachment, SDK 0.23.1+); null on 0.23.0.
     public MagazineAttachmentCatalog? Attachments { get; init; }
-    public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []);
+    // Booster authoring (hd2.booster, SDK 0.24.0+); null on older SDKs, which have no Booster category.
+    public BoosterCatalog? Boosters { get; init; }
+    public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []).Concat(Boosters?.FieldInstances ?? []);
     public EntityField? Field(string instanceKey) => AllFields.FirstOrDefault(f => f.InstanceKey == instanceKey);
     public string? CallInFor(string resource, string entity) => CallIns.FirstOrDefault(p => p.Value == (resource, entity)).Key;
 }

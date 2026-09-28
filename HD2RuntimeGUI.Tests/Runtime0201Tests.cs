@@ -14,7 +14,8 @@ public sealed class Runtime0201Tests
 {
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e)
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync();
+        // Pinned to the published 0.23.2 support catalog (0.20.1–0.23.x model); Runtime024Tests covers the 0.24.0 expansion.
+        var sdk = await SdkFixtures.Install(e, "0.23.2");
         var w = e.Workspace(); await w.CreateAsync(new("Support", "Tests", "mods/tests/support", "0.1.0"), sdk); return w;
     }
     private static SupportField Field(BuilderWorkspace w, string weapon, string field) => w.Metadata!.SupportAuthoring!.FieldInstances.Single(f => f.SupportWeapon == weapon && f.SemanticFieldId == field);
@@ -140,7 +141,7 @@ public sealed class Runtime0201Tests
             case "api": first["apiFieldConstant"] = "os.execute('bad')"; break;
             case "scope": first["sharedScope"]!["scopeKey"] = "invented"; break;
         }
-        Assert.Throws<InvalidDataException>(() => new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.23.2"));
+        Assert.Throws<InvalidDataException>(() => new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.24.0"));
     }
     private static byte[] Archive(bool omitSupport = false)
     {
@@ -156,15 +157,15 @@ public sealed class Runtime0201Tests
         var old = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.19.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new("Old project", "Tests", "mods/tests/old_support", "0.1.0"), old);
         await w.SetWeaponChangeAsync("AR-23C Liberator Concussive", "weapon.fire_rate", "1100", false);
-        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.23.2", e.GitHub.Archive));
+        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.24.0", e.GitHub.Archive));
         await w.OpenAsync(w.Project!.Id); Assert.Equal("0.19.0", w.Project!.SdkVersion); Assert.Null(w.Metadata!.SupportAuthoring);
-        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.23.2", w.Project.SdkVersion); Assert.Equal(828, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.24.0", w.Project.SdkVersion); Assert.Equal(970, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
         Assert.Equal("0.19.0", w.Project.WeaponChanges.Single().BaselineSdkVersion); Assert.Null(w.BuildError);
     }
     [Fact] public async Task Missing_canonical_artifact_preserves_previous_install()
     {
         using var e = new TestEnvironment(); e.GitHub.Archive = Archive(true);
-        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.23.2", e.GitHub.Archive)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.24.0", e.GitHub.Archive)));
         Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);
     }
     [Fact] public async Task Reused_player_artifacts_allow_only_verified_exact_bytes()

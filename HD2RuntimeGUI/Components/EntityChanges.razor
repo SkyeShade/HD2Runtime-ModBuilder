@@ -8,19 +8,20 @@
 }
 @if (project != null && keys.Length > 0)
 {
-    <div class="panel-heading"><h2>Vehicle, backpack &amp; magazine attachment changes</h2>@if (project.EntityChanges.Count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync())">Reset all vehicle, backpack &amp; attachment changes</button> }</div>
+    <div class="panel-heading"><h2>Vehicle, backpack, magazine attachment &amp; booster changes</h2>@if (project.EntityChanges.Count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync())">Reset all vehicle, backpack, attachment &amp; booster changes</button> }</div>
     @foreach (var (resource, entity) in keys)
     {
         var own = project.EntityChanges.Where(c => c.Resource == resource && c.Entity == entity).ToArray();
         var callIn = entities?.CallInFor(resource, entity); var callInChanges = callIn == null ? 0 : project.StratagemChanges.Count(c => c.Stratagem == callIn);
         var key = resource + ":" + entity;
-        <details class="panel" data-entity-change-group="@key"><summary><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>@(resource switch { "vehicle" => "Vehicle", "backpack" => "Backpack", _ => "Magazine attachment" })</span><strong>@Title(resource, entity)</strong>
+        <details class="panel" data-entity-change-group="@key"><summary><span class="category-pill static @(resource == "booster" ? StratagemCategories.BoosterCssClass : "cat-support")"><span class="cat-dot" aria-hidden="true"></span>@(resource switch { "vehicle" => "Vehicle", "backpack" => "Backpack", "booster" => "Booster", _ => "Magazine attachment" })</span><strong>@Title(resource, entity)</strong>
             <span class="badge">@(own.Length + callInChanges) @(own.Length + callInChanges == 1 ? "change" : "changes")</span>
             <small class="subtle">@string.Join(" · ", new[] { callInChanges > 0 ? "Call-in" : null, own.Any(c => c.Path is "entity" or "backpack") ? (resource == "vehicle" ? "Durability" : "Settings") : null,
-                own.Any(c => c.Path == "damage_zone") ? own.Count(c => c.Path == "damage_zone") + " zone fields" : null, own.Any(c => c.Path == "mount") ? "Mounts" : null, own.Any(c => c.Path == "magazine") ? "Magazine values" : null }.Where(s => s != null))</small></summary>
+                own.Any(c => c.Path == "damage_zone") ? own.Count(c => c.Path == "damage_zone") + " zone fields" : null, own.Any(c => c.Path == "mount") ? "Mounts" : null, own.Any(c => c.Path == "magazine") ? "Magazine values" : null, own.Any(c => c.Path == "deployed_entity") ? "Deployed entity" : null, own.Any(c => c.Path == "status_effect") ? "Status effect" : null }.Where(s => s != null))</small></summary>
             <label><input type="checkbox" checked="@ShowAll.Contains(key)" @onchange="e => Toggle(key, (bool)e.Value!)" /> Show all fields</label>
             @if (resource == "vehicle") { <VehicleEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (resource == "backpack") { <BackpackEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
+            else if (resource == "booster") { <BoosterEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else { <MagazineAttachmentCard Attachment="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             @foreach (var c in own.Where(c => entities?.Field(c.InstanceKey) == null))
             { <p class="notice warning">Missing capability: @c.SemanticFieldId · @(c.Zone ?? c.Mount ?? c.Path)</p><button @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: c.InstanceKey))">Remove missing change</button> }

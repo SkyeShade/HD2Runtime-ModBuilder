@@ -15,6 +15,8 @@ public static class StratagemCategories
     public static readonly IReadOnlyList<StratagemCategory> All = [Support, Offensive, Defensive];
     public static StratagemCategory? Of(string family) => All.FirstOrDefault(c => c.Families.Contains(family));
     public static StratagemCategory? Find(string key) => All.FirstOrDefault(c => c.Key == key);
+    // Boosters (SDK 0.24.0+) are their own authoring domain, not a stratagem family; yellow alongside the stratagem categories.
+    public const string BoosterCssClass = "cat-booster";
     // A root is listed under Stratagems unless it is a call-in whose vehicle/backpack editor already includes it.
     public static bool Listed(StratagemDefinition s, EntityAuthoring? entities) => entities?.CallIns.ContainsKey(s.Name) != true;
     public static int Count(StratagemCatalog catalog, StratagemCategory category, EntityAuthoring? entities = null)
@@ -49,6 +51,8 @@ public static class Navigation
         // Without linkage metadata (SDK 0.22.0 and older) every support weapon keeps its standalone editor.
         if (sdk?.SupportAuthoring is { } support)
             items.Add(new("support", "Support Weapons", Workspace, support.Weapons.Length - (sdk.SupportLinks?.ByWeapon.Count ?? 0), StratagemCategories.Support.CssClass));
+        // hd2.booster authoring appears only when the bound SDK publishes BoosterAuthoringCapabilities.json (0.24.0+).
+        if (entities?.Boosters is { } boosters) items.Add(new("boosters", "Boosters", Workspace, boosters.Boosters.Length, StratagemCategories.BoosterCssClass));
         items.Add(new("changes", "Changes", Workspace, project == null ? null : modifications));
         items.Add(new("lua", "Lua Preview", Workspace));
         items.Add(new("export", "Build / Export", Workspace));

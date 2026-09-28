@@ -14,6 +14,9 @@
         "native_owner" => "Native owner · effect unproven",
         "native_owner_effect_consistent" => "Native owner · effects match catalog",
         "native_owner_value_consistent" => "Native owner · value matches catalog",
+        // Booster tiers (0.24.0): the native link is proven; no booster edit is gameplay-tested yet.
+        "structural_chain_exact_fingerprint" => "Structural chain · exact match · effect unproven",
+        "unique_exact_multi_value_fingerprint" => "Unique value fingerprint · effect unproven",
         _ => tier.Replace('_', ' '),
     };
     private string Tooltip => string.Join("\n", new[] { Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,

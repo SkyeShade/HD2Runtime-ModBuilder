@@ -26,6 +26,7 @@ public sealed partial class BuilderWorkspace
         var next = supportChanges.Create(Metadata!, instance, value);
         var old = p.SupportChanges.SingleOrDefault(c => c.InstanceKey == instance);
         if (old != null) next = next with { Id = old.Id, Enabled = old.Enabled, EnsureEnabled = old.EnsureEnabled, Group = old.Group, Notes = old.Notes,
+            EffectAcknowledgement = old.EffectAcknowledgement,
             ExpectedValue = acceptBaseline ? next.ExpectedValue : old.ExpectedValue,
             CapabilityEvidence = acceptBaseline ? next.CapabilityEvidence : old.CapabilityEvidence,
             BaselineSdkVersion = acceptBaseline ? next.BaselineSdkVersion : old.BaselineSdkVersion };
@@ -41,6 +42,13 @@ public sealed partial class BuilderWorkspace
         var f = SupportChangeService.Catalog(Metadata!).Field(instance);
         if (approved && f.SharedScope.RequiresAcknowledgement) p.SupportApprovals[f.SharedScope.ScopeKey] = SupportChangeService.ApprovalEvidence(f);
         else p.SupportApprovals.Remove(f.SharedScope.ScopeKey);
+    });
+    // Runtime's allow_unverified_effect opt-in for one saved field (0.24.0+). Unlike shared approval it is per field, not per object.
+    public Task SetSupportEffectAcknowledgedAsync(string instance, bool acknowledged) => EditSupportAsync(p =>
+    {
+        var f = SupportChangeService.Catalog(Metadata!).Field(instance);
+        if (f.Operation.Acknowledgement != "allow_unverified_effect") throw new InvalidDataException("This field does not require an unverified-effect acknowledgement.");
+        p.SupportChanges = p.SupportChanges.Select(c => c.InstanceKey == instance ? c with { EffectAcknowledgement = acknowledged ? SupportChangeService.EffectEvidence(f) : null } : c).ToList();
     });
     public Task ToggleSupportAsync(string instance) => EditSupportAsync(p =>
         p.SupportChanges = p.SupportChanges.Select(c => c.InstanceKey == instance ? c with { Enabled = !c.Enabled } : c).ToList());

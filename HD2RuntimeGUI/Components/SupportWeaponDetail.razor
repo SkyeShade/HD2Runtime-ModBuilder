@@ -3,16 +3,24 @@
 @* One support weapon: identity/guard summary, guarded authoring controls and published inspection data.
    Used standalone (Support Weapons) and embedded in a linked support stratagem. Write guards come from the support catalog only. *@
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Advanced?.Support; var authoring = sdk?.SupportAuthoring;
-   var descriptor = authoring?.Weapons.SingleOrDefault(w => w.Name == Weapon); }
+   var descriptor = authoring?.Weapons.SingleOrDefault(w => w.Name == Weapon);
+   // Write identity comes from the authoring catalog (0.24.0 resolves some duplicates through their call-in delivery); the read-only catalog is older evidence.
+   var writableIdentity = descriptor != null ? SupportAuthoringWeapon.Resolved(descriptor.IdentityStatus) : catalog?.Weapons.GetValueOrDefault(Weapon)?.IdentityResolution == "UNIQUE"; }
 @if (catalog?.Weapons.GetValueOrDefault(Weapon) is { } weapon)
 {
     <section class="panel @(Embedded ? "category-panel cat-support linked-weapon" : "")" data-support-weapon="@weapon.CatalogIdentity">
         @if (Embedded) { <div class="eyebrow">WEAPON · DELIVERED BY THIS CALL-IN</div> }
         <h2>@weapon.CatalogIdentity</h2>
-        <div class="field-badges"><span class="badge" data-support-writable="@(descriptor?.Writable == true)">@(descriptor?.Writable == true ? "Writable" : "Read-only")</span><span class="badge">@weapon.IdentityResolution</span><span class="badge">@weapon.Confidence</span>@foreach (var trait in weapon.Traits) { <span class="badge">@trait</span> }</div>
+        <div class="field-badges"><span class="badge" data-support-writable="@(descriptor?.Writable == true ? "true" : "false")">@(descriptor?.Writable == true ? "Writable" : "Read-only")</span><span class="badge" data-support-identity="@(descriptor?.IdentityStatus ?? weapon.IdentityResolution)">@((descriptor?.IdentityStatus ?? weapon.IdentityResolution).Replace('_', ' '))</span><span class="badge">@weapon.Confidence</span>@foreach (var trait in weapon.Traits) { <span class="badge">@trait</span> }</div>
         @if (authoring == null || descriptor == null) { <p>@weapon.AuthoringReason</p> }
-        else { <details open="@(weapon.IdentityResolution != "UNIQUE")"><summary>Read-only / unresolved capabilities</summary>@foreach (var block in descriptor.BlockedFields) { <p class="subtle">@block.Field: @block.Reason</p> }</details> }
-        @if (weapon.IdentityResolution != "UNIQUE") { <p class="notice warning" data-support-identity-blocked>Duplicate/ambiguous resources remain separate. No canonical identity is selected for writing, so this weapon's controls stay read-only@(Embedded ? " even though its call-in link is known" : "").</p> }
+        else { <details open="@(!writableIdentity)"><summary>Read-only / unresolved capabilities</summary>@foreach (var block in descriptor.BlockedFields) { <p class="subtle">@block.Field: @block.Reason</p> }</details> }
+        @if (descriptor?.IdentityResolution is { } resolution)
+        {
+            <div class="notice cat-note cat-support" data-support-delivery-resolved><strong>Delivery-resolved identity</strong>
+                <p>@resolution.Note</p><ul>@foreach (var e in resolution.Evidence) { <li>@e</li> }</ul>
+                <p class="subtle">Basis: @resolution.Basis.Replace('_', ' ') · @resolution.NonDeliveredNativeRoots other native roots unaffected</p></div>
+        }
+        @if (!writableIdentity) { <p class="notice warning" data-support-identity-blocked>Duplicate/ambiguous resources remain separate. No canonical identity is selected for writing, so this weapon's controls stay read-only@(Embedded ? " even though its call-in link is known" : "").</p> }
         @if (weapon.BackpackDependent) { <p class="notice warning">Backpack dependent · native backpack entity ownership remains unresolved where noted below.</p> }
     </section>
     <SupportAuthoringEditor Weapon="@weapon.CatalogIdentity" Changed="Changed" />

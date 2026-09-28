@@ -1,0 +1,82 @@
+@inject BuilderWorkspace Workspace
+@* One published booster (hd2.booster, SDK 0.24.0+). Identity, relationships and blockers are shown exactly as Runtime publishes them;
+   controls exist only for published field instances, grouped by the booster sub-target that owns them. *@
+@{ var entities = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities; var catalog = entities?.Boosters; var booster = catalog?.Find(Name); }
+@if (entities != null && catalog != null && booster != null)
+{
+    var fields = catalog.FieldInstances.Where(f => f.Target.Booster == Name).ToArray();
+    var edited = Workspace.Project?.EntityChanges.Any(c => c.Resource == "booster" && c.Entity == Name) == true;
+    var acknowledged = BuilderWorkspace.BoosterAcknowledged(Workspace.Project, entities, Name);
+    @if (!ModifiedOnly)
+    {
+        <section class="panel category-panel cat-booster" data-booster="@booster.Name" data-booster-status="@booster.Identity.Status">
+            <div class="eyebrow">BOOSTER@(booster.Identity.NativeName is { } native ? " · " + native : "")</div><h2>@booster.Name</h2>
+            <div class="field-badges"><span class="badge" data-booster-identity>@Status(booster.Identity.Status)</span>
+                <span class="badge">@(booster.Writable ? fields.Length + " writable" : "Read-only")</span>
+                <span class="badge" title="Native Booster enum value">@(booster.Identity.EnumValue is { } v ? "Enum " + v : booster.Identity.EnumValueCandidates.Length > 0 ? "Candidates " + string.Join(", ", booster.Identity.EnumValueCandidates) : "No enum value")</span></div>
+            <p class="subtle"><code data-semantic-id>@booster.SemanticId</code></p>
+            <details><summary>Identity evidence</summary><ul>@foreach (var e in booster.Identity.Evidence) { <li>@e</li> }</ul></details>
+            @if (!booster.Writable) { <p class="notice" data-booster-readonly>Runtime knows this booster but exposes no writable values.</p> }
+        </section>
+        @if (booster.Relationships.Length > 0)
+        {
+            <section class="panel" data-booster-relationships><h3>Published relationships</h3>
+            @foreach (var r in booster.Relationships)
+            {
+                <div class="graph-node" data-booster-relationship="@r.Kind"><strong>@r.Kind.Replace('_', ' ')</strong>@if (r.Stratagem != null) { <span> · @r.Stratagem</span> }@if (r.Owner != null) { <span> · @r.Owner</span> }
+                    @if (r.Effect != null) { <p>@r.Effect</p> }
+                    @if (r.Evidence != null) { <p class="subtle">Evidence: @r.Evidence</p> }
+                    @if (r.StratagemAuthoring != null) { <p class="subtle">@r.StratagemAuthoring</p> }
+                    @if (r.GatedSusceptibilities is { } gated) { <p class="subtle">@gated gated susceptibilities</p> }
+                    @if (r.TurretProjectileShared == true) { <p class="subtle">The turret's projectile is shared with player weapons and is not edited here.</p> }
+                    @if (r.SharedScope != null) { <p class="subtle">Scope: @r.SharedScope</p> }</div>
+            }
+            </section>
+        }
+    }
+    @foreach (var target in fields.GroupBy(f => f.Target.Path))
+    {
+        var shown = target.Where(f => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null).ToArray();
+        var raw = target.Select(f => catalog.Raw(f.InstanceKey)!).ToArray();
+        @if (shown.Length > 0)
+        {
+            <section class="panel" data-booster-target="@target.Key"><h2>@TargetTitle(booster, target.Key)</h2>
+                <div class="field-badges">@foreach (var ack in raw.SelectMany(r => r.Acknowledgements).Distinct().OrderBy(a => a, StringComparer.Ordinal))
+                    { <span class="badge amber" data-flag="@ack" title="@catalog.Acknowledgements.GetValueOrDefault(ack)">@ack</span> }</div>
+                @if (!ModifiedOnly) { <p class="subtle">@raw[0].SharedScope.Note</p> }
+                <div class="stat-grid">@foreach (var f in shown) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+            </section>
+        }
+    }
+    @if (edited && Workspace.Project != null)
+    {
+        <label class="attachment-ack @(acknowledged ? "" : "notice warning")"><input type="checkbox" data-booster-ack checked="@acknowledged" @onchange="e => Run(() => Workspace.SetBoosterAcknowledgedAsync(Name, (bool)e.Value!))" />
+            I understand no booster edit is gameplay-proven yet (<code>allow_unverified_effect</code>)@(fields.Any(f => f.AllowSharedRequired) ? " and that this status effect may have other consumers (allow_shared)" : "").</label>
+        <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("booster", Name))'>Reset booster</button>
+    }
+    @if (!ModifiedOnly && booster.BlockedFields.Length > 0)
+    {
+        <details class="panel" data-blocked-capabilities open="@(!booster.Writable)"><summary>Not currently writable</summary>@foreach (var b in booster.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@b.Field:</strong> @b.Reason</p> }</details>
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+}
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    public static string Status(string status) => status switch
+    {
+        "RESOLVED" => "Resolved identity", "CANDIDATES" => "Candidate values (not guessed)", "EFFECT_CATEGORY" => "Identified by effect category",
+        "ELIMINATION" => "Identified by elimination", "UNRESOLVED" => "Unresolved", _ => status.Replace('_', ' '),
+    };
+    private static string TargetTitle(Booster b, string path) => path switch
+    {
+        "deployed_entity" => "Deployed entity" + (b.Relationships.Any(r => r.TurretProjectileShared != null) ? " · turret" : ""),
+        "status_effect" => "Status effect",
+        _ => path.Replace('_', ' '),
+    };
+    // Re-render this editor too: acknowledgement and reset controls depend on the saved changes.
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

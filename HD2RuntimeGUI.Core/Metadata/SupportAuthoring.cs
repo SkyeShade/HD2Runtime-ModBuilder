@@ -18,7 +18,10 @@ public sealed record SupportScope(string ScopeKey, bool Shared, bool RequiresAck
     SupportConsumer[] AffectedSemanticConsumers, bool ReviewedScopeComplete, bool DynamicConsumersPossible);
 public sealed record SupportOperation(string MinimumApi, bool PatchSupported, bool TransactionSupported, bool TransactionRequired,
     string TransactionGroupingKey, bool PlanSupported, bool PlanRequired, bool PlanRequiredForMultipleBackingObjects,
-    string PlanGroupingKey, int Phase, string[] Dependencies, bool AllowSharedRequired);
+    string PlanGroupingKey, int Phase, string[] Dependencies, bool AllowSharedRequired,
+    // 0.24.0+ per-field opt-in. Omitted from evidence hashes when absent, so unchanged fields keep their saved evidence across rebinds.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Acknowledgement = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AcknowledgementReason = null);
 public sealed record SupportResolution(string[] RootChain, string Linkage, string? ParentObjectKey, string? TerminalPhase,
     int PlanPhase, string[] PlanDependencies, bool RequiresLaterPlanPhase, JsonElement TargetFrom);
 public sealed record SupportProvenance(string Identity, string Semantics, string Ownership, string Baseline, string Validation, string EvidenceArtifact);
@@ -30,8 +33,16 @@ public sealed record SupportBlock(string Field, string Reason);
 // Forward call-in link. 0.22.0 publishes only known/kind; 0.22.1+ adds state, the linked stratagem semantic ID, relationship ID and blocker.
 public sealed record SupportLinkedStratagem(bool Known, string? Kind = null, string? State = null, string? SemanticId = null, string? RelationshipId = null,
     string? Relationship = null, string? StratagemName = null, string? DeliveryObject = null, string? Special = null, string? Confidence = null, string? Blocker = null);
+// 0.24.0+: DELIVERY_RESOLVED identities are proven through their call-in delivery chain (identityResolution), not by name.
+public sealed record SupportIdentityResolution(string Basis, string[] Evidence, int NonDeliveredNativeRoots, bool NonDeliveredRootsAffected, string Note, string EvidenceArtifact);
 public sealed record SupportAuthoringWeapon(string Name, string IdentityStatus, string Confidence, string[] Family,
-    bool Writable, int WritableFieldCount, string[] FieldInstanceKeys, SupportBlock[] BlockedFields, SupportLinkedStratagem? LinkedStratagem = null, string? SemanticId = null);
+    bool Writable, int WritableFieldCount, string[] FieldInstanceKeys, SupportBlock[] BlockedFields, SupportLinkedStratagem? LinkedStratagem = null, string? SemanticId = null,
+    SupportIdentityResolution? IdentityResolution = null)
+{
+    public const string Unique = "UNIQUE", DeliveryResolved = "DELIVERY_RESOLVED";
+    // A writable identity: unique, or resolved by Runtime through its call-in delivery chain.
+    public static bool Resolved(string status) => status is Unique or DeliveryResolved;
+}
 public sealed record SupportObject(string ObjectKey, string Kind, string SemanticType, string[] Domains, bool Shared,
     bool RequiresSharedAcknowledgement, string SharedScopeKey, int ReviewedConsumerCount, SupportConsumer[] AffectedSemanticConsumers,
     bool ReviewedScopeComplete, bool DynamicConsumersPossible, string[] FieldInstanceKeys);
@@ -76,15 +87,24 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
             Check(c.Summary.CatalogWeapons == weapons.Count && c.Summary.WritableSupportWeapons == weapons.Values.Count(w => w.Writable)
                 && c.Summary.WritableFieldInstances == fields.Values.Count(f => f.Writable) && c.Summary.PublishedSupportFieldInstances == fields.Count
                 && c.Summary.BackingObjectCount == objects.Count && c.Summary.OperationGroupingCount == operations.Count && c.Summary.IntentionallyOmittedInstances == 0);
+            // Delivery-resolved identities (0.24.0+) must carry Runtime's structural evidence; nothing else lifts a duplicate block.
+            var deliveryResolved = Models.SemVersion.Parse(version).CompareTo(Models.SemVersion.Parse("0.24.0")) >= 0;
             foreach (var w in c.Weapons)
                 Check(w.FieldInstanceKeys.Length == w.WritableFieldCount && w.FieldInstanceKeys.Distinct().Count() == w.FieldInstanceKeys.Length
-                    && (!w.Writable || w.IdentityStatus == "UNIQUE") && w.FieldInstanceKeys.All(k => fields[k].SupportWeapon == w.Name));
+                    && (!w.Writable || w.IdentityStatus == SupportAuthoringWeapon.Unique
+                        || deliveryResolved && w.IdentityStatus == SupportAuthoringWeapon.DeliveryResolved && w.LinkedStratagem is { Known: true, State: "linked" }
+                            && w.IdentityResolution is { } r && !string.IsNullOrWhiteSpace(r.Basis) && r.Evidence.Length > 0 && !r.NonDeliveredRootsAffected)
+                    && (w.IdentityStatus == SupportAuthoringWeapon.DeliveryResolved) == (w.IdentityResolution != null)
+                    && w.FieldInstanceKeys.All(k => fields[k].SupportWeapon == w.Name));
             foreach (var f in fields.Values)
             {
                 Check(f.InstanceKey.StartsWith("support-field/v1/", StringComparison.Ordinal) && f.InstanceKey.Length < 512
                     && f.Display != null && !string.IsNullOrWhiteSpace(f.Display.Name) && f.Provenance != null
                     && weapons[f.SupportWeapon].Writable && weapons[f.SupportWeapon].FieldInstanceKeys.Contains(f.InstanceKey)
-                    && f.SupportWeaponIdentity.Name == f.SupportWeapon && f.SupportWeaponIdentity.IdentityStatus == "UNIQUE"
+                    && f.SupportWeaponIdentity.Name == f.SupportWeapon && f.SupportWeaponIdentity.IdentityStatus == weapons[f.SupportWeapon].IdentityStatus
+                    && SupportAuthoringWeapon.Resolved(f.SupportWeaponIdentity.IdentityStatus)
+                    && (f.Operation.Acknowledgement == null ? f.Operation.AcknowledgementReason == null
+                        : f.Operation.Acknowledgement == "allow_unverified_effect" && !string.IsNullOrWhiteSpace(f.Operation.AcknowledgementReason))
                     && f.Writable && !f.ReadOnly && f.Value.Kind == "scalar" && f.Value.Type is "number" or "integer" or "boolean"
                     && JsonElement.DeepEquals(f.Value.Baseline, f.Value.Expected));
                 _ = Generation.SupportScalar.Normalize(f, f.Value.Baseline);
