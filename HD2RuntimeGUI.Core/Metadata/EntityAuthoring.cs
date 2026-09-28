@@ -16,12 +16,14 @@ public sealed record EntityTarget(string Resource, string Path, string? Vehicle 
 public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
     string? NativeOwner = null, string? GameplayWriteEffect = null);
 public sealed record EntityConsumer(string? Vehicle = null, string? Backpack = null);
+// 0.25.0+: a published safe value range (inclusive); Runtime rejects writes outside it.
+public sealed record EntityRange(double Min, double Max, bool Integer, string? Reason = null);
 public sealed record EntityField(string InstanceKey, string SemanticFieldId, string DisplayName, string Type, string? Unit, JsonElement CurrentDefault,
     bool Editable, string? Reason, EntityTarget Target, string BackingObjectId, string OperationGroup, string PlanGroup, string Requires,
     bool AllowSharedRequired, bool Shared, EntityConsumer[] SharedConsumers, string SharedScopeKey, bool ReviewedScopeComplete,
     bool DynamicConsumersPossible, string BackingObjectKind, string Domain, string ApiFieldConstant, int PlanPhase, string[] DependsOn,
     EntityEvidence Evidence, string Provenance, string[]? AllowedValues = null, string? Acknowledgement = null, string? ValueKind = null,
-    string? ResidencyWarning = null)
+    string? ResidencyWarning = null, EntityRange? Range = null)
 {
     public const string ReferenceType = "mounted_weapon_reference";
     [JsonIgnore] public bool IsReference => Type == ReferenceType;

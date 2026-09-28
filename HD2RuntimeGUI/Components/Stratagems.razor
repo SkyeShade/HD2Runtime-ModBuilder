@@ -5,11 +5,12 @@
 <div class="page-heading"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version</div><h1>Stratagems</h1><p>Call-in settings and everything a stratagem delivers: deployed entities, support equipment, mounted weapons and attacks.</p></div></div>
 @if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
 @if (catalog?.Stratagems.Any(s => s.UiIcon != null) == true) { <IconImportPrompt /> }
-else if (catalog != null) { <p class="subtle" data-stratagem-icons-unpublished>Stratagem icons appear once the bound HD2Runtime SDK publishes each stratagem's icon identity (after 0.24.0); until then stratagems show category glyphs.</p> }
+else if (catalog != null) { <p class="subtle" data-stratagem-icons-unpublished>HD2Runtime SDK @sdk?.Version does not publish stratagem icon identities, so stratagems show category glyphs. Icons appear once the bound SDK publishes each stratagem's icon identity.</p> }
 @if (catalog == null) { <section class="panel"><h2>Stratagem authoring requires SDK 0.21</h2><p>Install a compatible SDK in Settings. Existing projects stay pinned until you explicitly rebind from Overview.</p></section> }
 else
 {
     var unlinked = Category is "" or "support" ? SupportEquipment.Unlinked(sdk).Where(w => w.Contains(Search, StringComparison.OrdinalIgnoreCase)).ToArray() : [];
+    var standalone = Category is "" or "support" ? SupportEquipment.Standalone(sdk).Where(w => w.Contains(Search, StringComparison.OrdinalIgnoreCase)).ToArray() : [];
     <div class="category-pills" role="tablist" aria-label="Stratagem categories">
         <button role="tab" class="category-pill @(Category == "" ? "active" : "")" aria-selected="@(Category == "")" data-category="all" @onclick='() => SelectCategory("")'>All <small>@catalog.Stratagems.Count(s => StratagemCategories.Listed(s, sdk?.Entities))</small></button>
         @foreach (var c in StratagemCategories.All)
@@ -43,16 +44,39 @@ else
                         <span class="resource-text"><strong>@weapon</strong><small>Support equipment · @(sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.Writable == true ? "writable" : "read-only") · no call-in link</small></span></button>
                 }
             }
+            @if (standalone.Length > 0 && Availability == "" && System == "" && Family == "")
+            {
+                <div class="list-group-title" data-standalone-support-group>Standalone equipment · no call-in</div>
+                @foreach (var weapon in standalone)
+                {
+                    <button class="resource-item with-icon cat-support @(Selected == Equipment + weapon ? "active" : "")" data-standalone-support="@weapon" @onclick="() => Selected = Equipment + weapon">
+                        <GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" />
+                        <span class="resource-text"><strong>@weapon</strong><small>@AcquisitionLabel(sdk, weapon) · @(sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.Writable == true ? "writable" : "read-only")</small></span></button>
+                }
+            }
         </div>
     </section><div class="weapon-detail">
         @if (Selected.StartsWith(Equipment, StringComparison.Ordinal) && sdk?.Advanced?.Support?.Weapons.ContainsKey(Selected[Equipment.Length..]) == true)
         {
             var weapon = Selected[Equipment.Length..]; var descriptor = sdk.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon);
-            <section class="panel category-panel cat-support" data-unlinked-support-detail="@weapon">
-                <div class="object-header"><GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" Size="md" />
-                    <div><h2>@weapon</h2><div class="field-badges"><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span><span class="badge amber" data-unlinked-badge>Unlinked support equipment</span></div></div></div>
-                <p class="subtle">@(descriptor?.LinkedStratagem?.Blocker ?? (sdk.SupportLinks == null ? $"HD2Runtime {sdk.Version} does not publish which call-in delivers this equipment, so it is not paired with a stratagem." : "HD2Runtime publishes no structural call-in link for this equipment, so it is not paired with a stratagem."))</p>
-            </section>
+            @if (descriptor?.LinkedStratagem is { IsNoCallIn: true } noCallIn && SupportEquipment.IsStandalone(sdk, weapon))
+            {
+                // Runtime proves the game defines no call-in for this equipment; it is standalone, not unresolved.
+                <section class="panel category-panel cat-support" data-standalone-support-detail="@weapon">
+                    <div class="object-header"><GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" Size="md" />
+                        <div><h2>@weapon</h2><div class="field-badges"><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span><span class="badge" data-standalone-badge>No call-in · @AcquisitionLabel(sdk, weapon)</span></div></div></div>
+                    <p class="subtle" data-no-call-in-reason>@noCallIn.NoCallIn!.Reason</p>
+                    @if (noCallIn.NoCallIn.Acquisition?.Note is { } note) { <details class="subtle"><summary>Acquisition evidence</summary><p>@note</p></details> }
+                </section>
+            }
+            else
+            {
+                <section class="panel category-panel cat-support" data-unlinked-support-detail="@weapon">
+                    <div class="object-header"><GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" Size="md" />
+                        <div><h2>@weapon</h2><div class="field-badges"><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span><span class="badge amber" data-unlinked-badge>Unlinked support equipment</span></div></div></div>
+                    <p class="subtle">@(descriptor?.LinkedStratagem?.Blocker ?? (sdk.SupportLinks == null ? $"HD2Runtime {sdk.Version} does not publish which call-in delivers this equipment, so it is not paired with a stratagem." : "HD2Runtime publishes no structural call-in link for this equipment, so it is not paired with a stratagem."))</p>
+                </section>
+            }
             <SupportWeaponDetail Weapon="@weapon" Changed="Refresh" @key="weapon" />
         }
         else if (catalog.Root(Selected) is { } stratagem)
@@ -131,6 +155,9 @@ else
     private string Search = "", Family = "", System = "", Availability = "", Selected = "";
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     public static string FamilyLabel(string family) => StratagemBrowser.FamilyLabel(family);
+    // Runtime's published acquisition kind for no-call-in equipment (e.g. world_pickup → "World pickup").
+    private static string AcquisitionLabel(SdkMetadata? sdk, string weapon) => sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.LinkedStratagem?.NoCallIn?.Acquisition?.Kind is { } kind
+        ? FieldPresentation.EnumLabel(kind) : "No call-in";
     private string Summary(StratagemCatalog c, StratagemDefinition s)
     {
         var writable = c.FieldInstances.Any(f => f.Target.Stratagem == s.Name && f.Editable);

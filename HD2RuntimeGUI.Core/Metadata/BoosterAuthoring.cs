@@ -5,10 +5,11 @@ using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
-// Runtime 0.24.0+ guarded Booster authoring (hd2runtime.booster.guarded_authoring.v1, hd2.booster(name)).
+// Runtime 0.24.0+ guarded Booster authoring (hd2runtime.booster.guarded_authoring.v1, hd2.booster(name)); 0.25.0 publishes v2:
+// natively traced tuning / explosion / status_damage / granted_stratagem targets, each field with a published safe range.
 // Boosters own no native record: published fields live on the records a booster links to (deployed_entity / status_effect).
 // Every booster is listed, including unresolved ones; only published field instances become controls.
-public sealed record BoosterIdentity(string? NativeName, string? UiIcon, int? EnumValue, int[] EnumValueCandidates, string[] Evidence, string Status);
+public sealed record BoosterIdentity(string? NativeName, string? UiIcon, int? EnumValue, int[]? EnumValueCandidates, string[] Evidence, string Status, string? Method = null);
 public sealed record BoosterRelationship(string Kind, string? Effect = null, string? Evidence = null, string? SharedScope = null, string? Stratagem = null,
     string? StratagemSemanticId = null, string? StratagemAuthoring = null, string? DeployedEntity = null, bool? TurretProjectileShared = null,
     string? Owner = null, int? GatedSusceptibilities = null);
@@ -18,10 +19,16 @@ public sealed record BoosterFieldTarget(string Resource, string Path, string[] A
 public sealed record BoosterFieldValue(JsonElement Baseline, JsonElement Expected, string? Unit);
 public sealed record BoosterSharedScope(bool Shared, bool RequiresAcknowledgement, bool ReviewedScopeComplete, string Note);
 public sealed record BoosterOperation(bool PatchSupported, string TransactionGroupingKey, bool PlanSupported);
-public sealed record BoosterFieldEvidence(string Tier, string GameplayWriteEffect, string? Fingerprint = null, string? NativeName = null, string[]? Chain = null);
+// Fingerprint: a string (v1) or {status, note} (v2).
+public sealed record BoosterFieldEvidence(string Tier, string GameplayWriteEffect, JsonElement? Fingerprint = null, string? NativeName = null, string[]? Chain = null, string? Effect = null)
+{
+    public string? FingerprintText => Fingerprint is not { } f ? null : f.ValueKind == JsonValueKind.String ? f.GetString()
+        : f.ValueKind == JsonValueKind.Object ? string.Join(": ", new[] { f.TryGetProperty("status", out var s) ? s.GetString() : null, f.TryGetProperty("note", out var n) ? n.GetString() : null }.Where(x => !string.IsNullOrWhiteSpace(x))) : null;
+}
+public sealed record BoosterRange(double Min, double Max, bool Integer, string? Reason = null);
 public sealed record BoosterField(string InstanceKey, string Booster, string SemanticFieldId, string ApiFieldConstant, string DisplayName, string Type,
     string? Unit, BoosterFieldTarget Target, BoosterFieldValue Value, bool Writable, string[] Acknowledgements, string AcknowledgementReason,
-    BoosterSharedScope SharedScope, BoosterOperation Operation, BoosterFieldEvidence Evidence);
+    BoosterSharedScope SharedScope, BoosterOperation Operation, BoosterFieldEvidence Evidence, BoosterRange? Range = null);
 public sealed record BoosterNativeModel(string Identity, string[] TypeLibraryReferences, string Ownership);
 public sealed record BoosterSummary(int Boosters, int WritableBoosters, int FieldInstances, Dictionary<string, int> IdentityStatus, int NativeEnumValues,
     int ResearchWrites, int ProtectionChanges, string FixtureFallback);
@@ -36,10 +43,14 @@ public sealed record BoosterCatalog(string Contract, int SchemaVersion, string H
 
 public static class BoosterAuthoringReader
 {
-    public const string FileName = "BoosterAuthoringCapabilities.json", Contract = "hd2runtime.booster.guarded_authoring.v1";
+    public const string FileName = "BoosterAuthoringCapabilities.json", Contract = "hd2runtime.booster.guarded_authoring.v1", ContractV2 = "hd2runtime.booster.guarded_authoring.v2";
     public const int MaxBytes = 1024 * 1024;
-    public static readonly string[] Paths = ["deployed_entity", "status_effect"];
-    public static readonly string[] Tiers = ["structural_chain_exact_fingerprint", "unique_exact_multi_value_fingerprint"];
+    // v1 (0.24.0) targets; v2 (0.25.0) adds the natively traced booster targets. Paths lists every known target.
+    public static readonly string[] PathsV1 = ["deployed_entity", "status_effect"];
+    public static readonly string[] Paths = [.. PathsV1, "tuning", "explosion", "status_damage", "granted_stratagem"];
+    public static readonly string[] TiersV1 = ["structural_chain_exact_fingerprint", "unique_exact_multi_value_fingerprint"];
+    public static readonly string[] TiersV2 = [.. TiersV1, "structural_code_chain_exact_fingerprint", "structural_code_selector_exact_fingerprint", "structural_code_selector",
+        "native_table_code_consumer_exact_fingerprint", "native_table_code_consumer"];
     public static readonly string[] IdentityStatuses = ["RESOLVED", "CANDIDATES", "EFFECT_CATEGORY", "ELIMINATION", "UNRESOLVED"];
     private static readonly Regex SemanticId = new(@"\Abooster/v1/[a-z0-9-]{1,96}/[0-9a-f]{16}\z", RegexOptions.CultureInvariant);
     private static readonly Regex Api = new(@"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z", RegexOptions.CultureInvariant);
@@ -55,7 +66,9 @@ public static class BoosterAuthoringReader
             if (bytes.Length > MaxBytes) throw new InvalidDataException("Booster capability file exceeds size limit.");
             using var doc = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 }); MetadataReader.RejectDuplicates(doc.RootElement);
             var root = doc.RootElement;
-            if (root.GetProperty("contract").GetString() != Contract || root.GetProperty("schemaVersion").GetInt32() != 1)
+            // 0.24.0 publishes v1; 0.25.0+ publishes v2 (natively traced targets and published ranges). Each version accepts only its own contract.
+            var v2 = Models.SemVersion.Parse(version).CompareTo(Models.SemVersion.Parse("0.25.0")) >= 0;
+            if (root.GetProperty("contract").GetString() != (v2 ? ContractV2 : Contract) || root.GetProperty("schemaVersion").GetInt32() != (v2 ? 2 : 1))
                 throw new UnsupportedSdkException("Unsupported booster authoring contract.");
             var safety = root.GetProperty("safety");
             Check(!safety.GetProperty("runtimeAddresses").GetBoolean() && !safety.GetProperty("rawResourceIdentifiers").GetBoolean()
@@ -73,9 +86,10 @@ public static class BoosterAuthoringReader
                 Check(Name.IsMatch(b.Name) && SemanticId.IsMatch(b.SemanticId) && IdentityStatuses.Contains(b.Identity.Status) && b.Identity.Evidence.Length > 0
                     && b.Identity.Status switch
                     {
-                        "RESOLVED" => b.Identity.EnumValue is { } v && b.Identity.EnumValueCandidates.SequenceEqual([v]),
-                        "CANDIDATES" => b.Identity.EnumValue == null && b.Identity.EnumValueCandidates.Length > 1,
-                        _ => b.Identity.EnumValueCandidates.Length == 0,
+                        // v2 publishes the resolving method instead of a candidate list; any published candidates must agree.
+                        "RESOLVED" => b.Identity.EnumValue is { } v && (v2 && b.Identity.EnumValueCandidates == null && !string.IsNullOrWhiteSpace(b.Identity.Method) || b.Identity.EnumValueCandidates?.SequenceEqual([v]) == true),
+                        "CANDIDATES" => b.Identity.EnumValue == null && b.Identity.EnumValueCandidates?.Length > 1,
+                        _ => (b.Identity.EnumValueCandidates?.Length ?? 0) == 0,
                     }
                     && b.Relationships.All(r => !string.IsNullOrWhiteSpace(r.Kind)) && b.BlockedFields.All(x => !string.IsNullOrWhiteSpace(x.Field) && !string.IsNullOrWhiteSpace(x.Reason))
                     && b.FieldInstanceKeys.Order(StringComparer.Ordinal).SequenceEqual(own.Select(f => f.InstanceKey).Order(StringComparer.Ordinal))
@@ -87,15 +101,20 @@ public static class BoosterAuthoringReader
             {
                 var shared = f.Acknowledgements.Contains("allow_shared");
                 Check(f.InstanceKey.StartsWith("booster:", StringComparison.Ordinal) && f.InstanceKey.Length <= 512 && boosters.ContainsKey(f.Booster)
-                    && f.Target.Resource == "booster" && Paths.Contains(f.Target.Path) && f.Target.Accessor.SequenceEqual(["booster", f.Target.Path])
-                    && f.Type is "integer" or "number" && f.Writable && Api.IsMatch(f.ApiFieldConstant) && f.ApiFieldConstant == "hd2.fields." + f.SemanticFieldId
+                    && f.Target.Resource == "booster" && (v2 ? Paths : PathsV1).Contains(f.Target.Path) && f.Target.Accessor.SequenceEqual(["booster", f.Target.Path])
+                    && f.Type is "integer" or "number" && f.Writable && Api.IsMatch(f.ApiFieldConstant)
+                    // v1: the constant is the semantic ID. v2 publishes Runtime's own constant (e.g. damage.standard_damage → hd2.fields.damage.player_standard_damage) in the same domain.
+                    && (v2 ? f.ApiFieldConstant.StartsWith("hd2.fields." + f.SemanticFieldId.Split('.')[0] + ".", StringComparison.Ordinal) : f.ApiFieldConstant == "hd2.fields." + f.SemanticFieldId)
                     && !string.IsNullOrWhiteSpace(f.DisplayName) && JsonElement.DeepEquals(f.Value.Baseline, f.Value.Expected)
                     // Every booster write requires allow_unverified_effect; allow_shared exactly where the owning record's scope requires it.
                     && f.Acknowledgements.Contains("allow_unverified_effect") && f.Acknowledgements.All(a => a is "allow_unverified_effect" or "allow_shared")
                     && f.Acknowledgements.Distinct().Count() == f.Acknowledgements.Length && !string.IsNullOrWhiteSpace(f.AcknowledgementReason)
                     && shared == (f.SharedScope.Shared && f.SharedScope.RequiresAcknowledgement) && (f.SharedScope.Shared || f.SharedScope.ReviewedScopeComplete)
                     && f.Operation.PatchSupported && f.Operation.PlanSupported && !string.IsNullOrWhiteSpace(f.Operation.TransactionGroupingKey)
-                    && Tiers.Contains(f.Evidence.Tier) && !string.IsNullOrWhiteSpace(f.Evidence.GameplayWriteEffect));
+                    && (v2 ? TiersV2 : TiersV1).Contains(f.Evidence.Tier) && !string.IsNullOrWhiteSpace(f.Evidence.GameplayWriteEffect)
+                    // v2: a published safe range (natively traced targets) contains its baseline; integer ranges only on integer fields.
+                    && (!v2 ? f.Range == null : f.Range == null || f.Range is { } r && double.IsFinite(r.Min) && double.IsFinite(r.Max) && r.Min < r.Max && r.Integer == (f.Type == "integer")
+                        && f.Value.Baseline.GetDouble() >= r.Min && f.Value.Baseline.GetDouble() <= r.Max));
             }
             // A transaction group never spans boosters, targets or sharing (Runtime rejects transactions across backing objects).
             Check(c.Fields.GroupBy(f => f.Operation.TransactionGroupingKey).All(g => g.Select(f => (f.Booster, f.Target.Path, f.SharedScope.Shared)).Distinct().Count() == 1 && g.Count() <= 8));
@@ -115,12 +134,12 @@ public static class BoosterAuthoringReader
     private static EntityField Entity(BoosterField f, Booster b)
     {
         var scope = "booster-scope/" + b.SemanticId + "/" + f.Target.Path;
-        var proof = string.Join("; ", new[] { f.Evidence.Fingerprint, f.Evidence.Chain is { Length: > 0 } chain ? string.Join(" → ", chain) : null }.Where(x => x != null));
+        var proof = string.Join("; ", new[] { f.Evidence.FingerprintText, f.Evidence.Effect, f.Evidence.Chain is { Length: > 0 } chain ? string.Join(" → ", chain) : null }.Where(x => x != null));
         return new(f.InstanceKey, f.SemanticFieldId, f.DisplayName, f.Type, f.Unit ?? f.Value.Unit, f.Value.Baseline.Clone(), true, null,
             new EntityTarget("booster", f.Target.Path, Booster: b.Name), f.Operation.TransactionGroupingKey, f.Operation.TransactionGroupingKey,
             "booster-plan/" + b.SemanticId + "/" + f.Target.Path, "patch_or_transaction", f.Acknowledgements.Contains("allow_shared"), f.SharedScope.Shared, [],
             scope, f.SharedScope.ReviewedScopeComplete, !f.SharedScope.ReviewedScopeComplete, f.Target.Path, f.SemanticFieldId.Split('.')[0], f.ApiFieldConstant, 1, [],
             new EntityEvidence(f.Evidence.Tier, Proof: proof.Length > 0 ? proof : null, NativeOwner: f.Evidence.NativeName, GameplayWriteEffect: f.Evidence.GameplayWriteEffect),
-            f.SharedScope.Note, Acknowledgement: "allow_unverified_effect");
+            f.SharedScope.Note, Acknowledgement: "allow_unverified_effect", Range: f.Range is { } r ? new EntityRange(r.Min, r.Max, r.Integer, r.Reason) : null);
     }
 }

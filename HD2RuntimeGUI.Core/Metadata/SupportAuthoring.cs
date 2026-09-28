@@ -32,7 +32,14 @@ public sealed record SupportField(string InstanceKey, string SupportWeapon, Supp
 public sealed record SupportBlock(string Field, string Reason);
 // Forward call-in link. 0.22.0 publishes only known/kind; 0.22.1+ adds state, the linked stratagem semantic ID, relationship ID and blocker.
 public sealed record SupportLinkedStratagem(bool Known, string? Kind = null, string? State = null, string? SemanticId = null, string? RelationshipId = null,
-    string? Relationship = null, string? StratagemName = null, string? DeliveryObject = null, string? Special = null, string? Confidence = null, string? Blocker = null);
+    string? Relationship = null, string? StratagemName = null, string? DeliveryObject = null, string? Special = null, string? Confidence = null, string? Blocker = null,
+    SupportNoCallIn? NoCallIn = null)
+{
+    // 0.25.0+: Runtime proves the game defines no call-in for this equipment (state no_call_in); it is standalone, not unresolved.
+    public bool IsNoCallIn => this is { Known: false, State: "no_call_in", SemanticId: null, RelationshipId: null } && !string.IsNullOrWhiteSpace(NoCallIn?.Reason);
+}
+public sealed record SupportAcquisition(string Kind, string? Source = null, bool NativeDeliveryProven = false, string? Note = null);
+public sealed record SupportNoCallIn(string Reason, SupportAcquisition? Acquisition = null, string[]? LoadoutItemTypes = null, bool? SharedLoadoutPackage = null);
 // 0.24.0+: DELIVERY_RESOLVED identities are proven through their call-in delivery chain (identityResolution), not by name.
 public sealed record SupportIdentityResolution(string Basis, string[] Evidence, int NonDeliveredNativeRoots, bool NonDeliveredRootsAffected, string Note, string EvidenceArtifact);
 public sealed record SupportAuthoringWeapon(string Name, string IdentityStatus, string Confidence, string[] Family,

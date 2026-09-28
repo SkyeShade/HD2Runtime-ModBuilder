@@ -22,6 +22,16 @@ public static class EntityScalar
         }
         throw new InvalidDataException("Enter a complete, finite value of the published scalar type.");
     }
+    // The published safe range (0.25.0+ boosters) is checked for desired values; baselines always lie inside it.
+    public static void CheckRange(EntityField f, JsonElement value)
+    {
+        var normalized = Normalize(f, value);
+        if (f.Range is not { } r || f.IsReference) return;
+        var v = normalized.GetDouble();
+        // Number fields are float32: compare in float so a value exactly at a published bound is accepted.
+        var (min, max) = f.Type == "number" ? ((double)(float)r.Min, (double)(float)r.Max) : (r.Min, r.Max);
+        if (v < min || v > max) throw new InvalidDataException($"{f.DisplayName} must be between {r.Min.ToString(CultureInfo.InvariantCulture)} and {r.Max.ToString(CultureInfo.InvariantCulture)}{(string.IsNullOrWhiteSpace(r.Reason) ? "" : ": " + r.Reason)}");
+    }
     public static bool Equal(EntityField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
     public static string Text(EntityField f, JsonElement v) => f.IsReference ? Normalize(f, v).GetString()!
         : f.Type == "number" ? Normalize(f, v).GetSingle().ToString("R", CultureInfo.InvariantCulture) : Normalize(f, v).GetRawText();
@@ -48,6 +58,7 @@ public sealed class EntityChangeService : IEntityChangeService
         {
             // Mount replacements are chosen by published semantic ID; scalars are parsed as JSON numbers.
             desired = EntityScalar.Normalize(f, f.IsReference ? JsonSerializer.SerializeToElement(value) : JsonDocument.Parse(value).RootElement);
+            EntityScalar.CheckRange(f, desired);
         }
         catch (JsonException e) { throw new InvalidDataException("Enter a complete scalar value.", e); }
         return new() { Resource = f.Target.Resource, Entity = f.Target.Entity, Path = f.Target.Path, Zone = f.Target.Zone, Mount = f.Target.Mount,
@@ -62,7 +73,7 @@ public sealed class EntityChangeService : IEntityChangeService
             || c.Mount != f.Target.Mount || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Type || c.CapabilityEvidence != Evidence(f))
             throw new InvalidDataException("Vehicle/backpack capability, evidence or ownership changed. Review and accept the current capability, or reset the change.");
         if (!EntityScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Vehicle/backpack baseline changed. Review before accepting the new baseline.");
-        _ = EntityScalar.Normalize(f, c.DesiredValue);
+        EntityScalar.CheckRange(f, c.DesiredValue);
         if (f.AllowSharedRequired && !Approved(p, f)) throw new InvalidDataException("Acknowledge this shared object before building.");
         if (f.Acknowledgement != null && c.ReferenceAcknowledgement != ReferenceEvidence(f, c.DesiredValue))
             throw new InvalidDataException(f.IsReference ? "Acknowledge the unverified mount reference and package-loading risk before building."
@@ -134,7 +145,8 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         "mount" => "hd2.vehicle(" + LuaGenerator.Quote(t.Vehicle!) + "):mount(" + LuaGenerator.Quote(t.Mount!) + ")",
         "backpack" => "hd2.backpack(" + LuaGenerator.Quote(t.Backpack!) + ")",
         "magazine" when t.Resource == "weapon_attachment" => "hd2.weapon_attachment(" + LuaGenerator.Quote(t.Attachment!) + ")",
-        "deployed_entity" or "status_effect" when t.Resource == "booster" => "hd2.booster(" + LuaGenerator.Quote(t.Booster!) + "):" + t.Path + "()",
+        // hd2.booster(name):deployed_entity() / status_effect() (0.24.0) and :tuning() / explosion() / status_damage() / granted_stratagem() (0.25.0).
+        _ when t.Resource == "booster" && BoosterAuthoringReader.Paths.Contains(t.Path) => "hd2.booster(" + LuaGenerator.Quote(t.Booster!) + "):" + t.Path + "()",
         _ => throw new InvalidDataException("Unsupported vehicle/backpack target."),
     };
 }

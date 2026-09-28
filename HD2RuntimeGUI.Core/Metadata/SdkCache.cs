@@ -12,6 +12,8 @@ public interface ISdkCache
     Task<SdkMetadata> GetVersionAsync(string version, CancellationToken ct = default);
     Task<SdkMetadata> InstallAsync(SdkRelease release, CancellationToken ct = default);
     Task<SdkMetadata> InspectAsync(SdkRelease release, CancellationToken ct = default);
+    /// <summary>Developer-only local SDK source for this run (never cached), or null for published releases.</summary>
+    string? LocalSdkPath => null;
 }
 
 /// <summary>A cached SDK version lacks a file this GUI requires and cannot be completed offline.</summary>
@@ -120,8 +122,38 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                         ?? throw MissingFile(BoosterAuthoringReader.FileName, "SDK is missing booster authoring capabilities."), sdk.Version) } };
         return sdk;
     }
+    // Developer-only local SDK (HD2RUNTIME_SDK_PATH / --sdk-path): an unpublished Runtime build's sdk/ directory or SDK zip.
+    // It is read and fully validated in memory, served as the current SDK and for its own version for this run only, and never
+    // written to the SDK cache or current.json, so the user's cached SDKs and a later published release of the same version are untouched.
+    public string? LocalSdkPath { get; set; }
+    private SdkPayload? localPayload; private SdkMetadata? localSdk;
+    public SdkMetadata? LocalSdk => localSdk;
+    private async Task<SdkMetadata> LoadLocalAsync(CancellationToken ct)
+    {
+        if (localSdk != null) return localSdk;
+        var path = Path.GetFullPath(LocalSdkPath!);
+        localPayload = File.Exists(path) ? ReadArchivePayload(path)
+            : Directory.Exists(path) ? await ReadDirectoryPayloadAsync(path, ct)
+            : throw new InvalidDataException($"Local SDK path does not exist: {path}");
+        return localSdk = ReadPayload(localPayload);
+    }
+    private static async Task<SdkPayload> ReadDirectoryPayloadAsync(string root, CancellationToken ct)
+    {
+        async Task<byte[]?> Read(string name, int limit)
+        {
+            var file = Path.Combine(root, name);
+            if (!File.Exists(file)) return null;
+            if (new FileInfo(file).Length > limit) throw new InvalidDataException($"Local SDK {name} is too large.");
+            return await File.ReadAllBytesAsync(file, ct);
+        }
+        var metadata = await Read("metadata.json", MetadataReader.MaxBytes) ?? throw new InvalidDataException("Local SDK directory must contain metadata.json.");
+        var graphs = new Dictionary<string, byte[]>();
+        foreach (var name in GraphFiles) if (await Read(name, GraphLimit(name)) is { } bytes) graphs.Add(name, bytes);
+        return new(metadata, await Read(PlayerWeaponCatalogReader.FileName, PlayerWeaponCatalogReader.MaxBytes), await Read(PlayerWeaponAmmoCatalogReader.FileName, PlayerWeaponAmmoCatalogReader.MaxBytes), graphs);
+    }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)
     {
+        if (LocalSdkPath != null) return await LoadLocalAsync(ct);
         await gate.WaitAsync(ct);
         try
         {
@@ -136,6 +168,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     }
     public async Task<SdkMetadata> GetVersionAsync(string version, CancellationToken ct = default)
     {
+        if (LocalSdkPath != null && (await LoadLocalAsync(ct)).Version == version) return localSdk!;
         try { return await ReadCachedAsync(version, ct); }
         catch (InvalidDataException e) when (e.Data[MissingFileKey] is string missing)
         {
@@ -206,6 +239,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     public Task<SdkMetadata> InspectAsync(SdkRelease release, CancellationToken ct = default) => ValidateReleaseAsync(release, false, ct);
     private async Task<SdkMetadata> ValidateReleaseAsync(SdkRelease release, bool install, CancellationToken ct)
     {
+        if (install && LocalSdkPath != null) throw new InvalidOperationException("A local development SDK is active for this run. Restart without HD2RUNTIME_SDK_PATH / --sdk-path to install published SDK releases.");
         GitHubReleaseClient.Validate(release);
         await gate.WaitAsync(ct);
         var staging = paths.CachePath("staging-" + Guid.NewGuid().ToString("N") + ".zip");

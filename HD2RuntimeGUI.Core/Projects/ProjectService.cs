@@ -126,8 +126,8 @@ public static class ProjectIdentity
                     // 0.23.1 magazine attachment definitions: Entity is the published attachment semantic ID.
                     ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType == "integer"
                         && Regex.IsMatch(c.Entity, @"\Aweapon-attachment/v1/magazine/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
-                    // 0.24.0 boosters: Entity is the published booster name; only its reviewed sub-targets carry fields.
-                    ("booster", "deployed_entity" or "status_effect") => c.Zone == null && c.Mount == null && BoosterAuthoringReader.ValidName(c.Entity),
+                    // 0.24.0+ boosters: Entity is the published booster name; only its reviewed sub-targets carry fields (more targets from 0.25.0).
+                    ("booster", var boosterPath) when BoosterAuthoringReader.Paths.Contains(boosterPath) => c.Zone == null && c.Mount == null && BoosterAuthoringReader.ValidName(c.Entity),
                     _ => false,
                 })
                 || (c.FieldType == EntityField.ReferenceType

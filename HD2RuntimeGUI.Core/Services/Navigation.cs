@@ -18,7 +18,8 @@ public static class StratagemCategories
     // Boosters (SDK 0.24.0+) are their own authoring domain, not a stratagem family; yellow alongside the stratagem categories.
     public const string BoosterCssClass = "cat-booster";
     // A root is listed under Stratagems unless it is a call-in whose vehicle/backpack editor already includes it.
-    public static bool Listed(StratagemDefinition s, EntityAuthoring? entities) => entities?.CallIns.ContainsKey(s.Name) != true;
+    // 0.25.0+: a catalog root Runtime proves has no call-in (no_call_in) is not a stratagem; its equipment is listed as standalone.
+    public static bool Listed(StratagemDefinition s, EntityAuthoring? entities) => entities?.CallIns.ContainsKey(s.Name) != true && s.Delivers?.IsNoCallIn != true;
     public static int Count(StratagemCatalog catalog, StratagemCategory category, EntityAuthoring? entities = null)
         => catalog.Stratagems.Count(s => category.Families.Contains(s.Family) && Listed(s, entities));
 }

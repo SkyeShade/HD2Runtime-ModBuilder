@@ -78,6 +78,8 @@
     {
         "deployed_entity" => "Deployed entity" + (b.Relationships.Any(r => r.TurretProjectileShared != null) ? " · turret" : ""),
         "status_effect" => "Status effect",
+        // 0.25.0 natively traced targets.
+        "tuning" => "Booster tuning", "explosion" => "Hellpod impact explosion", "status_damage" => "Status damage", "granted_stratagem" => "Granted stratagem",
         _ => path.Replace('_', ' '),
     };
     // Re-render this editor too: acknowledgement and reset controls depend on the saved changes.

@@ -30,7 +30,13 @@ public static class SupportEquipment
 {
     public static IReadOnlyList<string> Unlinked(SdkMetadata? sdk) =>
         sdk?.Advanced?.Support is not { } catalog ? []
-            : catalog.Weapons.Keys.Where(w => sdk.SupportLinks?.ForWeapon(w) == null).Order(StringComparer.Ordinal).ToArray();
+            : catalog.Weapons.Keys.Where(w => sdk.SupportLinks?.ForWeapon(w) == null && !IsStandalone(sdk, w)).Order(StringComparer.Ordinal).ToArray();
+    // 0.25.0+: equipment Runtime proves has no call-in at all (no_call_in, e.g. world pickups). Listed once as standalone equipment,
+    // never as unresolved and never as a stratagem.
+    public static IReadOnlyList<string> Standalone(SdkMetadata? sdk) =>
+        sdk?.Advanced?.Support is not { } catalog || sdk.SupportLinks == null ? [] : catalog.Weapons.Keys.Where(w => IsStandalone(sdk, w)).Order(StringComparer.Ordinal).ToArray();
+    public static bool IsStandalone(SdkMetadata? sdk, string weapon) => sdk?.SupportLinks != null
+        && sdk.SupportAuthoring?.Weapons.SingleOrDefault(x => x.Name == weapon)?.LinkedStratagem?.IsNoCallIn == true;
     public static bool Linked(SdkMetadata? sdk, string weapon) => sdk?.SupportLinks?.ForWeapon(weapon) != null;
 }
 

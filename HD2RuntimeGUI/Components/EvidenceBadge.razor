@@ -19,6 +19,12 @@
         // Booster tiers (0.24.0): the native link is proven; no booster edit is gameplay-tested yet.
         "structural_chain_exact_fingerprint" => "Structural chain · exact match · effect unproven",
         "unique_exact_multi_value_fingerprint" => "Unique value fingerprint · effect unproven",
+        // Booster tiers (0.25.0): natively traced consumer code; "exact" adds an independent value fingerprint. Effects remain unproven in game.
+        "native_table_code_consumer_exact_fingerprint" => "Native table + consumer · exact match · effect unproven",
+        "native_table_code_consumer" => "Native table + consumer · effect unproven",
+        "structural_code_chain_exact_fingerprint" => "Code chain · exact match · effect unproven",
+        "structural_code_selector_exact_fingerprint" => "Code selector · exact match · effect unproven",
+        "structural_code_selector" => "Code selector · effect unproven",
         _ => tier.Replace('_', ' '),
     };
     public static string Short(string tier) => tier switch
@@ -31,6 +37,9 @@
         "native_owner" or "native_owner_effect_consistent" or "native_owner_value_consistent" => "Native owner",
         "structural_chain_exact_fingerprint" => "Structural chain",
         "unique_exact_multi_value_fingerprint" => "Value fingerprint",
+        "native_table_code_consumer_exact_fingerprint" or "native_table_code_consumer" => "Native consumer",
+        "structural_code_chain_exact_fingerprint" => "Code chain",
+        "structural_code_selector_exact_fingerprint" or "structural_code_selector" => "Code selector",
         _ => tier.Replace('_', ' '),
     };
     private string Tooltip => string.Join("\n", new[] { Label(Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,

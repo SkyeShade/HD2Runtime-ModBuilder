@@ -16,13 +16,18 @@ public sealed record SupportCallInJoinContract(string SupportWeaponKeyProperty, 
     bool RawNativeIdentifiersPublished, bool WriteTargetsRemainSeparate, string WriteGuardsUnchanged);
 public sealed record SupportCallInAudit(int SupportWeapons, int KnownLinks, int UnresolvedLinks, string[] UnresolvedCallIns,
     string[] UnresolvedDeliveries, int SupportStratagems, int ReverseLinksKnown, int Relationships, int BidirectionalMismatches,
-    int LinksRelyingOnDisplayNameOnly, int AmbiguousWeaponIdentityLinks, string[] AmbiguousWeaponIdentityNames, string[] SpecialLinks);
+    int LinksRelyingOnDisplayNameOnly, int AmbiguousWeaponIdentityLinks, string[] AmbiguousWeaponIdentityNames, string[] SpecialLinks,
+    string[]? NoCallInItems = null, string[]? PlacedItemLinks = null);
 public sealed record SupportCallInLinkage(string Contract, int SchemaVersion, SupportCallInJoinContract JoinContract,
     SupportCallInRelationship[] Relationships, SupportCallInAudit Audit);
 // Reverse link published on each stratagem root.
 public sealed record StratagemDelivers(string Kind, bool Known, string State, string? SemanticId, string? RelationshipId,
     string? SupportWeaponName, string? DeliveryObject, SupportCompanionDelivery[] CompanionDeliveries, string? Special,
-    string? Confidence, string? Blocker);
+    string? Confidence, string? Blocker, SupportNoCallIn? NoCallIn = null)
+{
+    // 0.25.0+: a catalog root the game never delivers through a call-in (world pickup); not a callable stratagem.
+    public bool IsNoCallIn => this is { Known: false, State: "no_call_in", SemanticId: null, RelationshipId: null } && !string.IsNullOrWhiteSpace(NoCallIn?.Reason);
+}
 
 // A validated, bidirectionally consistent link. Write targets stay separate: the stratagem keeps hd2.stratagem(...)
 // targets and the weapon keeps hd2.support_weapon(...) targets with their own operation groups and guards.
@@ -83,20 +88,27 @@ public static class SupportCallInLinker
                 {
                     "stratagem" => n.SemanticId == r.Stratagem && (n.Fields ?? []).All(stratagemFields.Contains),
                     "support_weapon" => n.SemanticId == r.SupportWeapon && n.Fields == null,
+                    // 0.25.0+: structural native nodes (e.g. the hellpod rack items a placed charge is delivered with) carry no view or target.
+                    null => n.SemanticId == null && n.TargetPath == null && n.Fields == null,
                     _ => false,
                 });
             var link = new SupportCallInLink(r, root, weapon);
             byStratagem.Add(root.Name, link); byWeapon.Add(weapon.Name, link);
         }
-        // No one-sided links: every other entry must be explicitly unknown, without an identity, and carry Runtime's blocker.
-        Check(support.Weapons.Where(w => !byWeapon.ContainsKey(w.Name)).All(w => w.LinkedStratagem is { Known: false, SemanticId: null, RelationshipId: null } l && !string.IsNullOrWhiteSpace(l.Blocker)));
-        Check(roots.Where(s => !byStratagem.ContainsKey(s.Name)).All(s => s.Delivers is { Known: false, SemanticId: null, RelationshipId: null } d && !string.IsNullOrWhiteSpace(d.Blocker)));
+        // No one-sided links: every other entry must be explicitly unknown, without an identity, and carry Runtime's blocker, or
+        // (0.25.0+) be proven to have no call-in at all (no_call_in, with Runtime's reason). Runtime lists those items in its audit.
+        Check(support.Weapons.Where(w => !byWeapon.ContainsKey(w.Name)).All(w => w.LinkedStratagem is { Known: false, SemanticId: null, RelationshipId: null } l && (l.IsNoCallIn || !string.IsNullOrWhiteSpace(l.Blocker))));
+        Check(roots.Where(s => !byStratagem.ContainsKey(s.Name)).All(s => s.Delivers is { Known: false, SemanticId: null, RelationshipId: null } d
+            && (d.IsNoCallIn && d.Kind == "none" && s.RootResolution == "NO_CALL_IN" || !d.IsNoCallIn && d.State != "no_call_in" && !string.IsNullOrWhiteSpace(d.Blocker))));
+        var noCallIn = support.Weapons.Where(w => w.LinkedStratagem!.IsNoCallIn).Select(w => w.Name).Order(StringComparer.Ordinal).ToArray();
+        Check(noCallIn.SequenceEqual((linkage.Audit.NoCallInItems ?? []).Order(StringComparer.Ordinal))
+            && roots.Count(s => s.Delivers!.IsNoCallIn) == noCallIn.Length);
         // Vehicle and backpack call-in links are validated by the entity authoring reader.
         Check(stratagems.Stratagems.Where(s => s.Family != "support").All(s => s.Delivers == null || !s.Delivers.Known || s.Delivers.Kind == s.Family && s.Family is "vehicle" or "backpack"));
         var a = linkage.Audit;
         Check(a.SupportWeapons == support.Weapons.Length && a.SupportStratagems == roots.Length && a.KnownLinks == byWeapon.Count
             && a.ReverseLinksKnown == byStratagem.Count && a.Relationships == linkage.Relationships.Length
-            && a.UnresolvedLinks == support.Weapons.Length - byWeapon.Count && a.BidirectionalMismatches == 0 && a.LinksRelyingOnDisplayNameOnly == 0
+            && a.UnresolvedLinks == support.Weapons.Length - byWeapon.Count - noCallIn.Length && a.BidirectionalMismatches == 0 && a.LinksRelyingOnDisplayNameOnly == 0
             && a.AmbiguousWeaponIdentityLinks == byWeapon.Values.Count(l => !SupportAuthoringWeapon.Resolved(l.Weapon.IdentityStatus)));
         return new() { Linkage = linkage, ByStratagem = byStratagem, ByWeapon = byWeapon };
     }

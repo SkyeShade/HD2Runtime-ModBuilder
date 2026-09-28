@@ -5,7 +5,8 @@ using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Services;
 
-public sealed record SdkStatus(SdkMetadata Installed, SdkRelease? Latest, bool VerifiedOnline, string Message)
+// LocalSource: a developer-only local SDK (not a published release) is active for this run.
+public sealed record SdkStatus(SdkMetadata Installed, SdkRelease? Latest, bool VerifiedOnline, string Message, string? LocalSource = null)
 {
     public bool UpdateAvailable => Latest != null && SemVersion.Parse(Latest.Version).CompareTo(SemVersion.Parse(Installed.Version)) > 0;
 }
@@ -24,6 +25,12 @@ public sealed class SdkUpdateService(ISdkCache cache, IGitHubReleaseClient githu
     private readonly HashSet<Guid> tickets = [];
     public async Task<SdkStatus> CheckAsync(CancellationToken ct = default)
     {
+        if (cache.LocalSdkPath is { } local)
+        {
+            // Local development SDK: fully validated on load, no GitHub download or release verification for this run.
+            var sdk = await cache.GetCurrentAsync(ct);
+            return new(sdk, null, false, $"Local SDK {sdk.Version} from {Path.GetFullPath(local)}. GitHub release checks are skipped for this run; the SDK cache is not changed.", Path.GetFullPath(local));
+        }
         SdkMetadata installed; string? repaired = null;
         try { installed = await cache.GetCurrentAsync(ct); }
         catch (IncompleteSdkCacheException e)

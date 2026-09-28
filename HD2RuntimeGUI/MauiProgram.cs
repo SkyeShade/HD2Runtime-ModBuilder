@@ -27,7 +27,9 @@ public static class MauiProgram
         builder.Services.AddSingleton(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(25) });
         builder.Services.AddSingleton<IGitHubReleaseClient, GitHubReleaseClient>();
         builder.Services.AddSingleton<IMetadataReader, MetadataReader>();
-        builder.Services.AddSingleton<ISdkCache, SdkCache>();
+        // Developer-only: bind an unpublished local Runtime SDK (sdk/ directory or SDK zip) for this run without touching the SDK cache.
+        var localSdk = LocalSdkArgument(Environment.GetCommandLineArgs()) ?? Environment.GetEnvironmentVariable("HD2RUNTIME_SDK_PATH");
+        builder.Services.AddSingleton<ISdkCache>(services => { var cache = ActivatorUtilities.CreateInstance<SdkCache>(services); if (!string.IsNullOrWhiteSpace(localSdk)) cache.LocalSdkPath = Path.GetFullPath(localSdk); return cache; });
         builder.Services.AddSingleton<ISdkUpdateService, SdkUpdateService>();
         builder.Services.AddSingleton<IProjectStore, JsonProjectStore>();
         builder.Services.AddSingleton<IProjectService, ProjectService>();
@@ -64,5 +66,15 @@ public static class MauiProgram
 #endif
 
         return builder.Build();
+    }
+    // --sdk-path <path> or --sdk-path=<path>.
+    internal static string? LocalSdkArgument(string[] args)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i].StartsWith("--sdk-path=", StringComparison.OrdinalIgnoreCase)) return args[i]["--sdk-path=".Length..];
+            if (args[i].Equals("--sdk-path", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length) return args[i + 1];
+        }
+        return null;
     }
 }
