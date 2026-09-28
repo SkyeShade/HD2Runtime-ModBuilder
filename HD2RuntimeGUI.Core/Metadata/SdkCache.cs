@@ -18,7 +18,7 @@ public interface ISdkCache
 
 /// <summary>A cached SDK version lacks a file this GUI requires and cannot be completed offline.</summary>
 public sealed class IncompleteSdkCacheException(string version, string file) : IOException(
-    $"The cached SDK {version} was saved by an older HD2RuntimeGUI and lacks {file}. Check for updates online to reinstall SDK {version}; the missing file is added without changing the cached files.")
+    $"The cached SDK {version} was saved by an older HD2Runtime ModBuilder (HD2RuntimeGUI) and lacks {file}. Check for updates online to reinstall SDK {version}; the missing file is added without changing the cached files.")
 {
     public string Version { get; } = version;
     public string File { get; } = file;

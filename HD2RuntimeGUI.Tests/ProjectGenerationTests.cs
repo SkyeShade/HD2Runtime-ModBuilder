@@ -95,6 +95,8 @@ public sealed class ProjectGenerationTests
         using var reader = new StreamReader(zip.GetEntry("hd2runtime.json")!.Open()); using var metadata = JsonDocument.Parse(await reader.ReadToEndAsync());
         Assert.Equal("mods/skyeshade/hd2runtime", metadata.RootElement.GetProperty("requires").GetProperty("hd2runtime").GetProperty("module").GetString());
         Assert.Equal(15, metadata.RootElement.GetProperty("requires").GetProperty("bingus").GetProperty("min_release").GetInt32());
+        using (var reportReader = new StreamReader(zip.GetEntry("build-report.json")!.Open()))
+            Assert.StartsWith("HD2Runtime ModBuilder ", JsonDocument.Parse(await reportReader.ReadToEndAsync()).RootElement.GetProperty("builder").GetString());
         using var archiveStream = zip.GetEntry("mod/" + GameplayArchive.ArchiveName)!.Open(); using var buffer = new MemoryStream(); archiveStream.CopyTo(buffer); var archive = buffer.ToArray();
         Assert.Equal(0xF0000011U, BitConverter.ToUInt32(archive)); Assert.Equal(1U, BitConverter.ToUInt32(archive, 8));
         Assert.Equal(GameplayArchive.ResourceHash(p.ResourceId), BitConverter.ToUInt64(archive, 104));

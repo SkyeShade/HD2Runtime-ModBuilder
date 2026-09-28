@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core;
 using HD2RuntimeGUI.Core.GameAssets;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Services;
@@ -55,6 +56,18 @@ public sealed class ModBuilderIaTests
         // Storage and identity are unchanged: only visible branding moved.
         Assert.Contains("\"HD2RuntimeGUI\")", File.ReadAllText(Path.Combine(root, "MauiProgram.cs")));
         Assert.Contains("<ApplicationId>dev.skyeshade.hd2runtimegui</ApplicationId>", File.ReadAllText(Path.Combine(root, "HD2RuntimeGUI.csproj")));
+    }
+
+    [Fact] public void Executable_and_release_metadata_use_the_public_product_name()
+    {
+        var root = Root(); var csproj = File.ReadAllText(Path.Combine(root, "HD2RuntimeGUI", "HD2RuntimeGUI.csproj"));
+        Assert.Equal("HD2Runtime ModBuilder", BuildInfo.ProductName);
+        foreach (var property in new[] { "ApplicationTitle", "Product", "AssemblyTitle" }) Assert.Contains($"<{property}>HD2Runtime ModBuilder</{property}>", csproj);
+        Assert.DoesNotContain("<AssemblyName>", csproj); // the executable stays HD2RuntimeGUI.exe
+        Assert.StartsWith("HD2RuntimeGUI/", BuildInfo.UserAgent);
+        var publish = File.ReadAllText(Path.Combine(root, "scripts", "publish-windows.ps1"));
+        Assert.Contains("HD2Runtime-ModBuilder-v$version-win-x64.zip", publish); Assert.Contains("resizetizer", publish);
+        Assert.Contains("ProductName -ne 'HD2Runtime ModBuilder'", publish);
     }
 
     [Fact] public void No_game_artwork_is_part_of_the_repository()

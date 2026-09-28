@@ -9,7 +9,14 @@
     <EnableDefaultCssItems>false</EnableDefaultCssItems>
     <Nullable>enable</Nullable>
     <MauiXamlInflator>SourceGen</MauiXamlInflator>
-    <ApplicationTitle>HD2RuntimeGUI</ApplicationTitle>
+    <!-- Public product name (window, exe version resource, package display name). AssemblyName, ApplicationId and the
+         LocalAppData\HD2RuntimeGUI data folder keep the technical HD2RuntimeGUI identity so existing installs keep working. -->
+    <ApplicationTitle>HD2Runtime ModBuilder</ApplicationTitle>
+    <Product>HD2Runtime ModBuilder</Product>
+    <AssemblyTitle>HD2Runtime ModBuilder</AssemblyTitle>
+    <Description>HD2Runtime ModBuilder: mod authoring for HD2Runtime.</Description>
+    <Company>SkyeShade</Company>
+    <Copyright>© SkyeShade</Copyright>
     <ApplicationId>dev.skyeshade.hd2runtimegui</ApplicationId>
     <ApplicationDisplayVersion>$(Hd2RuntimeGuiVersion)</ApplicationDisplayVersion>
     <ApplicationVersion>4</ApplicationVersion>

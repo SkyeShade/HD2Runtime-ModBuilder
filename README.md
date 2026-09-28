@@ -1,24 +1,28 @@
-# HD2RuntimeGUI
+# HD2Runtime ModBuilder
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
+![HD2Runtime ModBuilder](HD2RuntimeGUI/wwwroot/brand/modbuilder-icon.svg)
+
+HD2Runtime ModBuilder is a Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports **HD2Runtime SDK 0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
+
+The repository, project and executable keep the technical name `HD2RuntimeGUI` (`HD2RuntimeGUI.exe`, `%LOCALAPPDATA%HD2RuntimeGUI`), so existing installations and projects keep working after the rename.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,574 entries, 89 field definitions (69 writable, 20 read-only, 9 derived)**. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
 ## Run
 
-For a development build, run `./scripts/publish-windows.ps1` and launch the staged `artifacts/release/HD2RuntimeGUI-vX.Y.Z-win-x64/HD2RuntimeGUI.exe`. For end users, use the ZIP instructions below. .NET and the Windows App SDK are included; users need the Microsoft Edge WebView2 Evergreen Runtime, but no development tools or Python.
+For a development build, run `./scripts/publish-windows.ps1` and launch the staged `artifacts/release/HD2Runtime-ModBuilder-vX.Y.Z-win-x64/HD2RuntimeGUI.exe`. For end users, use the ZIP instructions below. .NET and the Windows App SDK are included; users need the Microsoft Edge WebView2 Evergreen Runtime, but no development tools or Python.
 
 This repository is separate from HD2Runtime. It does not launch the game, deploy mods, or access game processes. Snapshot inspection reads only a user-selected local file.
 
 ## Navigation
 
-The sidebar lists only public authoring destinations: **Overview, Player Weapons, Stratagems** (Support · Offensive · Defensive), **Vehicles**, **Backpacks**, **Boosters** (SDK 0.24.0+), **Changes, Lua Preview, Build / Export**, with **Snapshot Research** in a separate Developer / Research group. Legacy mapped-resource categories (the old mapped Vehicles and Equipment resources and legacy mapped stratagems) are no longer navigation destinations; the Vehicles page is the new `hd2.vehicle` editor. Existing legacy changes still appear on Changes and can be edited, toggled or removed there. Navigation stays visible without a project; project destinations then show "Select or create a project to begin editing." Counts come from the installed SDK; the Changes count appears only with an open project.
+The sidebar lists only public authoring destinations: **Overview, Player Weapons, Stratagems** (Support · Offensive · Defensive), **Boosters** (SDK 0.24.0+), **Changes, Lua Preview, Build / Export**, with **Snapshot Research** in a separate Developer / Research group. Legacy mapped-resource categories (the old mapped Vehicles and Equipment resources and legacy mapped stratagems) are no longer navigation destinations. Vehicles and backpacks live under **Stratagems → Support**, which has All Support, Support Weapons, Vehicles, Backpacks and Other / Standalone tabs built from SDK families and published call-in links; a vehicle or backpack stratagem opens one editor with its call-in and the delivered entity. Existing legacy changes still appear on Changes and can be edited, toggled or removed there. Navigation stays visible without a project; project destinations then show "Select or create a project to begin editing." Counts come from the installed SDK; the Changes count appears only with an open project.
 
 Stratagem categories come from published families: Support (`support`, blue), Offensive (`orbital`, `eagle`, red) and Defensive (`sentry`, `emplacement`, `mine`, including the Shield Generator Relay, green). Boosters are their own domain and use yellow. Reusable `cat-support` / `cat-offensive` / `cat-defensive` / `cat-booster` classes set a `--cat` token used by pills, dots, list accents and panel headers.
 
-Support call-ins and their support weapons are shown as one entry when HD2Runtime publishes a structural link (SDK 0.22.1+, `hd2runtime.support_callin_linkage.v1`). The GUI joins `weapons[].semanticId` ↔ `stratagems[].semanticId` through `linkedStratagem`, `delivers` and `supportCallInLinks.relationships`, and requires the forward link, reverse link, relationship and audit to agree; any mismatch rejects the SDK. Display names are never link evidence. For the 32 linked pairs, Stratagems → Support shows the call-in controls (cooldown; max uses read-only), the published delivery graph (for example Solo Silo: call-in → deployable silo → missile → detonation/impact explosions), and the weapon's existing guarded controls. Write targets and saved changes stay separate: `hd2.stratagem(...)` and `hd2.support_weapon(...)` with their own operation groups, guards and acknowledgements. Linked weapons with duplicate runtime identities stay read-only. With SDK 0.24.0, Runtime resolves MG-43, M-105, MG-206 and CQC-20 through their call-in delivery chain (`DELIVERY_RESOLVED`), so they are writable; EAT-17, LAS-98 and B/FLAM-80 remain read-only. Changes groups linked weapon edits under their stratagem. There is no separate Support Weapons category: equipment without a published link (B/MD C4 Pack, SG-88, CQC-72) is listed in a small **Unlinked support equipment** group at the end of Stratagems → Support, with Runtime's blocker. On SDK 0.22.0 (no linkage) every support weapon appears in that group; only SDKs without a stratagem catalog (0.17–0.20.x) keep a **Support equipment** destination. See the [linkage notes](docs/support-stratagem-linkage.md).
+Support call-ins and their support weapons are shown as one entry when HD2Runtime publishes a structural link (SDK 0.22.1+, `hd2runtime.support_callin_linkage.v1`). ModBuilder joins `weapons[].semanticId` ↔ `stratagems[].semanticId` through `linkedStratagem`, `delivers` and `supportCallInLinks.relationships`, and requires the forward link, reverse link, relationship and audit to agree; any mismatch rejects the SDK. Display names are never link evidence. For the 32 linked pairs, Stratagems → Support shows the call-in controls (cooldown; max uses read-only), the published delivery graph (for example Solo Silo: call-in → deployable silo → missile → detonation/impact explosions), and the weapon's existing guarded controls. Write targets and saved changes stay separate: `hd2.stratagem(...)` and `hd2.support_weapon(...)` with their own operation groups, guards and acknowledgements. Linked weapons with duplicate runtime identities stay read-only. With SDK 0.24.0, Runtime resolves MG-43, M-105, MG-206 and CQC-20 through their call-in delivery chain (`DELIVERY_RESOLVED`), so they are writable; EAT-17, LAS-98 and B/FLAM-80 remain read-only. Changes groups linked weapon edits under their stratagem. There is no separate Support Weapons category: equipment without a published link (B/MD C4 Pack, SG-88, CQC-72) is listed in a small **Unlinked support equipment** group at the end of Stratagems → Support, with Runtime's blocker. On SDK 0.22.0 (no linkage) every support weapon appears in that group; only SDKs without a stratagem catalog (0.17–0.20.x) keep a **Support equipment** destination. See the [linkage notes](docs/support-stratagem-linkage.md).
 
 ## Layout and game icons
 
@@ -30,17 +34,17 @@ Each stratagem is presented as one object:
 
 Fields are compact rows with name, value, baseline and short safety badges (shared, effect unproven, evidence tier). Details sit behind each row's ⓘ.
 
-**Game icons** are imported locally: automatically at startup when a Helldivers 2 install is detected and none are imported, from the prompt on the Boosters page, or from Settings → Game icons (removing them there turns automatic import off until the next manual import). The GUI reads the game's own vector icon libraries (`content/ui/shared/resources/generated_icons/stratagem_icons` and `booster_icons`) read-only from your installed Helldivers 2 data folder, fat or slim edition. It converts them to SVG in the local data folder. Game assets are not part of this repository or its releases.
+**Game icons** are imported locally: automatically at startup when a Helldivers 2 install is detected and none are imported, from the prompt on the Boosters page, or from Settings → Game icons (removing them there turns automatic import off until the next manual import). ModBuilder reads the game's own vector icon libraries (`content/ui/shared/resources/generated_icons/stratagem_icons` and `booster_icons`) read-only from your installed Helldivers 2 data folder, fat or slim edition. It converts them to SVG in the local data folder. Game assets are not part of this repository or its releases.
 
 Icons attach only through published identities:
 - **Boosters:** Runtime's `identity.uiIcon` for the booster's native member must match the game template's own binding. That covers 18 of 20 boosters; Integrated Extinguishers and Surplus EAT Allocation have none.
-- **Stratagems:** the GUI uses `uiIcon.iconKey` when the SDK publishes it with state `resolved` (HD2Runtime after 0.24.0: native stratagem type → the game's own icon binding). SDK 0.24.0 publishes none, so stratagems show category-coloured glyphs until a Runtime release includes it.
+- **Stratagems:** ModBuilder uses `uiIcon.iconKey` when the SDK publishes it with state `resolved` (HD2Runtime after 0.24.0: native stratagem type → the game's own icon binding). SDK 0.24.0 publishes none, so stratagems show category-coloured glyphs until a Runtime release includes it.
 
 See [readability pass notes](docs/readability-pass.md).
 
 ## Vehicles, backpacks and the Shield Generator Relay (SDK 0.23.0)
 
-**Vehicles** (`hd2.vehicle`) covers 11 vehicles (9 stratagem vehicles plus the native-only Super Earth FRV and GATER Oil Rig). Each editor shows:
+**Vehicles** (`hd2.vehicle`, Stratagems → Support → Vehicles; the two native-only vehicles are under Other / Standalone) covers 11 vehicles (9 stratagem vehicles plus the native-only Super Earth FRV and GATER Oil Rig). Each editor shows:
 
 - the linked call-in (cooldown);
 - main health and armor;
@@ -49,7 +53,7 @@ See [readability pass notes](docs/readability-pass.md).
 
 Mount selectors list only Runtime-published replacements of the same attack family. Non-weapon slots have no control. Each swap requires an explicit acknowledgement of Runtime's package-loading warning before `allow_unverified_reference=true` is generated.
 
-**Backpacks** (`hd2.backpack`) covers 13 backpacks: 9 writable fields (Jump Pack recharge and launch velocity, Hover Pack recharge, Shield Generator Pack radius and health, Ballistic and Directional Shield health and armor) and read-only fields with Runtime's reasons.
+**Backpacks** (`hd2.backpack`, Stratagems → Support → Backpacks) covers 13 backpacks: 9 writable fields (Jump Pack recharge and launch velocity, Hover Pack recharge, Shield Generator Pack radius and health, Ballistic and Directional Shield health and armor) and read-only fields with Runtime's reasons.
 
 The **FX-12 Shield Generator Relay** separates the physical emitter/base (health, armor, lifetime, body zone) from its shield projector (radius, shield health). Evidence badges distinguish in-game tested, schema-proven, live-write confirmed and structure-only fields. See [0.23 verification](docs/runtime023-verification.md).
 
@@ -133,6 +137,10 @@ Shared approvals appear once per modified object/consumer scope in Composition. 
 
 See [0.17 sample projects](samples/README.md#runtime-017-samples) and [verification](docs/verification.md).
 
+## Branding
+
+The reticle icon (`HD2RuntimeGUI/Resources/AppIcon/appicon.svg`, identical to `wwwroot/brand/modbuilder-icon.svg`) is the executable, window, taskbar and Alt-Tab icon; the build generates `appicon.ico` from it. The full HD2Runtime ModBuilder lockup appears in the sidebar, About, the empty project library and the startup splash. The brand yellow is `--brand-yellow: #FDD00E`; the Boosters category keeps its own `--booster-category-yellow`. The wordmark uses Big Shoulders Display (SIL Open Font License, `wwwroot/brand/fonts/`).
+
 ## Architecture
 
 `HD2RuntimeGUI/` is the MAUI Windows host, with Razor `Components/`, native desktop adapters in `Services/`, and custom dark CSS in `wwwroot/`.
@@ -154,7 +162,7 @@ Startup and each new-project action check public GitHub releases without a token
 
 Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only nineteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities, CompositionPlanCapabilities, VehicleAuthoringCapabilities, BackpackAuthoringCapabilities, MagazineAttachmentCapabilities and BoosterAuthoringCapabilities contracts (the last four only for the SDK versions that publish them, and then required). Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
-The SDK metadata and capability catalog must agree on version and supported schemas/API. For 0.20.1's reused 0.19 player artifacts, only the exact published bytes are accepted by digest; all other checks still apply. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable: a file is never replaced. An older GUI caches only the files it knows, so a later GUI may find a required file missing from a cached version. The GUI then adds only the missing file. It takes it from the bundled metadata when that is the same release (every cached file byte-identical), or from reinstalling the same release online. It never mixes in files from a different release. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
+The SDK metadata and capability catalog must agree on version and supported schemas/API. For 0.20.1's reused 0.19 player artifacts, only the exact published bytes are accepted by digest; all other checks still apply. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable: a file is never replaced. An older ModBuilder caches only the files it knows, so a later version may find a required file missing from a cached version. It then adds only the missing file. It takes it from the bundled metadata when that is the same release (every cached file byte-identical), or from reinstalling the same release online. It never mixes in files from a different release. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
 
 An update warning offers **Install Update** or **Ignore This Time** before project creation. Ignoring is single-use. Settings also provides manual update checks. Existing projects remain pinned until **Rebind to installed SDK** is explicitly selected in Overview.
 
@@ -189,7 +197,7 @@ Targets start with `hd2.weapon(name)` or `hd2.support_weapon(name)` and fields a
 
 The package follows the published ModTemplate archive, discovery-header, manager GUID and dependency conventions. It contains `manifest.json`, `hd2runtime.json`, `build-report.json`, `README.md`, `src/addon.lua`, and one gameplay archive plus empty stream/GPU companions under `mod/`. It requires Bingus release 15+/API 1 and the project's HD2Runtime minimum version/API. The template's Bingus check is `loader.version >= 16`.
 
-No Runtime implementation, SDK stubs, GUI catalog, snapshots or research artifacts enter the package. ZIP inventory and content are reopened and verified before success. Sorted entries, fixed timestamps, deterministic IDs and stable content make unchanged exports byte-identical. Preview shows exactly the gameplay source included as `src/addon.lua`; the archive adds the template dependency/discovery wrapper. Export directory is configurable, and Explorer can select the result.
+No Runtime implementation, SDK stubs, ModBuilder catalog, snapshots or research artifacts enter the package. ZIP inventory and content are reopened and verified before success. Sorted entries, fixed timestamps, deterministic IDs and stable content make unchanged exports byte-identical. Preview shows exactly the gameplay source included as `src/addon.lua`; the archive adds the template dependency/discovery wrapper. Export directory is configurable, and Explorer can select the result.
 
 ## Snapshot Research
 
@@ -201,11 +209,11 @@ The published mapper report omits record addresses, so automatic semantic-field-
 
 Windows x64 releases are distributed as a self-contained directory ZIP, so no Rider or .NET SDK is required. From the GitHub Releases page:
 
-1. Download `HD2RuntimeGUI-vX.Y.Z-win-x64.zip`.
+1. Download `HD2Runtime-ModBuilder-vX.Y.Z-win-x64.zip`.
 2. Extract it to a folder you control.
-3. Run `HD2RuntimeGUI.exe`.
+3. Run `HD2RuntimeGUI.exe` (shown as HD2Runtime ModBuilder in the window, taskbar and file properties).
 
-The package includes the .NET runtime and MAUI/native files required by the application. It uses the Windows WebView2 Evergreen runtime supplied by Windows or installed separately; WebView2 is not bundled into the ZIP. HD2Runtime remains a separate dependency for generated mods, and generated mods/exports are never bundled into the GUI executable. The executable is currently unsigned, so Windows SmartScreen may show its standard warning on first launch.
+The package includes the .NET runtime and MAUI/native files required by the application. It uses the Windows WebView2 Evergreen runtime supplied by Windows or installed separately; WebView2 is not bundled into the ZIP. HD2Runtime remains a separate dependency for generated mods, and generated mods/exports are never bundled into the ModBuilder executable. The executable is currently unsigned, so Windows SmartScreen may show its standard warning on first launch.
 
 The app stores mutable projects and exports in `%LOCALAPPDATA%\HD2RuntimeGUI\Projects\` and `%LOCALAPPDATA%\HD2RuntimeGUI\Exports\`, so the extracted application directory can be moved or replaced safely.
 
@@ -220,6 +228,6 @@ dotnet test HD2RuntimeGUI.Tests/HD2RuntimeGUI.Tests.csproj
 ./scripts/publish-windows.ps1
 ```
 
-The release script cleans `artifacts/release/`, publishes a Release `win-x64` self-contained directory, removes debug symbols, and creates `HD2RuntimeGUI-vX.Y.Z-win-x64.zip`. A directory package is intentional: MAUI Blazor Hybrid and WebView2/native dependencies are more reliable when kept beside the executable than when forced into a single file.
+The release script cleans `artifacts/release/`, publishes a Release `win-x64` self-contained directory, removes debug symbols, regenerates the app icon from `Resources/AppIcon/appicon.svg`, checks the executable's product metadata, and creates `HD2Runtime-ModBuilder-vX.Y.Z-win-x64.zip`. A directory package is intentional: MAUI Blazor Hybrid and WebView2/native dependencies are more reliable when kept beside the executable than when forced into a single file.
 
-See [verification results](docs/verification.md), including release provenance, test coverage, GUI scenarios and output locations. Agent screenshots, caches, publish output and generated ZIPs are ignored by Git.
+See [verification results](docs/verification.md), including release provenance, test coverage, UI scenarios and output locations. Agent screenshots, caches, publish output and generated ZIPs are ignored by Git.

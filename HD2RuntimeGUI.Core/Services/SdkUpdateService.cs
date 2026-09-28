@@ -58,7 +58,7 @@ public sealed class SdkUpdateService(ISdkCache cache, IGitHubReleaseClient githu
                 }
                 catch (UnsupportedSdkException) { unsupported++; }
             }
-            if (latest == null) return new(installed, null, true, "No compatible SDK release found. The installed SDK remains available; a newer GUI may be required.");
+            if (latest == null) return new(installed, null, true, "No compatible SDK release found. The installed SDK remains available; a newer HD2Runtime ModBuilder may be required.");
             await JsonStorage.WriteAtomicAsync(releaseFile, latest, ct);
             return new(installed, latest, true, "GitHub release and schema/API compatibility checked." + (unsupported > 0 ? $" Skipped {unsupported} incompatible release(s)." : "") + repaired);
         }

@@ -126,7 +126,7 @@ public sealed class SdkCacheUpgradeTests
         using var e = await StaleCache();
         var vehicle = Path.Combine(Dir(e, Bundled), "VehicleAuthoringCapabilities.json"); File.AppendAllText(vehicle, " ");
         var error = await Assert.ThrowsAsync<IncompleteSdkCacheException>(() => e.Cache.GetVersionAsync(Bundled));
-        Assert.Equal(Bundled, error.Version); Assert.Equal(Magazine, error.File); Assert.Contains("older HD2RuntimeGUI", error.Message);
+        Assert.Equal(Bundled, error.Version); Assert.Equal(Magazine, error.File); Assert.Contains("older HD2Runtime ModBuilder", error.Message);
         Assert.False(File.Exists(Path.Combine(Dir(e, Bundled), Magazine)));
     }
 

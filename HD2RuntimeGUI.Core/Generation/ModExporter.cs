@@ -32,8 +32,8 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
                 ? Json(new { format = 1, name = project.DisplayName, author = project.Author, version = project.Version, resource = project.ResourceId, guid = project.ManagerGuid, requires, optional })
                 : Json(new { format = 1, name = project.DisplayName, author = project.Author, version = project.Version, resource = project.ResourceId, guid = project.ManagerGuid, requires }),
             ["build-report.json"] = usesOptions
-                ? Json(new { resource = project.ResourceId, sdk_version = sdk.Version, runtime_bundled = false, sdk_stubs_bundled = false, requires, optional, builder = $"HD2RuntimeGUI {BuildInfo.Version} / .NET 10", deployed = false, game_launched = false })
-                : Json(new { resource = project.ResourceId, sdk_version = sdk.Version, runtime_bundled = false, sdk_stubs_bundled = false, requires, builder = $"HD2RuntimeGUI {BuildInfo.Version} / .NET 10", deployed = false, game_launched = false }),
+                ? Json(new { resource = project.ResourceId, sdk_version = sdk.Version, runtime_bundled = false, sdk_stubs_bundled = false, requires, optional, builder = $"{BuildInfo.ProductName} {BuildInfo.Version} / .NET 10", deployed = false, game_launched = false })
+                : Json(new { resource = project.ResourceId, sdk_version = sdk.Version, runtime_bundled = false, sdk_stubs_bundled = false, requires, builder = $"{BuildInfo.ProductName} {BuildInfo.Version} / .NET 10", deployed = false, game_launched = false }),
             ["README.md"] = Text($"# {project.DisplayName}\n\n{project.Description}\n\nBy {project.Author}.\n\n{description}\n\nInstall this gameplay ZIP through your mod manager after installing both dependencies.\n"),
             ["src/addon.lua"] = Text(lua),
             [$"mod/{GameplayArchive.ArchiveName}"] = GameplayArchive.Build(project.ResourceId, Text(Wrap(project, lua))),

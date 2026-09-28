@@ -208,7 +208,7 @@
     else if (Dialog == "rename")
     { <h2 id="dialog-title">Rename project</h2><label for="rename">Display name</label><input id="rename" @bind="ModName" maxlength="120" /><p>The resource ID and manager GUID stay the same.</p><div class="actions end"><button @onclick="CloseDialog">Cancel</button><button class="primary" @onclick="SubmitRename">Save name</button></div> }
     else if (Dialog == "remove")
-    { <h2 id="dialog-title">Remove @ModName?</h2><p>This removes the project from your GUI library. Project files and exported ZIPs are kept. Use Open project to add it again.</p><div class="actions end"><button @onclick="CloseDialog">Cancel</button><button class="danger" @onclick="SubmitRemove">Remove from library</button></div> }
+    { <h2 id="dialog-title">Remove @ModName?</h2><p>This removes the project from your ModBuilder library. Project files and exported ZIPs are kept. Use Open project to add it again.</p><div class="actions end"><button @onclick="CloseDialog">Cancel</button><button class="danger" @onclick="SubmitRemove">Remove from library</button></div> }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
     @if (Busy) { <p role="status">@BusyMessage</p> }
     </fieldset></section></div>
