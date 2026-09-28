@@ -79,16 +79,16 @@ public sealed class ModBuilderIaTests
     [Fact] public void Release_uses_the_renamed_repository_and_documents_itself()
     {
         var root = Root();
-        Assert.Contains("<Hd2RuntimeGuiVersion>1.0.1</Hd2RuntimeGuiVersion>", File.ReadAllText(Path.Combine(root, "Directory.Build.props")));
-        Assert.Equal("1.0.1", BuildInfo.Version);
+        Assert.Contains("<Hd2RuntimeGuiVersion>1.1.0</Hd2RuntimeGuiVersion>", File.ReadAllText(Path.Combine(root, "Directory.Build.props")));
+        Assert.Equal("1.1.0", BuildInfo.Version);
         Assert.Equal("https://github.com/SkyeShade/HD2Runtime-ModBuilder", BuildInfo.RepositoryUrl);
-        Assert.Equal("HD2Runtime-ModBuilder/1.0.1", BuildInfo.UserAgent);
+        Assert.Equal("HD2Runtime-ModBuilder/1.1.0", BuildInfo.UserAgent);
         var readme = File.ReadAllText(Path.Combine(root, "README.md"));
         Assert.Contains("# HD2Runtime ModBuilder\n\n**Visual authoring for [HD2Runtime]", readme.ReplaceLineEndings("\n"));
         Assert.Contains("git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git", readme);
-        Assert.Contains("HD2Runtime-ModBuilder-v1.0.1-win-x64.zip", readme); Assert.Contains("HD2RuntimeModBuilder.exe", readme);
+        Assert.Contains("HD2Runtime-ModBuilder-v1.1.0-win-x64.zip", readme); Assert.Contains("HD2RuntimeModBuilder.exe", readme);
         Assert.True(readme.IndexOf("## For developers", StringComparison.Ordinal) > readme.IndexOf("## Download", StringComparison.Ordinal));
-        Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.1.md")));
+        Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.0.md")));
         Assert.Contains("modbuilder-update-v2.json", File.ReadAllText(Path.Combine(root, "docs", "app-updates.md")));
         // Active (non-historical) sources never point at the old repository.
         var active = Directory.GetFiles(root, "*.*", SearchOption.AllDirectories)
