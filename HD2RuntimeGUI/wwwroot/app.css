@@ -1124,3 +1124,7 @@ input[type=checkbox]:checked:before {
 .ia-section .panel { background:transparent; border:0; padding:6px 0; margin:0 }
 .ia-section.advanced > summary { color:var(--muted) }
 .ia-section .group-title { margin:14px 0 6px }
+.icon-import-prompt { display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; margin:0 0 14px; --cat:var(--cat-booster) }
+.icon-import-prompt button { margin-left:auto }
+.icon-import-prompt button.primary { background:var(--cat-booster); color:#15171c; border-color:transparent; font-weight:600 }
+.icon-import-prompt button.primary:disabled { opacity:.6 }

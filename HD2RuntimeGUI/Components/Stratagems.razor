@@ -4,6 +4,8 @@
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Stratagems; }
 <div class="page-heading"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version</div><h1>Stratagems</h1><p>Call-in settings and everything a stratagem delivers: deployed entities, support equipment, mounted weapons and attacks.</p></div></div>
 @if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
+@if (catalog?.Stratagems.Any(s => s.UiIcon != null) == true) { <IconImportPrompt /> }
+else if (catalog != null) { <p class="subtle" data-stratagem-icons-unpublished>Stratagem icons appear once the bound HD2Runtime SDK publishes each stratagem's icon identity (after 0.24.0); until then stratagems show category glyphs.</p> }
 @if (catalog == null) { <section class="panel"><h2>Stratagem authoring requires SDK 0.21</h2><p>Install a compatible SDK in Settings. Existing projects stay pinned until you explicitly rebind from Overview.</p></section> }
 else
 {

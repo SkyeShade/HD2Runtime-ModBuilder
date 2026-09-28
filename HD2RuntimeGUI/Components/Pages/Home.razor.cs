@@ -14,7 +14,16 @@ public partial class Home
     // Local, read-only import of the game's own icon libraries into the GUI data folder (not shipped with the tool).
     private string IconDataPath = HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath() ?? "";
     private Task ImportIcons() => Run(async () => { var m = await Icons.ImportAsync(IconDataPath); Notice = $"Imported {m.Sources.Sum(s => s.Icons)} icons from the installed game."; }, "Reading icon libraries from the game data…");
-    private Task RemoveIcons() => Run(() => { Icons.Clear(); Notice = "Imported game icons removed."; return Task.CompletedTask; });
+    private Task RemoveIcons() => Run(() => { Icons.Clear(); Icons.DisableAutoImport(); Notice = "Imported game icons removed. Automatic import is off until you import again."; return Task.CompletedTask; });
+    // Reads the game's icon libraries once in the background when an install is detected and nothing is imported yet.
+    private async Task AutoImportIconsAsync()
+    {
+        if (Icons.AutoImportPath() is not { } path) return;
+        try { await Icons.ImportAsync(path); }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException) { IconImportError = e.Message; }
+        await InvokeAsync(StateHasChanged);
+    }
+    private string? IconImportError;
     private string Page = "library", Search = "", TargetKey = "", FieldKey = "", NewValue = "", ChangeGroup = "Gameplay", ExportDirectory = "";
     private string ModName = "", Author = "", ResourceId = "", ModVersion = "0.1.0", Description = "";
     // The resource ID follows author and mod name until the user types their own; clearing it resumes the suggestion.
@@ -51,7 +60,7 @@ public partial class Home
     private int ModificationCount => (Workspace.Project?.EntityChanges.Count ?? 0) + (Workspace.Project?.StratagemChanges.Count ?? 0) + (Workspace.Project?.SupportChanges.Count ?? 0) + (Workspace.Project?.CompositionChanges.Count ?? 0) + (Workspace.Project?.ProjectileChanges.Count ?? 0) + (Workspace.Project?.Changes.Count ?? 0) + Workspace.WeaponGroups.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     private bool LegacyDraftModified => SelectedField?.Expected != null && FieldPresentation.Parse(NewValue) is { } value && !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(SelectedField.Expected), value);
     private string SupportedValues => string.Join(", ", Workspace.Metadata!.Transitions.Where(t => t.Resource == TargetKey && t.Field == FieldKey).Select(t => $"{t.Expected} → {t.Value}"));
-    protected override async Task OnInitializedAsync() => await Run(Workspace.InitializeAsync, "Loading projects and checking GitHub releases…");
+    protected override async Task OnInitializedAsync() { await Run(Workspace.InitializeAsync, "Loading projects and checking GitHub releases…"); _ = AutoImportIconsAsync(); }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (FocusDialog && Dialog != null) { FocusDialog = false; await JS.InvokeVoidAsync("builderDialog.focus", DialogElement); }

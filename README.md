@@ -30,11 +30,11 @@ Each stratagem is presented as one object:
 
 Fields are compact rows with name, value, baseline and short safety badges (shared, effect unproven, evidence tier). Details sit behind each row's ⓘ.
 
-**Game icons** are imported locally in Settings → Game icons. The GUI reads the game's own vector icon libraries (`content/ui/shared/resources/generated_icons/stratagem_icons` and `booster_icons`) read-only from your installed Helldivers 2 data folder, fat or slim edition. It converts them to SVG in the local data folder. Game assets are not part of this repository or its releases.
+**Game icons** are imported locally: automatically at startup when a Helldivers 2 install is detected and none are imported, from the prompt on the Boosters page, or from Settings → Game icons (removing them there turns automatic import off until the next manual import). The GUI reads the game's own vector icon libraries (`content/ui/shared/resources/generated_icons/stratagem_icons` and `booster_icons`) read-only from your installed Helldivers 2 data folder, fat or slim edition. It converts them to SVG in the local data folder. Game assets are not part of this repository or its releases.
 
 Icons attach only through published identities:
 - **Boosters:** Runtime's `identity.uiIcon` for the booster's native member must match the game template's own binding. That covers 18 of 20 boosters; Integrated Extinguishers and Surplus EAT Allocation have none.
-- **Stratagems:** Runtime does not yet publish a stratagem's native type or icon key, so stratagems show category-coloured glyphs.
+- **Stratagems:** the GUI uses `uiIcon.iconKey` when the SDK publishes it with state `resolved` (HD2Runtime after 0.24.0: native stratagem type → the game's own icon binding). SDK 0.24.0 publishes none, so stratagems show category-coloured glyphs until a Runtime release includes it.
 
 See [readability pass notes](docs/readability-pass.md).
 

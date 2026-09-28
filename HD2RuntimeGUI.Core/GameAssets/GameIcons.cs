@@ -12,7 +12,7 @@ namespace HD2RuntimeGUI.Core.GameAssets;
 
 // Game-derived UI icons. They are extracted on the user's machine from their own installed game into the local data folder
 // (never shipped in this repository) and are only attached where a published Runtime identity names the icon:
-// boosters through BoosterAuthoringCapabilities identity.uiIcon. Stratagem roots publish no icon or native type yet.
+// boosters through BoosterAuthoringCapabilities identity.uiIcon, stratagems through StratagemAuthoringCapabilities uiIcon (after 0.24.0).
 public sealed record IconSource(string Resource, string Sha256, int Icons);
 public sealed record IconManifest(int FormatVersion, string GameDataPath, DateTimeOffset ImportedAt, IconSource[] Sources,
     Dictionary<string, string> StratagemTypeIcons, Dictionary<string, string> BoosterTypeIcons);
@@ -118,10 +118,14 @@ public sealed class GameIconStore(AppPaths paths)
         foreach (var root in new[] { Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) })
         {
             var path = Path.Combine(root, "Steam", "steamapps", "common", "Helldivers 2", "data");
-            if (root.Length > 0 && Directory.Exists(path)) return path;
+            if (root.Length > 0 && IsGameData(path)) return path;
         }
         return null;
     }
+    // A Helldivers 2 data folder: slim edition (bundles.nxa) or fat edition (boot archive).
+    public static bool IsGameData(string path) => File.Exists(Path.Combine(path, "bundles.nxa")) || File.Exists(Path.Combine(path, "9ba626afa44a3aa3"));
+    // Raised after icons are imported or removed, so open pages refresh their icons.
+    public event Action? Changed;
     private IconManifest? Load()
     {
         var file = Path.Combine(Folder, "manifest.json");
@@ -151,12 +155,12 @@ public sealed class GameIconStore(AppPaths paths)
             await File.WriteAllTextAsync(Path.Combine(stage, "manifest.json"), JsonSerializer.Serialize(result, JsonStorage.Options), ct);
             if (Directory.Exists(Folder)) Directory.Delete(Folder, true);
             Directory.Move(stage, Folder);
-            manifest = result; cache.Clear();
+            manifest = result; cache.Clear(); EnableAutoImport(); Changed?.Invoke();
             return result;
         }
         finally { if (Directory.Exists(stage)) Directory.Delete(stage, true); }
     }
-    public void Clear() { if (Directory.Exists(Folder)) Directory.Delete(Folder, true); manifest = null; cache.Clear(); }
+    public void Clear() { if (Directory.Exists(Folder)) Directory.Delete(Folder, true); manifest = null; cache.Clear(); Changed?.Invoke(); }
     public int Count(string kind) => Directory.Exists(Path.Combine(Folder, kind)) ? Directory.GetFiles(Path.Combine(Folder, kind), "*.svg").Length : 0;
     // SVG text of an imported icon, or null when absent.
     public string? Svg(string kind, string? key)
@@ -173,6 +177,15 @@ public sealed class GameIconStore(AppPaths paths)
     public static string? BoosterIconKey(Booster b, IconManifest? manifest) =>
         b.Identity is { UiIcon: { } icon, NativeName: { } native } && manifest?.BoosterTypeIcons.GetValueOrDefault(native) == icon ? icon : null;
     public string? BoosterIcon(Booster b) => BoosterIconKey(b, Manifest);
-    // Stratagem roots publish neither an icon key nor their native stratagem type, so no stratagem icon is attached.
-    public static string? StratagemIconKey(StratagemDefinition s) => null;
+    // Published identity only: Runtime's uiIcon, resolved structurally from the stratagem's native type to the game's own
+    // icon binding. SDK 0.24.0 and older publish none, so their stratagems keep category glyphs.
+    public static string? StratagemIconKey(StratagemDefinition s) => s.UiIcon is { State: "resolved", IconKey: { } key } ? key : null;
+
+    // Automatic import: once, when a Helldivers 2 install is detected and no icons are cached. Removing icons in Settings
+    // turns it off until the next manual import.
+    private string AutoImportOff => Path.Combine(paths.Root, "icons-auto-import-off");
+    public bool AutoImportEnabled => !File.Exists(AutoImportOff);
+    public string? AutoImportPath() => Manifest == null && AutoImportEnabled ? DefaultGameDataPath() : null;
+    public void DisableAutoImport() { Directory.CreateDirectory(paths.Root); File.WriteAllText(AutoImportOff, "Game icon auto-import turned off in Settings.\n"); }
+    public void EnableAutoImport() { if (File.Exists(AutoImportOff)) File.Delete(AutoImportOff); }
 }

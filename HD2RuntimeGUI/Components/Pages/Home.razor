@@ -71,9 +71,12 @@
                     var boosters = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.Boosters?.Boosters ?? [];
                     <p class="subtle" data-icon-status>@Icons.Count("booster") booster and @Icons.Count("stratagem") stratagem icons imported @icons.ImportedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm") from <code>@icons.GameDataPath</code>.
                         @if (boosters.Length > 0) { <span>@boosters.Count(b => Icons.BoosterIcon(b) is { } k && Icons.Svg("booster", k) != null) of @boosters.Length boosters have a published icon identity.</span> }
-                        Stratagems show category glyphs: HD2Runtime does not yet publish which icon (native stratagem type) each stratagem uses.</p>
+                        @if ((Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Stratagems?.Stratagems is { } roots && roots.Any(s => s.UiIcon != null))
+                        { <span>@roots.Count(s => GameIconStore.StratagemIconKey(s) is { } k && Icons.Svg("stratagem", k) != null) of @roots.Length stratagems have a published icon identity.</span> }
+                        else { <span>Stratagems show category glyphs: this SDK does not publish which icon (native stratagem type) each stratagem uses; HD2Runtime publishes it after 0.24.0.</span> }</p>
                 }
-                else { <p class="subtle" data-icon-status>No icons imported. Lists show category glyphs until icons are imported.</p> }
+                else { <p class="subtle" data-icon-status>No icons imported. Lists show category glyphs until icons are imported.@(Icons.AutoImportEnabled ? " They are imported automatically when a Helldivers 2 install is detected." : " Automatic import is off.")</p> }
+                @if (IconImportError != null) { <p class="notice warning" data-icon-import-error>Automatic icon import failed: @IconImportError</p> }
             </section>
             <section class="panel"><h2>Project storage</h2><code class="path">@Workspace.StorageLocation</code><p>Projects and the library index are human-readable JSON. Removing a project from the library keeps its files. Open project restores it to the library.</p></section>
             <section class="panel"><h2>About this builder</h2><p>HD2RuntimeGUI <span data-build-identity title="@BuildInfo.Commit">@BuildInfo.Identity</span> · .NET 10 · MAUI Blazor Hybrid</p><p>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</p></section>

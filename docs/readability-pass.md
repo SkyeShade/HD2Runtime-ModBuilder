@@ -48,3 +48,9 @@ GUI-only change. Runtime/API behaviour, saved project formats and generated Lua 
   - synthetic fat and slim archive imports;
   - booster icon mapping and missing-icon fallback.
 - **Desktop smoke:** `tools/ia-smoke.mjs` and `tools/runtime024-smoke.mjs` passed.
+
+## Icon import follow-up
+
+- **Import timing:** automatic at startup when a valid install is detected (a data folder with `bundles.nxa` or the fat-edition boot archive) and no icons are imported. The Boosters page shows an **Import game icons** prompt while none are imported, and Settings → Game icons still works. Removing icons turns automatic import off (`icons-auto-import-off` in the data root) until the next manual import.
+- **Refresh:** icons refresh in place when an import finishes. `GameIcon` listens for the store's `Changed` event and resolves a booster's key at render time, so a page opened before the import no longer keeps its letter glyphs.
+- **Stratagems:** the GUI reads the optional `uiIcon` published by HD2Runtime after 0.24.0 (`resolved` states only; keys are validated against the stratagem icon library). The published 0.24.0 SDK has none, so stratagems still show glyphs, and the Stratagems page says why.

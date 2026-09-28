@@ -1,0 +1,28 @@
+@inject HD2RuntimeGUI.Core.GameAssets.GameIconStore Icons
+@implements IDisposable
+@* Shown on pages that use game icons while none are imported: one click reads them from the local game install. *@
+@if (Icons.Manifest == null)
+{
+    <div class="notice cat-note icon-import-prompt" data-icon-import-prompt>
+        <strong>Game icons are not imported.</strong>@(" ")
+        @if (GamePath is { } path)
+        { <span>Lists show letter glyphs until the icons are read from your Helldivers 2 install.</span>
+          <button class="primary" data-import-icons-inline disabled="@Busy" @onclick="() => Import(path)">@(Busy ? "Importing…" : "Import game icons")</button> }
+        else { <span>No Helldivers 2 install was found automatically. Choose its data folder in Settings → Game icons.</span> }
+        @if (Error != null) { <p class="notice warning">@Error</p> }
+    </div>
+}
+@code {
+    private bool Busy; private string? Error;
+    private string? GamePath => HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath();
+    protected override void OnInitialized() => Icons.Changed += Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Icons.Changed -= Refresh;
+    private async Task Import(string path)
+    {
+        Busy = true; Error = null;
+        try { await Icons.ImportAsync(path); }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

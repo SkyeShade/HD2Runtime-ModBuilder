@@ -3,6 +3,7 @@
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Entities?.Boosters; }
 <div class="page-heading cat-booster"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version</div><h1>Boosters</h1><p>Booster effects from <code>hd2.booster</code>. Only values Runtime links to a native record are editable; every booster write requires <code>allow_unverified_effect</code>.</p></div></div>
 @if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
+@if (catalog != null) { <IconImportPrompt /> }
 @if (catalog == null) { <section class="panel" data-booster-unavailable><h2>Booster authoring requires SDK 0.24.0</h2><p>This project is bound to SDK @sdk?.Version. Rebind it from Overview to use the published booster capabilities.</p></section> }
 else
 {
@@ -13,7 +14,7 @@ else
         <div class="weapon-list">@foreach (var b in boosters)
         {
             <button class="resource-item with-icon cat-booster @(Selected == b.Name ? "active" : "")" data-booster-item="@b.Name" data-booster-writable="@(b.Writable ? "true" : "false")" @onclick="() => Selected = b.Name">
-                <GameIcon Kind="booster" Key="@Icons.BoosterIcon(b)" Label="@b.Name" CssClass="cat-booster" /><span class="resource-text">
+                <GameIcon Kind="booster" Booster="b" Label="@b.Name" CssClass="cat-booster" /><span class="resource-text">
                 <strong>@b.Name</strong><small>@(b.Writable ? b.FieldInstanceKeys.Length + " writable" : "Read-only") · @BoosterEditor.Status(b.Identity.Status)@(Modified(b.Name) ? " · modified" : "")</small></span></button>
         }</div>
     </section><div class="weapon-detail">

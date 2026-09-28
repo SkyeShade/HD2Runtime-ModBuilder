@@ -198,4 +198,48 @@ public sealed class ReadabilityPassTests
         Encoding.ASCII.GetBytes(archive).CopyTo(d, names); Encoding.ASCII.GetBytes(bundle).CopyTo(d, names + 17);
         return d;
     }
+
+    // Stratagem icon identity published by Runtime after 0.24.0 (StratagemAuthoringCapabilities uiIcon).
+    private static byte[] WithUiIcons(Action<System.Text.Json.Nodes.JsonArray> edit)
+    {
+        var j = System.Text.Json.Nodes.JsonNode.Parse(SdkCache.BundledComposition()[StratagemCatalogReader.FileName])!;
+        edit(j["stratagems"]!.AsArray()); return Encoding.UTF8.GetBytes(j.ToJsonString());
+    }
+    private static System.Text.Json.Nodes.JsonObject Icon(string state, string? key) => new()
+    {
+        ["state"] = state, ["nativeType"] = key == null ? null : "C4", ["nativeTypeValue"] = key == null ? null : 14, ["iconKey"] = key,
+        ["library"] = key == null ? null : StratagemUiIcon.Library0,
+    };
+    [Fact] public void Published_stratagem_icon_identities_drive_the_icon_key_only_when_resolved()
+    {
+        var catalog = new StratagemCatalogReader().Read(WithUiIcons(roots =>
+        {
+            roots.First(r => (string)r!["name"]! == "B/MD C4 Pack")!["uiIcon"] = Icon("resolved", "StratagemC4");
+            roots.First(r => (string)r!["name"]! == "M-1000 Maxigun")!["uiIcon"] = Icon("empty_template", "StratagemMaxigun");
+            roots.First(r => (string)r!["name"]! == "AC-8 Autocannon")!["uiIcon"] = Icon("unbound", null);
+        }));
+        string? Key(string name) => GameIconStore.StratagemIconKey(catalog.Stratagems.Single(s => s.Name == name));
+        Assert.Equal("StratagemC4", Key("B/MD C4 Pack"));
+        Assert.Null(Key("M-1000 Maxigun")); Assert.Null(Key("AC-8 Autocannon")); Assert.Null(Key("Orbital Precision Strike"));
+    }
+    [Theory] [InlineData("resolved", "../manifest")] [InlineData("resolved", null)] [InlineData("guessed", "StratagemC4")]
+    public void Unsafe_stratagem_icon_identities_are_rejected(string state, string? key) =>
+        Assert.Throws<InvalidDataException>(() => new StratagemCatalogReader().Read(WithUiIcons(roots => roots[0]!["uiIcon"] = Icon(state, key))));
+
+    [Fact] public async Task Icons_import_automatically_once_until_removed_and_notify_open_pages()
+    {
+        using var e = new TestEnvironment(); var data = Path.Combine(e.Paths.Root, "game-fat"); Directory.CreateDirectory(data);
+        Assert.False(GameIconStore.IsGameData(data));
+        File.WriteAllBytes(Path.Combine(data, "9ba626afa44a3aa3"), Archive([]));
+        File.WriteAllBytes(Path.Combine(data, "0123456789abcdef"), Archive(Libraries()));
+        Assert.True(GameIconStore.IsGameData(data));
+        var store = new GameIconStore(e.Paths); var changes = 0; store.Changed += () => changes++;
+        Assert.True(store.AutoImportEnabled);
+        await store.ImportAsync(data); Assert.Equal(1, changes); Assert.Null(store.AutoImportPath());
+        // Removing icons turns automatic import off; a manual import turns it back on.
+        store.Clear(); store.DisableAutoImport(); Assert.Equal(2, changes);
+        Assert.False(store.AutoImportEnabled); Assert.Null(store.AutoImportPath());
+        Assert.False(new GameIconStore(e.Paths).AutoImportEnabled);
+        await store.ImportAsync(data); Assert.True(store.AutoImportEnabled); Assert.Equal(3, changes);
+    }
 }

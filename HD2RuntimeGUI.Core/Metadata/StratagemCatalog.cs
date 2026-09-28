@@ -19,7 +19,15 @@ public sealed record StratagemDefinition(string Name, string Family, string Root
     string[] AttackRoles, StratagemAvailability CooldownCapability, StratagemAvailability MaxUses,
     StratagemAvailability CallInTime, int? UsesPerRearm, double? RearmTime,
     StratagemAvailability? BarrageScheduling, StratagemEntityIdentity? DeployedEntity = null,
-    bool? MineScopeDeferred = null, bool? MineInstanceResolved = null, string? SemanticId = null, StratagemDelivers? Delivers = null);
+    bool? MineScopeDeferred = null, bool? MineInstanceResolved = null, string? SemanticId = null, StratagemDelivers? Delivers = null,
+    StratagemUiIcon? UiIcon = null);
+// Game UI icon identity published by Runtime (after 0.24.0): native StratagemType -> icon key in the game's own icon library.
+// Artwork is never in the SDK; tooling reads it from the local game install. Only state "resolved" names usable vector artwork.
+public sealed record StratagemUiIcon(string State, string? NativeType = null, int? NativeTypeValue = null, string? IconKey = null, string? Library = null, string? Reason = null)
+{
+    public const string Library0 = "content/ui/shared/resources/generated_icons/stratagem_icons";
+    public static readonly string[] States = ["resolved", "empty_template", "unbound", "no_native_root"];
+}
 // Descriptive (non-authoring) graph nodes. Schema 1 nodes carry wiki kind/roles; schema 2 defensive nodes carry kind/source/evidence.
 public sealed record StratagemBranch(string Id, string Name, string? WikiKind, string[]? SemanticRoles, string? ParentId,
     string[] ChildIds, string Stratagem, string Family, string Correlation, string? Kind = null, string? SourcePath = null,
@@ -178,6 +186,10 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                 && c.Summary.ImportedAttackBranches == c.SemanticBranches.Length && c.Summary.NativeBackingBranches == c.Attacks.Length);
             if (v2) ValidateV2(c, roots, Check);
             else Check(c.Stratagems.All(s => s.DeployedEntity == null) && c.FieldInstances.All(f => f.Target.Entity == null));
+            // Optional icon identity: only a known state; a named icon must be a plain template key in the stratagem icon library.
+            Check(c.Stratagems.All(s => s.UiIcon is null || StratagemUiIcon.States.Contains(s.UiIcon.State)
+                && (s.UiIcon.IconKey is null ? s.UiIcon.State is "unbound" or "no_native_root"
+                    : Regex.IsMatch(s.UiIcon.IconKey, @"\A[A-Za-z][A-Za-z0-9]{0,63}\z") && s.UiIcon.Library == StratagemUiIcon.Library0)));
             return c;
         }
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or ArgumentException)
