@@ -109,19 +109,22 @@ public static class ProjectIdentity
             throw new InvalidDataException("Invalid semantic stratagem overrides.");
         foreach (var c in p.StratagemChanges) SemVersion.Parse(c.BaselineSdkVersion);
         foreach (var a in p.StratagemApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid stratagem approval.");
-        // Format 6: vehicle/backpack changes. Targets are published names and zone_N / slot_N identities; mount values are published semantic IDs.
+        // Format 6: vehicle/backpack (0.23.0) and magazine attachment (0.23.1) changes. Targets are published names and zone_N / slot_N identities; mount values are published semantic IDs.
         static bool Slot(string? s, string prefix) => s != null && Regex.IsMatch(s, @"\A" + prefix + @"_[0-9]{1,3}\z");
         if (p.EntityChanges == null || p.EntityApprovals == null || p.EntityChanges.Count > 4000 || p.EntityApprovals.Count > 2000
             || p.EntityChanges.Select(c => c.Id).Distinct().Count() != p.EntityChanges.Count
             || p.EntityChanges.Select(c => c.InstanceKey).Distinct().Count() != p.EntityChanges.Count
             || p.EntityChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Entity) || c.Entity.Length > 256 || c.SemanticFieldId.Length > 128
-                || !c.InstanceKey.StartsWith(c.Resource + ":", StringComparison.Ordinal) || c.InstanceKey.Length > 512
+                || !c.InstanceKey.StartsWith((c.Resource == "weapon_attachment" ? "attachment" : c.Resource) + ":", StringComparison.Ordinal) || c.InstanceKey.Length > 512
                 || !((c.Resource, c.Path) switch
                 {
                     ("vehicle", "entity") => c.Zone == null && c.Mount == null,
                     ("vehicle", "damage_zone") => Slot(c.Zone, "zone") && c.Mount == null,
                     ("vehicle", "mount") => Slot(c.Mount, "slot") && c.Zone == null && c.FieldType == EntityField.ReferenceType,
                     ("backpack", "backpack") => c.Zone == null && c.Mount == null,
+                    // 0.23.1 magazine attachment definitions: Entity is the published attachment semantic ID.
+                    ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType == "integer"
+                        && Regex.IsMatch(c.Entity, @"\Aweapon-attachment/v1/magazine/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
                     _ => false,
                 })
                 || (c.FieldType == EntityField.ReferenceType

@@ -9,20 +9,20 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// Runtime 0.23.0: Shield Generator Relay base vs shield, hd2.vehicle, vehicle mounts and hd2.backpack (bundled current SDK).
+// Runtime 0.23.0: Shield Generator Relay base vs shield, hd2.vehicle, vehicle mounts and hd2.backpack (pinned to the published 0.23.0 archive).
 public sealed class Runtime023Tests
 {
     private const string Relay = "FX-12 Shield Generator Relay", Gunner = "M-102 Gunner FRV", Bastion = "TD-220 Bastion MK XVI", Jump = "LIFT-850 Jump Pack";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e, string resource = "mods/tests/runtime023")
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync();
+        var sdk = await SdkFixtures.Install(e, "0.23.0");
         var w = e.Workspace(); await w.CreateAsync(new("Runtime023", "Tests", resource, "0.1.0"), sdk); return w;
     }
     private static StratagemField Strat(BuilderWorkspace w, string name, string id, string? zone = null) => w.Metadata!.Stratagems!.FieldInstances.Single(f =>
         f.Target.Stratagem == name && f.SemanticFieldId == id && (zone == null || f.Target.Zone == zone));
     private static EntityField Entity(BuilderWorkspace w, string entity, string id, string? zone = null, string? mount = null) => w.Metadata!.Entities!.AllFields.Single(f =>
         f.Target.Entity == entity && f.SemanticFieldId == id && f.Target.Zone == zone && f.Target.Mount == mount);
-    private static JsonNode Json(string file) => JsonNode.Parse(SdkCache.BundledComposition()[file])!;
+    private static JsonNode Json(string file) => JsonNode.Parse(SdkFixtures.Entry("0.23.0", file))!;
     private static EntityAuthoring Read(JsonNode vehicles, JsonNode backpacks, JsonNode? stratagems = null) => EntityAuthoringReader.Read(
         Encoding.UTF8.GetBytes(vehicles.ToJsonString()), Encoding.UTF8.GetBytes(backpacks.ToJsonString()), "0.23.0",
         new StratagemCatalogReader().Read(Encoding.UTF8.GetBytes((stratagems ?? Json(StratagemCatalogReader.FileName)).ToJsonString())));
@@ -197,7 +197,7 @@ public sealed class Runtime023Tests
         var sway = old.SupportAuthoring!.FieldInstances.Single(f => f.SupportWeapon == "GR-8 Recoilless Rifle" && f.SemanticFieldId == "weapon.sway");
         await w.SetStratagemAsync(health.InstanceKey, "900"); await w.SetSupportAsync(sway.InstanceKey, "0.5");
         var keys = (w.Project!.StratagemChanges.Single().InstanceKey, w.Project.SupportChanges.Single().InstanceKey);
-        File.Delete(e.Paths.CachePath("current.json")); await e.Cache.GetCurrentAsync();
+        await SdkFixtures.Install(e, "0.23.0");
         await w.OpenAsync(w.Project.Id); Assert.Equal("0.22.1", w.Project!.SdkVersion); Assert.Null(w.Metadata!.Entities); Assert.Equal(5, w.Project.FormatVersion);
         await w.RebindToInstalledSdkAsync();
         Assert.Equal("0.23.0", w.Project.SdkVersion); Assert.NotNull(w.Metadata!.Entities); Assert.Null(w.BuildError);

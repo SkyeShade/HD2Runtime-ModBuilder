@@ -1,0 +1,34 @@
+@inject BuilderWorkspace Workspace
+@* Attachment-owned magazine values for one player weapon (SDK 0.23.1+). The weapon-level capacity is never aliased onto these. *@
+@{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.Attachments; var entry = catalog?.Weapon(Weapon); }
+@if (catalog != null && entry != null)
+{
+    var resolved = catalog.Resolved(entry); var unresolved = entry.MagazineSlot.Options.Where(o => !o.Resolved).ToArray();
+    <section class="semantic-section magazine-attachments" data-magazine-attachments="@Weapon"><h2>Magazine attachments
+        <span class="badge">@resolved.Count resolved</span>@if (unresolved.Length > 0) { <span class="badge" data-unresolved-count>@unresolved.Length unresolved</span> }</h2>
+        <p class="subtle">This weapon's round count and magazines are owned by its magazine attachment definitions. @catalog.OwnershipModel.WriteScope.</p>
+        @if (entry.MagazineSlot.BaseRecordCapacityIsPlaceholder)
+        { <p class="notice" data-placeholder-capacity>The weapon record's own capacity is a placeholder and stays read-only. The default magazine attachment below carries the value the game uses.</p> }
+        @if (resolved.Count == 0) { <p class="notice" data-no-resolved>No magazine attachment definition is resolved for this weapon.</p> }
+        @foreach (var (attachment, option, relationship) in resolved)
+        { <MagazineAttachmentCard @key="attachment.SemanticId" Attachment="@attachment.SemanticId" Option="@option?.Name" Relationship="@relationship" Changed="Changed" /> }
+        @if (unresolved.Length > 0)
+        {
+            <h3 class="group-title">Unresolved options</h3>
+            @foreach (var o in unresolved)
+            {
+                <details class="panel unresolved-option" data-unresolved-option="@o.Name"><summary><strong>@o.Name</strong> <span class="badge">@(o.Relationship == "catalog_effect_fingerprint_ambiguous" ? "Ambiguous" : "No native match")</span>
+                    @if (o.Default) { <span class="badge">Catalog default</span> }</summary>
+                    <p class="subtle">@o.Blocker</p>
+                    <p class="subtle">Published effects: @(o.PublishedEffects.Capacity?.ToString() ?? "—") rounds · @(o.PublishedEffects.StartingMagazines?.ToString() ?? "—") starting · @(o.PublishedEffects.MaxMagazines?.ToString() ?? "—") max magazines</p>
+                    @if (o.Candidates.Length > 0) { <p class="subtle">Candidates (not chosen):</p><ul>@foreach (var c in o.Candidates) { <li><code>@c</code> @catalog.Attachment(c)?.Name</li> }</ul> }
+                </details>
+            }
+        }
+        <p class="subtle" data-selection-blocked>Changing which magazine is selected is not supported: @catalog.Selection.Reason</p>
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+}

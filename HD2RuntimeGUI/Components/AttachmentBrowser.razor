@@ -4,7 +4,9 @@
 @if (entry?.Categories is { Count: > 0 } categories)
 {
     <section class="semantic-section" data-section="Attachments"><h2>Attachments <span class="badge">@entry.AttachmentCount · Read-only</span></h2>
-    <p class="subtle">Catalog compatibility is separate from proven native identity. No option-owned writable effects are published.</p>
+    <p class="subtle">Catalog compatibility is separate from proven native identity.@(Workspace.Metadata?.Entities?.Attachments is { } magazines ? "" : " No option-owned writable effects are published.")</p>
+    @if (Workspace.Metadata?.Entities?.Attachments is { } superseding && categories.Any(c => c.Category == "Magazine"))
+    { <p class="notice" data-magazine-owner-superseded>Magazine ammo ownership from @superseding.Supersedes.File is superseded by the Magazine attachments section: @superseding.Supersedes.Note</p> }
     @foreach (var category in categories)
     {
         <details class="panel composition-inspection" data-attachment-category="@category.Category"><summary><strong>@category.Category</strong><span class="badge">@category.Options.Count</span></summary>

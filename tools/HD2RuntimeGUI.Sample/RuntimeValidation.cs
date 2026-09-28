@@ -87,7 +87,8 @@ internal static class RuntimeValidation
                 {
                     var value = f.IsReference ? replacement! : f.Type == "integer" ? (f.CurrentDefault.GetInt64() + 1).ToString() : JsonSerializer.Serialize((float)(f.CurrentDefault.GetDouble() + 0.5));
                     var c = entitySvc.Create(sdk, f.InstanceKey, value);
-                    if (f.IsReference) c = c with { ReferenceAcknowledgement = EntityChangeService.ReferenceEvidence(f, c.DesiredValue) };
+                    if (f.Acknowledgement != null) c = c with { ReferenceAcknowledgement = EntityChangeService.ReferenceEvidence(f, c.DesiredValue) };
+                    if (f.AllowSharedRequired) p.EntityApprovals[f.SharedScopeKey] = EntityChangeService.ApprovalEvidence(f);
                     p.EntityChanges.Add(c);
                 }
                 return p;
@@ -99,6 +100,8 @@ internal static class RuntimeValidation
                     var program = generator.Generate(EntityProject([(f, replacement)]), sdk);
                     Expect(f.InstanceKey + (replacement == null ? "" : " -> " + replacement), program, true);
                     if (f.IsReference) { Expect(f.InstanceKey + " without allow_unverified_reference", program.Replace("allow_unverified_reference=true,", ""), false); rejected++; }
+                    if (f.Acknowledgement == "allow_unverified_effect") { Expect(f.InstanceKey + " without allow_unverified_effect", program.Replace("allow_unverified_effect=true,", ""), false); rejected++; }
+                    if (f.AllowSharedRequired) { Expect(f.InstanceKey + " without allow_shared", program.Replace("allow_shared=true,", ""), false); rejected++; }
                 }
                 if (f.IsReference) continue;
                 var program2 = generator.Generate(EntityProject([(f, null)]), sdk);

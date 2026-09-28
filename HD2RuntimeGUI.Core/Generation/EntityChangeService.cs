@@ -64,14 +64,16 @@ public sealed class EntityChangeService : IEntityChangeService
         if (!EntityScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Vehicle/backpack baseline changed. Review before accepting the new baseline.");
         _ = EntityScalar.Normalize(f, c.DesiredValue);
         if (f.AllowSharedRequired && !Approved(p, f)) throw new InvalidDataException("Acknowledge this shared object before building.");
-        if (f.IsReference && c.ReferenceAcknowledgement != ReferenceEvidence(f, c.DesiredValue))
-            throw new InvalidDataException("Acknowledge the unverified mount reference and package-loading risk before building.");
+        if (f.Acknowledgement != null && c.ReferenceAcknowledgement != ReferenceEvidence(f, c.DesiredValue))
+            throw new InvalidDataException(f.IsReference ? "Acknowledge the unverified mount reference and package-loading risk before building."
+                : "Acknowledge the unverified magazine attachment effect before building.");
     }
     public static string Evidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
         f.BackingObjectId, f.OperationGroup, f.PlanGroup, f.SharedScopeKey, f.Shared, Tier = f.Evidence.Tier, f.AllowedValues, f.Acknowledgement, f.ResidencyWarning }));
-    // The acknowledgement covers one field, one replacement and the exact published warning/evidence tier.
+    // Acknowledgement of a Runtime-required unverified opt-in. A mount reference acknowledgement covers one exact replacement;
+    // an unverified-effect acknowledgement covers the field regardless of value. Both bind the published warning and evidence tier.
     public static string ReferenceEvidence(EntityField f, JsonElement desired) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.InstanceKey,
-        Desired = desired.ValueKind == JsonValueKind.String ? desired.GetString() : desired.GetRawText(), f.Acknowledgement, f.ResidencyWarning, Tier = f.Evidence.Tier }));
+        Desired = !f.IsReference ? null : desired.ValueKind == JsonValueKind.String ? desired.GetString() : desired.GetRawText(), f.Acknowledgement, f.ResidencyWarning, Tier = f.Evidence.Tier }));
     public static string ApprovalEvidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.SharedScopeKey, f.Shared, f.AllowSharedRequired,
         f.ReviewedScopeComplete, f.DynamicConsumersPossible, Consumers = f.SharedConsumers.Select(c => c.Vehicle ?? c.Backpack).Order(StringComparer.Ordinal) }));
     public static bool Approved(ModProject p, EntityField f) => p.EntityApprovals.GetValueOrDefault(f.SharedScopeKey) == ApprovalEvidence(f);
@@ -111,7 +113,8 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
                     throw new InvalidDataException("Unsupported vehicle/backpack operation contract.");
                 var body = "{\n    id=" + LuaGenerator.Quote("entity-" + SupportChangeService.Hash(project.ResourceId + "\n" + group.Key)[..24]) + ",\n    target=" + Target(f.Target) + ",\n";
                 if (f.AllowSharedRequired) body += "    allow_shared=true,\n";
-                if (rows.Any(r => r.Field.IsReference)) body += "    allow_unverified_reference=true,\n";
+                if (rows.Any(r => r.Field.Acknowledgement == "allow_unverified_reference")) body += "    allow_unverified_reference=true,\n";
+                if (rows.Any(r => r.Field.Acknowledgement == "allow_unverified_effect")) body += "    allow_unverified_effect=true,\n";
                 if (rows.Length == 1)
                 { var r = rows[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},\n    value={EntityScalar.Lua(r.Field, r.Change.DesiredValue)},\n"; }
                 else body += "    changes={\n" + string.Join("\n", rows.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},value={EntityScalar.Lua(r.Field, r.Change.DesiredValue)}}},")) + "\n    },\n";
@@ -130,6 +133,7 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         "damage_zone" => "hd2.vehicle(" + LuaGenerator.Quote(t.Vehicle!) + "):damage_zone(" + LuaGenerator.Quote(t.Zone!) + ")",
         "mount" => "hd2.vehicle(" + LuaGenerator.Quote(t.Vehicle!) + "):mount(" + LuaGenerator.Quote(t.Mount!) + ")",
         "backpack" => "hd2.backpack(" + LuaGenerator.Quote(t.Backpack!) + ")",
+        "magazine" when t.Resource == "weapon_attachment" => "hd2.weapon_attachment(" + LuaGenerator.Quote(t.Attachment!) + ")",
         _ => throw new InvalidDataException("Unsupported vehicle/backpack target."),
     };
 }

@@ -1,6 +1,6 @@
 # HD2RuntimeGUI
 
-A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports the **0.23 guarded vehicle, backpack, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
+A Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports the **0.23 guarded vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
 
 Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
 
@@ -34,6 +34,14 @@ Mount selectors list only Runtime-published replacements of the same attack fami
 **Backpacks** (`hd2.backpack`) covers 13 backpacks: 9 writable fields (Jump Pack recharge and launch velocity, Hover Pack recharge, Shield Generator Pack radius and health, Ballistic and Directional Shield health and armor) and read-only fields with Runtime's reasons.
 
 The **FX-12 Shield Generator Relay** separates the physical emitter/base (health, armor, lifetime, body zone) from its shield projector (radius, shield health). Evidence badges distinguish in-game tested, schema-proven, live-write confirmed and structure-only fields. See [0.23 verification](docs/runtime023-verification.md).
+
+## Magazine attachments (SDK 0.23.1)
+
+For 20 weapons, HD2Runtime publishes that round count and magazines are owned by magazine attachment definitions (`hd2.weapon_attachment`, `MagazineAttachmentCapabilities.json`), not by the weapon record. Those weapons get a **Magazine attachments** section in Player Weapons. It lists each resolved attachment separately: name, stable semantic ID, default-magazine flag, evidence, capacity, starting magazines, magazines from supply and spare magazines. For example, the AR-23C Liberator Concussive's Drum is its default magazine, with 60 rounds.
+
+Ownership comes only from the published relationships. Ambiguous or unmatched options (for example the Concussive's Short and Extended magazines) stay unresolved, with Runtime's blocker. The weapon-level capacity is never aliased and stays read-only. Magazine selection is not offered.
+
+Every attachment write edits a shared definition whose in-game re-application is unproven. The editor shows compact `allow_shared` / `allow_unverified_effect` badges and needs one acknowledgement per attachment before `allow_shared=true, allow_unverified_effect=true` is generated. Projects on older SDKs are unchanged. See [0.23.1 verification](docs/runtime0231-verification.md).
 
 ## Authoring
 
@@ -112,9 +120,9 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 ## SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.22.0 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.23.1 metadata supports first launch offline.
 
-Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only fifteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities and CompositionPlanCapabilities contracts. Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
+Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only eighteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities, CompositionPlanCapabilities, VehicleAuthoringCapabilities, BackpackAuthoringCapabilities and MagazineAttachmentCapabilities contracts (the last three only for the SDK versions that publish them). Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
 The SDK metadata and capability catalog must agree on version and supported schemas/API. For 0.20.1's reused 0.19 player artifacts, only the exact published bytes are accepted by digest; all other checks still apply. All metadata files are staged in a temporary directory; a validated version directory is installed before the current pointer changes. Cached version content is immutable. Failed updates preserve the previous SDK. Offline mode retains the cached SDK and last successful release information, with an explicit unverified status.
 

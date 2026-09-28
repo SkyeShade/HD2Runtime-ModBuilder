@@ -7,11 +7,14 @@ namespace HD2RuntimeGUI.Core.Metadata;
 
 // Runtime 0.23.0+ guarded vehicle (hd2.vehicle) and backpack (hd2.backpack) authoring catalogs.
 // Every control comes from a published canonical field instance; mount replacements come only from published allowed values.
-public sealed record EntityTarget(string Resource, string Path, string? Vehicle = null, string? Backpack = null, string? Zone = null, string? Mount = null)
+public sealed record EntityTarget(string Resource, string Path, string? Vehicle = null, string? Backpack = null, string? Zone = null, string? Mount = null,
+    string? Attachment = null)
 {
-    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? "";
+    // Vehicle or backpack name, or the magazine attachment semantic ID (weapon_attachment targets, 0.23.1+).
+    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? "";
 }
-public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null);
+public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
+    string? NativeOwner = null, string? GameplayWriteEffect = null);
 public sealed record EntityConsumer(string? Vehicle = null, string? Backpack = null);
 public sealed record EntityField(string InstanceKey, string SemanticFieldId, string DisplayName, string Type, string? Unit, JsonElement CurrentDefault,
     bool Editable, string? Reason, EntityTarget Target, string BackingObjectId, string OperationGroup, string PlanGroup, string Requires,
@@ -77,7 +80,9 @@ public sealed class EntityAuthoring
     public required BackpackCatalog Backpacks { get; init; }
     // Stratagem root name -> ("vehicle"|"backpack", entity name) for validated call-in links.
     public required IReadOnlyDictionary<string, (string Resource, string Entity)> CallIns { get; init; }
-    public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances);
+    // Magazine attachment definitions (hd2.weapon_attachment, SDK 0.23.1+); null on 0.23.0.
+    public MagazineAttachmentCatalog? Attachments { get; init; }
+    public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []);
     public EntityField? Field(string instanceKey) => AllFields.FirstOrDefault(f => f.InstanceKey == instanceKey);
     public string? CallInFor(string resource, string entity) => CallIns.FirstOrDefault(p => p.Value == (resource, entity)).Key;
 }

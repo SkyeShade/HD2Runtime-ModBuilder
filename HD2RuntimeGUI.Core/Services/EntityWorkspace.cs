@@ -1,4 +1,5 @@
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
 namespace HD2RuntimeGUI.Core.Services;
@@ -40,6 +41,9 @@ public sealed partial class BuilderWorkspace
                 ReferenceAcknowledgement = old.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(f, next.DesiredValue) ? old.ReferenceAcknowledgement : null };
             p.EntityChanges.Remove(old);
         }
+        // A magazine attachment is acknowledged as a whole: new edits inherit an existing acknowledgement of the same definition.
+        else if (f.Acknowledgement == "allow_unverified_effect" && EntityChangeService.Approved(p, f))
+            next = next with { ReferenceAcknowledgement = EntityChangeService.ReferenceEvidence(f, next.DesiredValue) };
         if (!EntityScalar.Equal(f, next.DesiredValue, f.CurrentDefault)) p.EntityChanges.Add(next);
     });
     public Task SetEntityReferenceAcknowledgedAsync(string instance, bool acknowledged) => EditEntityAsync(p =>
@@ -49,6 +53,24 @@ public sealed partial class BuilderWorkspace
         if (!f.IsReference) throw new InvalidDataException("Only mount references need this acknowledgement.");
         p.EntityChanges[p.EntityChanges.IndexOf(old)] = old with { ReferenceAcknowledgement = acknowledged ? EntityChangeService.ReferenceEvidence(f, old.DesiredValue) : null };
     });
+    // One acknowledgement per magazine attachment definition: records the shared-scope approval (allow_shared) and the
+    // unverified-effect acknowledgement (allow_unverified_effect) for every edited field of that definition.
+    public Task SetAttachmentAcknowledgedAsync(string attachment, bool acknowledged) => EditEntityAsync(p =>
+    {
+        var catalog = EntityChangeService.Catalog(Metadata!).Attachments ?? throw new InvalidDataException("Rebind to SDK 0.23.1 or newer for magazine attachments.");
+        var fields = catalog.FieldInstances.Where(f => f.Target.Attachment == attachment).ToArray();
+        if (fields.Length == 0) throw new InvalidDataException("Unknown magazine attachment.");
+        if (acknowledged) p.EntityApprovals[fields[0].SharedScopeKey] = EntityChangeService.ApprovalEvidence(fields[0]); else p.EntityApprovals.Remove(fields[0].SharedScopeKey);
+        p.EntityChanges = p.EntityChanges.Select(c => fields.FirstOrDefault(f => f.InstanceKey == c.InstanceKey) is { } f
+            ? c with { ReferenceAcknowledgement = acknowledged ? EntityChangeService.ReferenceEvidence(f, c.DesiredValue) : null } : c).ToList();
+    });
+    public static bool AttachmentAcknowledged(ModProject? p, MagazineAttachmentCatalog catalog, string attachment)
+    {
+        var fields = catalog.FieldInstances.Where(f => f.Target.Attachment == attachment).ToArray();
+        var saved = fields.Select(f => (Field: f, Change: EntityChangeService.Saved(p, f))).Where(x => x.Change != null).ToArray();
+        return p != null && fields.Length > 0 && EntityChangeService.Approved(p, fields[0])
+            && saved.All(x => x.Change!.ReferenceAcknowledgement == EntityChangeService.ReferenceEvidence(x.Field, x.Change.DesiredValue));
+    }
     public Task ResetEntityAsync(string? resource = null, string? entity = null, string? instance = null) => EditEntityAsync(p =>
         p.EntityChanges.RemoveAll(c => (resource == null || c.Resource == resource) && (entity == null || c.Entity == entity) && (instance == null || c.InstanceKey == instance)));
     public Task ToggleEntityAsync(string instance) => EditEntityAsync(p =>
