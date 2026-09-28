@@ -6,5 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Metadata/Bundled/*.json" />
+    <!-- Release package / updater contract, shared with the standalone updater. -->
+    <Compile Include="../HD2RuntimeModBuilder.Updater/UpdateContract.cs" Link="Updates/UpdateContract.cs" />
   </ItemGroup>
 </Project>

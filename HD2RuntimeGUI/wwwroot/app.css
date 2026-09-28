@@ -1279,3 +1279,20 @@ input[type=checkbox]:checked:before {
 .quick-author-label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-right:6px }
 /* Vehicle / backpack editor hosted under its Support stratagem entry. */
 .delivered-panel { border-left:3px solid var(--cat-support) } .delivered-panel h3 { margin:2px 0 8px; font-size:17px }
+
+/* HD2Runtime ModBuilder application update banner (under the titlebar) and Settings → Application updates. */
+.app-update-banner { display:flex; align-items:center; gap:16px; margin:14px 30px 0; padding:14px 18px; border:1px solid var(--brand-yellow); border-left-width:5px; border-radius:10px;
+    background:linear-gradient(90deg, color-mix(in srgb, var(--brand-yellow) 14%, #16181d), #16181d 70%); color:var(--text, #e9e6dc) }
+.app-update-banner .app-update-mark { flex-shrink:0 }
+.app-update-text { display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; font-size:13px }
+.app-update-text strong { font-size:15px; color:var(--brand-yellow) }
+.app-update-stage { color:var(--brand-yellow) }
+.app-update-error { color:#ffb4b4 }
+.app-update-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end }
+.app-update-dismiss { background:transparent }
+.app-update-result { display:flex; align-items:center; gap:12px; margin:14px 30px 0; padding:10px 16px; border-radius:8px; font-size:12.5px; border:1px solid #385c49; background:#1c3027; color:#a5dfbb }
+.app-update-result.failed { border-color:#64353e; background:#321f25; color:#ffb4b4 }
+.app-update-result > span { flex:1 }
+.app-update-close { background:transparent; border:0 }
+.badge.brand { color:var(--brand-yellow); border-color:var(--brand-yellow); background:color-mix(in srgb, var(--brand-yellow) 10%, transparent) }
+.app-update-settings .panel-heading > .badge { align-self:center }

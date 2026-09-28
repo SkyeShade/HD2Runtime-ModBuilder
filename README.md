@@ -1,20 +1,52 @@
+<p align="center"><img src="HD2RuntimeGUI/wwwroot/brand/modbuilder-icon.svg" width="96" alt="HD2Runtime ModBuilder reticle icon"></p>
+
 # HD2Runtime ModBuilder
 
-![HD2Runtime ModBuilder](HD2RuntimeGUI/wwwroot/brand/modbuilder-icon.svg)
+**Visual authoring for [HD2Runtime](https://github.com/SkyeShade/HD2Runtime) mods.**
 
-HD2Runtime ModBuilder is a Windows-first .NET 10 MAUI Blazor Hybrid mod builder for the separately installed [HD2Runtime](https://github.com/SkyeShade/HD2Runtime). Version 0.4.0 supports **HD2Runtime SDK 0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**.
+HD2Runtime ModBuilder is a Windows app for building Helldivers 2 gameplay mods on top of HD2Runtime, without writing Lua or knowing memory layouts. Pick what to change, set the value, review it, and build a mod ZIP.
 
-Create a project → Player Weapons → search a weapon → save semantic changes → review Changes / Lua Preview → Build Mod. No Lua or memory-layout knowledge is required.
+- **Edit weapons, stratagems, vehicles, backpacks and Boosters.** Player Weapons; Stratagems split into Support (support weapons, vehicles and backpacks), Offensive and Defensive; and Boosters. Fields are grouped in compact editors with the base value next to yours.
+- **Guarded Runtime Lua, generated for you.** Every change becomes guarded HD2Runtime calls (`hd2.patch`, `hd2.transaction`, `hd2.plan`, `hd2.ensure`) with the expected base value, so a mod refuses to write when the game data does not match. Shared or unproven writes need an explicit acknowledgement first.
+- **SDK-driven.** Everything you can edit comes from the published HD2Runtime SDK metadata, never from a hand-kept list. Projects stay bound to their SDK version until you choose to rebind, and the app keeps the SDK up to date from HD2Runtime's releases.
+- **Review, then Build / Export.** Changes lists every edit; Lua Preview shows the exact generated source; Build / Export writes a mod-manager-ready ZIP.
+- **Your own game icons.** Stratagem and booster icons are read from your local Helldivers 2 installation and stored on your PC. No game artwork is shipped.
+- **Optional in-game Mod Options.** Expose edited values as sliders and choices, with one master toggle, in the game's MODS menu (CowboyBingus Mod Options Menu, HD2Runtime SDK 0.25+).
+- **Updates itself.** New ModBuilder releases are offered in the app and installed with one click.
 
-The repository, project and executable keep the technical name `HD2RuntimeGUI` (`HD2RuntimeGUI.exe`, `%LOCALAPPDATA%HD2RuntimeGUI`), so existing installations and projects keep working after the rename.
+## Download
+
+1. Download **`HD2Runtime-ModBuilder-v1.0.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
+2. Extract it to a folder you can write to (for example `Documents\HD2Runtime ModBuilder`).
+3. Run **`HD2RuntimeGUI.exe`**. The window, taskbar and file properties show HD2Runtime ModBuilder.
+
+Windows 10/11 x64 with the Microsoft Edge WebView2 Runtime (included with Windows 11) is required; .NET is bundled. Install [HD2Runtime](https://github.com/SkyeShade/HD2Runtime) and its dependencies to use the mods you build. The executable is unsigned, so SmartScreen may warn on first launch.
+
+Your projects, SDK cache, imported icons and settings live in `%LOCALAPPDATA%\HD2RuntimeGUI\`, outside the app folder, so updating or moving the app never touches them.
+
+### Updating
+
+HD2Runtime ModBuilder checks [GitHub Releases](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases) once when it starts. When a newer version exists, a banner offers **Install update**: the app downloads the release, verifies its SHA-256, closes, replaces its own files and restarts. **Settings → Application updates** shows the current and latest version and has **Check for updates**. If the app folder is not writable, it links to the release page instead. See [the update design](docs/app-updates.md).
+
+Release notes: [1.0.0](docs/release-notes/v1.0.0.md).
+
+## Why "HD2RuntimeGUI" still appears
+
+The product was renamed from HD2RuntimeGUI to HD2Runtime ModBuilder, and the repository moved to [SkyeShade/HD2Runtime-ModBuilder](https://github.com/SkyeShade/HD2Runtime-ModBuilder). Technical identifiers keep the old name so existing installations and projects continue to work: the executable `HD2RuntimeGUI.exe`, the data folder `%LOCALAPPDATA%\HD2RuntimeGUI\`, the ApplicationId `dev.skyeshade.hd2runtimegui`, the project format, and the source project/namespace names.
+
+---
+
+## For developers
+
+```powershell
+git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
+```
+
+A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.0.0 supports **HD2Runtime SDK 0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,574 entries, 89 field definitions (69 writable, 20 read-only, 9 derived)**. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
-## Run
-
-For a development build, run `./scripts/publish-windows.ps1` and launch the staged `artifacts/release/HD2Runtime-ModBuilder-vX.Y.Z-win-x64/HD2RuntimeGUI.exe`. For end users, use the ZIP instructions below. .NET and the Windows App SDK are included; users need the Microsoft Edge WebView2 Evergreen Runtime, but no development tools or Python.
-
-This repository is separate from HD2Runtime. It does not launch the game, deploy mods, or access game processes. Snapshot inspection reads only a user-selected local file.
+This repository is separate from HD2Runtime. The app does not launch the game, deploy mods, or access game processes. Snapshot inspection reads only a user-selected local file.
 
 ## Navigation
 
@@ -153,12 +185,17 @@ The reticle icon (`HD2RuntimeGUI/Resources/AppIcon/appicon.svg`, identical to `w
 - `Projects/` and `Storage/`: project library and atomic JSON persistence.
 - `Generation/`: validation, semantic Lua generation, gameplay archive codec and verified ZIP packaging.
 - `Services/`: application workflows, one-use SDK update decisions, file-only snapshot inspection.
+- `Updates/`: ModBuilder's own update check, manifest and package verification, and staging.
+
+`HD2RuntimeModBuilder.Updater/` is the standalone updater (self-contained, trimmed, single file). It shares `UpdateContract.cs` with Core.
 
 GitHub access, SDK cache/readers, project storage, change validation, Lua generation, export, snapshot reading, file pickers and Explorer opening have interfaces and DI registrations. Razor components delegate these operations to services.
 
-## SDK cache and updates
+## HD2Runtime SDK cache and updates
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.24.0 metadata supports first launch offline.
+This section is about the HD2Runtime SDK; ModBuilder application updates are described in [docs/app-updates.md](docs/app-updates.md).
+
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.25.1 metadata supports first launch offline.
 
 Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only nineteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities, CompositionPlanCapabilities, VehicleAuthoringCapabilities, BackpackAuthoringCapabilities, MagazineAttachmentCapabilities and BoosterAuthoringCapabilities contracts (the last four only for the SDK versions that publish them, and then required). Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
@@ -173,6 +210,8 @@ The default root is `%LOCALAPPDATA%\HD2RuntimeGUI\`:
 ```text
 library.json
 Projects/<project-guid>/project.hd2mod.json
+Icons/                              # locally imported game icons
+app-update.json                     # last ModBuilder update check, dismissed version
 Sdk/current.json
 Sdk/last-release.json
 Sdk/<version>/metadata.json
@@ -205,17 +244,9 @@ The separate read-only browser loads/relinks `.hd2snap`, persists its last path,
 
 The published mapper report omits record addresses, so automatic semantic-field-to-raw-byte navigation is unavailable. Raw inspection accepts an address from the selected snapshot or a captured-region selection. The browser does not execute Runtime's scanner or feed data into authoring/generation.
 
-## Download a Windows release
+## Release package
 
-Windows x64 releases are distributed as a self-contained directory ZIP, so no Rider or .NET SDK is required. From the GitHub Releases page:
-
-1. Download `HD2Runtime-ModBuilder-vX.Y.Z-win-x64.zip`.
-2. Extract it to a folder you control.
-3. Run `HD2RuntimeGUI.exe` (shown as HD2Runtime ModBuilder in the window, taskbar and file properties).
-
-The package includes the .NET runtime and MAUI/native files required by the application. It uses the Windows WebView2 Evergreen runtime supplied by Windows or installed separately; WebView2 is not bundled into the ZIP. HD2Runtime remains a separate dependency for generated mods, and generated mods/exports are never bundled into the ModBuilder executable. The executable is currently unsigned, so Windows SmartScreen may show its standard warning on first launch.
-
-The app stores mutable projects and exports in `%LOCALAPPDATA%\HD2RuntimeGUI\Projects\` and `%LOCALAPPDATA%\HD2RuntimeGUI\Exports\`, so the extracted application directory can be moved or replaced safely.
+The release is a self-contained directory ZIP (.NET runtime, Windows App SDK and MAUI files next to the executable), because MAUI Blazor Hybrid and WebView2/native dependencies are more reliable that way than as a single file. WebView2 is not bundled. HD2Runtime remains a separate dependency, and generated mods/exports are never bundled into the ModBuilder. Mutable data lives in `%LOCALAPPDATA%\HD2RuntimeGUI\` (`Projects\`, `Exports\`, `Sdk\`, `Icons\`), so the extracted application directory can be moved or replaced safely.
 
 ## Build, test and publish
 
@@ -228,6 +259,12 @@ dotnet test HD2RuntimeGUI.Tests/HD2RuntimeGUI.Tests.csproj
 ./scripts/publish-windows.ps1
 ```
 
-The release script cleans `artifacts/release/`, publishes a Release `win-x64` self-contained directory, removes debug symbols, regenerates the app icon from `Resources/AppIcon/appicon.svg`, checks the executable's product metadata, and creates `HD2Runtime-ModBuilder-vX.Y.Z-win-x64.zip`. A directory package is intentional: MAUI Blazor Hybrid and WebView2/native dependencies are more reliable when kept beside the executable than when forced into a single file.
+The application version is `Hd2RuntimeGuiVersion` in `Directory.Build.props`. `scripts/publish-windows.ps1` refuses a dirty working tree (`-AllowDirty` is for local test builds only), publishes the app and the standalone updater, and writes to `artifacts/release/`:
 
-See [verification results](docs/verification.md), including release provenance, test coverage, UI scenarios and output locations. Agent screenshots, caches, publish output and generated ZIPs are ignored by Git.
+- `HD2Runtime-ModBuilder-vX.Y.Z-win-x64.zip`: the flat application folder, including `HD2RuntimeGUI.exe`, `HD2RuntimeModBuilder.Updater.exe` and `modbuilder-files.json` (inventory: path, size and SHA-256 of every file);
+- `HD2Runtime-ModBuilder-vX.Y.Z-win-x64.zip.sha256`;
+- `modbuilder-update.json`: the update manifest (version, tag, asset, size, SHA-256, entry point, updater, commit).
+
+Before zipping it checks the product name and version in the executable's metadata, the commit, the reticle icon in both `appicon.ico` and the executable, the entry point and updater, and that no symbols, SDK cache, projects, imported icons, screenshots or other user/development data are included. It then checks the ZIP layout and that the manifest matches the ZIP. Upload all three files to the GitHub release tagged `vX.Y.Z` (see [the update design](docs/app-updates.md)).
+
+See [verification results](docs/verification.md) for the historical verification log. Agent screenshots, caches, publish output and generated ZIPs are ignored by Git.

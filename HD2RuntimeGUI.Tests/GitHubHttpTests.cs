@@ -20,7 +20,7 @@ public sealed class GitHubHttpTests
         {
             Assert.Equal("api.github.com", request.RequestUri!.Host);
             Assert.Contains("/repos/SkyeShade/HD2Runtime/releases", request.RequestUri.AbsolutePath);
-            Assert.Null(request.Headers.Authorization); Assert.Contains("HD2RuntimeGUI", request.Headers.UserAgent.ToString());
+            Assert.Null(request.Headers.Authorization); Assert.StartsWith("HD2Runtime-ModBuilder/", request.Headers.UserAgent.ToString());
             return new(HttpStatusCode.OK) { Content = new StringContent("""
                 [{"draft":false,"prerelease":false,"tag_name":"v0.5.1","html_url":"https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.5.1","assets":[{"name":"HD2Runtime-0.5.1-sdk.zip","size":1234,"browser_download_url":"https://github.com/SkyeShade/HD2Runtime/releases/download/v0.5.1/HD2Runtime-0.5.1-sdk.zip"}]}]
                 """) };

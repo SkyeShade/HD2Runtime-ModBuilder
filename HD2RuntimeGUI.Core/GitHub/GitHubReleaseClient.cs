@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using HD2RuntimeGUI.Core.Models;
@@ -99,7 +98,7 @@ public sealed class GitHubReleaseClient(HttpClient http) : IGitHubReleaseClient
         using var response = await SendDownloadAsync(new Uri(release.DownloadUrl), ct);
         response.EnsureSuccessStatusCode();
         var final = response.RequestMessage!.RequestUri!;
-        if (final.Scheme != "https" || (final.Host != "github.com" && final.Host != "release-assets.githubusercontent.com" && final.Host != "objects.githubusercontent.com"))
+        if (!GitHubHttp.TrustedDownload(final))
             throw new InvalidDataException("Unexpected download redirect.");
         if (response.Content.Headers.ContentLength is long size && size != release.Size) throw new InvalidDataException("Asset size mismatch.");
         await using var file = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -107,31 +106,8 @@ public sealed class GitHubReleaseClient(HttpClient http) : IGitHubReleaseClient
         if (file.Length != release.Size) throw new InvalidDataException("Incomplete SDK download.");
     }
 
-    private async Task<HttpResponseMessage> SendDownloadAsync(Uri uri, CancellationToken ct)
-    {
-        for (int redirects = 0; redirects <= 5; redirects++)
-        {
-            if (uri.Scheme != "https" || (uri.Host != "github.com" && uri.Host != "release-assets.githubusercontent.com" && uri.Host != "objects.githubusercontent.com") || !string.IsNullOrEmpty(uri.UserInfo) || !uri.IsDefaultPort)
-                throw new InvalidDataException("Unexpected SDK redirect destination.");
-            using var request = Request(uri.AbsoluteUri);
-            var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-            if ((int)response.StatusCode is not (301 or 302 or 303 or 307 or 308)) return response;
-            var location = response.Headers.Location;
-            response.Dispose();
-            if (location == null) throw new InvalidDataException("SDK redirect is missing its location.");
-            uri = location.IsAbsoluteUri ? location : new Uri(uri, location);
-        }
-        throw new InvalidDataException("Too many SDK redirects.");
-    }
-
-    private static HttpRequestMessage Request(string url)
-    {
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.UserAgent.ParseAdd(BuildInfo.UserAgent);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
-        return request;
-    }
+    private Task<HttpResponseMessage> SendDownloadAsync(Uri uri, CancellationToken ct) => GitHubHttp.SendDownloadAsync(http, uri, "SDK", ct);
+    private static HttpRequestMessage Request(string url) => GitHubHttp.Request(url);
     public static async Task CopyBoundedAsync(Stream input, Stream output, long limit, CancellationToken ct)
     {
         using (input)

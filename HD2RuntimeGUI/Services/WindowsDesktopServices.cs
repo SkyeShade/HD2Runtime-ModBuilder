@@ -33,3 +33,15 @@ public sealed class ResearchFilePicker : IResearchFilePicker
         return file?.FullPath;
     }
 }
+
+/// <summary>Starts the staged updater, quits the app for it, and opens official release pages in the browser.</summary>
+public sealed class WindowsAppUpdateHost : HD2RuntimeGUI.Core.Updates.IAppUpdateHost
+{
+    private static readonly long StartTicks = Process.GetCurrentProcess().StartTime.ToUniversalTime().Ticks;
+    public string InstallDirectory { get; } = Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory);
+    public int ProcessId => Environment.ProcessId;
+    public long ProcessStartTicks => StartTicks;
+    public void Launch(ProcessStartInfo command) => Process.Start(command)?.Dispose();
+    public void Exit() => MainThread.BeginInvokeOnMainThread(() => Application.Current?.Quit());
+    public async Task OpenUrlAsync(Uri url) => await Launcher.Default.OpenAsync(url);
+}

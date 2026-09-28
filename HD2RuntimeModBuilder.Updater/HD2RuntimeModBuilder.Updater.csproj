@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Standalone updater for HD2Runtime ModBuilder. Published by scripts/publish-windows.ps1 as one self-contained, trimmed
+       win-x64 executable so it runs without the MAUI app or a .NET install, from the staged release outside the app folder. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>HD2RuntimeModBuilder.Updater</AssemblyName>
+    <RootNamespace>HD2RuntimeModBuilder.Updater</RootNamespace>
+    <Product>HD2Runtime ModBuilder</Product>
+    <AssemblyTitle>HD2Runtime ModBuilder Updater</AssemblyTitle>
+    <Company>SkyeShade</Company>
+    <Copyright>© SkyeShade</Copyright>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+</Project>

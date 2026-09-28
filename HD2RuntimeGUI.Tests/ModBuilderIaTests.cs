@@ -64,10 +64,34 @@ public sealed class ModBuilderIaTests
         Assert.Equal("HD2Runtime ModBuilder", BuildInfo.ProductName);
         foreach (var property in new[] { "ApplicationTitle", "Product", "AssemblyTitle" }) Assert.Contains($"<{property}>HD2Runtime ModBuilder</{property}>", csproj);
         Assert.DoesNotContain("<AssemblyName>", csproj); // the executable stays HD2RuntimeGUI.exe
-        Assert.StartsWith("HD2RuntimeGUI/", BuildInfo.UserAgent);
+        Assert.StartsWith("HD2Runtime-ModBuilder/", BuildInfo.UserAgent);
         var publish = File.ReadAllText(Path.Combine(root, "scripts", "publish-windows.ps1"));
-        Assert.Contains("HD2Runtime-ModBuilder-v$version-win-x64.zip", publish); Assert.Contains("resizetizer", publish);
-        Assert.Contains("ProductName -ne 'HD2Runtime ModBuilder'", publish);
+        Assert.Contains("HD2Runtime-ModBuilder-v$version-win-x64", publish); Assert.Contains("modbuilder-update.json", publish); Assert.Contains("resizetizer", publish);
+        Assert.Contains("$product = 'HD2Runtime ModBuilder'", publish); Assert.Contains("ProductName -ne $product", publish); Assert.Contains("git status --porcelain", publish);
+        Assert.Contains("HD2RuntimeModBuilder.Updater.exe", publish); Assert.Contains("Assert-ReticleIcon", publish);
+    }
+
+    [Fact] public void Release_1_0_0_uses_the_renamed_repository_and_documents_itself()
+    {
+        var root = Root();
+        Assert.Contains("<Hd2RuntimeGuiVersion>1.0.0</Hd2RuntimeGuiVersion>", File.ReadAllText(Path.Combine(root, "Directory.Build.props")));
+        Assert.Equal("1.0.0", BuildInfo.Version);
+        Assert.Equal("https://github.com/SkyeShade/HD2Runtime-ModBuilder", BuildInfo.RepositoryUrl);
+        Assert.Equal("HD2Runtime-ModBuilder/1.0.0", BuildInfo.UserAgent);
+        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
+        Assert.Contains("# HD2Runtime ModBuilder\n\n**Visual authoring for [HD2Runtime]", readme.ReplaceLineEndings("\n"));
+        Assert.Contains("git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git", readme);
+        Assert.Contains("HD2Runtime-ModBuilder-v1.0.0-win-x64.zip", readme);
+        Assert.True(readme.IndexOf("## For developers", StringComparison.Ordinal) > readme.IndexOf("## Download", StringComparison.Ordinal));
+        Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.0.md")));
+        Assert.Contains("modbuilder-update.json", File.ReadAllText(Path.Combine(root, "docs", "app-updates.md")));
+        // Active (non-historical) sources never point at the old repository.
+        var active = Directory.GetFiles(root, "*.*", SearchOption.AllDirectories)
+            .Where(f => Path.GetExtension(f) is ".cs" or ".razor" or ".md" or ".ps1" or ".props" or ".csproj" or ".json" or ".html")
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                && !f.Contains($"{Path.DirectorySeparatorChar}artifacts{Path.DirectorySeparatorChar}") && !Path.GetFileName(f).StartsWith("runtime0", StringComparison.Ordinal) && !f.EndsWith("verification.md", StringComparison.Ordinal));
+        var oldRepository = "SkyeShade/" + "HD2RuntimeGUI"; // split so this test does not match itself
+        Assert.All(active, f => Assert.DoesNotContain(oldRepository, File.ReadAllText(f)));
     }
 
     [Fact] public void No_game_artwork_is_part_of_the_repository()

@@ -20,6 +20,7 @@
     </aside>
     <main class="workspace">
         <header class="titlebar"><span><span class="titlebar-product">HD2Runtime ModBuilder</span> <span class="crumb">/ @PageTitle</span></span><span class="subtle">@(Workspace.Project is null ? "LOCAL WORKSPACE" : "SDK " + Workspace.Project.SdkVersion + " · API " + Workspace.Project.RuntimeApi)</span></header>
+        <AppUpdateBanner />
         @if (Busy) { <div class="activity" role="status">@BusyMessage</div> }
         @if (Error != null) { <div class="notice error" role="alert">@Error <button @onclick="() => Error = null" aria-label="Dismiss error">×</button></div> }
         @if (Notice != null) { <div class="notice success" role="status">@Notice <button @onclick="() => Notice = null" aria-label="Dismiss notification">×</button></div> }
@@ -53,7 +54,8 @@
         else if (Page == "settings")
         {
             <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>Settings &amp; SDK</h1><p>Your local authoring environment.</p></div></div>
-            <section class="panel"><div class="panel-heading"><h2>HD2Runtime SDK</h2><span class="badge @(Workspace.SdkStatus?.LocalSource != null ? "amber" : "")" data-sdk-source>@(Workspace.SdkStatus == null ? (Workspace.SdkError != null ? "Not loaded" : "Loading") : Workspace.SdkStatus.LocalSource != null ? "Local SDK · development" : Workspace.SdkStatus.VerifiedOnline ? "Verified online" : "Offline / not verified")</span></div>@if (Workspace.SdkStatus is { } sdkStatus)
+            <AppUpdateSettings />
+            <section class="panel" data-sdk-updates><div class="panel-heading"><h2>HD2Runtime SDK updates</h2><span class="badge @(Workspace.SdkStatus?.LocalSource != null ? "amber" : "")" data-sdk-source>@(Workspace.SdkStatus == null ? (Workspace.SdkError != null ? "Not loaded" : "Loading") : Workspace.SdkStatus.LocalSource != null ? "Local SDK · development" : Workspace.SdkStatus.VerifiedOnline ? "Verified online" : "Offline / not verified")</span></div>@if (Workspace.SdkStatus is { } sdkStatus)
             {
                 @if (sdkStatus.LocalSource is { } localSource) { <p class="notice warning" data-local-sdk="@localSource"><span><strong>Local SDK @sdkStatus.Installed.Version</strong> · unpublished development build from <code>@localSource</code>. Loaded with full SDK validation for this run only; it is not cached and does not replace your installed SDKs. Projects created or rebound now are pinned to @sdkStatus.Installed.Version.</span></p> }
                 <div class="stats"><div><small>@(sdkStatus.LocalSource != null ? "LOCAL SDK" : "INSTALLED SDK")</small><strong data-installed-sdk>@(sdkStatus.LocalSource != null ? "Local SDK " : "")@sdkStatus.Installed.Version</strong></div><div><small>LATEST RELEASE</small><strong data-latest-release>@(sdkStatus.Latest?.Version ?? "Not checked")</strong></div><div><small>RUNTIME API / SCHEMA</small><strong>@sdkStatus.Installed.ApiVersion / 1</strong></div></div><p>@sdkStatus.Message</p>

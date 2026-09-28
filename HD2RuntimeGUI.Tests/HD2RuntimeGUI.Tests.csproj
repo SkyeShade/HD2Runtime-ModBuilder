@@ -10,5 +10,7 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4"><PrivateAssets>all</PrivateAssets></PackageReference>
     <ProjectReference Include="../HD2RuntimeGUI.Core/HD2RuntimeGUI.Core.csproj" />
+    <!-- The updater shares UpdateContract.cs with Core; its own types are reached through the "updater" alias. -->
+    <ProjectReference Include="../HD2RuntimeModBuilder.Updater/HD2RuntimeModBuilder.Updater.csproj" Aliases="updater" />
   </ItemGroup>
 </Project>

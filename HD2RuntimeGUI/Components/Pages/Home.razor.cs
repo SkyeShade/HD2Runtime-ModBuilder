@@ -11,6 +11,7 @@ public partial class Home : IDisposable
 {
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private HD2RuntimeGUI.Core.GameAssets.GameIconStore Icons { get; set; } = default!;
+    [Inject] private HD2RuntimeGUI.Core.Updates.AppUpdateService AppUpdates { get; set; } = default!;
     // Local, read-only import of the game's own icon libraries into the GUI data folder (not shipped with the tool).
     private string IconDataPath = HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath() ?? "";
     private Task ImportIcons() => Run(async () => { var m = await Icons.ImportAsync(IconDataPath); Notice = $"Imported {m.Sources.Sum(s => s.Icons)} icons from the installed game."; }, "Reading icon libraries from the game data…");
@@ -66,7 +67,7 @@ public partial class Home : IDisposable
     private bool LegacyDraftModified => SelectedField?.Expected != null && FieldPresentation.Parse(NewValue) is { } value && !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(SelectedField.Expected), value);
     private string SupportedValues => string.Join(", ", Workspace.Metadata!.Transitions.Where(t => t.Resource == TargetKey && t.Field == FieldKey).Select(t => $"{t.Expected} → {t.Value}"));
     // Icons import in parallel with project loading and the GitHub check; open pages refresh through Icons.Changed.
-    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; _ = AutoImportIconsAsync(); await Run(Workspace.InitializeAsync, "Loading projects and checking GitHub releases…"); }
+    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; _ = AutoImportIconsAsync(); _ = AppUpdates.CheckOnStartupAsync(); await Run(Workspace.InitializeAsync, "Loading projects and checking GitHub releases…"); }
     public void Dispose() => Icons.Changed -= IconsChanged;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

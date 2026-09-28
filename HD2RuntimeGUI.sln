@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HD2RuntimeGUI.Core", "HD2Ru
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HD2RuntimeGUI.Tests", "HD2RuntimeGUI.Tests\HD2RuntimeGUI.Tests.csproj", "{3AC11CEE-53F1-4A53-B8E7-4663E1B17690}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HD2RuntimeModBuilder.Updater", "HD2RuntimeModBuilder.Updater\HD2RuntimeModBuilder.Updater.csproj", "{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -52,6 +54,18 @@ Global
 		{3AC11CEE-53F1-4A53-B8E7-4663E1B17690}.Release|x64.Build.0 = Release|Any CPU
 		{3AC11CEE-53F1-4A53-B8E7-4663E1B17690}.Release|x86.ActiveCfg = Release|Any CPU
 		{3AC11CEE-53F1-4A53-B8E7-4663E1B17690}.Release|x86.Build.0 = Release|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Debug|x64.Build.0 = Debug|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Debug|x86.Build.0 = Debug|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Release|x64.ActiveCfg = Release|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Release|x64.Build.0 = Release|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Release|x86.ActiveCfg = Release|Any CPU
+		{82799F1E-3F1D-4A4C-A3D0-2CB8A546547F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

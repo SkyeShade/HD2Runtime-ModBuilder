@@ -6,6 +6,7 @@ using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Projects;
 using HD2RuntimeGUI.Core.Services;
 using HD2RuntimeGUI.Core.Storage;
+using HD2RuntimeGUI.Core.Updates;
 using HD2RuntimeGUI.Services;
 
 namespace HD2RuntimeGUI;
@@ -40,6 +41,10 @@ public static class MauiProgram
         var localSdk = LocalSdkArgument(Environment.GetCommandLineArgs()) ?? Environment.GetEnvironmentVariable("HD2RUNTIME_SDK_PATH");
         builder.Services.AddSingleton<ISdkCache>(services => { var cache = ActivatorUtilities.CreateInstance<SdkCache>(services); if (!string.IsNullOrWhiteSpace(localSdk)) cache.LocalSdkPath = Path.GetFullPath(localSdk); return cache; });
         builder.Services.AddSingleton<ISdkUpdateService, SdkUpdateService>();
+        // HD2Runtime ModBuilder application updates (GitHub Releases of SkyeShade/HD2Runtime-ModBuilder), separate from SDK updates.
+        builder.Services.AddSingleton<IAppReleaseClient, AppReleaseClient>();
+        builder.Services.AddSingleton<IAppUpdateHost, WindowsAppUpdateHost>();
+        builder.Services.AddSingleton(services => new AppUpdateService(services.GetRequiredService<IAppReleaseClient>(), services.GetRequiredService<AppPaths>(), services.GetRequiredService<IAppUpdateHost>()));
         builder.Services.AddSingleton<IProjectStore, JsonProjectStore>();
         builder.Services.AddSingleton<IProjectService, ProjectService>();
         builder.Services.AddSingleton<IChangeService, ChangeService>();
