@@ -15,12 +15,13 @@ public sealed class MagazineAttachmentTests
     private const string Drum = "weapon-attachment/v1/magazine/rifle-5-5x50mm-drum/fa499a29b375c6cf";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e, string resource = "mods/tests/magazines")
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync();
+        // Pinned to the published 0.24.0 SDK (the bundled offline SDK moves with each release).
+        var sdk = await SdkFixtures.Install(e, "0.24.0");
         var w = e.Workspace(); await w.CreateAsync(new("Magazines", "Tests", resource, "0.1.0"), sdk); return w;
     }
     private static MagazineAttachmentCatalog Catalog(BuilderWorkspace w) => w.Metadata!.Entities!.Attachments!;
     private static EntityField Field(BuilderWorkspace w, string attachment, string id) => Catalog(w).FieldInstances.Single(f => f.Target.Attachment == attachment && f.SemanticFieldId == id);
-    private static JsonNode Json() => JsonNode.Parse(SdkCache.BundledComposition()[MagazineAttachmentReader.FileName])!;
+    private static JsonNode Json() => JsonNode.Parse(SdkFixtures.Entry("0.24.0", MagazineAttachmentReader.FileName))!;
 
     [Fact] public async Task Published_0231_catalog_loads()
     {
@@ -111,7 +112,7 @@ public sealed class MagazineAttachmentTests
         var w = e.Workspace(); await w.CreateAsync(new("Pinned", "Tests", "mods/tests/pinned_0230", "0.1.0"), old);
         var armor = old.Entities.Vehicles.FieldInstances.Single(f => f.Target.Vehicle == "TD-220 Bastion MK XVI" && f.SemanticFieldId == "entity.armor");
         await w.SetEntityAsync(armor.InstanceKey, "5");
-        File.Delete(e.Paths.CachePath("current.json")); await e.Cache.GetCurrentAsync();
+        await SdkFixtures.Install(e, "0.24.0");
         await w.OpenAsync(w.Project!.Id); Assert.Equal("0.23.0", w.Project!.SdkVersion); Assert.Null(w.Metadata!.Entities!.Attachments);
         await w.RebindToInstalledSdkAsync(); Assert.Equal("0.24.0", w.Project.SdkVersion); Assert.NotNull(w.Metadata!.Entities!.Attachments);
         Assert.Equal(armor.InstanceKey, w.Project.EntityChanges.Single().InstanceKey); Assert.Null(w.BuildError);
@@ -148,19 +149,19 @@ public sealed class MagazineAttachmentTests
             case "default-not-native": concussive["magazineSlot"]!["defaultRelationship"] = "catalog_effect_fingerprint_unique"; break;
             case "scope-complete": j["attachments"]![0]!["consumers"]!["scopeComplete"] = true; break;
         }
-        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.24.0");
+        var players = new PlayerWeaponCatalogReader().Read(SdkFixtures.Entry("0.24.0", PlayerWeaponCatalogReader.FileName), "0.24.0");
         var ex = Record.Exception(() => MagazineAttachmentReader.Read(Encoding.UTF8.GetBytes(j.ToJsonString()), "0.24.0", players));
         Assert.True(ex is InvalidDataException or UnsupportedSdkException, ex?.GetType().Name);
     }
     [Fact] public void Unknown_contract_is_unsupported()
     {
         var j = Json(); j["contract"] = "hd2runtime.weapon_attachment.magazine.v2";
-        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.24.0");
+        var players = new PlayerWeaponCatalogReader().Read(SdkFixtures.Entry("0.24.0", PlayerWeaponCatalogReader.FileName), "0.24.0");
         Assert.Throws<UnsupportedSdkException>(() => MagazineAttachmentReader.Read(Encoding.UTF8.GetBytes(j.ToJsonString()), "0.24.0", players));
     }
     [Fact] public void Published_catalog_reads_cleanly()
     {
-        var players = new PlayerWeaponCatalogReader().Read(SdkCache.BundledCapabilities(), "0.24.0");
-        Assert.Equal(43, MagazineAttachmentReader.Read(SdkCache.BundledComposition()[MagazineAttachmentReader.FileName], "0.24.0", players).Attachments.Length);
+        var players = new PlayerWeaponCatalogReader().Read(SdkFixtures.Entry("0.24.0", PlayerWeaponCatalogReader.FileName), "0.24.0");
+        Assert.Equal(43, MagazineAttachmentReader.Read(SdkFixtures.Entry("0.24.0", MagazineAttachmentReader.FileName), "0.24.0", players).Attachments.Length);
     }
 }

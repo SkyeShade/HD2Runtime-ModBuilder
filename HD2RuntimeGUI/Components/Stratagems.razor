@@ -31,7 +31,7 @@ else
             {
                 var category = StratagemCategories.Of(root.Family);
                 <button class="resource-item with-icon @category?.CssClass @(Selected == root.Name ? "active" : "")" data-stratagem="@root.Name" data-family="@root.Family" @onclick="() => Selected = root.Name">
-                    <GameIcon Kind="stratagem" Key="@GameIconStore.StratagemIconKey(root)" Label="@root.Name" CssClass="@category?.CssClass" />
+                    <GameIcon Kind="stratagem" Key="@GameIconStore.StratagemIconKey(root)" State="@root.UiIcon?.State" Reason="@IconReason(catalog, root)" Label="@root.Name" CssClass="@category?.CssClass" />
                     <span class="resource-text"><strong>@root.Name@if (Warning(catalog, root) is { } warning) { <span class="warn-dot" title="@warning">●</span> }</strong><small>@FamilyLabel(root.Family) · @Summary(catalog, root)</small></span></button>
             }
             @if (unlinked.Length > 0 && Availability == "" && System == "" && Family == "")
@@ -87,7 +87,7 @@ else
             // The object is the call-in plus what it delivers: count the linked equipment's published fields too.
             var equipment = link == null ? [] : sdk!.SupportAuthoring!.FieldInstances.Where(f => f.SupportWeapon == link.Weapon.Name).ToArray();
             <section class="panel category-panel @category?.CssClass" data-stratagem-category="@category?.Key" data-stratagem-header="@stratagem.Name">
-                <div class="object-header"><GameIcon Kind="stratagem" Key="@GameIconStore.StratagemIconKey(stratagem)" Label="@stratagem.Name" CssClass="@category?.CssClass" Size="md" />
+                <div class="object-header"><GameIcon Kind="stratagem" Key="@GameIconStore.StratagemIconKey(stratagem)" State="@stratagem.UiIcon?.State" Reason="@IconReason(catalog, stratagem)" Label="@stratagem.Name" CssClass="@category?.CssClass" Size="md" />
                     <div><h2>@stratagem.Name</h2>
                         <div class="field-badges">@if (category != null) { <span class="category-pill static @category.CssClass"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }
                             <span class="badge">@FamilyLabel(stratagem.Family)</span>
@@ -125,6 +125,8 @@ else
                     @if (stratagem.BarrageScheduling != null) { <p><strong>Barrage scheduling:</strong> @stratagem.BarrageScheduling.Reason</p> }
                     @foreach (var blocked in graph.Blocked) { <p data-blocked-field="@blocked.Field"><strong>@BlockedLabel(blocked.Field):</strong> @blocked.Reason</p> }</div>
                 <p class="subtle">Root identity @stratagem.RootResolution · <code>@stratagem.SemanticId</code></p>
+                @if (IconReason(catalog, stratagem) is { } iconReason) { <p class="subtle" data-icon-reason="@stratagem.UiIcon!.State">Icon · @iconReason</p> }
+                else if (stratagem.UiIcon is { State: "resolved" } icon) { <p class="subtle" data-icon-reason="resolved">Icon · <code>@icon.IconKey</code> from the game icon library (native type @icon.NativeType)</p> }
                 @if (catalog.SemanticBranches.Any(b => b.Stratagem == stratagem.Name))
                 {
                     <h3 class="group-title">Delivery graph / inspection</h3>
@@ -155,6 +157,9 @@ else
     private string Search = "", Family = "", System = "", Availability = "", Selected = "";
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     public static string FamilyLabel(string family) => StratagemBrowser.FamilyLabel(family);
+    // Why a stratagem shows a glyph instead of its game icon, from Runtime's published uiIcon (never inferred from names).
+    public static string? IconReason(StratagemCatalog c, StratagemDefinition s) => s.UiIcon is null ? null : s.UiIcon.FallbackReason(c.UiIconContract) is { } reason
+        ? (s.UiIcon.State switch { "empty_template" => "No icon artwork", "unbound" => "No game icon", "no_native_root" => "No call-in stratagem", _ => "No icon" }) + ": " + reason : null;
     // Runtime's published acquisition kind for no-call-in equipment (e.g. world_pickup → "World pickup").
     private static string AcquisitionLabel(SdkMetadata? sdk, string weapon) => sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.LinkedStratagem?.NoCallIn?.Acquisition?.Kind is { } kind
         ? FieldPresentation.EnumLabel(kind) : "No call-in";

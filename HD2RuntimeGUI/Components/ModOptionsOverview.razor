@@ -16,8 +16,18 @@
         else
         {
             var settings = project.ModOptions!; var targets = Workspace.OptionTargets;
-            <p class="notice warning" data-options-optional><span><strong>Mod Options Menu is optional.</strong> Players without CowboyBingus Mod Options Menu v1+ (Bingus Shared Loader v18+)
-                get one warning, and the option-bound edits stay inactive for that session. Edits that are not exposed always apply. The GUI adds the optional dependency to hd2runtime.json only while at least one field is exposed.</span></p>
+            var usesDefaults = ModOptionsService.UsesDefaultsWithoutMenu(Workspace.Metadata!, settings);
+            <p class="notice warning" data-options-optional data-options-fallback="@(usesDefaults ? "default" : "disable")"><span><strong>Mod Options Menu is optional.</strong> Players without CowboyBingus Mod Options Menu v1+ (Bingus Shared Loader v18+)
+                get one warning, and @(usesDefaults ? "the option-bound edits apply with each option's default value (the master toggle's default is On)." : "the option-bound edits stay inactive for that session.")
+                Edits that are not exposed always apply. The GUI adds the optional dependency to hd2runtime.json only while at least one field is exposed.</span></p>
+            @if (ModOptionsService.FallbackSupported(Workspace.Metadata))
+            {
+                <label class="option-fallback">Without Mod Options Menu
+                    <select data-options-fallback-select value="@settings.Fallback" @onchange="e => Run(() => Workspace.SetOptionsFallbackAsync(e.Value?.ToString() ?? ModOptionsService.FallbackDefault))">
+                        <option value="default">Apply the option defaults (recommended)</option>
+                        <option value="disable">Keep option-bound edits inactive (strict)</option>
+                    </select></label>
+            }
             <form class="form-grid option-page" @onsubmit="SavePage" @onsubmit:preventDefault data-options-page>
                 <label>Page title<input @bind="Title" maxlength="40" data-options-title /></label>
                 <label>Page id<input @bind="PageId" maxlength="40" data-options-page-id /></label>

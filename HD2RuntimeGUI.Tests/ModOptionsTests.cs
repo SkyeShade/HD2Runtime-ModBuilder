@@ -12,9 +12,9 @@ namespace HD2RuntimeGUI.Tests;
 public sealed class ModOptionsTests
 {
     private const string Liberator = "AR-23 Liberator";
-    private static async Task<BuilderWorkspace> Workspace(TestEnvironment e, string resource = "mods/tests/options_mod")
+    private static async Task<BuilderWorkspace> Workspace(TestEnvironment e, string resource = "mods/tests/options_mod", string version = "0.25.1")
     {
-        var sdk = await SdkFixtures.Install(e, "0.25.0"); var w = e.Workspace();
+        var sdk = await SdkFixtures.Install(e, version); var w = e.Workspace();
         await w.CreateAsync(new("Options Mod", "Tests", resource, "0.1.0"), sdk); w.Project!.ExportDirectory = e.Paths.Exports; return w;
     }
     private static async Task<OptionTarget> Damage(BuilderWorkspace w, string value = "110")
@@ -208,6 +208,29 @@ public sealed class ModOptionsTests
         Assert.Null(w.BuildError); Assert.Equal(31, Count(w.LuaPreview, "=options:slider("));
     }
 
+    [Fact] public async Task Fallback_follows_the_published_0251_semantics()
+    {
+        using var e = new TestEnvironment(); var w = await Workspace(e); var t = await Damage(w);
+        await w.SetModOptionsEnabledAsync(true); await w.SaveOptionRowAsync(w.SuggestOptionRow(t));
+        // Default mode is Runtime's own default (recommended for generated mods): no key, declared defaults apply without the menu.
+        Assert.Contains("local options=hd2.options({id='options_mod',title='Options Mod'})\n", w.LuaPreview); Assert.DoesNotContain("fallback", w.LuaPreview);
+        Assert.Contains("without it the settings use their defaults.", (string)(await Export(w, "manifest.json"))["Description"]!);
+        await w.SetOptionsFallbackAsync(ModOptionsService.FallbackDisable); Assert.Null(w.BuildError);
+        Assert.Contains("local options=hd2.options({id='options_mod',title='Options Mod',fallback='disable'})\n", w.LuaPreview);
+        Assert.Contains("without it the configurable settings stay inactive.", (string)(await Export(w, "manifest.json"))["Description"]!);
+        await w.OpenAsync(w.Project!.Id); Assert.Equal(ModOptionsService.FallbackDisable, w.Project!.ModOptions!.Fallback);
+        await Assert.ThrowsAsync<InvalidDataException>(() => w.SetOptionsFallbackAsync("sometimes"));
+    }
+    [Fact] public async Task Sdk_0250_has_no_fallback_and_keeps_bound_edits_inactive()
+    {
+        using var e = new TestEnvironment(); var w = await Workspace(e, version: "0.25.0"); var t = await Damage(w);
+        await w.SetModOptionsEnabledAsync(true); await w.SaveOptionRowAsync(w.SuggestOptionRow(t));
+        Assert.DoesNotContain("fallback", w.LuaPreview); Assert.Null(w.BuildError);
+        Assert.Contains("stay inactive", (string)(await Export(w, "manifest.json"))["Description"]!);
+        await Assert.ThrowsAsync<InvalidDataException>(() => w.SetOptionsFallbackAsync(ModOptionsService.FallbackDisable));
+        w.Project!.ModOptions!.Fallback = ModOptionsService.FallbackDisable;
+        Assert.Contains(ModOptionsService.Issues(w.Project, w.Metadata!), i => i.Contains("needs HD2Runtime SDK 0.25.1"));
+    }
     [Fact] public async Task Options_require_sdk_025()
     {
         using var e = new TestEnvironment(); var sdk = await SdkFixtures.Install(e, "0.24.0"); var w = e.Workspace();

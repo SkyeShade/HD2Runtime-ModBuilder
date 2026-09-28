@@ -7,8 +7,8 @@
     --text:#e7eaf0;
     --muted:#919bab;
     /* Brand accent (logo, primary buttons, selection, modified state). Derived shades follow it. */
-    --accent:#ffdc33;
-    --accent-hover:#ffe666;
+    --accent:#fdd00e;
+    --accent-hover:color-mix(in srgb, var(--accent) 78%, #ffffff);
     --accent-border:color-mix(in srgb, var(--accent) 45%, #101216);
     --accent-soft:color-mix(in srgb, var(--accent) 55%, #ffffff);
     /* Selected navigation / list items. */

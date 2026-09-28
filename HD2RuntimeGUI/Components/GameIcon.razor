@@ -3,7 +3,7 @@
 @* Small game icon imported locally from the installed game (Settings → Game icons). Falls back to a neutral category glyph
    when no icon is imported or no published identity names one. Refreshes when icons are imported or removed. *@
 @{ var key = Booster != null ? Icons.BoosterIcon(Booster) : Key; var uri = Icons.DataUri(Kind, key); }
-<span class="game-icon @Size @CssClass @(uri == null ? "fallback" : "")" data-game-icon="@(uri == null ? "fallback" : key)" title="@(uri == null ? FallbackTitle : Label)" aria-hidden="true">
+<span class="game-icon @Size @CssClass @(uri == null ? "fallback" : "")" data-game-icon="@(uri == null ? "fallback" : key)" data-icon-state="@State" title="@(uri == null ? FallbackTitle : Label)" aria-hidden="true">
     @if (uri != null) { <img src="@uri" alt="" draggable="false" /> }
     else { <span>@Initials</span> }
 </span>
@@ -15,8 +15,11 @@
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public string? CssClass { get; set; }
     [Parameter] public string Size { get; set; } = "sm";
+    // Published icon state and, for a fallback glyph, Runtime's reason (e.g. an empty icon template, or no native root).
+    [Parameter] public string? State { get; set; }
+    [Parameter] public string? Reason { get; set; }
     private string Initials => string.Concat(Label.Split([' ', '-', '/'], StringSplitOptions.RemoveEmptyEntries).Where(w => char.IsLetter(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
-    private string FallbackTitle => Booster == null && Key == null || Booster != null && Booster.Identity.UiIcon == null ? "No published icon identity" : "Icon not imported (Settings → Game icons)";
+    private string FallbackTitle => Reason != null ? Label + " · " + Reason : Booster == null && Key == null || Booster != null && Booster.Identity.UiIcon == null ? "No published icon identity" : "Icon not imported (Settings → Game icons)";
     protected override void OnInitialized() => Icons.Changed += Refresh;
     private void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Icons.Changed -= Refresh;

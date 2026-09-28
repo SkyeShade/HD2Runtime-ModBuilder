@@ -16,7 +16,7 @@ public sealed class ReadabilityPassTests
 
     [Fact] public async Task Support_equipment_is_merged_into_support_stratagems_or_listed_once_as_unlinked()
     {
-        using var e = new TestEnvironment(); var sdk = await Bundled(e);
+        using var e = new TestEnvironment(); var sdk = await SdkFixtures.Install(e, "0.24.0"); // 0.24.0: C4 unlinked; 0.25.x links it (Runtime025Tests)
         Assert.Equal(["B/MD C4 Pack", "CQC-72 Entrenchment Tool", "SG-88 Break-Action Shotgun"], SupportEquipment.Unlinked(sdk));
         Assert.DoesNotContain(Navigation.Build(sdk, null), i => i.Page == "support");
         // Every support item has exactly one home: its linked Support stratagem, or the unlinked list.
@@ -102,7 +102,7 @@ public sealed class ReadabilityPassTests
     }
 
     // Synthetic Stingray archive: header, one type entry, one 80-byte entry per resource, then the resource data.
-    private static byte[] Archive(IReadOnlyList<(ulong Name, byte[] Data)> resources)
+    internal static byte[] Archive(IReadOnlyList<(ulong Name, byte[] Data)> resources)
     {
         var type = GameDataReader.Hash("xaml"); var tableSize = 72 + 32 + 80 * resources.Count; var data = new MemoryStream();
         var table = new byte[tableSize]; BinaryPrimitives.WriteUInt32LittleEndian(table, 0xF0000011);
@@ -125,7 +125,7 @@ public sealed class ReadabilityPassTests
           </DataTemplate.Triggers></DataTemplate>
         </ResourceDictionary>
         """;
-    private static (ulong, byte[])[] Libraries() =>
+    internal static (ulong, byte[])[] Libraries() =>
         [(GameDataReader.Hash(XamlIcons.StratagemLibrary), Resource(Xaml)), (GameDataReader.Hash(XamlIcons.BoosterLibrary), Resource(BoosterXaml))];
 
     [Fact] public async Task Icons_import_from_a_fat_edition_data_folder_and_attach_only_through_published_booster_identity()
@@ -136,7 +136,7 @@ public sealed class ReadabilityPassTests
         var store = new GameIconStore(e.Paths); var manifest = await store.ImportAsync(data);
         Assert.Equal([1, 1], manifest.Sources.Select(s => s.Icons)); Assert.Equal(1, store.Count(GameIconStore.Booster)); Assert.Equal(1, store.Count(GameIconStore.Stratagem));
         Assert.Equal("BoosterArmedpods", manifest.BoosterTypeIcons["DefensiveAmmoPod"]);
-        var sdk = await Bundled(e); var boosters = sdk.Entities!.Boosters!;
+        var sdk = await SdkFixtures.Install(e, "0.24.0"); var boosters = sdk.Entities!.Boosters!; // stratagems publish no icon identity in 0.24.0
         var pods = boosters.Find("Armed Resupply Pods")!;
         Assert.Equal("BoosterArmedpods", store.BoosterIcon(pods)); Assert.StartsWith("data:image/svg+xml;base64,", store.DataUri(GameIconStore.Booster, store.BoosterIcon(pods)));
         // No published icon identity (Integrated Extinguishers) or no matching game binding: no icon, category glyph instead.
@@ -202,7 +202,8 @@ public sealed class ReadabilityPassTests
     // Stratagem icon identity published by Runtime after 0.24.0 (StratagemAuthoringCapabilities uiIcon).
     private static byte[] WithUiIcons(Action<System.Text.Json.Nodes.JsonArray> edit)
     {
-        var j = System.Text.Json.Nodes.JsonNode.Parse(SdkCache.BundledComposition()[StratagemCatalogReader.FileName])!;
+        // Synthetic identities on the icon-free 0.24.0 catalog.
+        var j = System.Text.Json.Nodes.JsonNode.Parse(SdkFixtures.Entry("0.24.0", StratagemCatalogReader.FileName))!;
         edit(j["stratagems"]!.AsArray()); return Encoding.UTF8.GetBytes(j.ToJsonString());
     }
     private static System.Text.Json.Nodes.JsonObject Icon(string state, string? key) => new()
@@ -235,11 +236,11 @@ public sealed class ReadabilityPassTests
         Assert.True(GameIconStore.IsGameData(data));
         var store = new GameIconStore(e.Paths); var changes = 0; store.Changed += () => changes++;
         Assert.True(store.AutoImportEnabled);
-        await store.ImportAsync(data); Assert.Equal(1, changes); Assert.Null(store.AutoImportPath());
+        await store.ImportAsync(data); Assert.Equal(1, changes); Assert.Null(store.AutoImportPlan()); // a valid cache is not re-extracted
         // Removing icons turns automatic import off; a manual import turns it back on.
-        store.Clear(); store.DisableAutoImport(); Assert.Equal(2, changes);
-        Assert.False(store.AutoImportEnabled); Assert.Null(store.AutoImportPath());
+        store.Clear(); store.DisableAutoImport(); Assert.Equal(3, changes);
+        Assert.False(store.AutoImportEnabled); Assert.Null(store.AutoImportPlan());
         Assert.False(new GameIconStore(e.Paths).AutoImportEnabled);
-        await store.ImportAsync(data); Assert.True(store.AutoImportEnabled); Assert.Equal(3, changes);
+        await store.ImportAsync(data); Assert.True(store.AutoImportEnabled); Assert.Equal(4, changes);
     }
 }

@@ -141,7 +141,7 @@ public sealed class Runtime0201Tests
             case "api": first["apiFieldConstant"] = "os.execute('bad')"; break;
             case "scope": first["sharedScope"]!["scopeKey"] = "invented"; break;
         }
-        Assert.Throws<InvalidDataException>(() => new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.24.0"));
+        Assert.Throws<InvalidDataException>(() => new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.25.1"));
     }
     private static byte[] Archive(bool omitSupport = false)
     {
@@ -157,15 +157,15 @@ public sealed class Runtime0201Tests
         var old = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.19.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new("Old project", "Tests", "mods/tests/old_support", "0.1.0"), old);
         await w.SetWeaponChangeAsync("AR-23C Liberator Concussive", "weapon.fire_rate", "1100", false);
-        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.24.0", e.GitHub.Archive));
+        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.25.1", e.GitHub.Archive));
         await w.OpenAsync(w.Project!.Id); Assert.Equal("0.19.0", w.Project!.SdkVersion); Assert.Null(w.Metadata!.SupportAuthoring);
-        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.24.0", w.Project.SdkVersion); Assert.Equal(970, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.25.1", w.Project.SdkVersion); Assert.Equal(970, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
         Assert.Equal("0.19.0", w.Project.WeaponChanges.Single().BaselineSdkVersion); Assert.Null(w.BuildError);
     }
     [Fact] public async Task Missing_canonical_artifact_preserves_previous_install()
     {
         using var e = new TestEnvironment(); e.GitHub.Archive = Archive(true);
-        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.24.0", e.GitHub.Archive)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.25.1", e.GitHub.Archive)));
         Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);
     }
     [Fact] public async Task Reused_player_artifacts_allow_only_verified_exact_bytes()

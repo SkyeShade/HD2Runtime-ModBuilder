@@ -29,7 +29,15 @@ public static class ModOptionsService
         MinChoices = 2, MaxChoices = 16, MaxChoiceBytes = 48, MaxDecimals = 3;
     private static readonly Regex OptionId = new(@"\A[A-Za-z0-9_-]+\z", RegexOptions.CultureInvariant);
     public static readonly object OptionalDependency = new { min_version = "1.0.0", api = 1, bingus_min_release = 18 };
-    public const string DependencyNote = "Optional: CowboyBingus Mod Options Menu v1+ (needs Bingus Shared Loader v18+) for in-game settings; without it the configurable settings stay inactive.";
+    // 0.25.1: hd2.options({..., fallback='default' or 'disable'}) (metadata HD2OptionsRequest.fallback?). Without Mod Options Menu,
+    // 'default' (Runtime's default, recommended for generated mods) applies each option's declared default; 'disable' keeps the
+    // bound operations inactive. 0.25.0 has no fallback and always keeps them inactive.
+    public const string FallbackDefault = "default", FallbackDisable = "disable";
+    public static bool FallbackSupported(SdkMetadata? sdk) => sdk != null && Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.25.1")) >= 0;
+    public static bool UsesDefaultsWithoutMenu(SdkMetadata sdk, ModOptionsSettings s) => FallbackSupported(sdk) && s.Fallback != FallbackDisable;
+    // Manager description note, worded as HD2Runtime's own mod builder.
+    public static string DependencyNote(SdkMetadata sdk, ModOptionsSettings s) => "Optional: CowboyBingus Mod Options Menu v1+ (needs Bingus Shared Loader v18+) for in-game settings; "
+        + (UsesDefaultsWithoutMenu(sdk, s) ? "without it the settings use their defaults." : "without it the configurable settings stay inactive.");
 
     public static bool Supported(SdkMetadata? sdk) => sdk != null && Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.25.0")) >= 0;
     // Binding keys: one per edited field, stable across saves.
@@ -186,6 +194,8 @@ public static class ModOptionsService
         if (p.ModOptions is not { Enabled: true } s || s.Rows.Count == 0) return issues;
         if (!Supported(sdk)) { issues.Add($"In-game options need HD2Runtime SDK 0.25.0 or newer; this project is bound to {sdk.Version}."); return issues; }
         issues.AddRange(PageIssues(s));
+        if (s.Fallback is not (FallbackDefault or FallbackDisable)) issues.Add($"Unknown fallback '{s.Fallback}'.");
+        else if (s.Fallback == FallbackDisable && !FallbackSupported(sdk)) issues.Add($"Keeping option-bound edits inactive without Mod Options Menu (fallback='disable') needs HD2Runtime SDK 0.25.1; SDK {sdk.Version} already keeps them inactive. Rebind to 0.25.1 or choose the default.");
         foreach (var dup in s.Rows.GroupBy(r => r.Id, StringComparer.Ordinal).Where(g => g.Count() > 1)) issues.Add($"Option id '{dup.Key}' is used more than once.");
         foreach (var dup in s.Rows.GroupBy(r => r.Key, StringComparer.Ordinal).Where(g => g.Count() > 1)) issues.Add("One edited field has more than one in-game option.");
         var active = ActiveRows(p, sdk);
@@ -266,7 +276,9 @@ public static class ModOptionsService
         var active = ActiveRows(p, sdk);
         if (active.Count == 0) return null;
         var lua = new StringBuilder();
-        lua.Append("local options=hd2.options({id=").Append(LuaGenerator.Quote(s.PageId)).Append(",title=").Append(LuaGenerator.Quote(s.Title)).Append("})\n");
+        // The default fallback is Runtime's own default and emits no key (unchanged output); strict mode is explicit.
+        lua.Append("local options=hd2.options({id=").Append(LuaGenerator.Quote(s.PageId)).Append(",title=").Append(LuaGenerator.Quote(s.Title))
+            .Append(s.Fallback == FallbackDisable ? ",fallback='disable'" : "").Append("})\n");
         lua.Append("local ").Append(OptionBindings.Master).Append("=options:toggle({id=").Append(LuaGenerator.Quote(MasterId)).Append(",label=").Append(LuaGenerator.Quote(s.MasterLabel)).Append(",default=true");
         if (s.MasterDescription != null) lua.Append(",description=").Append(LuaGenerator.Quote(s.MasterDescription));
         lua.Append("})\n");

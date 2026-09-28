@@ -26,14 +26,15 @@ public sealed class NavigationTests
         using var e = new TestEnvironment(); var sdk = await Current(e);
         var none = Navigation.Build(sdk, null, 5); var legacyOnly = Navigation.Build(null, null);
         Assert.Contains(none, i => i.Page == "player-weapons" && i.Count == 80);
-        Assert.Contains(none, i => i.Page == "stratagems" && i.Count == 73);
+        // 0.25.x: SG-88 and CQC-72 are standalone equipment (no call-in), not stratagems.
+        Assert.Contains(none, i => i.Page == "stratagems" && i.Count == 71);
         Assert.Null(none.Single(i => i.Page == "changes").Count);
         Assert.Contains(legacyOnly, i => i.Page == "player-weapons"); Assert.Contains(legacyOnly, i => i.Page == "stratagems");
         var w = e.Workspace(); await w.CreateAsync(new("Nav", "Tests", "mods/tests/nav", "0.1.0"), sdk);
         Assert.Equal(5, Navigation.Build(sdk, w.Project, 5).Single(i => i.Page == "changes").Count);
         Assert.Equal(none.Select(i => i.Page), Navigation.Build(sdk, w.Project, 5).Select(i => i.Page));
     }
-    [Theory] [InlineData("support", "cat-support", 35)] [InlineData("offensive", "cat-offensive", 20)] [InlineData("defensive", "cat-defensive", 18)]
+    [Theory] [InlineData("support", "cat-support", 33)] [InlineData("offensive", "cat-offensive", 20)] [InlineData("defensive", "cat-defensive", 18)]
     public async Task Categories_count_published_families_and_use_semantic_classes(string key, string css, int count)
     {
         using var e = new TestEnvironment(); var sdk = await Current(e); var c = StratagemCategories.Find(key)!;

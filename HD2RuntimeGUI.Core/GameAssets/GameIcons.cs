@@ -15,7 +15,9 @@ namespace HD2RuntimeGUI.Core.GameAssets;
 // boosters through BoosterAuthoringCapabilities identity.uiIcon, stratagems through StratagemAuthoringCapabilities uiIcon (after 0.24.0).
 public sealed record IconSource(string Resource, string Sha256, int Icons);
 public sealed record IconManifest(int FormatVersion, string GameDataPath, DateTimeOffset ImportedAt, IconSource[] Sources,
-    Dictionary<string, string> StratagemTypeIcons, Dictionary<string, string> BoosterTypeIcons);
+    Dictionary<string, string> StratagemTypeIcons, Dictionary<string, string> BoosterTypeIcons,
+    // Format 2: signature of the game data files the libraries were read from, so a game update refreshes the cache.
+    string? GameSignature = null);
 
 public static class XamlIcons
 {
@@ -113,14 +115,36 @@ public sealed class GameIconStore(AppPaths paths)
     public string Folder => Path.Combine(paths.Root, "Icons");
     private IconManifest? manifest; private readonly Dictionary<string, string?> cache = new(StringComparer.Ordinal);
     public IconManifest? Manifest => manifest ??= Load();
-    public static string? DefaultGameDataPath()
+    public const int ManifestFormat = 2;
+    // Helldivers 2 data folders in the default Steam install and every Steam library (libraryfolders.vdf), first valid one wins.
+    public static string? DefaultGameDataPath() => GameDataCandidates().FirstOrDefault(IsGameData);
+    public static IEnumerable<string> GameDataCandidates()
     {
+        var steamRoots = new List<string>();
         foreach (var root in new[] { Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) })
+            if (root.Length > 0) steamRoots.Add(Path.Combine(root, "Steam"));
+        if (OperatingSystem.IsWindows())
+            try { if (Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) is string steam && steam.Length > 0) steamRoots.Add(Path.GetFullPath(steam)); }
+            catch (Exception e) when (e is System.Security.SecurityException or IOException or ArgumentException or UnauthorizedAccessException) { }
+        var libraries = new List<string>();
+        foreach (var steam in steamRoots.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var path = Path.Combine(root, "Steam", "steamapps", "common", "Helldivers 2", "data");
-            if (root.Length > 0 && IsGameData(path)) return path;
+            libraries.Add(steam);
+            var vdf = Path.Combine(steam, "steamapps", "libraryfolders.vdf");
+            try { if (File.Exists(vdf)) libraries.AddRange(SteamLibraries(File.ReadAllText(vdf))); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
-        return null;
+        return libraries.Distinct(StringComparer.OrdinalIgnoreCase).Select(l => Path.Combine(l, "steamapps", "common", "Helldivers 2", "data"));
+    }
+    // "path" entries of Steam's libraryfolders.vdf (backslashes are escaped in the file).
+    public static IEnumerable<string> SteamLibraries(string vdf) =>
+        Regex.Matches(vdf, "\"path\"\\s+\"((?:[^\"\\\\]|\\\\.)*)\"").Select(m => Regex.Unescape(m.Groups[1].Value)).Where(p => p.Length > 0);
+    // Cheap change detection: the archive index files change whenever the game is updated.
+    public static string? GameSignature(string dataPath)
+    {
+        var parts = new[] { "bundles.nxa", "9ba626afa44a3aa3", "9ba626afa44a3aa3.stream" }.Select(n => new FileInfo(Path.Combine(dataPath, n))).Where(f => f.Exists)
+            .Select(f => $"{f.Name}:{f.Length}:{f.LastWriteTimeUtc.Ticks}").ToArray();
+        return parts.Length == 0 ? null : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n", parts))))[..32];
     }
     // A Helldivers 2 data folder: slim edition (bundles.nxa) or fat edition (boot archive).
     public static bool IsGameData(string path) => File.Exists(Path.Combine(path, "bundles.nxa")) || File.Exists(Path.Combine(path, "9ba626afa44a3aa3"));
@@ -151,7 +175,7 @@ public sealed class GameIconStore(AppPaths paths)
                 sources.Add(new(name, Convert.ToHexString(SHA256.HashData(bytes)), svgs.Count));
                 if (kind == Stratagem) stratagemTypes = XamlIcons.TypeBindings(xaml, "StratagemTypeDataTemplate"); else boosterTypes = XamlIcons.TypeBindings(xaml, "BoosterDataTemplate");
             }
-            var result = new IconManifest(1, gameDataPath, DateTimeOffset.UtcNow, sources.ToArray(), stratagemTypes, boosterTypes);
+            var result = new IconManifest(ManifestFormat, gameDataPath, DateTimeOffset.UtcNow, sources.ToArray(), stratagemTypes, boosterTypes, GameSignature(gameDataPath));
             await File.WriteAllTextAsync(Path.Combine(stage, "manifest.json"), JsonSerializer.Serialize(result, JsonStorage.Options), ct);
             if (Directory.Exists(Folder)) Directory.Delete(Folder, true);
             Directory.Move(stage, Folder);
@@ -181,11 +205,49 @@ public sealed class GameIconStore(AppPaths paths)
     // icon binding. SDK 0.24.0 and older publish none, so their stratagems keep category glyphs.
     public static string? StratagemIconKey(StratagemDefinition s) => s.UiIcon is { State: "resolved", IconKey: { } key } ? key : null;
 
-    // Automatic import: once, when a Helldivers 2 install is detected and no icons are cached. Removing icons in Settings
-    // turns it off until the next manual import.
+    // Automatic import, in the background at startup: when a Helldivers 2 install is found and the local cache is missing or stale
+    // (older cache format, game files changed, or icon files missing). A valid cache is never re-extracted. Removing icons, or turning
+    // automatic import off in Settings, is respected until the user imports again or turns it back on.
     private string AutoImportOff => Path.Combine(paths.Root, "icons-auto-import-off");
     public bool AutoImportEnabled => !File.Exists(AutoImportOff);
-    public string? AutoImportPath() => Manifest == null && AutoImportEnabled ? DefaultGameDataPath() : null;
-    public void DisableAutoImport() { Directory.CreateDirectory(paths.Root); File.WriteAllText(AutoImportOff, "Game icon auto-import turned off in Settings.\n"); }
+    // Install detection (replaceable in tests so they never read a real game install).
+    public Func<string?> Detect { get; init; } = DefaultGameDataPath;
+    public void DisableAutoImport() { Directory.CreateDirectory(paths.Root); File.WriteAllText(AutoImportOff, "Game icon auto-import turned off in Settings.\n"); Changed?.Invoke(); }
     public void EnableAutoImport() { if (File.Exists(AutoImportOff)) File.Delete(AutoImportOff); }
+    // Why the cache for this install needs (re)importing, or null when it is current.
+    public string? RefreshReason(string gameDataPath)
+    {
+        if (Manifest is not { } m) return "No game icons are imported yet.";
+        if (m.FormatVersion < ManifestFormat || m.GameSignature == null) return "The icon cache predates game-change detection.";
+        if (GameSignature(gameDataPath) != m.GameSignature) return "The game files changed since the icons were imported.";
+        foreach (var (source, kind) in m.Sources.Select(s => (s, s.Resource == XamlIcons.BoosterLibrary ? Booster : Stratagem)))
+            if (Count(kind) < source.Icons) return "Imported icon files are missing.";
+        return null;
+    }
+    public (string Path, string Reason)? AutoImportPlan()
+    {
+        if (!AutoImportEnabled) return null;
+        var path = Manifest?.GameDataPath is { } previous && IsGameData(previous) ? previous : Detect();
+        return path != null && RefreshReason(path) is { } reason ? (path, reason) : null;
+    }
+    public bool Importing { get; private set; }
+    public string? LastError { get; private set; }
+    public string? LastReason { get; private set; }
+    private int autoImportRunning;
+    // Runs the plan once (concurrent calls are ignored). Failures keep the previous cache and category glyphs, and are reported
+    // through LastError for Settings; authoring is never affected.
+    public async Task<bool> AutoImportAsync(CancellationToken ct = default)
+    {
+        if (AutoImportPlan() is not { } plan || Interlocked.Exchange(ref autoImportRunning, 1) == 1) return false;
+        try
+        {
+            Importing = true; LastReason = plan.Reason; Changed?.Invoke();
+            await ImportAsync(plan.Path, ct); LastError = null; return true;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or XmlException or JsonException)
+        { LastError = e.Message; return false; }
+        finally { Importing = false; Interlocked.Exchange(ref autoImportRunning, 0); Changed?.Invoke(); }
+    }
+    // SHA-256 of the imported stratagem icon library, compared with the SDK's uiIconContract.librarySha256.
+    public string? StratagemLibrarySha => Manifest?.Sources.FirstOrDefault(s => s.Resource == XamlIcons.StratagemLibrary)?.Sha256;
 }

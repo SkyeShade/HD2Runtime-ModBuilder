@@ -17,6 +17,6 @@ internal static class PublishedArtifactVersion
         ["ProjectileCompositionCapabilities.json"] = "232a56694fb69eb735c10568f7c4809d29346af844f75ac15a409a33dfaebc83",
     };
     public static bool Matches(string file, byte[] bytes, string? actual, string expected) => actual == expected ||
-        expected is "0.20.1" or "0.21.0" or "0.22.0" or "0.22.1" or "0.23.0" or "0.23.1" or "0.23.2" or "0.24.0" or "0.25.0" && actual == "0.19.0" && Reused019.TryGetValue(file, out var digest)
+        expected is "0.20.1" or "0.21.0" or "0.22.0" or "0.22.1" or "0.23.0" or "0.23.1" or "0.23.2" or "0.24.0" or "0.25.0" or "0.25.1" && actual == "0.19.0" && Reused019.TryGetValue(file, out var digest)
         && Convert.ToHexString(SHA256.HashData(bytes)).Equals(digest, StringComparison.OrdinalIgnoreCase);
 }

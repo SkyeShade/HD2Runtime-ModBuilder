@@ -18,13 +18,14 @@ public sealed class Runtime024Tests
     private static readonly string[] StillBlocked = ["EAT-17 Expendable Anti-Tank", "LAS-98 Laser Cannon", "B/FLAM-80 Cremator", "CQC-72 Entrenchment Tool"];
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e, string resource = "mods/tests/boosters")
     {
-        File.Delete(e.Paths.CachePath("current.json")); var sdk = await e.Cache.GetCurrentAsync();
+        // Pinned to the published 0.24.0 SDK (the bundled offline SDK moves with each release).
+        var sdk = await SdkFixtures.Install(e, "0.24.0");
         var w = e.Workspace(); await w.CreateAsync(new("Boosters", "Tests", resource, "0.1.0"), sdk); return w;
     }
     private static BoosterCatalog Boosters(BuilderWorkspace w) => w.Metadata!.Entities!.Boosters!;
     private static EntityField Booster(BuilderWorkspace w, string booster, string id) => Boosters(w).FieldInstances.Single(f => f.Target.Booster == booster && f.SemanticFieldId == id);
     private static SupportField Support(BuilderWorkspace w, string weapon, string id) => w.Metadata!.SupportAuthoring!.FieldInstances.First(f => f.SupportWeapon == weapon && f.SemanticFieldId == id);
-    private static JsonNode BoosterJson() => JsonNode.Parse(SdkCache.BundledComposition()[BoosterAuthoringReader.FileName])!;
+    private static JsonNode BoosterJson() => JsonNode.Parse(SdkFixtures.Entry("0.24.0", BoosterAuthoringReader.FileName))!;
 
     [Fact] public async Task Booster_catalog_publishes_every_booster_and_only_five_fields()
     {
@@ -184,12 +185,16 @@ public sealed class Runtime024Tests
         var error = await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.24.0", e.GitHub.Archive)));
         Assert.Equal(BoosterAuthoringReader.FileName, error.Data[SdkCache.MissingFileKey]); Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);
     }
-    [Fact] public async Task A_stale_0240_cache_without_boosters_is_completed_from_the_bundle()
+    [Fact] public async Task A_stale_cache_without_boosters_is_completed_only_from_an_identical_bundle()
     {
-        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.24.0");
-        File.Delete(Path.Combine(Path.GetDirectoryName(e.Paths.SdkFile("0.24.0"))!, BoosterAuthoringReader.FileName)); e.GitHub.Offline = true;
+        // The bundled SDK (0.25.1) completes its own version offline; an older incomplete cache needs the published release.
+        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.25.1");
+        File.Delete(Path.Combine(Path.GetDirectoryName(e.Paths.SdkFile("0.25.1"))!, BoosterAuthoringReader.FileName)); e.GitHub.Offline = true;
         var sdk = await new SdkCache(e.Paths, e.Reader, e.GitHub).GetCurrentAsync();
         Assert.Equal(20, sdk.Entities!.Boosters!.Boosters.Length);
+        using var old = new TestEnvironment(); await SdkFixtures.Install(old, "0.24.0");
+        File.Delete(Path.Combine(Path.GetDirectoryName(old.Paths.SdkFile("0.24.0"))!, BoosterAuthoringReader.FileName)); old.GitHub.Offline = true;
+        await Assert.ThrowsAsync<IncompleteSdkCacheException>(() => new SdkCache(old.Paths, old.Reader, old.GitHub).GetCurrentAsync());
     }
 
     [Fact] public async Task Expanded_support_catalog_publishes_new_field_families_with_their_guards()
@@ -275,7 +280,7 @@ public sealed class Runtime024Tests
     [Theory] [InlineData("identity-without-evidence")] [InlineData("unknown-acknowledgement")] [InlineData("ack-without-reason")]
     public void Malformed_support_metadata_is_rejected(string mode)
     {
-        var j = JsonNode.Parse(SdkCache.BundledComposition()[SupportAuthoringReader.FileName])!;
+        var j = JsonNode.Parse(SdkFixtures.Entry("0.24.0", SupportAuthoringReader.FileName))!;
         var mg = j["weapons"]!.AsArray().First(x => (string)x!["name"]! == "MG-43 Machine Gun")!;
         var reload = j["fieldInstances"]!.AsArray().First(x => (string)x!["semanticFieldId"]! == "reload.duration")!;
         switch (mode)

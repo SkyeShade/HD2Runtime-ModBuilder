@@ -9,6 +9,9 @@ public sealed class ModOptionsSettings
     public string Title { get; set; } = "";
     public string MasterLabel { get; set; } = "Enabled";
     public string? MasterDescription { get; set; }
+    // 0.25.1+: behavior without Mod Options Menu. "default" (Runtime's default, recommended for generated mods) applies each
+    // option's declared default; "disable" keeps option-bound operations inactive. 0.25.0 has no fallback and always keeps them inactive.
+    public string Fallback { get; set; } = "default";
     public List<ModOptionRow> Rows { get; set; } = [];
 }
 

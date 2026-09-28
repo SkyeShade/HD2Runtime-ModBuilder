@@ -1,28 +1,32 @@
 @inject HD2RuntimeGUI.Core.GameAssets.GameIconStore Icons
 @implements IDisposable
-@* Shown on pages that use game icons while none are imported: one click reads them from the local game install. *@
+@* Shown on pages that use game icons while none are imported. Icons normally import automatically in the background at startup;
+   this offers the same import in one click (e.g. after automatic import was turned off) and reports a failed attempt. *@
 @if (Icons.Manifest == null)
 {
     <div class="notice cat-note icon-import-prompt" data-icon-import-prompt>
-        <strong>Game icons are not imported.</strong>@(" ")
-        @if (GamePath is { } path)
-        { <span>Lists show letter glyphs until the icons are read from your Helldivers 2 install.</span>
-          <button class="primary" data-import-icons-inline disabled="@Busy" @onclick="() => Import(path)">@(Busy ? "Importing…" : "Import game icons")</button> }
-        else { <span>No Helldivers 2 install was found automatically. Choose its data folder in Settings → Game icons.</span> }
-        @if (Error != null) { <p class="notice warning">@Error</p> }
+        @if (Icons.Importing) { <strong data-icons-importing>Importing game icons from your Helldivers 2 install…</strong><span> Lists update as soon as they are ready.</span> }
+        else
+        {
+            <strong>Game icons are not imported.</strong>@(" ")
+            @if (GamePath is { } path)
+            { <span>Lists show letter glyphs until the icons are read from your Helldivers 2 install.</span>
+              <button class="primary" data-import-icons-inline disabled="@Busy" @onclick="() => Import(path)">@(Busy ? "Importing…" : "Import game icons")</button> }
+            else { <span>No Helldivers 2 install was found automatically. Choose its data folder in Settings → Game icons.</span> }
+        }
+        @if ((Error ?? Icons.LastError) is { } error) { <p class="notice warning" data-icon-import-failed>@error</p> }
     </div>
 }
 @code {
-    private bool Busy; private string? Error;
-    private string? GamePath => HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath();
-    protected override void OnInitialized() => Icons.Changed += Refresh;
+    private bool Busy; private string? Error, GamePath;
+    protected override void OnInitialized() { Icons.Changed += Refresh; GamePath = Icons.Manifest?.GameDataPath ?? HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath(); }
     private void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Icons.Changed -= Refresh;
     private async Task Import(string path)
     {
         Busy = true; Error = null;
         try { await Icons.ImportAsync(path); }
-        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException) { Error = e.Message; }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or System.Xml.XmlException) { Error = e.Message; }
         finally { Busy = false; }
     }
 }

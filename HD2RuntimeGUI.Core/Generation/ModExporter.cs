@@ -20,7 +20,7 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
         var description = $"Requires Bingus Shared Loader v15+ / API 1 and HD2Runtime {sdk.Version}+ / API {sdk.ApiVersion}; install dependencies separately.";
         // In-game options: Mod Options Menu is optional (never in requires), declared only when at least one active edit is bound.
         var usesOptions = ModOptionsService.ActiveRows(project, sdk).Count > 0;
-        if (usesOptions) description += " " + ModOptionsService.DependencyNote;
+        if (usesOptions) description += " " + ModOptionsService.DependencyNote(sdk, project.ModOptions!);
         var optional = new { mod_options_menu = ModOptionsService.OptionalDependency };
         byte[] Json(object value) => JsonSerializer.SerializeToUtf8Bytes(value, new JsonSerializerOptions { WriteIndented = true });
         byte[] Text(string value) => Encoding.UTF8.GetBytes(value);

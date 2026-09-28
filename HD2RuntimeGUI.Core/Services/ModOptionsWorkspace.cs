@@ -74,6 +74,13 @@ public sealed partial class BuilderWorkspace
             s.Rows.Add(row);
         }
     });
+    // 0.25.1+: what option-bound edits do without Mod Options Menu (declared defaults, or inactive).
+    public Task SetOptionsFallbackAsync(string fallback) => EditOptionsAsync(s =>
+    {
+        if (fallback is not (ModOptionsService.FallbackDefault or ModOptionsService.FallbackDisable)) throw new InvalidDataException("Unknown fallback.");
+        if (fallback == ModOptionsService.FallbackDisable && !ModOptionsService.FallbackSupported(Metadata)) throw new InvalidDataException("fallback='disable' needs HD2Runtime SDK 0.25.1 or newer.");
+        s.Fallback = fallback;
+    });
     public Task RemoveOptionRowAsync(string key) => EditOptionsAsync(s => s.Rows.RemoveAll(r => r.Key == key));
     // Mod Options Menu shows rows in registration order.
     public Task MoveOptionRowAsync(string key, int delta) => EditOptionsAsync(s =>

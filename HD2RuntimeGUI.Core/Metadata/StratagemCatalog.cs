@@ -23,11 +23,20 @@ public sealed record StratagemDefinition(string Name, string Family, string Root
     StratagemUiIcon? UiIcon = null);
 // Game UI icon identity published by Runtime (after 0.24.0): native StratagemType -> icon key in the game's own icon library.
 // Artwork is never in the SDK; tooling reads it from the local game install. Only state "resolved" names usable vector artwork.
-public sealed record StratagemUiIcon(string State, string? NativeType = null, int? NativeTypeValue = null, string? IconKey = null, string? Library = null, string? Reason = null)
+// 0.25.1+ also publishes the blocker of a non-resolved icon (kind + reason) and structural provenance.
+public sealed record StratagemUiIconBlocker(string Kind, string? Reason = null);
+public sealed record StratagemUiIcon(string State, string? NativeType = null, int? NativeTypeValue = null, string? IconKey = null, string? Library = null, string? Reason = null,
+    StratagemUiIconBlocker? Blocker = null)
 {
     public const string Library0 = "content/ui/shared/resources/generated_icons/stratagem_icons";
     public static readonly string[] States = ["resolved", "empty_template", "unbound", "no_native_root"];
+    // Why no icon is shown: Runtime's reason, else its published description of the state.
+    public string? FallbackReason(StratagemUiIconContract? contract) => State == "resolved" ? null : Reason ?? Blocker?.Reason ?? contract?.States?.GetValueOrDefault(State);
 }
+// 0.25.1: the icon identity contract. Keys come from this game icon library (by content hash); emptyTemplates lists the
+// library templates without vector artwork. Artwork is never published; tooling reads it from the local install.
+public sealed record StratagemUiIconContract(string Contract, int SchemaVersion, Dictionary<string, string>? States, string Library, string LibrarySha256,
+    string[] EmptyTemplates, bool ArtworkPublished);
 // Descriptive (non-authoring) graph nodes. Schema 1 nodes carry wiki kind/roles; schema 2 defensive nodes carry kind/source/evidence.
 public sealed record StratagemBranch(string Id, string Name, string? WikiKind, string[]? SemanticRoles, string? ParentId,
     string[] ChildIds, string Stratagem, string Family, string Correlation, string? Kind = null, string? SourcePath = null,
@@ -79,7 +88,7 @@ public sealed record StratagemCatalog(int SchemaVersion, string Contract, string
     StratagemField[] FieldInstances, StratagemSummary Summary,
     StratagemDeployedEntityRecord[]? DeployedEntities = null, StratagemBackingObject[]? BackingObjects = null,
     StratagemOperationGroup[]? OperationGroups = null, StratagemInstanceAudit? InstanceAudit = null,
-    SupportCallInLinkage? SupportCallInLinks = null)
+    SupportCallInLinkage? SupportCallInLinks = null, StratagemUiIconContract? UiIconContract = null)
 {
     public static readonly string[] DefensiveFamilies = ["sentry", "emplacement", "mine"];
     public static bool IsDefensive(string family) => DefensiveFamilies.Contains(family);
@@ -190,6 +199,20 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             Check(c.Stratagems.All(s => s.UiIcon is null || StratagemUiIcon.States.Contains(s.UiIcon.State)
                 && (s.UiIcon.IconKey is null ? s.UiIcon.State is "unbound" or "no_native_root"
                     : Regex.IsMatch(s.UiIcon.IconKey, @"\A[A-Za-z][A-Za-z0-9]{0,63}\z") && s.UiIcon.Library == StratagemUiIcon.Library0)));
+            // 0.25.1 contract: when published it names the same library, never publishes artwork, and its empty-template list agrees
+            // with every icon state (an empty template never counts as resolved artwork).
+            if (c.UiIconContract is { } contract)
+            {
+                if (contract.Contract != "hd2runtime.stratagem.ui_icon.v1" || contract.SchemaVersion != 1) throw new UnsupportedSdkException("Unsupported stratagem icon identity contract.");
+                Check(contract.Library == StratagemUiIcon.Library0 && !contract.ArtworkPublished && Regex.IsMatch(contract.LibrarySha256, @"\A[0-9A-Fa-f]{64}\z")
+                    && (contract.States == null || contract.States.Keys.All(StratagemUiIcon.States.Contains))
+                    && c.Stratagems.All(s => s.UiIcon is null || s.UiIcon.State switch
+                    {
+                        "resolved" => !contract.EmptyTemplates.Contains(s.UiIcon.IconKey),
+                        "empty_template" => s.UiIcon.IconKey is { } k && contract.EmptyTemplates.Contains(k),
+                        _ => true,
+                    }));
+            }
             return c;
         }
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or ArgumentException)
