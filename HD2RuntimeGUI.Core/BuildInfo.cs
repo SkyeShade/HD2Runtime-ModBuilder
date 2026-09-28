@@ -9,5 +9,13 @@ public static class BuildInfo
         typeof(BuildInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         ?.Split('+', 2)[0] ?? "0.4.0";
 
+    /// <summary>Git commit the build was compiled from, with ".dirty" when the working tree had uncommitted changes; null if unknown.</summary>
+    public static string? Commit =>
+        typeof(BuildInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?.Split('+', 2) is [_, var revision] && revision.Length > 0 ? revision : null;
+
+    /// <summary>Version plus short commit, so builds that share a version number can be told apart.</summary>
+    public static string Identity => Commit is { } c ? $"{Version} ({(c.Length >= 40 ? c[..12] + c[40..] : c)})" : Version;
+
     public static string UserAgent => $"HD2RuntimeGUI/{Version}";
 }

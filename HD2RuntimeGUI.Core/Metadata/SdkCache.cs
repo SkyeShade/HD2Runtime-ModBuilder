@@ -14,6 +14,14 @@ public interface ISdkCache
     Task<SdkMetadata> InspectAsync(SdkRelease release, CancellationToken ct = default);
 }
 
+/// <summary>A cached SDK version lacks a file this GUI requires and cannot be completed offline.</summary>
+public sealed class IncompleteSdkCacheException(string version, string file) : IOException(
+    $"The cached SDK {version} was saved by an older HD2RuntimeGUI and lacks {file}. Check for updates online to reinstall SDK {version}; the missing file is added without changing the cached files.")
+{
+    public string Version { get; } = version;
+    public string File { get; } = file;
+}
+
 public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github) : ISdkCache
 {
     private readonly IPlayerWeaponCatalogReader catalogReader = new PlayerWeaponCatalogReader();
@@ -68,44 +76,44 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     {
         var sdk = reader.Read(payload.Metadata);
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.13.0")) >= 0)
-            sdk = sdk with { PlayerWeapons = catalogReader.Read(payload.Capabilities ?? throw new InvalidDataException("SDK is missing its player-weapon capability catalog."), sdk.Version) };
+            sdk = sdk with { PlayerWeapons = catalogReader.Read(payload.Capabilities ?? throw MissingFile(PlayerWeaponCatalogReader.FileName, "SDK is missing its player-weapon capability catalog."), sdk.Version) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.14.0")) >= 0)
-            sdk = sdk with { PlayerAmmo = ammoReader.Read(payload.Ammo ?? throw new InvalidDataException("SDK is missing its player-weapon ammo capability catalog."), sdk.PlayerWeapons!) };
+            sdk = sdk with { PlayerAmmo = ammoReader.Read(payload.Ammo ?? throw MissingFile(PlayerWeaponAmmoCatalogReader.FileName, "SDK is missing its player-weapon ammo capability catalog."), sdk.PlayerWeapons!) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.15.0")) >= 0)
             sdk = sdk with { Composition = compositionReader.Read(payload.Composition ?? throw new InvalidDataException("SDK is missing composition metadata."), sdk.PlayerWeapons!) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.17.0")) >= 0)
             sdk = sdk with { Advanced = advancedReader.Read(payload.Composition!, sdk.PlayerWeapons!, sdk.Composition!) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.18.0")) >= 0)
             sdk = sdk with { PlayerHeat = heatReader.Read(payload.Composition!.GetValueOrDefault(PlayerWeaponHeatCatalogReader.FileName)
-                ?? throw new InvalidDataException("SDK is missing its player-weapon heat capability catalog."), sdk.PlayerWeapons!) };
+                ?? throw MissingFile(PlayerWeaponHeatCatalogReader.FileName, "SDK is missing its player-weapon heat capability catalog."), sdk.PlayerWeapons!) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.19.0")) >= 0)
             sdk = sdk with { Plans = planReader.Read(payload.Composition!.GetValueOrDefault(CompositionPlanCapabilitiesReader.FileName)
-                ?? throw new InvalidDataException("SDK is missing its composition plan capability contract.")) };
+                ?? throw MissingFile(CompositionPlanCapabilitiesReader.FileName, "SDK is missing its composition plan capability contract.")) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.20.1")) >= 0)
         {
             if (sdk.Plans?.FieldCapabilitySources?.Contains(SupportAuthoringReader.FileName) != true)
                 throw new InvalidDataException("Plan contract does not declare support authoring capabilities.");
             sdk = sdk with { SupportAuthoring = supportReader.Read(payload.Composition!.GetValueOrDefault(SupportAuthoringReader.FileName)
-                ?? throw new InvalidDataException("SDK is missing canonical support authoring metadata."), sdk.Version) };
+                ?? throw MissingFile(SupportAuthoringReader.FileName, "SDK is missing canonical support authoring metadata."), sdk.Version) };
         }
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.21.0")) >= 0)
         {
             if (sdk.Plans?.FieldCapabilitySources?.Contains(StratagemCatalogReader.FileName) != true)
                 throw new InvalidDataException("Plan contract does not declare stratagem authoring capabilities.");
             sdk = sdk with { Stratagems = stratagemReader.Read(payload.Composition!.GetValueOrDefault(StratagemCatalogReader.FileName)
-                ?? throw new InvalidDataException("SDK is missing canonical stratagem capabilities.")) };
+                ?? throw MissingFile(StratagemCatalogReader.FileName, "SDK is missing canonical stratagem capabilities.")) };
         }
         if (sdk.Stratagems != null && sdk.SupportAuthoring != null) sdk = sdk with { SupportLinks = SupportCallInLinker.Link(sdk.Stratagems, sdk.SupportAuthoring) };
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.23.0")) >= 0)
             sdk = sdk with { Entities = EntityAuthoringReader.Read(
-                payload.Composition!.GetValueOrDefault(EntityAuthoringReader.VehicleFile) ?? throw new InvalidDataException("SDK is missing vehicle authoring capabilities."),
-                payload.Composition!.GetValueOrDefault(EntityAuthoringReader.BackpackFile) ?? throw new InvalidDataException("SDK is missing backpack authoring capabilities."),
+                payload.Composition!.GetValueOrDefault(EntityAuthoringReader.VehicleFile) ?? throw MissingFile(EntityAuthoringReader.VehicleFile, "SDK is missing vehicle authoring capabilities."),
+                payload.Composition!.GetValueOrDefault(EntityAuthoringReader.BackpackFile) ?? throw MissingFile(EntityAuthoringReader.BackpackFile, "SDK is missing backpack authoring capabilities."),
                 sdk.Version, sdk.Stratagems ?? throw new InvalidDataException("SDK is missing canonical stratagem capabilities.")) };
         // 0.23.1: magazine values on attachment weapons are owned by attachment definitions (supersedes the older attachment ammo-owner data).
         if (Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.23.1")) >= 0)
             sdk = sdk with { Entities = new EntityAuthoring { Vehicles = sdk.Entities!.Vehicles, Backpacks = sdk.Entities.Backpacks, CallIns = sdk.Entities.CallIns,
                 Attachments = MagazineAttachmentReader.Read(payload.Composition!.GetValueOrDefault(MagazineAttachmentReader.FileName)
-                    ?? throw new InvalidDataException("SDK is missing magazine attachment capabilities."), sdk.Version, sdk.PlayerWeapons!) } };
+                    ?? throw MissingFile(MagazineAttachmentReader.FileName, "SDK is missing magazine attachment capabilities."), sdk.Version, sdk.PlayerWeapons!) } };
         return sdk;
     }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)
@@ -123,6 +131,52 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         finally { gate.Release(); }
     }
     public async Task<SdkMetadata> GetVersionAsync(string version, CancellationToken ct = default)
+    {
+        try { return await ReadCachedAsync(version, ct); }
+        catch (InvalidDataException e) when (e.Data[MissingFileKey] is string missing)
+        {
+            // An older GUI caches only the metadata files it knows, so a later GUI may need a file that release published but the cache lacks.
+            // Complete it only from the byte-identical bundled release; otherwise the release must be reinstalled (InstallAsync merges).
+            if (!await CompleteFromBundleAsync(version, ct)) throw new IncompleteSdkCacheException(version, missing);
+            return await ReadCachedAsync(version, ct);
+        }
+    }
+    /// <summary>Exception data key naming the required metadata file absent from an SDK payload.</summary>
+    public const string MissingFileKey = "HD2RuntimeGUI.MissingSdkFile";
+    private static InvalidDataException MissingFile(string file, string message) { var e = new InvalidDataException(message); e.Data[MissingFileKey] = file; return e; }
+    private static Dictionary<string, byte[]> Files(SdkPayload payload)
+    {
+        var files = new Dictionary<string, byte[]> { ["metadata.json"] = payload.Metadata };
+        if (payload.Capabilities != null) files.Add(PlayerWeaponCatalogReader.FileName, payload.Capabilities);
+        if (payload.Ammo != null) files.Add(PlayerWeaponAmmoCatalogReader.FileName, payload.Ammo);
+        if (payload.Composition != null) foreach (var (name, bytes) in payload.Composition) files.Add(name, bytes);
+        return files;
+    }
+    private async Task<bool> CompleteFromBundleAsync(string version, CancellationToken ct)
+    {
+        var bundled = new SdkPayload(BundledMetadata(), BundledCapabilities(), BundledAmmoCapabilities(), BundledComposition());
+        if (reader.Read(bundled.Metadata).Version != version) return false;
+        try { await MergeMissingAsync(version, Files(bundled), ct); return true; }
+        catch (InvalidDataException) { return false; }
+    }
+    // Adds files absent from a cached version. Every file already present must be byte-identical, so a different release is never mixed in.
+    private async Task MergeMissingAsync(string version, Dictionary<string, byte[]> files, CancellationToken ct)
+    {
+        var missing = new List<string>();
+        foreach (var (name, bytes) in files)
+        {
+            var file = paths.CachePath(version, name);
+            if (!File.Exists(file)) missing.Add(name);
+            else if (!(await File.ReadAllBytesAsync(file, ct)).AsSpan().SequenceEqual(bytes)) throw new InvalidDataException($"SDK {version} is already cached with different metadata ({name}).");
+        }
+        foreach (var name in missing)
+        {
+            var temp = paths.CachePath(version, name + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            try { await File.WriteAllBytesAsync(temp, files[name], ct); ct.ThrowIfCancellationRequested(); File.Move(temp, paths.CachePath(version, name)); }
+            finally { if (File.Exists(temp)) File.Delete(temp); }
+        }
+    }
+    private async Task<SdkMetadata> ReadCachedAsync(string version, CancellationToken ct)
     {
         var file = paths.SdkFile(version);
         if (!File.Exists(file)) throw new InvalidDataException($"SDK {version} is not cached. Restore its metadata before editing this project.");
@@ -179,19 +233,8 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     {
         var destination = Path.GetDirectoryName(paths.SdkFile(version))!;
         var stage = paths.CachePath("staging-" + Guid.NewGuid().ToString("N"));
-        var files = new Dictionary<string, byte[]> { ["metadata.json"] = payload.Metadata };
-        if (payload.Capabilities != null) files.Add(PlayerWeaponCatalogReader.FileName, payload.Capabilities);
-        if (payload.Ammo != null) files.Add(PlayerWeaponAmmoCatalogReader.FileName, payload.Ammo);
-        if (payload.Composition != null) foreach (var (name, bytes) in payload.Composition) files.Add(name, bytes);
-        if (Directory.Exists(destination))
-        {
-            foreach (var (name, bytes) in files)
-            {
-                var file = paths.CachePath(version, name);
-                if (!File.Exists(file) || !(await File.ReadAllBytesAsync(file, ct)).AsSpan().SequenceEqual(bytes)) throw new InvalidDataException("This SDK version is already cached with different or incomplete metadata.");
-            }
-            return;
-        }
+        var files = Files(payload);
+        if (Directory.Exists(destination)) { await MergeMissingAsync(version, files, ct); return; }
         try
         {
             Directory.CreateDirectory(stage);

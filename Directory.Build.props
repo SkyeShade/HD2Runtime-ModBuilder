@@ -7,4 +7,14 @@
     <FileVersion Condition="'$(FileVersion)' == ''">$(Hd2RuntimeGuiVersion).0</FileVersion>
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Hd2RuntimeGuiVersion)</InformationalVersion>
   </PropertyGroup>
+  <!-- The SDK appends the git commit to InformationalVersion (0.4.0+<commit>). Mark builds made from uncommitted changes,
+       so a build is never mistaken for the commit it was based on. -->
+  <Target Name="Hd2MarkUncommittedBuild" AfterTargets="InitializeSourceControlInformationFromSourceControlManager" Condition="'$(SourceRevisionId)' != ''">
+    <Exec Command="git status --porcelain" WorkingDirectory="$(MSBuildThisFileDirectory)" ConsoleToMSBuild="true" IgnoreExitCode="true" EchoOff="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_Hd2UncommittedChanges" />
+    </Exec>
+    <PropertyGroup>
+      <SourceRevisionId Condition="'$(_Hd2UncommittedChanges)' != ''">$(SourceRevisionId).dirty</SourceRevisionId>
+    </PropertyGroup>
+  </Target>
 </Project>

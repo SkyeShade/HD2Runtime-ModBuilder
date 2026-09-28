@@ -58,6 +58,36 @@ Evidence tiers: native_owner 108, native_owner_effect_consistent 48, native_owne
 - **Runtime acceptance:** `tools/HD2RuntimeGUI.Sample --runtime-validate` against Runtime's `v0.23.1` Lua sources, in HD2's standalone `lua51.dll` with no game process: **8,060 passed, 0 failed**. It covers every writable stratagem, vehicle, backpack and magazine-attachment field, and 4,692 unsafe variants were correctly rejected, including attachment writes missing `allow_shared` or `allow_unverified_effect`.
 - **Desktop smoke:** `node tools/magazine-smoke.mjs` passed. It covers the Concussive drum (60 rounds, default, semantic ID, flags), unresolved options, blocked selection, the acknowledgement gate, Lua, Changes, export and reset. Screenshots: `docs/screenshots/runtime0231-concussive-drum.png`, `runtime0231-changes.png`.
 
+## Stale SDK cache from an older GUI (fixed)
+
+**Symptom:** "SDK is missing magazine attachment capabilities." Settings showed no installed SDK, "Unknown" as the latest release and "/ 1" as the Runtime API.
+
+**Root cause:** GUI builds from before this integration already accepted the 0.23.1 release. The 0.23.0 build added 0.23.1 to its published-artifact allowlist, but it consumed only 17 metadata files. Installing 0.23.1 with such a build cached `Sdk\0.23.1\` without `MagazineAttachmentCapabilities.json` and pointed `current.json` at it. A newer GUI then:
+
+- loaded that immutable cache, which is preferred over the bundled copy;
+- failed the version-gated requirement for the magazine file;
+- could not reinstall, because the cache rejected an existing version directory that lacked files.
+
+Initialization therefore threw, `SdkStatus` stayed null, and Settings rendered empty values. "/ 1" was `@null` API plus the fixed schema label, not a release-parsing error. The GitHub release, asset selection, tag parsing (`v0.23.1` → `0.23.1`), download and archive contents were all correct. The public SDK asset, the zip used for integration and the bundled files are byte-identical.
+
+**Fix:**
+
+- **Completing a cached version:** a cached version that lacks a required file is completed from the bundled metadata when it is the same release (every cached file byte-identical). Otherwise, the online check reinstalls that exact release, and installation adds only missing files. Differing files are never replaced or mixed.
+- **Load error in Settings:** Settings shows the load error instead of blank values.
+- **Build identity:** Settings/About and the status bar show the build commit. Builds from uncommitted changes are marked `.dirty`.
+
+**Regression tests:** `SdkCacheUpgradeTests` covers:
+
+- a fresh 0.23.1 install, online and offline first launch;
+- 0.23.0 → 0.23.1 upgrade;
+- offline load of an installed 0.23.1;
+- 0.22.1 and 0.23.0 staying valid without the magazine file;
+- a missing or malformed magazine file in a 0.23.1 archive;
+- stale-cache completion, refusal to mix differing files, and reinstall merging;
+- online and offline incomplete-cache handling;
+- published release JSON parsing;
+- build identity.
+
 ## Remaining Runtime/API blockers
 
 - **Selection:** magazine selection and preset ownership are unresolved. The GUI cannot choose which magazine a weapon equips.

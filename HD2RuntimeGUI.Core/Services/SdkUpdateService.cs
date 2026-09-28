@@ -24,7 +24,17 @@ public sealed class SdkUpdateService(ISdkCache cache, IGitHubReleaseClient githu
     private readonly HashSet<Guid> tickets = [];
     public async Task<SdkStatus> CheckAsync(CancellationToken ct = default)
     {
-        var installed = await cache.GetCurrentAsync(ct);
+        SdkMetadata installed; string? repaired = null;
+        try { installed = await cache.GetCurrentAsync(ct); }
+        catch (IncompleteSdkCacheException e)
+        {
+            // Reinstall the same published release; the cache only gains the missing files.
+            SdkRelease? release = null;
+            try { release = (await github.GetReleasesAsync(ct)).FirstOrDefault(r => r.Version == e.Version); }
+            catch (Exception x) when (!ct.IsCancellationRequested && x is HttpRequestException or IOException or System.Text.Json.JsonException or TaskCanceledException or FormatException) { }
+            if (release == null) throw;
+            installed = await cache.InstallAsync(release, ct); repaired = $" Completed the cached SDK {e.Version} with {e.File}.";
+        }
         var releaseFile = paths.CachePath("last-release.json");
         try
         {
@@ -43,7 +53,7 @@ public sealed class SdkUpdateService(ISdkCache cache, IGitHubReleaseClient githu
             }
             if (latest == null) return new(installed, null, true, "No compatible SDK release found. The installed SDK remains available; a newer GUI may be required.");
             await JsonStorage.WriteAtomicAsync(releaseFile, latest, ct);
-            return new(installed, latest, true, "GitHub release and schema/API compatibility checked." + (unsupported > 0 ? $" Skipped {unsupported} incompatible release(s)." : ""));
+            return new(installed, latest, true, "GitHub release and schema/API compatibility checked." + (unsupported > 0 ? $" Skipped {unsupported} incompatible release(s)." : "") + repaired);
         }
         catch (Exception e) when (e is HttpRequestException or IOException or System.Text.Json.JsonException or TaskCanceledException or FormatException or InvalidOperationException or KeyNotFoundException or OverflowException)
         {

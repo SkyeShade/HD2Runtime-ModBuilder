@@ -169,8 +169,14 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     public string LuaPreview { get; private set; } = "";
     public string? LastExport { get; private set; }
     public string StorageLocation => paths.Root;
-    public async Task InitializeAsync() { Library = await store.ListAsync(); SdkStatus = await updates.CheckAsync(); }
-    public async Task CheckUpdatesAsync() => SdkStatus = await updates.CheckAsync();
+    public async Task InitializeAsync() { Library = await store.ListAsync(); await CheckUpdatesAsync(); }
+    /// <summary>Why the installed SDK could not be loaded; null once it loads.</summary>
+    public string? SdkError { get; private set; }
+    public async Task CheckUpdatesAsync()
+    {
+        try { SdkStatus = await updates.CheckAsync(); SdkError = null; }
+        catch (Exception e) when (e is InvalidDataException or NotSupportedException or IOException or System.Text.Json.JsonException) { SdkError = e.Message; throw; }
+    }
     public async Task<CreationTicket> BeginCreationAsync()
     { var ticket = await updates.BeginCreationAsync(); SdkStatus = ticket.Status; return ticket; }
     public async Task<SdkMetadata> ResolveCreationAsync(CreationTicket ticket, UpdateDecision decision)
