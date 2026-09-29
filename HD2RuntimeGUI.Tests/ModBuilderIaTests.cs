@@ -21,7 +21,7 @@ public sealed class ModBuilderIaTests
     [Fact] public async Task Support_holds_weapons_vehicles_backpacks_and_standalone_items_once()
     {
         using var e = new TestEnvironment(); var sdk = await Current(e); var c = sdk.Stratagems!; var entities = sdk.Entities!;
-        Assert.Equal("0.26.0", sdk.Version);
+        Assert.Equal("0.27.0", sdk.Version);
         var support = c.Stratagems.Where(s => StratagemCategories.Support.Families.Contains(s.Family) && StratagemCategories.Listed(s, entities)).ToArray();
         Assert.Equal(55, support.Length);
         Assert.Equal(33, support.Count(s => s.Family == "support")); Assert.Equal(9, support.Count(s => s.Family == "vehicle")); Assert.Equal(13, support.Count(s => s.Family == "backpack"));
@@ -79,16 +79,16 @@ public sealed class ModBuilderIaTests
     [Fact] public void Release_uses_the_renamed_repository_and_documents_itself()
     {
         var root = Root();
-        Assert.Contains("<Hd2RuntimeGuiVersion>1.1.2</Hd2RuntimeGuiVersion>", File.ReadAllText(Path.Combine(root, "Directory.Build.props")));
-        Assert.Equal("1.1.2", BuildInfo.Version);
+        Assert.Contains("<Hd2RuntimeGuiVersion>1.2.0</Hd2RuntimeGuiVersion>", File.ReadAllText(Path.Combine(root, "Directory.Build.props")));
+        Assert.Equal("1.2.0", BuildInfo.Version);
         Assert.Equal("https://github.com/SkyeShade/HD2Runtime-ModBuilder", BuildInfo.RepositoryUrl);
-        Assert.Equal("HD2Runtime-ModBuilder/1.1.2", BuildInfo.UserAgent);
+        Assert.Equal("HD2Runtime-ModBuilder/1.2.0", BuildInfo.UserAgent);
         var readme = File.ReadAllText(Path.Combine(root, "README.md"));
         Assert.Contains("# HD2Runtime ModBuilder\n\n**Visual authoring for [HD2Runtime]", readme.ReplaceLineEndings("\n"));
         Assert.Contains("git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git", readme);
-        Assert.Contains("HD2Runtime-ModBuilder-v1.1.2-win-x64.zip", readme); Assert.Contains("HD2RuntimeModBuilder.exe", readme);
+        Assert.Contains("HD2Runtime-ModBuilder-v1.2.0-win-x64.zip", readme); Assert.Contains("HD2RuntimeModBuilder.exe", readme);
         Assert.True(readme.IndexOf("## For developers", StringComparison.Ordinal) > readme.IndexOf("## Download", StringComparison.Ordinal));
-        Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.2.md")));
+        Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.2.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.2.0.md")));
         Assert.Contains("modbuilder-update-v2.json", File.ReadAllText(Path.Combine(root, "docs", "app-updates.md")));
         // Active (non-historical) sources never point at the old repository.
         var active = Directory.GetFiles(root, "*.*", SearchOption.AllDirectories)

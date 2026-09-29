@@ -32,6 +32,9 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
     public WeaponFireModeCatalog? FireModes { get; init; }
     // True from SDK 0.26.0: magazine options, reticle, fire modes, vehicle weapons, mission uses, backpack ammo and pod payloads.
     public bool Has026 => Models.SemVersion.Parse(Version).CompareTo(Models.SemVersion.Parse("0.26.0")) >= 0;
+    // SDK 0.27.0+: automatic asset loading; what each reference-swappable object needs and whether Runtime loads it.
+    public AssetDependencyCatalog? Assets { get; init; }
+    public bool Has027 => Models.SemVersion.Parse(Version).CompareTo(Models.SemVersion.Parse("0.27.0")) >= 0;
     public string CategoryName(string key)
     {
         var name = Types[key].Name;

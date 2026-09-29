@@ -55,7 +55,9 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     string? Acknowledgement = null, string? AcknowledgementReason = null, WeaponFieldEvidence? Evidence = null,
     // 0.26.0 fire modes: the four native FireMode slots, the modes a write may use, and the in-game selector binding.
     IReadOnlyList<int>? NativeSlots = null, IReadOnlyList<string>? AllowedModes = null, Dictionary<string, int>? ModeValues = null,
-    int? MaxModes = null, string? FireModeState = null, FireModeSelector? Selector = null)
+    int? MaxModes = null, string? FireModeState = null, FireModeSelector? Selector = null,
+    // 0.27.0: the typed API constant of this field (hd2.fields.<domain>.<name>), published for tools.
+    string? ApiFieldConstant = null)
 {
     public const string FireModeSet = "fire_mode_set";
     [JsonIgnore] public string Domain => SemanticFieldId.Split('.')[0];

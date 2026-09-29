@@ -50,7 +50,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader, IStratagemCatalogReader stratagemReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
     private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName)
-        .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName);
+        .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName).Append(AssetDependencyReader.FileName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -133,8 +133,32 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 VehicleWeapons = VehicleWeaponReader.Read(Required(VehicleWeaponReader.FileName, "vehicle weapon capabilities"), sdk.Version, e.Vehicles),
                 Pods = PodPayloadReader.Read(Required(PodPayloadReader.FileName, "drop-pod payload capabilities"), sdk.Version) } };
             LinkAmmoBackpacks(sdk.Entities, sdk.SupportAuthoring ?? throw new InvalidDataException("SDK is missing canonical support authoring metadata."));
+            // 0.27.0: automatic asset loading. The pod catalog's per-pickup dependency must agree with the asset catalog, and every
+            // mounted weapon a mount swap can reference must have a published dependency (known or unknown).
+            if (sdk.Has027)
+            {
+                var assets = AssetDependencyReader.Read(Required(AssetDependencyReader.FileName, "asset dependency capabilities"));
+                LinkAssets(assets, sdk.Entities, sdk.Composition);
+                sdk = sdk with { Assets = assets };
+            }
+            else if (sdk.Entities.Pods!.PackageResidency != null) throw new InvalidDataException("Asset-loading metadata is published only from SDK 0.27.0.");
         }
         return sdk;
+    }
+    private static void LinkAssets(AssetDependencyCatalog assets, EntityAuthoring entities, PlayerWeaponComposition? composition)
+    {
+        void Check(bool valid) { if (!valid) throw new InvalidDataException("Inconsistent asset dependency link."); }
+        var pods = entities.Pods!;
+        Check(pods.PackageResidency != null && pods.PackageResidency.PackageResidency == assets.Family(AssetDependencyReader.PodPayloadFamily)!.PackageResidency);
+        foreach (var p in pods.Pickups)
+        {
+            var a = assets.Pickup(p.SemanticId)?.PackageDependency; var d = p.PackageDependency!;
+            Check(a != null && a.Known == d.Known && a.AutoLoadSupported == d.AutoLoadSupported && a.LiveTested == d.LiveTested && a.Package == d.Package);
+        }
+        Check(entities.Vehicles.MountedWeapons.All(m => assets.MountedWeapon(m.SemanticId) != null));
+        // Projectile sources Runtime loads automatically carry the donor package in their own residency record.
+        if (composition != null)
+            Check(composition.Projectiles.Weapons.SelectMany(w => w.Attacks).All(a => a.Residency is not { AssetsAutoLoaded: true } r || r.PreloadSupported && r.PackageResidency is "LIVE_PROVEN" or "OFFLINE_PROVEN"));
     }
     // Backpack-fed support weapons: support weapon -> ammoBackpack and backpack -> feeds must name each other, with the same baseline.
     private static void LinkAmmoBackpacks(EntityAuthoring entities, SupportAuthoringCatalog support)
@@ -354,6 +378,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         VehicleWeaponReader.FileName => VehicleWeaponReader.MaxBytes,
         PodPayloadReader.FileName => PodPayloadReader.MaxBytes,
         WeaponFireModeReader.FileName => WeaponFireModeReader.MaxBytes,
+        AssetDependencyReader.FileName => AssetDependencyReader.MaxBytes,
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };
     public static void ValidateEntryPath(string name)

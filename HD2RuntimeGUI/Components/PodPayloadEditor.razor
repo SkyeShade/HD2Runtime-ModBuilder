@@ -45,7 +45,7 @@
                                 var items = pods.Pickups.Where(p => p.Category == category.Key).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToArray();
                                 if (items.Length == 0) continue;
                                 <optgroup label="@category.Value">
-                                    @foreach (var p in items) { <option value="@p.SemanticId" selected="@(value == p.SemanticId)">@p.Name@(s.Current?.Pickup == p.SemanticId ? " (vanilla)" : "") · @Short(PodPayloadCatalog.CompatibilityIn(s, p), PodPayloadCatalog.LowPackageRisk(rack, s, p))</option> }
+                                    @foreach (var p in items) { <option value="@p.SemanticId" selected="@(value == p.SemanticId)">@p.Name@(s.Current?.Pickup == p.SemanticId ? " (vanilla)" : "") · @Short(PodPayloadCatalog.CompatibilityIn(s, p), PodPayloadCatalog.LowPackageRisk(rack, s, p), AssetStatus.Pickup(sdk!, s, p))</option> }
                                 </optgroup>
                             }
                         </select>
@@ -61,8 +61,12 @@
                                 default: <span class="badge amber" data-pickup-badge="unverified" title="@pods.CompatibilityStates["UNVERIFIED_REFERENCE"]">Unverified</span> break;
                             }
                             @if (chosen.Evidence.WorldLoot || chosen.Evidence.StandalonePickup) { <span class="badge" data-pickup-badge="world" title="@chosen.CompatibilityBasis">World pickup</span> }
-                            @if (!PodPayloadCatalog.LowPackageRisk(rack, s, chosen)) { <span class="badge amber" data-pickup-badge="package-risk" title="@chosen.Residency.Basis">Package risk</span> }
+                            @if (pods.LiveVerifiedPair(rack, s, chosen)) { <span class="badge green" data-pickup-badge="live-pair" title="This rack and pickup were used together in a passing live test.">Live-verified pair</span> }
+                            @* 0.27.0+: Runtime loads known packages itself, so package risk is replaced by the asset-loading state. *@
+                            @if (AssetStatus.Pickup(sdk!, s, chosen) is { } assetView) { <AssetBadge View="assetView" Compact="true" /> }
+                            else if (!PodPayloadCatalog.LowPackageRisk(rack, s, chosen)) { <span class="badge amber" data-pickup-badge="package-risk" title="@chosen.Residency.Basis">Package risk</span> }
                         </div>
+                        @if (AssetStatus.Pickup(sdk!, s, chosen) is { Warning: true } unknownAssets) { <p class="asset-note" data-asset-warning>@unknownAssets.Description</p> }
                     }
                     @if (saved != null)
                     {
@@ -71,8 +75,9 @@
                             <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: f.InstanceKey))">Reset slot</button></div>
                         @if (EntityScalar.AcknowledgementRequired(f, saved.DesiredValue))
                         {
-                            <AckPanel Title="Unverified replacement" Kind="unverified"
-                                Description="@(chosen != null && !PodPayloadCatalog.LowPackageRisk(rack, s, chosen) ? pods.PackageRisk : "Not this slot's vanilla occupant (allow_unverified_reference).")" />
+                            @* Slot/gameplay compatibility stays unverified even when the assets load automatically (allow_unverified_reference). *@
+                            <AckPanel Title="Gameplay compatibility unverified" Kind="unverified" Description="@CompatibilityNote(pods, rack, s, chosen)"
+                                PanelAttributes='@(new() { ["data-pod-compatibility-warning"] = "true" })' />
                         }
                         @if (Workspace.EntityIssue(saved) is { } issue) { <p class="notice warning">@issue</p> }
                     }
@@ -102,7 +107,17 @@
     private string? Error;
     private static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string> { ["structural_reference"] = "Rack layout proven; the in-game effect of changing it has not been tested." };
     private static int Int(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
-    private static string Short(string compatibility, bool lowRisk) => (compatibility switch { "PROVEN_COMPATIBLE" => "Proven", "SCHEMA_COMPATIBLE" => "Rack-compatible", _ => "Unverified" }) + (lowRisk ? "" : " · package risk");
+    private static string Short(string compatibility, bool lowRisk, AssetStatusView? assets) => (compatibility switch { "PROVEN_COMPATIBLE" => "Proven", "SCHEMA_COMPATIBLE" => "Rack-compatible", _ => "Unverified" })
+        + (assets != null ? (assets.State == AssetState.None ? "" : " · " + assets.Short) : lowRisk ? "" : " · package risk");
+    // What the replacement acknowledgement covers. From 0.27.0 package loading is Runtime's job, so this is only slot compatibility.
+    private static string CompatibilityNote(PodPayloadCatalog pods, PodRack rack, PodRackSlot slot, Pickup? chosen)
+    {
+        if (pods.PackageResidency == null) return chosen != null && !PodPayloadCatalog.LowPackageRisk(rack, slot, chosen) ? pods.PackageRisk : "Not this slot's vanilla occupant (allow_unverified_reference).";
+        if (chosen == null) return "An empty slot is not this slot's vanilla occupant; how the pod behaves is unverified (allow_unverified_reference).";
+        return pods.LiveVerifiedPair(rack, slot, chosen)
+            ? "This pickup was verified live in this rack slot. HD2Runtime still writes pod replacements with allow_unverified_reference."
+            : "Not this slot's vanilla occupant. Loading its assets does not verify how it behaves in this pod (allow_unverified_reference).";
+    }
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

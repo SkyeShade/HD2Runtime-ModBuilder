@@ -4,7 +4,14 @@ using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
-public sealed record ProjectileResidency(string Classification, string Evidence, bool PreloadSupported, string? Reason);
+// 0.27.0 automatic asset loading: PACKAGE_AUTO_LOADED sources carry the donor package (short name, when recovered), its residency proof
+// (LIVE_PROVEN / OFFLINE_PROVEN / UNRESOLVED), whether this source was itself live-tested, and the pre-loader observation.
+public sealed record ProjectileResidency(string Classification, string Evidence, bool PreloadSupported, string? Reason,
+    string? Package = null, string? PackageResidency = null, bool? LiveTested = null, string? ObservedWithoutLoader = null, string? ObservedEvidence = null)
+{
+    public const string AutoLoaded = "PACKAGE_AUTO_LOADED";
+    [System.Text.Json.Serialization.JsonIgnore] public bool AssetsAutoLoaded => Classification == AutoLoaded;
+}
 public sealed record ProjectileConsumer(string Component, int Offset, string ResourceHash);
 public sealed record ProjectileObject(ProjectileSettingsIdentity Identity, IReadOnlyList<ProjectileConsumer> Consumers, string ScalarWriteScope, bool WeaponLocalOverrideProven);
 public sealed record ProjectileGuardPolicy(IReadOnlyList<string>? ApprovedClasses);

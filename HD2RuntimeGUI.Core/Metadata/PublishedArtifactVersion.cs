@@ -30,6 +30,12 @@ internal static class PublishedArtifactVersion
         ["PlayerWeaponTerminalActionGraph.json"] = "9390e4282a424b0b28e416ec37706ca8763125b396e5f858b4f5edc88d2fcfc1",
         ["ProjectileCompositionCapabilities.json"] = "e686715ccecc060df0f7e6a8eca6497edcf477520a50662a7c093bcfdf746b57",
     };
+    // 0.27.0 republishes the six unchanged graphs byte-for-byte from 0.26.0; the two projectile graphs gain residency/asset-loading data.
+    private static readonly Dictionary<string, string> Reused027 = new(Reused026)
+    {
+        ["PlayerWeaponProjectileReferenceGraph.json"] = "0ae305917112fef0b5808a91989c8f3b72df022b7d117a6edbebfdc2474fb0d0",
+        ["ProjectileCompositionCapabilities.json"] = "0ae305917112fef0b5808a91989c8f3b72df022b7d117a6edbebfdc2474fb0d0",
+    };
     public static bool Matches(string file, byte[] bytes, string? actual, string expected)
     {
         if (actual == expected) return true;
@@ -38,6 +44,7 @@ internal static class PublishedArtifactVersion
         {
             "0.20.1" or "0.21.0" or "0.22.0" or "0.22.1" or "0.23.0" or "0.23.1" or "0.23.2" or "0.24.0" or "0.25.0" or "0.25.1" => Reused019,
             "0.26.0" => Reused026,
+            "0.27.0" => Reused027,
             _ => null,
         };
         return pinned != null && pinned.TryGetValue(file, out var digest) && Convert.ToHexString(SHA256.HashData(bytes)).Equals(digest, StringComparison.OrdinalIgnoreCase);

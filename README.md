@@ -16,7 +16,7 @@ HD2Runtime ModBuilder is a Windows app for building Helldivers 2 gameplay mods o
 
 ## Download
 
-1. Download **`HD2Runtime-ModBuilder-v1.1.2-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
+1. Download **`HD2Runtime-ModBuilder-v1.2.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
 2. Extract it to a folder you can write to (for example `Documents\HD2Runtime ModBuilder`).
 3. Run **`HD2RuntimeModBuilder.exe`**.
 
@@ -32,7 +32,7 @@ HD2Runtime ModBuilder checks [GitHub Releases](https://github.com/SkyeShade/HD2R
 
 Updating 1.0.0 to 1.0.1 or later replaces `HD2RuntimeGUI.exe` with `HD2RuntimeModBuilder.exe`. A taskbar pin or shortcut to the old exe needs to be pinned again.
 
-Release notes: [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
+Release notes: [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
 
 ## Why "HD2RuntimeGUI" still appears
 
@@ -51,9 +51,9 @@ The product was renamed from HD2RuntimeGUI to HD2Runtime ModBuilder, and the rep
 git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
 ```
 
-A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.1.2 supports **HD2Runtime SDK 0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
+A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.2.0 supports **HD2Runtime SDK 0.27.0** (automatic asset loading for reference swaps) and **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
 
-The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,814 entries, 104 field definitions (84 writable, 20 read-only, 9 derived)** in SDK 0.26.0. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
+The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,814 entries, 104 field definitions (84 writable, 20 read-only, 9 derived)** in SDK 0.27.0. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
 This repository is separate from HD2Runtime. The app does not launch the game, deploy mods, or access game processes. Snapshot inspection reads only a user-selected local file.
 
@@ -156,6 +156,21 @@ SDK 0.18 adds a dedicated **Heat / Heatsink** section for seven energy weapons. 
 
 Direct heat mechanics and heatsink inventory are separate from read-only attachment presets. Warmup, post-overheat cooldown and derived values remain read-only with SDK explanations. Heat overrides use the existing project format, baseline-aware autosave, reset and Changes/Lua Preview paths. Sibling heat/heatsink edits share one component transaction and ensure. See [0.18 verification and sample](docs/runtime018-verification.md).
 
+## SDK 0.27.0 automatic asset loading
+
+HD2Runtime 0.27.0 loads the package a reference swap needs (the donor item's assets) before writing it, so nobody has to carry the donor item. `AssetDependencyCapabilities.json` (`hd2runtime.asset_dependencies.v1`) and the per-pickup / per-projectile residency data drive one compact state on every reference-swap editor:
+
+- **Assets live-verified**: Runtime loads the package automatically, and that package was loaded in a passing live test (EAT-700 and Grenade Box pod payloads, the LAS-58 Talon projectile).
+- **Assets loaded automatically**: the dependency is known and Runtime loads it before the write.
+- **Assets always loaded**: the pickup ships in an always-resident package (Supply Box).
+- **Assets unknown** (warning): Runtime cannot name the package, so the replacement may appear as a missing asset unless the item is already in the mission.
+
+The package name, whether it was live-tested, the loader's proof level for that kind of reference (live-proven for pod payloads and projectiles, offline-proven for explosions and vehicle mounts) and Runtime's blocker sit in a collapsed **Asset dependency** section. In game the write waits for the assets (`waiting_for_assets`, at most 90 s); if they cannot be loaded, Runtime rejects it with `ASSET_UNAVAILABLE` and the original reference stays in place.
+
+Asset loading does not make a swap gameplay-compatible. Drop-pod replacements and vehicle mount swaps keep their separate **Gameplay compatibility unverified** warning and are still written with `allow_unverified_reference`, exactly as Runtime requires; the two live-verified rack/pickup pairs are shown as **Live-verified pair**. The old package-risk warning is gone wherever Runtime now handles residency. Projectile swaps from another weapon's package are offered when Runtime knows that package, so the LAS-58 Talon is now a valid source. Generated mods keep using the same typed APIs: no `hd2.require_assets` or package calls are generated, because Runtime infers and loads dependencies itself.
+
+Rebinding a 0.26.0 project to 0.27.0 keeps every edit and produces the same Lua. Evidence that changed only because Runtime now loads the assets automatically (reworded pod/mount package warnings, projectile sources reclassified as `PACKAGE_AUTO_LOADED`) is carried over instead of asking for review. See [0.27 verification](docs/runtime027-verification.md).
+
 ## SDK 0.26.0 authoring
 
 Every control below comes from the 0.26.0 capability files; nothing is inferred from names. Projects bound to an older SDK keep their old feature set and show none of these controls until they are rebound.
@@ -219,7 +234,7 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 This section is about the HD2Runtime SDK; ModBuilder application updates are described in [docs/app-updates.md](docs/app-updates.md).
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.26.0 metadata supports first launch offline.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.27.0 metadata supports first launch offline. Each ModBuilder release declares the newest HD2Runtime SDK it supports (1.2.0: **0.27.0**); newer SDK releases are reported in Settings as needing a newer ModBuilder and are never downloaded or offered, and a release whose metadata cannot be read is skipped without affecting the installed SDK.
 
 Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only nineteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities, CompositionPlanCapabilities, VehicleAuthoringCapabilities, BackpackAuthoringCapabilities, MagazineAttachmentCapabilities and BoosterAuthoringCapabilities contracts (the last four only for the SDK versions that publish them, and then required). Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 

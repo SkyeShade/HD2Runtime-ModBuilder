@@ -55,6 +55,7 @@ public sealed class FakeGitHub : IGitHubReleaseClient
     public int Checks;
     public IReadOnlyList<SdkRelease>? Candidates;
     public Dictionary<string, byte[]> CandidateArchives { get; } = [];
+    public List<string> Downloads { get; } = [];
     public FakeGitHub()
     {
         Archive = MakeArchive("0.6.0");
@@ -78,7 +79,7 @@ public sealed class FakeGitHub : IGitHubReleaseClient
     { Checks++; return Offline ? Task.FromException<SdkRelease>(new HttpRequestException("Offline")) : Task.FromResult(Release); }
     public async Task<IReadOnlyList<SdkRelease>> GetReleasesAsync(CancellationToken ct = default) => Candidates ?? [await GetLatestAsync(ct)];
     public async Task DownloadAsync(SdkRelease release, string destination, CancellationToken ct = default)
-    { await File.WriteAllBytesAsync(destination, CandidateArchives.GetValueOrDefault(release.Version) ?? Archive, ct); if (FailDownload) throw new HttpRequestException("Interrupted download"); }
+    { Downloads.Add(release.Version); await File.WriteAllBytesAsync(destination, CandidateArchives.GetValueOrDefault(release.Version) ?? Archive, ct); if (FailDownload) throw new HttpRequestException("Interrupted download"); }
 }
 
 // Published SDK archives kept as fixtures so version-specific regressions stay pinned when the bundled SDK moves on.

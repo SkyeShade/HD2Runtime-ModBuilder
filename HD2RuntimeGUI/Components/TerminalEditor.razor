@@ -10,6 +10,9 @@
             <option value="baseline">Original · @baseline.Label</option>
             @foreach (var source in Workspace.ExplosionSources) { <option value="@Key(source)">@source.Label</option> }
         </select></label>
+        @* 0.27.0+: an explosion taken from another weapon uses that weapon's package, which Runtime loads automatically when known. *@
+        @if (Saved?.DesiredExplosion is { IsNone: false, Projectile: { } donor } && Workspace.Metadata?.Assets != null)
+        { <AssetBadge View="AssetStatus.ProjectileSource(Workspace.Metadata, donor.Weapon, donor.AttackRole, donor.Weapon == target.Weapon, explosion: true)" /> }
         @if (field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
         { <AckPanel Title="Shared terminal setting" Items="@field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="Affected weapons:" /> }
     }

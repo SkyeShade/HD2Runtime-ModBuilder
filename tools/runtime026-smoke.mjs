@@ -39,7 +39,7 @@ const stratagem = async (name, family = 'support') => { await go('stratagems:sup
 const DRUM = 'weapon-attachment/v1/magazine/rifle-5-5x50mm-drum/fa499a29b375c6cf', LEVELLER = 'pickup/v1/eat-411-leveller/bbd78065df92b6eb';
 try {
     await waitFor("!!document.querySelector('.desktop-shell') && !document.querySelector('.activity')", 'startup');
-    assert((await text()).includes('0.26.0'), 'SDK 0.26.0 is bound');
+    assert(/0\.2[67]\.0/.test(await text()), 'SDK 0.26.0 or newer is bound');
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
     await fill('#mod-name', 'Runtime 026 Smoke'); await fill('#author', 'Tests');
     await evaluate("document.querySelector('.dialog form button[type=submit]').click()");

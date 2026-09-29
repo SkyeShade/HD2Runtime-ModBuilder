@@ -49,6 +49,32 @@ public sealed class CompositionChangeService : ICompositionChangeService
     }
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     private static string ExplosionEvidence(SdkMetadata sdk, ExplosionReference r) => r.IsNone ? "none" : Hash(ProjectileChangeService.Evidence(sdk, r.Projectile!) + "\n" + JsonSerializer.Serialize(new { Explosion(sdk, r).ExplosionType, Explosion(sdk, r).DamageType }));
+    // The explosion object without its source projectile's package-residency data (see ProjectileChangeService.Refresh).
+    private static string ExplosionObjectEvidence(SdkMetadata sdk, ExplosionReference r) => r.IsNone ? "none" : Hash(ProjectileChangeService.ObjectEvidence(sdk, r.Projectile!) + "\n" + JsonSerializer.Serialize(new { Explosion(sdk, r).ExplosionType, Explosion(sdk, r).DamageType }));
+    private static string? RefreshExplosion(string saved, SdkMetadata previous, SdkMetadata next, ExplosionReference? r)
+    {
+        if (r == null || r.IsNone) return null;
+        try
+        {
+            var current = ExplosionEvidence(next, r);
+            return saved != current && saved == ExplosionEvidence(previous, r) && ExplosionObjectEvidence(previous, r) == ExplosionObjectEvidence(next, r)
+                && ProjectileChangeService.AssetsAutoLoaded(next, r.Projectile!) ? current : null;
+        }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or KeyNotFoundException) { return null; }
+    }
+    // Rebind: refresh target/reference evidence whose only difference between the SDKs is package-residency data.
+    public static int Rebind(ModProject p, SdkMetadata previous, SdkMetadata next)
+    {
+        var refreshed = 0;
+        if (previous.Composition == null || next.Composition == null) return 0;
+        foreach (var c in p.CompositionChanges)
+        {
+            if (ProjectileChangeService.Refresh(c.TargetEvidence, previous, next, c.Target) is { } target) { c.TargetEvidence = target; refreshed++; }
+            if (RefreshExplosion(c.ReferenceEvidence, previous, next, c.Kind == "terminal" ? c.ExpectedExplosion : c.ExplosionTarget) is { } reference) { c.ReferenceEvidence = reference; refreshed++; }
+            if (c.Kind == "terminal" && RefreshExplosion(c.DesiredReferenceEvidence, previous, next, c.DesiredExplosion) is { } desired) { c.DesiredReferenceEvidence = desired; refreshed++; }
+        }
+        return refreshed;
+    }
     private static string SharedEvidence(WeaponCapability f) => Hash(JsonSerializer.Serialize(new { f.WriteScope, f.SharedWithWeapons, f.SharedWithResources, f.Backing?.ConsumerCount, f.DynamicConsumersPossible }));
     public static string ApprovalScopeKey(SdkMetadata sdk, CompositionChange c) =>
         SemanticBackingObject.For(sdk, c.Scalar?.Weapon ?? c.Target.Weapon, Capability(sdk, c)) + "\n" + SharedEvidence(Capability(sdk, c));

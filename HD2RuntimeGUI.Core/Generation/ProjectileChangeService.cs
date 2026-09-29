@@ -42,10 +42,42 @@ public sealed class ProjectileChangeService : IProjectileChangeService
     }
     internal static string Evidence(SdkMetadata sdk, ProjectileReference reference)
     {
+        var identity = ObjectIdentity(sdk, reference);
+        if (Graph(sdk).Attack(reference.Weapon, reference.AttackRole).Residency is { } residency) identity += "\n" + residency.Classification;
+        return Hash(identity);
+    }
+    // The projectile object itself (resources, type, settings, compatibility class), without how its assets become resident.
+    private static string ObjectIdentity(SdkMetadata sdk, ProjectileReference reference)
+    {
         var a = Graph(sdk).Attack(reference.Weapon, reference.AttackRole);
-        var identity = string.Join("\n", sdk.PlayerWeapons!.Weapon(reference.Weapon).Resources.Order(StringComparer.Ordinal)) + "\n" + a.ProjectileType.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n" + a.ProjectileSettings?.SettingsType + "\n" + a.CompatibilityClass;
-        if (a.Residency != null) identity += "\n" + a.Residency.Classification;
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
+        return string.Join("\n", sdk.PlayerWeapons!.Weapon(reference.Weapon).Resources.Order(StringComparer.Ordinal)) + "\n" + a.ProjectileType.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n" + a.ProjectileSettings?.SettingsType + "\n" + a.CompatibilityClass;
+    }
+    internal static string ObjectEvidence(SdkMetadata sdk, ProjectileReference reference) => Hash(ObjectIdentity(sdk, reference));
+    private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+    // Rebind: evidence recorded against the previous SDK stays valid on the next one when the object is unchanged and the only
+    // difference is that Runtime now loads its assets automatically (SDK 0.27.0 PACKAGE_AUTO_LOADED). Any other residency change,
+    // for example a newly published restriction, still needs review. Returns the refreshed value, or null to leave it.
+    internal static string? Refresh(string saved, SdkMetadata previous, SdkMetadata next, ProjectileReference reference)
+    {
+        try
+        {
+            var current = Evidence(next, reference);
+            return saved != current && saved == Evidence(previous, reference) && ObjectEvidence(previous, reference) == ObjectEvidence(next, reference)
+                && AssetsAutoLoaded(next, reference) ? current : null;
+        }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or KeyNotFoundException) { return null; }
+    }
+    internal static bool AssetsAutoLoaded(SdkMetadata sdk, ProjectileReference reference) => Graph(sdk).Attack(reference.Weapon, reference.AttackRole).Residency is { AssetsAutoLoaded: true };
+    public static int Rebind(ModProject p, SdkMetadata previous, SdkMetadata next)
+    {
+        var refreshed = 0;
+        if (previous.Composition == null || next.Composition == null) return 0;
+        foreach (var c in p.ProjectileChanges)
+        {
+            if (Refresh(c.ExpectedEvidence, previous, next, c.ExpectedProjectile) is { } expected) { c.ExpectedEvidence = expected; refreshed++; }
+            if (Refresh(c.ReplacementEvidence, previous, next, c.ReplacementProjectile) is { } replacement) { c.ReplacementEvidence = replacement; refreshed++; }
+        }
+        return refreshed;
     }
     public ProjectileChange Create(SdkMetadata sdk, string weapon, string role, ProjectileReference replacement)
     {

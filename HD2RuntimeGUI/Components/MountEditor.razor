@@ -1,6 +1,7 @@
 @inject BuilderWorkspace Workspace
 @* One vehicle mount slot. Only weapon slots Runtime marks swappable get a selector, and it offers only the published
-   compatible replacements (same attack family). Values are published mounted-weapon semantic IDs. *@
+   compatible replacements (same attack family). Values are published mounted-weapon semantic IDs. From SDK 0.27.0 the replacement's
+   asset-loading state and the (still unverified) mount compatibility are shown separately. *@
 @{ var field = Field; var saved = field == null ? null : EntityChangeService.Saved(Workspace.Project, field); var catalog = Catalog; }
 <article class="stat-card mount-slot @(saved != null ? "modified" : "")" data-mount="@Mount.MountId" data-mount-kind="@Mount.CurrentKind">
     <div class="panel-heading"><h3>@Title(Mount.Label)</h3><span class="badge">@Mount.MountId</span>
@@ -16,14 +17,25 @@
             <select data-mount-select disabled="@(Workspace.Project == null || !field.Editable)" @onchange="e => Run(() => Workspace.SetEntityAsync(field.InstanceKey, e.Value?.ToString() ?? string.Empty))">
                 <option value="@Mount.Current!.SemanticId" selected="@(saved == null)">@Describe(catalog.Weapon(Mount.Current.SemanticId)!) (vanilla)</option>
                 @foreach (var w in field.AllowedValues!.Where(v => v != Mount.Current.SemanticId).Select(v => catalog.Weapon(v)!).OrderBy(w => Describe(w), StringComparer.OrdinalIgnoreCase))
-                { <option value="@w.SemanticId" selected="@(saved?.DesiredValue.GetString() == w.SemanticId)">@Describe(w)</option> }
+                { <option value="@w.SemanticId" selected="@(saved?.DesiredValue.GetString() == w.SemanticId)">@Describe(w)@AssetHint(w.SemanticId)</option> }
             </select>
         </label>
         <p class="subtle">@field.AllowedValues!.Length published @Mount.Current.AttackFamily replacements · <span class="badge amber" title="Runtime requires this opt-in for mount reference swaps">allow_unverified_reference=true</span></p>
         @if (saved != null)
         {
-            <AckPanel Title="Unverified reference swap" Kind="unverified" Description="@field.ResidencyWarning"
-                PanelAttributes='@(new() { ["data-residency-warning"] = "true" })' />
+            var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed;
+            @if (sdk?.Assets != null)
+            {
+                <AssetBadge View="AssetStatus.MountedWeapon(sdk, Mount.Current!.SemanticId, saved.DesiredValue.GetString()!)" />
+                <AckPanel Title="Gameplay compatibility unverified" Kind="unverified"
+                    Description="Loading its assets does not verify how this weapon fires or renders in this mount. HD2Runtime writes mount swaps with allow_unverified_reference."
+                    PanelAttributes='@(new() { ["data-residency-warning"] = "true", ["data-mount-compatibility-warning"] = "true" })' />
+            }
+            else
+            {
+                <AckPanel Title="Unverified reference swap" Kind="unverified" Description="@field.ResidencyWarning"
+                    PanelAttributes='@(new() { ["data-residency-warning"] = "true" })' />
+            }
             <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> Enabled</label>
             <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: field.InstanceKey))">Reset slot</button>
             @if (Workspace.EntityIssue(saved) is { } issue) { <p class="notice warning">@issue</p> }
@@ -32,6 +44,8 @@
     @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
 </article>
 @code {
+    private string AssetHint(string replacement) => (Workspace.Metadata ?? Workspace.SdkStatus?.Installed) is { } sdk
+        && AssetStatus.MountedWeapon(sdk, Mount.Current!.SemanticId, replacement) is { State: AssetState.Unknown } ? " · assets unknown" : "";
     [Parameter, EditorRequired] public VehicleMount Mount { get; set; } = null!;
     [Parameter, EditorRequired] public string Vehicle { get; set; } = "";
     [Parameter] public EventCallback Changed { get; set; }

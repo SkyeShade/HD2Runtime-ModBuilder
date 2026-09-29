@@ -1341,3 +1341,15 @@ input[type=checkbox]:checked:before {
 @media (max-width:760px) { .fire-mode-slots { grid-template-columns:repeat(2, minmax(0, 1fr)) } }
 .fire-mode-slot.unavailable { opacity:.6 }
 .fire-mode-slots { list-style:none; padding:0; margin:0 }
+
+/* SDK 0.27.0 asset loading: one compact state per reference swap; package details stay collapsed. */
+.badge.blue { color:var(--cat-support); border-color:color-mix(in srgb, var(--cat-support) 45%, transparent); background:color-mix(in srgb, var(--cat-support) 8%, transparent) }
+.asset-status { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0; font-size:12.5px }
+.asset-note { color:var(--warning); font-size:12.5px; margin:4px 0 }
+.asset-details > summary { cursor:pointer; color:var(--muted); font-size:12px }
+.asset-details[open] { flex-basis:100%; padding:6px 10px; border:1px solid var(--border); border-radius:8px }
+.asset-details dl { display:grid; grid-template-columns:max-content 1fr; gap:2px 12px; margin:6px 0 }
+.asset-details dt { color:var(--muted) }
+.asset-details dd { margin:0 }
+.asset-details p { margin:4px 0 }
+.field-badges .asset-status { display:inline-flex; margin:0 }

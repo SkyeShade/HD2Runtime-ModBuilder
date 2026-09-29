@@ -92,6 +92,22 @@ public sealed class EntityChangeService : IEntityChangeService
         Desired = !f.IsChoice ? null : desired.ValueKind == JsonValueKind.String ? desired.GetString() : desired.GetRawText(), f.Acknowledgement, f.ResidencyWarning, Tier = f.Evidence.Tier }));
     public static string ApprovalEvidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.SharedScopeKey, f.Shared, f.AllowSharedRequired,
         f.ReviewedScopeComplete, f.DynamicConsumersPossible, Consumers = f.SharedConsumers.Select(c => c.Vehicle ?? c.Backpack).Order(StringComparer.Ordinal) }));
+    // Rebind: capability evidence (and the reference acknowledgement record) stays valid when the field is unchanged apart from
+    // Runtime's residency prose, e.g. SDK 0.27.0 rewording pod and mount package warnings for automatic asset loading.
+    public static int Rebind(ModProject p, EntityAuthoring? previous, EntityAuthoring next)
+    {
+        if (previous == null) return 0;
+        var refreshed = 0;
+        p.EntityChanges = p.EntityChanges.Select(c =>
+        {
+            if (next.Field(c.InstanceKey) is not { } f || previous.Field(c.InstanceKey) is not { } old || c.CapabilityEvidence == Evidence(f)
+                || c.CapabilityEvidence != Evidence(old) || Evidence(old with { ResidencyWarning = null }) != Evidence(f with { ResidencyWarning = null })) return c;
+            refreshed++;
+            return c with { CapabilityEvidence = Evidence(f), ReferenceAcknowledgement = c.ReferenceAcknowledgement != null && c.ReferenceAcknowledgement == ReferenceEvidence(old, c.DesiredValue)
+                ? ReferenceEvidence(f, c.DesiredValue) : c.ReferenceAcknowledgement };
+        }).ToList();
+        return refreshed;
+    }
     public static bool Approved(ModProject p, EntityField f) => p.EntityApprovals.GetValueOrDefault(f.SharedScopeKey) == ApprovalEvidence(f);
     public static EntityChange? Saved(ModProject? p, EntityField f) => p?.EntityChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);
     public static bool NoOp(SdkMetadata sdk, EntityChange c)

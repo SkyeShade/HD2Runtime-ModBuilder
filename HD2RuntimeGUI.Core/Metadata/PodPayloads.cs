@@ -19,11 +19,16 @@ public sealed record PodRack(string Name, string SemanticId, PodRackConsumer[] C
 }
 public sealed record PickupEvidence(string[] RackPayloadOf, int VanillaRackCount, bool WorldLoot, bool StandalonePickup, string[] InteractTypes, bool OwnsBackpack, bool OwnsWeaponData);
 public sealed record PickupResidency(string? PackageKey, bool AlwaysResident, string Basis);
+// 0.27.0: whether Runtime knows and can automatically load the pickup's own package (LIVE_PROVEN / ALWAYS_RESIDENT / UNRESOLVED).
+public sealed record PickupPackageDependency(bool Known, bool AlwaysResident, bool AutoLoadSupported, string? Package, string PackageResidency, bool LiveTested, string? Blocker);
+// 0.27.0: the rack/pickup pairs a passing live test used (compatibility of other pairs stays unverified).
+public sealed record PodLiveVerifiedPair(string Rack, int Slot, string Pickup, string Test, string Project);
 public sealed record Pickup(string Name, string SemanticId, string Category, string CategoryLabel, string Compatibility, string CompatibilityBasis,
-    PickupEvidence Evidence, PickupResidency Residency, string[] PackageOwners);
+    PickupEvidence Evidence, PickupResidency Residency, string[] PackageOwners, PickupPackageDependency? PackageDependency = null);
 public sealed record PodPayloadSummary(int Racks, int WritableRacks, int SharedRacks, int WritableSlots, int Pickups, Dictionary<string, int> PickupsByCategory);
 public sealed record PodPayloadCatalogJson(string Contract, int SchemaVersion, string Hd2RuntimeVersion, Dictionary<string, string> Categories,
-    Dictionary<string, string> CompatibilityStates, string PackageRisk, PodRack[] Racks, Pickup[] Pickups, PodPayloadSummary Summary);
+    Dictionary<string, string> CompatibilityStates, string PackageRisk, PodRack[] Racks, Pickup[] Pickups, PodPayloadSummary Summary,
+    AssetReferenceFamily? PackageResidency = null, string? ResidencyVersusCompatibility = null, PodLiveVerifiedPair[]? LiveVerifiedPairs = null);
 
 public sealed class PodPayloadCatalog
 {
@@ -32,6 +37,11 @@ public sealed class PodPayloadCatalog
     public required IReadOnlyDictionary<string, string> Categories { get; init; }
     public required IReadOnlyDictionary<string, string> CompatibilityStates { get; init; }
     public required string PackageRisk { get; init; }
+    // 0.27.0+: automatic package loading for pod payloads, and the live-verified rack/pickup pairs.
+    public AssetReferenceFamily? PackageResidency { get; init; }
+    public string? ResidencyVersusCompatibility { get; init; }
+    public IReadOnlyList<PodLiveVerifiedPair> LiveVerifiedPairs { get; init; } = [];
+    public bool LiveVerifiedPair(PodRack rack, PodRackSlot slot, Pickup p) => LiveVerifiedPairs.Any(x => x.Rack == rack.Name && x.Slot == slot.Slot && x.Pickup == p.Name);
     // Slots and spawn counts adapted to the entity authoring pipeline (target resource "pod_rack").
     public required EntityField[] FieldInstances { get; init; }
     public PodRack? Rack(string name) => Racks.FirstOrDefault(r => r.Name == name);
@@ -42,8 +52,10 @@ public sealed class PodPayloadCatalog
 
     // Compatibility of a pickup in one slot: the slot's vanilla occupant is proven; otherwise the pickup's published state.
     public static string CompatibilityIn(PodRackSlot slot, Pickup p) => slot.Current?.Pickup == p.SemanticId ? "PROVEN_COMPATIBLE" : p.Compatibility;
-    // Package risk (published rule): low for the vanilla occupant, an always-resident pickup, or one whose package the rack already loads.
+    // Package risk (published rule): low for the vanilla occupant, an always-resident pickup, one whose package the rack already loads,
+    // or (0.27.0+) one whose own package Runtime loads automatically before writing the slot.
     public static bool LowPackageRisk(PodRack rack, PodRackSlot slot, Pickup p) => slot.Current?.Pickup == p.SemanticId || p.Residency.AlwaysResident
+        || p.PackageDependency is { AutoLoadSupported: true }
         || p.Residency.PackageKey != null && rack.ResidentPackages.Contains(p.Residency.PackageKey);
 }
 
@@ -97,8 +109,17 @@ public static class PodPayloadReader
             Check(sum.Racks == c.Racks.Length && sum.WritableRacks == c.Racks.Count(r => r.Writable) && sum.SharedRacks == c.Racks.Count(r => r.Shared)
                 && sum.WritableSlots == c.Racks.Sum(r => r.Slots.Count(s => s.Writable)) && sum.Pickups == pickups.Count
                 && sum.PickupsByCategory.All(p => c.Pickups.Count(x => x.Category == p.Key) == p.Value));
+            // 0.27.0 asset loading: every pickup states its dependency; auto-loading needs a known package; live pairs name real slots.
+            var loaded = c.PackageResidency != null;
+            Check(loaded == (c.LiveVerifiedPairs != null) && loaded == c.Pickups.All(p => p.PackageDependency != null) && (!loaded || c.Pickups.All(p => p.PackageDependency!.PackageResidency is "LIVE_PROVEN" or "OFFLINE_PROVEN" or "ALWAYS_RESIDENT" or "UNRESOLVED"
+                && (!p.PackageDependency.AutoLoadSupported || p.PackageDependency.Known) && (p.PackageDependency.Known || p.PackageDependency.AlwaysResident || !string.IsNullOrWhiteSpace(p.PackageDependency.Blocker))
+                && p.PackageDependency.AlwaysResident == p.Residency.AlwaysResident)));
+            var byName = c.Pickups.ToDictionary(p => p.Name, StringComparer.Ordinal);
+            Check((c.LiveVerifiedPairs ?? []).All(x => c.Racks.FirstOrDefault(r => r.Name == x.Rack) is { } r && r.Slots.Any(s => s.Slot == x.Slot && s.Writable)
+                && byName.TryGetValue(x.Pickup, out var p) && p.PackageDependency!.LiveTested));
             var fields = c.Racks.SelectMany(r => Adapt(r, c)).ToArray();
-            return new() { Racks = c.Racks, Pickups = c.Pickups, Categories = c.Categories, CompatibilityStates = c.CompatibilityStates, PackageRisk = c.PackageRisk, FieldInstances = fields };
+            return new() { Racks = c.Racks, Pickups = c.Pickups, Categories = c.Categories, CompatibilityStates = c.CompatibilityStates, PackageRisk = c.PackageRisk, FieldInstances = fields,
+                PackageResidency = c.PackageResidency, ResidencyVersusCompatibility = c.ResidencyVersusCompatibility, LiveVerifiedPairs = c.LiveVerifiedPairs ?? [] };
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException)
         { throw new InvalidDataException("Malformed drop-pod payload capability metadata.", e); }

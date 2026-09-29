@@ -342,11 +342,23 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     {
         var sdk = await cache.GetCurrentAsync(); var old = (Project!.SdkVersion, Metadata);
         var stratagems = (Project.StratagemChanges.ToList(), new Dictionary<string, string>(Project.StratagemApprovals), Project.FormatVersion);
+        var entities = Project.EntityChanges.ToList();
+        var projectiles = Project.ProjectileChanges.Select(c => (c, c.ExpectedEvidence, c.ReplacementEvidence)).ToArray();
+        var composition = Project.CompositionChanges.Select(c => (c, c.TargetEvidence, c.ReferenceEvidence, c.DesiredReferenceEvidence)).ToArray();
         Project.SdkVersion = sdk.Version; Metadata = sdk;
         if (sdk.Stratagems != null && StratagemChangeService.Rebind(Project, old.Metadata?.Stratagems, sdk.Stratagems) > 0
             && Project.StratagemChanges.Count > 0) Project.FormatVersion = 5;
+        // Evidence that differs only in package-residency data (SDK 0.27.0 automatic asset loading) is carried over, never re-reviewed.
+        if (sdk.Entities != null) EntityChangeService.Rebind(Project, old.Metadata?.Entities, sdk.Entities);
+        if (old.Metadata != null) { ProjectileChangeService.Rebind(Project, old.Metadata, sdk); CompositionChangeService.Rebind(Project, old.Metadata, sdk); }
         try { await SaveChangesAsync(); }
-        catch { (Project.SdkVersion, Metadata) = old; (Project.StratagemChanges, Project.StratagemApprovals, Project.FormatVersion) = stratagems; throw; }
+        catch
+        {
+            (Project.SdkVersion, Metadata) = old; (Project.StratagemChanges, Project.StratagemApprovals, Project.FormatVersion) = stratagems; Project.EntityChanges = entities;
+            foreach (var (c, expected, replacement) in projectiles) (c.ExpectedEvidence, c.ReplacementEvidence) = (expected, replacement);
+            foreach (var (c, target, reference, desired) in composition) (c.TargetEvidence, c.ReferenceEvidence, c.DesiredReferenceEvidence) = (target, reference, desired);
+            throw;
+        }
     }
     public async Task SaveExportDirectoryAsync(string path)
     {

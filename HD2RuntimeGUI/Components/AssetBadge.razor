@@ -1,0 +1,28 @@
+@* SDK 0.27.0 asset-loading state of one reference swap: a compact badge, and the package details collapsed under "Asset dependency".
+   Only an unknown dependency is a warning; loaded-automatically states are positive. Slot/gameplay compatibility is shown separately. *@
+@if (View is { State: not AssetState.None } v)
+{
+    <div class="asset-status @(v.Warning ? "warning" : "")" data-asset-state="@v.State.ToString().ToLowerInvariant()">
+        <span class="badge @(v.State switch { AssetState.LiveVerified => "green", AssetState.Unknown => "amber", _ => "blue" })" title="@v.Description" data-asset-badge>@v.Label</span>
+        @if (v.Warning && !Compact) { <span class="asset-note" data-asset-warning>@v.Description</span> }
+        <details class="asset-details" data-asset-details><summary>Asset dependency</summary>
+            <dl>
+                <dt>Dependency</dt><dd>@(v.State == AssetState.Unknown ? "Unknown" : v.State == AssetState.AlwaysResident ? "Always loaded" : "Known")</dd>
+                <dt>Loaded automatically</dt><dd>@(v.State is AssetState.LiveVerified or AssetState.AutoLoaded ? "Yes" : "No")</dd>
+                @if (v.Package != null) { <dt>Package</dt><dd><code>@v.Package</code></dd> }
+                else if (v.PackageNamed == false) { <dt>Package</dt><dd>Proven, name not recovered</dd> }
+                <dt>Live-tested</dt><dd>@(v.LiveTested ? "Yes: this object in a passing live test" : v.PackageLiveLoaded ? "Its package was loaded in a passing live test" : "No")</dd>
+                @if (v.Derivation != null) { <dt>Source</dt><dd>@FieldPresentation.EnumLabel(v.Derivation)</dd> }
+                @if (v.FamilyProofText is { } proof) { <dt>Loader</dt><dd>@proof</dd> }
+                @if (v.Blocker != null) { <dt>Blocker</dt><dd>@v.Blocker</dd> }
+            </dl>
+            <p>@v.Description</p>
+            @if (v.InGame is { } inGame) { <p class="subtle" data-asset-ingame>@inGame</p> }
+        </details>
+    </div>
+}
+@code {
+    [Parameter] public AssetStatusView? View { get; set; }
+    // Compact: the badge (and its tooltip) only; the unknown-dependency explanation stays in the details.
+    [Parameter] public bool Compact { get; set; }
+}

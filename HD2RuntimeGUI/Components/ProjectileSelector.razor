@@ -15,7 +15,13 @@
             </select>
         </label>
         <p class="subtle">Compatibility: @Attack.CompatibilityClass.Replace('_', ' ')</p>
-        @if (Workspace.Metadata!.Advanced != null)
+        @* 0.27.0+: Runtime loads a known donor package itself, so a cross-package source needs nobody to carry the donor weapon. *@
+        @if (Workspace.Metadata!.Assets != null)
+        {
+            var chosen = saved?.ReplacementProjectile ?? baseline;
+            <AssetBadge View="AssetStatus.ProjectileSource(Workspace.Metadata, chosen.Weapon, chosen.AttackRole, chosen == baseline)" />
+        }
+        else if (Workspace.Metadata!.Advanced != null)
         {
             var residency = Workspace.Metadata.Composition!.Attack((saved?.ReplacementProjectile ?? baseline).Weapon, (saved?.ReplacementProjectile ?? baseline).AttackRole).Residency;
             <span class="badge">@residency?.Classification.Replace('_', ' ')</span><p class="subtle">@residency?.Evidence</p>
@@ -35,7 +41,9 @@
     [Parameter, EditorRequired] public ProjectileAttack Attack { get; set; } = default!;
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
-    private string ResidencyLabel(ProjectileReference p) => Workspace.Metadata?.Composition?.Attack(p.Weapon, p.AttackRole).Residency is { } r ? " · " + FieldPresentation.EnumLabel(r.Classification.ToLowerInvariant()) : "";
+    private string ResidencyLabel(ProjectileReference p) => Workspace.Metadata is { Assets: not null } sdk
+        ? AssetStatus.ProjectileSource(sdk, p.Weapon, p.AttackRole, false) is { State: not AssetState.None } a ? " · " + a.Short : ""
+        : Workspace.Metadata?.Composition?.Attack(p.Weapon, p.AttackRole).Residency is { } r ? " · " + FieldPresentation.EnumLabel(r.Classification.ToLowerInvariant()) : "";
     private string Key(ProjectileReference r) => r.Weapon == Weapon && r.AttackRole == Attack.Role ? "" : r.Weapon + "|" + r.AttackRole;
     private Task Select(ChangeEventArgs e)
     {
