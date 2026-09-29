@@ -12,11 +12,11 @@ using Xunit;
 namespace HD2RuntimeGUI.Tests;
 
 // Enemies and enemy structures (hd2.enemy / hd2.structure) from an unreleased HD2Runtime development SDK. The fixture is the committed
-// sdk/*.json of HD2Runtime 834716f (reports 0.27.0; carries EnemyAuthoringCapabilities.json for 0.28.0), served through the developer-only
+// sdk/*.json of HD2Runtime e15d5bf (reports 0.27.0; carries EnemyAuthoringCapabilities.json for 0.28.0), served through the developer-only
 // local SDK path, exactly as `--sdk-path <HD2Runtime>\sdk` serves it.
 public sealed class EnemyAuthoringTests
 {
-    public const string Fixture = "sdk-dev-834716f.zip";
+    public const string Fixture = "sdk-dev-e15d5bf.zip";
     private const string Charger = "enemy/v1/terminids/charger", Spewer = "enemy/v1/terminids/boomer_burrower", Gunship = "enemy/v1/automatons/gunship",
         Fabricator = "enemy/v1/automatons/spawner_factory_conscript_base", Bunker = "enemy/v1/automatons/command_bunker_side", Hunter = "enemy/v1/terminids/hunter_tier_1";
     public static string DevSdk(TestEnvironment e, string name = "dev-sdk")

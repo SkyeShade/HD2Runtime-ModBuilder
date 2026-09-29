@@ -3,7 +3,7 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// The unreleased HD2Runtime development SDK (fixture 834716f) also changes the catalogs of other domains. ModBuilder binds it without
+// The unreleased HD2Runtime development SDK (fixture e15d5bf) also changes the catalogs of other domains. ModBuilder binds it without
 // inventing anything: new additive metadata is read, new targets that map onto published accessors are authored, and value types this
 // build has no editor for (typed status references) stay visible but read-only with a reason.
 public sealed class DevelopmentSdkTests

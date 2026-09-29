@@ -27,6 +27,13 @@ public sealed record EntityTarget(string Resource, string Path, string? Vehicle 
     // class semantic ID (enemy / structure).
     [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? Throwable ?? Enemy ?? "";
 }
+// Whether a write takes effect (unreleased Runtime 0.28.0 development SDKs): the active source status, when it applies, and for a dormant
+// member the field that is active instead.
+public sealed record FieldEffect(string? ActiveSource = null, bool? ActiveSourceProven = null, string? AppliesWhen = null, bool? InstantiationOnly = null,
+    string? ActiveField = null, string? DamageRule = null, string? Reason = null)
+{
+    public const string Dormant = "DORMANT_OR_METADATA";
+}
 public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
     string? NativeOwner = null, string? GameplayWriteEffect = null);
 public sealed record EntityConsumer(string? Vehicle = null, string? Backpack = null,
@@ -41,7 +48,10 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     bool AllowSharedRequired, bool Shared, EntityConsumer[] SharedConsumers, string SharedScopeKey, bool ReviewedScopeComplete,
     bool DynamicConsumersPossible, string BackingObjectKind, string Domain, string ApiFieldConstant, int PlanPhase, string[] DependsOn,
     EntityEvidence Evidence, string Provenance, string[]? AllowedValues = null, string? Acknowledgement = null, string? ValueKind = null,
-    string? ResidencyWarning = null, EntityRange? Range = null, double? Min = null, double? Max = null, string? AcknowledgementReason = null, string? UiGroup = null)
+    string? ResidencyWarning = null, EntityRange? Range = null, double? Min = null, double? Max = null, string? AcknowledgementReason = null, string? UiGroup = null,
+    // Unreleased Runtime (0.28.0 development): why a published bound exists (for example a 10-bit network field), the hit actors a damage
+    // zone lists, and whether/when a write takes effect (effect.activeSource, appliesWhen, the field that is active instead).
+    string? RangeReason = null, string[]? ZoneActors = null, FieldEffect? Effect = null)
 {
     public const string ReferenceType = "mounted_weapon_reference";
     // 0.26.0 drop-pod slot payload: a reviewed pickup semantic ID or 'empty'.
@@ -54,7 +64,7 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     [JsonIgnore] public bool IsChoice => IsReference || IsPickup;
     // Safe range: 0.25.0 boosters publish "range"; 0.26.0 attachment and backpack-ammo fields publish "min"/"max".
     [JsonIgnore] public EntityRange? EffectiveRange => Range ?? (Min == null && Max == null ? null
-        : new EntityRange(Min ?? double.NegativeInfinity, Max ?? double.PositiveInfinity, Type == "integer"));
+        : new EntityRange(Min ?? double.NegativeInfinity, Max ?? double.PositiveInfinity, Type == "integer", RangeReason));
 }
 public sealed record EntityBackingObject(string BackingObjectId, string Kind, bool Shared, EntityConsumer[] SharedConsumers, string SharedScopeKey, string[] FieldInstances);
 public sealed record EntityOperationGroup(string OperationGroup, string BackingObjectId, EntityTarget Target, string[] FieldInstances, string RecommendedApi, bool AllowSharedRequired);
@@ -97,8 +107,14 @@ public sealed record BackpackFeeds(string SupportWeapon, string SupportWeaponSem
     string RefillStyle, bool WeaponOwnsMagazine, string[] Chain);
 public sealed record BackpackAmmoBox(JsonElement Value, bool Writable, string? Reason);
 public sealed record BackpackAmmo(int Capacity, int StartAmount, int RefillAmount, BackpackAmmoBox? FromAmmoBox);
+// A backpack's published damage zones (0.28.0 development SDKs), for example the SH-20 Ballistic Shield's "shield" plate.
+public sealed record BackpackZone(string ZoneId, int Index, string? Name)
+{
+    [JsonIgnore] public string Label => Name ?? ZoneId;
+}
 public sealed record Backpack(string Name, string SemanticId, EntityCallIn CallInStratagem, string[] DeliveryChain, string[] Components,
-    BackpackSettingGroup[] SettingGroups, EntityBlocked[] BlockedFields, string[] FieldInstanceKeys, BackpackFeeds? Feeds = null, BackpackAmmo? Ammo = null)
+    BackpackSettingGroup[] SettingGroups, EntityBlocked[] BlockedFields, string[] FieldInstanceKeys, BackpackFeeds? Feeds = null, BackpackAmmo? Ammo = null,
+    BackpackZone[]? DamageZones = null)
 {
     public const string AmmoGroup = "backpack_ammo";
 }
@@ -200,9 +216,10 @@ public static class EntityAuthoringReader
             Check(f.Target.Path switch
             {
                 "entity" => resource == "vehicle" && f.Target.Zone == null && f.Target.Mount == null,
-                "damage_zone" => resource == "vehicle" && f.Target.Zone != null && Slot.IsMatch(f.Target.Zone) && f.Target.Mount == null,
                 "mount" => resource == "vehicle" && f.Target.Mount != null && Slot.IsMatch(f.Target.Mount) && f.Target.Zone == null,
                 "backpack" => resource == "backpack" && f.Target.Zone == null && f.Target.Mount == null,
+                // 0.28.0 development SDKs: a backpack's own damage zone (the SH-20 shield plate).
+                "damage_zone" => resource is "vehicle" or "backpack" && f.Target.Zone != null && Slot.IsMatch(f.Target.Zone) && f.Target.Mount == null,
                 _ => false,
             });
             if (f.IsReference)
@@ -267,6 +284,10 @@ public static class EntityAuthoringReader
                 && x.SettingGroups.All(g => !string.IsNullOrWhiteSpace(g.Group) && g.FieldInstanceKeys.All(own.Contains))
                 && x.SettingGroups.SelectMany(g => g.FieldInstanceKeys).Distinct().Count() == x.SettingGroups.Sum(g => g.FieldInstanceKeys.Length)
                 && (x.CallInStratagem.Known ? x.CallInStratagem.SemanticId != null : !string.IsNullOrWhiteSpace(x.CallInStratagem.Reason)));
+            // Zone fields target one of the backpack's published damage zones.
+            var zones = x.DamageZones ?? [];
+            Check(zones.Select(z => z.ZoneId).Distinct().Count() == zones.Length && zones.All(z => z.ZoneId == "zone_" + z.Index)
+                && b.FieldInstances.Where(f => f.Target.Backpack == x.Name && f.Target.Path == "damage_zone").All(f => zones.Any(z => z.ZoneId == f.Target.Zone)));
         }
         var s = b.Summary; var f = b.FieldInstances;
         Check(s.Backpacks == b.Backpacks.Length && s.FieldInstances == f.Length && s.WritableFieldInstances == f.Count(x => x.Editable)

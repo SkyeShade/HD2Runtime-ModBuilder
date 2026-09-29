@@ -53,6 +53,8 @@ public static class AssetDependencyReader
         ["backpack"] = "backpack", ["mounted_weapon"] = "mounted_weapon", ["player_weapon"] = "player_weapon", ["support_weapon"] = "support_weapon",
         ["throwable"] = "throwable", ["vehicle"] = "vehicle", ["pickup_support_weapon"] = "pickup", ["pickup_backpack"] = "pickup", ["pickup_ammo"] = "pickup",
         ["pickup_grenade"] = "pickup", ["pickup_stim"] = "pickup", ["pickup_supply"] = "pickup",
+        // 0.28.0 development SDKs: explosions event scripts request (hd2.explosions.spawn), such as the Hellbombs.
+        ["explosion"] = "explosion",
     };
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
     private static void Check(bool valid, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0) { if (!valid) throw new InvalidDataException($"Inconsistent asset dependency metadata (check {line})."); }

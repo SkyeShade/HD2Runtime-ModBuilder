@@ -133,6 +133,10 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 VehicleWeapons = VehicleWeaponReader.Read(Required(VehicleWeaponReader.FileName, "vehicle weapon capabilities"), sdk.Version, e.Vehicles),
                 Pods = PodPayloadReader.Read(Required(PodPayloadReader.FileName, "drop-pod payload capabilities"), sdk.Version) } };
             LinkAmmoBackpacks(sdk.Entities, sdk.SupportAuthoring ?? throw new InvalidDataException("SDK is missing canonical support authoring metadata."));
+            // A call-in that delivers a drop-pod rack (Resupply, 0.28.0 development SDKs) must name a published rack that lists it as a consumer.
+            if (!sdk.Stratagems!.Stratagems.Where(s => s.Delivers is { Known: true, Kind: "pod_rack" }).All(s => sdk.Entities.Pods!.Racks.Any(r => r.SemanticId == s.Delivers!.SemanticId
+                    && r.Consumers.Any(c => c.StratagemSemanticId == s.SemanticId))))
+                throw new InvalidDataException("Inconsistent drop-pod rack delivery link.");
             // 0.27.0: automatic asset loading. The pod catalog's per-pickup dependency must agree with the asset catalog, and every
             // mounted weapon a mount swap can reference must have a published dependency (known or unknown).
             if (sdk.Has027)
@@ -167,7 +171,8 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         foreach (var p in pods.Pickups)
         {
             var a = assets.Pickup(p.SemanticId)?.PackageDependency; var d = p.PackageDependency!;
-            Check(a != null && a.Known == d.Known && a.AutoLoadSupported == d.AutoLoadSupported && a.LiveTested == d.LiveTested && a.Package == d.Package);
+            // An always-resident package needs no load: the asset catalog may still mark it auto-loadable (the Supply Box, 0.28.0 development SDKs).
+            Check(a != null && a.Known == d.Known && (a.AutoLoadSupported == d.AutoLoadSupported || d.AlwaysResident && !d.AutoLoadSupported) && a.LiveTested == d.LiveTested && a.Package == d.Package);
         }
         Check(entities.Vehicles.MountedWeapons.All(m => assets.MountedWeapon(m.SemanticId) != null));
         // Projectile sources Runtime loads automatically carry the donor package in their own residency record.

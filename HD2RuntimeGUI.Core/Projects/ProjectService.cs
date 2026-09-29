@@ -143,6 +143,7 @@ public static class ProjectIdentity
                     ("vehicle", "damage_zone") => Slot(c.Zone, "zone") && c.Mount == null,
                     ("vehicle", "mount") => Slot(c.Mount, "slot") && c.Zone == null && c.FieldType == EntityField.ReferenceType,
                     ("backpack", "backpack") => c.Zone == null && c.Mount == null,
+                    ("backpack", "damage_zone") => Slot(c.Zone, "zone") && c.Mount == null,
                     // 0.23.1 magazine attachment definitions: Entity is the published attachment semantic ID.
                     // 0.26.0 adds reload duration and ergonomics modifier (numbers) to the four integer ammo fields.
                     ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType is "integer" or "number"

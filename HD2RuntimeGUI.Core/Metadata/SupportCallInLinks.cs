@@ -104,7 +104,9 @@ public static class SupportCallInLinker
         Check(noCallIn.SequenceEqual((linkage.Audit.NoCallInItems ?? []).Order(StringComparer.Ordinal))
             && roots.Count(s => s.Delivers!.IsNoCallIn) == noCallIn.Length);
         // Vehicle and backpack call-in links are validated by the entity authoring reader.
-        Check(stratagems.Stratagems.Where(s => s.Family != "support").All(s => s.Delivers == null || !s.Delivers.Known || s.Delivers.Kind == s.Family && s.Family is "vehicle" or "backpack"));
+        // 0.28.0 development SDKs: a call-in that delivers a drop-pod rack (Resupply); the rack link is checked against the pod catalog in SdkCache.
+        Check(stratagems.Stratagems.Where(s => s.Family != "support").All(s => s.Delivers == null || !s.Delivers.Known || s.Delivers.Kind == s.Family && s.Family is "vehicle" or "backpack"
+            || s.Delivers.Kind == "pod_rack" && s.Delivers.SemanticId != null));
         var a = linkage.Audit;
         Check(a.SupportWeapons == support.Weapons.Length && a.SupportStratagems == roots.Length && a.KnownLinks == byWeapon.Count
             && a.ReverseLinksKnown == byStratagem.Count && a.Relationships == linkage.Relationships.Length

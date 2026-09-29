@@ -195,6 +195,8 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         // 0.27.0 throwables first: their target paths (entity, damage, explosion, ...) reuse names other resources also use.
         _ when t.Resource == ThrowableAuthoringReader.Resource => ThrowableTarget(t),
         "backpack" when fedWeapon != null => "hd2.support_weapon(" + LuaGenerator.Quote(fedWeapon) + "):backpack()",
+        // A backpack's own damage zone (the SH-20 shield plate, 0.28.0 development SDKs), by published zone ID.
+        "damage_zone" when t.Resource == "backpack" => "hd2.backpack(" + LuaGenerator.Quote(t.Backpack!) + "):damage_zone(" + LuaGenerator.Quote(t.Zone!) + ")",
         // 0.26.0 mounted vehicle weapons: hd2.vehicle(v):weapon(mount label), then its attack objects.
         _ when t.Resource == "vehicle_weapon" => VehicleWeaponTarget(t),
         // 0.26.0 drop-pod racks by published name: the rack (spawn count) or one of its slots (payload).

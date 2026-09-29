@@ -44,7 +44,7 @@ public sealed record FieldBacking(string Kind, string? Component, int Offset, st
     // Unreleased Runtime (0.28.0 development): a DamageInfo status slot and the enum a status reference is written as.
     int? StatusSlot = null, string? Enum = null);
 // A published live test of a field family (Runtime's LiveEvidenceCatalog), for example the enemy main-health test.
-public sealed record FieldLiveEvidence(string Status, string Family, string[] Tests, string Date, string[]? AppliesToKinds = null);
+public sealed record FieldLiveEvidence(string Status, string Family, string[] Tests, string Date, string[]? AppliesToKinds = null, string? Target = null, string? Field = null);
 public sealed record WeaponCapability(string DisplayName, string SemanticFieldId, string Type, string? Unit,
     JsonElement CurrentDefault, bool Editable, bool DerivedReadOnly, FieldProvenance Provenance,
     double? Min, double? Max, Dictionary<string, JsonElement>? EnumValues, FieldBacking? Backing,

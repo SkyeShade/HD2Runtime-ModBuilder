@@ -11,7 +11,9 @@ namespace HD2RuntimeGUI.Core.Metadata;
 public sealed record PodRackConsumer(string Name, string? NativeType, string? StratagemSemanticId, string? Booster, bool AlwaysAvailable);
 public sealed record PodSpawnCount(int? Value, bool Writable, int[] Range, string[] Acknowledgements, string? Field);
 public sealed record PodSlotItem(string? Pickup, string? Name, string? Category);
-public sealed record PodRackSlot(int Slot, bool Active, PodSlotItem? Current, bool ApplyDeltas, int RackSide, bool Writable, string? Reason, string[] Acknowledgements);
+// 0.28.0 development SDKs: pickups a user-run test proved in this exact slot (for example the Grenade Box in the Resupply pod).
+public sealed record PodRackSlot(int Slot, bool Active, PodSlotItem? Current, bool ApplyDeltas, int RackSide, bool Writable, string? Reason, string[] Acknowledgements,
+    string[]? LiveVerifiedPickups = null);
 public sealed record PodRack(string Name, string SemanticId, PodRackConsumer[] Consumers, bool Shared, bool Writable, string? Reason, PodSpawnCount SpawnCount,
     int RandomPayloadSize, PodRackSlot[] Slots, string[] ResidentPackages, string? Field)
 {
