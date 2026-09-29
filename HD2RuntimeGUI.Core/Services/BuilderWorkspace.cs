@@ -36,28 +36,110 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
             var previous = project.ProjectileChanges.ToList();
-            var old = previous.SingleOrDefault(c => c.Weapon == weapon && c.AttackRole == role);
-            ProjectileChange? next = null;
-            if (replacement != null)
-            {
-                next = projectileChanges.Create(Metadata!, weapon, role, replacement);
-                if (projectileChanges.IsBaseline(Metadata!, weapon, role, replacement)) next = null;
-                else if (old != null)
-                {
-                    next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
-                    if (!acceptBaseline)
-                    {
-                        next.ExpectedEvidence = old.ExpectedEvidence; next.BaselineSdkVersion = old.BaselineSdkVersion; next.CompatibilityClass = old.CompatibilityClass;
-                        if (old.ReplacementProjectile == replacement) next.ReplacementEvidence = old.ReplacementEvidence;
-                    }
-                }
-            }
-            project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
-            if (next != null) project.ProjectileChanges.Add(next);
-            project.FormatVersion = Math.Max(project.FormatVersion, 4);
+            ApplyProjectile(project, weapon, role, replacement, acceptBaseline);
             try { await SaveChangesAsync(); } catch { project.ProjectileChanges = previous; throw; }
         }
         finally { weaponEditGate.Release(); }
+    }
+    private void ApplyProjectile(ModProject project, string weapon, string role, ProjectileReference? replacement, bool acceptBaseline)
+    {
+        var old = project.ProjectileChanges.SingleOrDefault(c => c.Weapon == weapon && c.AttackRole == role);
+        ProjectileChange? next = null;
+        if (replacement != null)
+        {
+            next = projectileChanges.Create(Metadata!, weapon, role, replacement);
+            if (projectileChanges.IsBaseline(Metadata!, weapon, role, replacement)) next = null;
+            else if (old != null)
+            {
+                next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
+                if (!acceptBaseline)
+                {
+                    next.ExpectedEvidence = old.ExpectedEvidence; next.BaselineSdkVersion = old.BaselineSdkVersion; next.CompatibilityClass = old.CompatibilityClass;
+                    if (old.ReplacementProjectile == replacement) next.ReplacementEvidence = old.ReplacementEvidence;
+                }
+            }
+        }
+        project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
+        if (next != null) project.ProjectileChanges.Add(next);
+        project.FormatVersion = Math.Max(project.FormatVersion, 4);
+    }
+
+    // Projectile swaps with existing object edits. Object edits (projectile/explosion stats and terminal actions) belong to the projectile an
+    // attack fires; swapping the projectile would leave them on an object the attack no longer uses. They are handled where the swap happens.
+    /// <summary>Object edits of one attack made on the projectile it fires now.</summary>
+    public IReadOnlyList<CompositionChange> ObjectEditsOnCurrentProjectile(string weapon, string role)
+    { var target = EffectiveProjectile(weapon, role); return Project!.CompositionChanges.Where(c => c.Weapon == weapon && c.AttackRole == role && c.Target == target).ToList(); }
+    /// <summary>Object edits of one attack left on a projectile it no longer fires (for example from an earlier swap). They block the build.</summary>
+    public IReadOnlyList<CompositionChange> OrphanedObjectEdits(string weapon, string role)
+    { var target = EffectiveProjectile(weapon, role); return Project!.CompositionChanges.Where(c => c.Weapon == weapon && c.AttackRole == role && c.Target != target).ToList(); }
+    /// <summary>The first weapon with orphaned object edits, so the UI can send the user straight to it.</summary>
+    public string? WeaponWithOrphanedObjectEdits => Project?.CompositionChanges.FirstOrDefault(c => c.Target != EffectiveProjectile(c.Weapon, c.AttackRole))?.Weapon;
+    public string ObjectEditLabel(CompositionChange c)
+    {
+        if (c.Kind == "terminal") return FieldLabel(c.Phase!) + " explosion → " + c.DesiredExplosion!.Label;
+        string name; try { name = CompositionChangeService.Capability(Metadata!, c).DisplayName; } catch (InvalidDataException) { name = c.Scalar!.SemanticFieldId; }
+        return (c.Kind == "explosion" ? FieldLabel(c.Phase!) + " explosion · " : "") + name + " " + c.Scalar!.DesiredValue.GetRawText();
+    }
+    private static string FieldLabel(string phase) => char.ToUpperInvariant(phase[0]) + phase[1..];
+
+    /// <summary>Swaps an attack's projectile and, in the same save, keeps the values of its object edits on the new projectile (keepValues) or
+    /// discards them. Values that the new projectile cannot take are listed in the result instead of failing the swap.</summary>
+    public async Task<ObjectEditCarryResult> SwapProjectileAsync(string weapon, string role, ProjectileReference? replacement, bool keepValues)
+    {
+        var project = Project;
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            var (projectiles, composition) = (project.ProjectileChanges.ToList(), project.CompositionChanges.ToList());
+            var edits = ObjectEditsOnCurrentProjectile(weapon, role);
+            try
+            {
+                ApplyProjectile(project, weapon, role, replacement, acceptBaseline: false);
+                var result = Retarget(project, weapon, role, edits, keepValues);
+                await SaveChangesAsync(); return result;
+            }
+            catch { project.ProjectileChanges = projectiles; project.CompositionChanges = composition; throw; }
+        }
+        finally { weaponEditGate.Release(); }
+    }
+    /// <summary>Moves orphaned object edits of one attack to the projectile it fires now (keepValues) or discards them.</summary>
+    public async Task<ObjectEditCarryResult> ResolveOrphanedObjectEditsAsync(string weapon, string role, bool keepValues)
+    {
+        var project = Project;
+        await weaponEditGate.WaitAsync();
+        try
+        {
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            var composition = project.CompositionChanges.ToList();
+            try { var result = Retarget(project, weapon, role, OrphanedObjectEdits(weapon, role), keepValues); await SaveChangesAsync(); return result; }
+            catch { project.CompositionChanges = composition; throw; }
+        }
+        finally { weaponEditGate.Release(); }
+    }
+    // Removes the edits and, when keeping values, re-creates each one on the attack's current projectile (terminal actions first, since they
+    // decide which explosion the explosion stats belong to). The same desired value is applied against the new object's own baseline.
+    private ObjectEditCarryResult Retarget(ModProject project, string weapon, string role, IReadOnlyList<CompositionChange> edits, bool keepValues)
+    {
+        project.CompositionChanges.RemoveAll(c => edits.Contains(c));
+        if (!keepValues || edits.Count == 0) return new(0, 0, []);
+        int kept = 0, atBase = 0; var dropped = new List<string>();
+        foreach (var c in edits.OrderBy(c => c.Kind == "terminal" ? 0 : 1))
+        {
+            try
+            {
+                var next = c.Kind == "terminal"
+                    ? compositionChanges.CreateTerminal(project, Metadata!, weapon, role, c.Phase!, c.DesiredExplosion!, acknowledge: true)
+                    : compositionChanges.CreateScalar(project, Metadata!, weapon, role, c.Kind, c.Phase, c.Scalar!.SemanticFieldId, c.Scalar.DesiredValue.GetRawText(), acknowledge: true);
+                next.Enabled = c.Enabled; next.EnsureEnabled = c.EnsureEnabled; next.Group = c.Group; next.Notes = c.Notes;
+                project.CompositionChanges.RemoveAll(x => x.Weapon == next.Weapon && x.AttackRole == next.AttackRole && x.Kind == next.Kind && x.Phase == next.Phase && x.Scalar?.SemanticFieldId == next.Scalar?.SemanticFieldId);
+                if (compositionChanges.IsNoOp(Metadata!, next)) { atBase++; continue; }
+                project.CompositionChanges.Add(next); kept++;
+            }
+            catch (InvalidDataException e) { dropped.Add(ObjectEditLabel(c) + ": " + (e.Message.StartsWith("Field does not belong", StringComparison.Ordinal) ? "the new projectile has no such value" : e.Message)); }
+        }
+        project.FormatVersion = Math.Max(project.FormatVersion, 4);
+        return new(kept, atBase, dropped);
     }
     public async Task ToggleProjectileAsync(Guid id)
     {
@@ -97,9 +179,10 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             if (old != null)
             {
                 next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
-                if (!acceptBaseline)
+                // An edit left on a projectile or explosion the attack no longer uses is superseded by editing the value on the current object;
+                // the old object's baseline and evidence do not carry over.
+                if (!acceptBaseline && old.Target == next.Target && old.ExplosionTarget == next.ExplosionTarget)
                 {
-                    if (old.Target != next.Target || old.ExplosionTarget != next.ExplosionTarget) throw new InvalidDataException("Composition target changed. Reset the old object edit before editing the new object.");
                     next.TargetEvidence = old.TargetEvidence; next.ReferenceEvidence = old.ReferenceEvidence; next.ExpectedExplosion = old.ExpectedExplosion;
                     next.BaselineSdkVersion = old.BaselineSdkVersion;
                     if (next.Scalar != null) { next.Scalar.ExpectedValue = old.Scalar!.ExpectedValue; next.Scalar.BaselineSdkVersion = old.Scalar.BaselineSdkVersion; }
@@ -377,3 +460,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     public Task OpenExportAsync() => folders.OpenAsync(LastExport ?? Project!.ExportDirectory, LastExport != null);
     public Task OpenProjectFolderAsync(Guid id) => folders.OpenAsync(paths.ProjectDirectory(id));
 }
+
+/// <summary>Outcome of moving object edits to another projectile: values kept, values that equal the new object's baseline (nothing to
+/// write), and values the new object cannot take (with the reason).</summary>
+public sealed record ObjectEditCarryResult(int Kept, int AtBaseline, IReadOnlyList<string> NotKept);

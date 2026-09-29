@@ -1361,3 +1361,12 @@ input[type=checkbox]:checked:before {
 .throwable-target.modified { box-shadow:inset 3px 0 var(--accent) }
 .throwable-row + .throwable-row { margin-top:10px }
 .throwable-row .group-title .badge { margin-left:6px; font-weight:500 }
+
+/* Projectile swaps with existing stat edits: decided inline, in the projectile control. */
+.swap-prompt { margin:10px 0; padding:10px 12px; border:1px solid var(--accent-border); border-radius:8px; background:color-mix(in srgb, var(--accent) 5%, transparent) }
+.swap-prompt.orphaned { border-color:#5a4c29; background:#302b1b33 }
+.swap-prompt p { margin:0 0 6px }
+.swap-edits { margin:4px 0 8px; padding-left:18px; font-size:12.5px }
+.swap-actions { display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center }
+.swap-result { display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px 8px; margin:8px 0; font-size:12.5px; color:var(--muted) }
+.swap-result .swap-edits { flex-basis:100%; margin:0; color:var(--warning) }

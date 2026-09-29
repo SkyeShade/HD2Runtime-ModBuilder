@@ -145,7 +145,7 @@ public sealed class CompositionChangeService : ICompositionChangeService
     public void Validate(ModProject project, SdkMetadata sdk, CompositionChange c)
     {
         RequireModern(sdk);
-        if (EffectiveProjectile(project, c.Weapon, c.AttackRole) != c.Target) throw new InvalidDataException("Composition target changed. Reset the saved object edit and edit the selected replacement projectile.");
+        if (EffectiveProjectile(project, c.Weapon, c.AttackRole) != c.Target) throw new InvalidDataException($"{c.Weapon} has edits on the {c.Target.Label}, which it no longer fires. Keep or discard them in its Projectile section.");
         if (c.TargetEvidence != ProjectileChangeService.Evidence(sdk, c.Target)) throw new InvalidDataException("Projectile object identity/residency changed. Review and reset or explicitly accept the new baseline.");
         WeaponCapability f;
         if (c.Kind == "terminal")

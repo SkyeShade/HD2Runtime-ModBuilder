@@ -1,0 +1,21 @@
+@inject BuilderWorkspace Workspace
+@* Asked before an attack's projectile changes while stat edits exist on the projectile it fires now: keep their values on the new
+   projectile, discard them, or cancel. Nothing is saved until the user chooses. *@
+<div class="swap-prompt" role="group" aria-label="Projectile swap" data-swap-prompt>
+    <p><strong>You changed @(Edits.Count == 1 ? "one value" : $"{Edits.Count} values") on the @Current.Label.</strong> @(Reset ? "Resetting" : "Switching") to <strong>@Target.Label</strong>:</p>
+    <ul class="swap-edits">@foreach (var edit in Edits) { <li data-swap-edit>@Workspace.ObjectEditLabel(edit)</li> }</ul>
+    <div class="swap-actions">
+        <button class="primary" data-swap-keep @onclick="() => Decide.InvokeAsync(true)">@(Reset ? "Reset" : "Switch") and keep my values</button>
+        <button data-swap-discard @onclick="() => Decide.InvokeAsync(false)">@(Reset ? "Reset" : "Switch") and discard them</button>
+        <button class="link-button" data-swap-cancel @onclick="() => Cancel.InvokeAsync()">Cancel</button>
+    </div>
+    <p class="subtle">Keeping applies the same values to the new projectile, measured against its own base values. Values it does not have are listed afterwards.</p>
+</div>
+@code {
+    [Parameter, EditorRequired] public ProjectileReference Current { get; set; } = default!;
+    [Parameter, EditorRequired] public ProjectileReference Target { get; set; } = default!;
+    [Parameter, EditorRequired] public IReadOnlyList<CompositionChange> Edits { get; set; } = [];
+    [Parameter] public bool Reset { get; set; }
+    [Parameter] public EventCallback<bool> Decide { get; set; }
+    [Parameter] public EventCallback Cancel { get; set; }
+}

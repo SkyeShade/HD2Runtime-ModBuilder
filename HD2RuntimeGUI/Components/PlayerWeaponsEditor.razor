@@ -50,9 +50,11 @@
                         {
                             var target = Workspace.EffectiveProjectile(weapon.Name, attack.Role);
                             var swap = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == weapon.Name && c.AttackRole == attack.Role);
-                            <details class="composition-line" data-composition-attack="@attack.Role" open="@(swap != null)">
+                            var orphaned = Workspace.OrphanedObjectEdits(weapon.Name, attack.Role).Count > 0;
+                            <details class="composition-line" data-composition-attack="@attack.Role" open="@(swap != null || orphaned)">
                                 <summary><span class="subtle">Projectile@(attacks.Length > 1 ? " · " + attack.Role.Replace('_', ' ') : ""):</span> <strong data-projectile-object="@target.Weapon" data-projectile-role="@target.AttackRole">@target.Label</strong>
-                                    @if (swap != null) { <span class="badge modified-badge">Replaced</span> }<span class="composition-action">Change projectile…</span></summary>
+                                    @if (swap != null) { <span class="badge modified-badge">Replaced</span> }
+                                    @if (orphaned) { <span class="badge amber" data-projectile-needs-attention>Needs attention</span> }<span class="composition-action">Change projectile…</span></summary>
                                 <ProjectileSelector @key="(weapon.Name, attack.Role)" Weapon="@weapon.Name" Attack="attack" Changed="FieldChanged" />
                                 @foreach (var phase in Phases.Where(p => !explosions.Any(e => e.Attack == attack && e.Phase == p)))
                                 { <TerminalEditor @key="(weapon.Name, attack.Role, target, phase)" Weapon="@weapon.Name" Role="@attack.Role" Phase="@phase" Changed="FieldChanged" /> }

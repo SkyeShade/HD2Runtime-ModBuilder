@@ -118,7 +118,7 @@ public sealed class Runtime017Tests
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", true);
-        await w.SetProjectileAsync(Verdict, "primary", new(Jar, "primary")); Assert.Contains("Composition target changed", w.BuildError);
+        await w.SetProjectileAsync(Verdict, "primary", new(Jar, "primary")); Assert.Contains("no longer fires", w.BuildError);
         await Assert.ThrowsAsync<InvalidDataException>(w.ExportAsync);
         await w.RemoveCompositionAsync(w.Project!.CompositionChanges[0].Id); Assert.Null(w.BuildError);
     }

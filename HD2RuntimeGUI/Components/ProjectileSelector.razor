@@ -1,19 +1,25 @@
 @inject BuilderWorkspace Workspace
+@* The projectile one attack fires. Stat edits belong to that projectile, so a swap is handled right here: when edits exist, the user chooses
+   to keep their values on the new projectile or discard them (or cancel) before anything is saved. Edits left on a projectile the attack
+   no longer fires (from an earlier swap) are resolved in the same place. *@
 @{ var saved = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Attack.Role);
    var sources = Workspace.ProjectileSources(Weapon, Attack.Role);
-   var baseline = new ProjectileReference(Weapon, Attack.Role); }
+   var baseline = new ProjectileReference(Weapon, Attack.Role);
+   var current = Workspace.EffectiveProjectile(Weapon, Attack.Role);
+   var orphaned = Workspace.OrphanedObjectEdits(Weapon, Attack.Role); }
 <div class="composition-control @(saved != null ? "modified" : "")" data-projectile="@Attack.Role">
     <div class="panel-heading"><h3>Projectile · @Attack.Role.Replace('_', ' ')</h3><span class="badge @(saved != null ? "modified-badge" : "")">@(saved != null ? "Modified" : Attack.WritableReferenceSwap ? "Guarded" : "Read-only")</span></div>
     <p class="@(saved != null ? "modified-value" : "subtle")">@baseline.Label @if (saved != null) { <span> → <strong>@saved.ReplacementProjectile.Label</strong></span> }</p>
     @if (sources.Count > 0)
     {
         <label>Replacement projectile
-            <select aria-label="Replacement projectile" value="@Key(saved?.ReplacementProjectile ?? baseline)" @onchange="Select">
+            <select aria-label="Replacement projectile" value="@Key(Pending?.Source ?? saved?.ReplacementProjectile ?? baseline)" @onchange="Select" disabled="@(Pending != null)">
                 <option value="">Original · @baseline.Label</option>
                 @if (saved != null && !sources.Contains(saved.ReplacementProjectile)) { <option value="@Key(saved.ReplacementProjectile)" disabled>Unavailable · @saved.ReplacementProjectile.Label</option> }
                 @foreach (var source in sources.Where(s => s != baseline)) { <option value="@Key(source)">@source.Label @ResidencyLabel(source)</option> }
             </select>
         </label>
+        @if (Pending is { } pending) { <ProjectileSwapPrompt Current="current" Target="pending.Target" Edits="pending.Edits" Reset="pending.Source == null" Decide="Swap" Cancel="() => Pending = null" /> }
         <p class="subtle">Compatibility: @Attack.CompatibilityClass.Replace('_', ' ')</p>
         @* 0.27.0+: Runtime loads a known donor package itself, so a cross-package source needs nobody to carry the donor weapon. *@
         @if (Workspace.Metadata!.Assets != null)
@@ -29,9 +35,21 @@
         }
     }
     else { <p class="subtle">@(Attack.Reason ?? "The SDK has not approved a writable projectile selector for this attack.")</p> }
+    @if (orphaned.Count > 0 && Pending == null)
+    {
+        <div class="swap-prompt orphaned" role="group" aria-label="Edits on a previous projectile" data-orphaned-edits>
+            <p><strong>@(orphaned.Count == 1 ? "One value was changed" : $"{orphaned.Count} values were changed") on the @string.Join(", ", orphaned.Select(e => e.Target.Label).Distinct())</strong>, which this attack no longer fires. Keep them on the @current.Label or discard them.</p>
+            <ul class="swap-edits">@foreach (var edit in orphaned) { <li data-orphaned-edit>@Workspace.ObjectEditLabel(edit)</li> }</ul>
+            <div class="swap-actions">
+                <button class="primary" data-orphaned-keep @onclick="() => Resolve(true)">Keep on current projectile</button>
+                <button data-orphaned-discard @onclick="() => Resolve(false)">Discard them</button>
+            </div>
+        </div>
+    }
+    @if (Result is { } result) { <ProjectileSwapResult Result="result" Dismiss="() => Result = null" /> }
     @if (saved != null)
     {
-        <button class="reset-action" @onclick="() => Run(() => Workspace.SetProjectileAsync(Weapon, Attack.Role, null))">Reset projectile</button>
+        <button class="reset-action" @onclick="() => Choose(null)">Reset projectile</button>
         @if (Workspace.ProjectileIssue(saved) is { } issue) { <p class="notice warning" role="alert">@issue</p> }
     }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
@@ -40,6 +58,9 @@
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";
     [Parameter, EditorRequired] public ProjectileAttack Attack { get; set; } = default!;
     [Parameter] public EventCallback Changed { get; set; }
+    private sealed record PendingSwap(ProjectileReference? Source, ProjectileReference Target, IReadOnlyList<CompositionChange> Edits);
+    private PendingSwap? Pending;
+    private ObjectEditCarryResult? Result;
     private string? Error;
     private string ResidencyLabel(ProjectileReference p) => Workspace.Metadata is { Assets: not null } sdk
         ? AssetStatus.ProjectileSource(sdk, p.Weapon, p.AttackRole, false) is { State: not AssetState.None } a ? " · " + a.Short : ""
@@ -47,8 +68,21 @@
     private string Key(ProjectileReference r) => r.Weapon == Weapon && r.AttackRole == Attack.Role ? "" : r.Weapon + "|" + r.AttackRole;
     private Task Select(ChangeEventArgs e)
     {
-        var source = Workspace.ProjectileSources(Weapon, Attack.Role).FirstOrDefault(s => Key(s) == e.Value?.ToString());
-        return Run(() => Workspace.SetProjectileAsync(Weapon, Attack.Role, source));
+        var key = e.Value?.ToString();
+        return Choose(key is null or "" ? null : Workspace.ProjectileSources(Weapon, Attack.Role).FirstOrDefault(s => Key(s) == key));
     }
-    private async Task Run(Func<Task> action) { Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+    // Without stat edits on the current projectile the swap is immediate; otherwise the user decides what happens to them first.
+    private async Task Choose(ProjectileReference? source)
+    {
+        var target = source ?? new ProjectileReference(Weapon, Attack.Role);
+        var edits = Workspace.ObjectEditsOnCurrentProjectile(Weapon, Attack.Role);
+        Result = null;
+        if (edits.Count > 0 && target != Workspace.EffectiveProjectile(Weapon, Attack.Role)) { Pending = new(source, target, edits); return; }
+        await Run(async () => { await Workspace.SwapProjectileAsync(Weapon, Attack.Role, source, keepValues: false); });
+    }
+    private Task Swap(bool keep) => Pending is { } p
+        ? Run(async () => { Result = await Workspace.SwapProjectileAsync(Weapon, Attack.Role, p.Source, keep); Pending = null; if (!keep) Result = new(0, 0, []); })
+        : Task.CompletedTask;
+    private Task Resolve(bool keep) => Run(async () => { Result = await Workspace.ResolveOrphanedObjectEditsAsync(Weapon, Attack.Role, keep); if (!keep) Result = new(0, 0, []); });
+    private async Task Run(Func<Task> action) { Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }
