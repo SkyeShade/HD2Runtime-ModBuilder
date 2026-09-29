@@ -7,7 +7,7 @@ public static class BuildInfo
 {
     public static string Version =>
         typeof(BuildInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?.Split('+', 2)[0] ?? "1.1.0";
+        ?.Split('+', 2)[0] ?? "1.1.1";
 
     /// <summary>Git commit the build was compiled from, with ".dirty" when the working tree had uncommitted changes; null if unknown.</summary>
     public static string? Commit =>

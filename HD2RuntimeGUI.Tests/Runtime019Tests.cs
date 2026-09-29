@@ -113,26 +113,30 @@ public sealed class Runtime019Tests
         Assert.Contains("path='terminal.impact'", w.LuaPreview); Assert.Contains("path='terminal.expiry'", w.LuaPreview);
         Assert.All(w.Project!.CompositionChanges, c => Assert.Equal(Jar, c.Target.Weapon));
     }
-    [Fact] public async Task Approval_is_per_exact_scope_and_does_not_authorize_other_operations()
+    [Fact] public async Task Approval_is_recorded_per_exact_scope_and_never_blocks_the_build()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         await w.SetObjectScalarAsync(Concussive, "primary", "projectile", null, "damage.push_force", "30", false);
         await w.SetObjectScalarAsync(Concussive, "primary", "projectile", null, "damage.ap_direct", "3", false);
-        await Terminal(w, "impact", false); Assert.NotNull(w.BuildError);
+        await Terminal(w, "impact", false);
+        // Approval is implicit: unapproved shared writes build and carry allow_shared.
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
         var damage = w.Project!.CompositionChanges.First(c => c.Scalar != null);
         await w.SetCompositionApprovalAsync(damage.Id, true);
         Assert.All(w.Project.CompositionChanges.Where(c => c.Scalar != null), c => Assert.True(c.SharedAcknowledged));
-        Assert.False(w.Project.CompositionChanges.Single(c => c.Kind == "terminal").SharedAcknowledged); Assert.NotNull(w.BuildError);
+        Assert.False(w.Project.CompositionChanges.Single(c => c.Kind == "terminal").SharedAcknowledged); Assert.Null(w.BuildError);
         await w.SetCompositionApprovalAsync(w.Project.CompositionChanges.Single(c => c.Kind == "terminal").Id, true); Assert.Null(w.BuildError);
-        await w.SetCompositionApprovalAsync(damage.Id, false); Assert.NotNull(w.BuildError);
+        await w.SetCompositionApprovalAsync(damage.Id, false); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
         Assert.All(w.Project.CompositionChanges.Where(c => c.Scalar != null), c => Assert.False(c.SharedAcknowledged));
     }
-    [Fact] public async Task Rebind_changed_consumer_scope_invalidates_object_approval()
+    [Fact] public async Task Rebind_changed_consumer_scope_no_longer_blocks_on_the_stale_object_approval()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); await Damage(w); await Terminal(w, "impact");
         var sdk = w.Metadata!; var changed = sdk with { PlayerWeapons = sdk.PlayerWeapons! with { Weapons = sdk.PlayerWeapons!.Weapons.Select(x => x.Name != Concussive ? x : x with {
             Fields = x.Fields.Select(f => f.Domain != "damage" ? f : f with { WriteScope = "shared_changed_scope" }).ToArray() }).ToArray() } };
-        Assert.Throws<InvalidDataException>(() => e.Generator.Generate(w.Project!, changed));
+        // The recorded approval is stale for the new scope, but approval is implicit: the build still succeeds with allow_shared.
+        Assert.Contains(w.Project!.CompositionChanges, c => c.Scalar?.SemanticFieldId.StartsWith("damage.", StringComparison.Ordinal) == true && !CompositionChangeService.ApprovalCurrent(changed, c));
+        Assert.Contains("allow_shared=true", e.Generator.Generate(w.Project!, changed));
     }
     [Fact] public async Task Simple_scalars_keep_patch_or_transaction_and_unrelated_weapons_stay_independent()
     {

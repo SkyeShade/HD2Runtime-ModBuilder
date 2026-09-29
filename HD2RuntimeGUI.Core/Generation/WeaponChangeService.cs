@@ -41,9 +41,7 @@ public sealed class WeaponChangeService : IWeaponChangeService
         if (c.FieldType != f.Type) throw new InvalidDataException("The capability type changed; review this modification.");
         ValidateValue(f, c.ExpectedValue); ValidateValue(f, c.DesiredValue);
         if (f.Format(c.ExpectedValue) != f.Format(f.CurrentDefault)) throw new InvalidDataException($"SDK baseline changed: saved {f.Format(c.ExpectedValue)}, current {f.Format(f.CurrentDefault)}. Review and explicitly accept the new baseline.");
-        if (f.AffectsMultipleWeapons && !SharedAcknowledgementCurrent(f, c)) throw new InvalidDataException("Shared setting requires acknowledgement of the current affected weapons and write scope.");
-        if (f.Acknowledgement == "allow_unverified_effect" && c.EffectAcknowledgement != EffectEvidence(c.Weapon, f))
-            throw new InvalidDataException($"Acknowledge that the {f.DisplayName.ToLowerInvariant()} change on {c.Weapon} is not gameplay-confirmed before building.");
+        // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
     }
     // 0.26.0: acknowledgement of Runtime's allow_unverified_effect opt-in for one weapon field, bound to its published reason.
     public static string EffectEvidence(string weapon, WeaponCapability f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { weapon, f.SemanticFieldId, f.Acknowledgement, f.AcknowledgementReason }));

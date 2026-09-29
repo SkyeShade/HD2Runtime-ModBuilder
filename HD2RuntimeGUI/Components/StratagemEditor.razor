@@ -12,7 +12,6 @@
         @if (Workspace.Project != null && scope.Any(f => StratagemChangeService.Saved(Workspace.Project, catalog, f) != null))
         {
             <AckPanel Title="@(field.Target.Path == "eagle_rearm" ? "Eagle Rearm Time — Shared across all Eagle stratagems" : "Shared " + field.BackingObjectKind)" Kind="shared"
-                Checked="StratagemChangeService.Approved(Workspace.Project, field)" OnChange="v => Run(() => Workspace.SetStratagemApprovalAsync(field.InstanceKey, v))"
                 Description="@($"Changing this object may affect {consumers.Length} reviewed {(consumers.Length == 1 ? "consumer" : "consumers")}.{(field.DynamicConsumersPossible ? " Additional runtime consumers are possible." : "")}{(!field.ReviewedScopeComplete ? " The reviewed consumer scope is incomplete." : "")}")"
                 PanelAttributes="@(new() { ["data-stratagem-approval"] = field.Target.Path, ["data-shared-scope"] = field.ScopeKey })">
                 <ul class="ack-list">@foreach (var consumer in consumers) { <li data-shared-consumer>@consumer.Stratagem · @ConsumerPath(consumer.Path)</li> }</ul>

@@ -14,7 +14,7 @@
         }
         @foreach (var evidence in heat.Fields.Where(e => e.CorrelationMatches == false && e.WikiValue.ValueKind == System.Text.Json.JsonValueKind.Number && fields.Any(f => f.SemanticFieldId == e.Id)))
         { <p class="notice warning">@fields.First(f => f.SemanticFieldId == evidence.Id).DisplayName · catalog comparison: @evidence.WikiValue. The SDK native baseline is preserved; scaling/correlation is not proven.</p> }
-        <WeaponSharedAcks Weapon="@Weapon.Name" FieldIds="@fields.Select(f => f.SemanticFieldId).ToArray()" Changed="Changed" />
+        <WeaponSharedAcks Weapon="@Weapon.Name" FieldIds="@fields.Select(f => f.SemanticFieldId).ToArray()" />
     </section>
 }
 

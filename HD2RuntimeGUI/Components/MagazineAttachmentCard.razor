@@ -1,7 +1,7 @@
 @inject BuilderWorkspace Workspace
 @* One resolved magazine attachment definition (hd2.weapon_attachment) as a compact group: capacity, starting / supply / spare magazines,
    and from 0.26.0 its reload duration and ergonomics modifier where the definition patches them. Writes need allow_shared and
-   allow_unverified_effect; both are acknowledged once for the definition. Which magazine a player uses is not editable. *@
+   allow_unverified_effect; both are implicit and warned about once for the definition. Which magazine a player uses is not editable. *@
 @{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.Attachments; var a = catalog?.Attachment(Attachment); }
 @if (catalog != null && a != null)
 {
@@ -9,7 +9,6 @@
         .Where(f => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null)
         .OrderBy(f => Array.IndexOf(FieldOrder, f.SemanticFieldId) is var i and >= 0 ? i : FieldOrder.Length).ToArray();
     var edited = a.FieldInstanceKeys.Any(k => Workspace.Project?.EntityChanges.Any(c => c.InstanceKey == k) == true);
-    var acknowledged = BuilderWorkspace.AttachmentAcknowledged(Workspace.Project, catalog, a.SemanticId);
     var consumers = a.CompatibleWeapons ?? a.Consumers.NativeDefaultOf;
     var locked = (a.Effects ?? []).Where(e => !e.Writable).ToArray();
     <article class="magazine-attachment @(edited ? "modified" : "")" data-attachment-id="@a.SemanticId" data-relationship="@Relationship">
@@ -30,17 +29,14 @@
         </div>
         <p class="attachment-meta subtle"><code data-semantic-id>@a.SemanticId</code>
             @if (consumers.Length > 0) { <span data-compatible-weapons> · Shared by @string.Join(", ", consumers)@(a.Consumers.ScopeComplete ? "" : " (may be incomplete)")</span> }</p>
-        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" AcknowledgedInGroup="true" Changed="FieldChanged" /> }</div>
+        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Changed="FieldChanged" /> }</div>
         @if (locked.Length > 0 && !ModifiedOnly)
         { <p class="subtle locked-effects" data-locked-effects>Not editable: @string.Join(" · ", locked.Select(e => e.Effect.Replace('_', ' ') + (e.Blocker != null ? " (" + e.Blocker + ")" : "")))</p> }
         @if (edited && Workspace.Project != null)
         {
-            <AckPanel Title="Shared magazine definition · unverified effect" Kind="unverified" Checked="acknowledged"
-                OnChange='v => Run(() => Workspace.SetAttachmentAcknowledgedAsync(a.SemanticId, v))'
+            <AckPanel Title="Shared magazine definition · unverified effect" Kind="unverified"
                 Description="This edits the magazine definition itself: every weapon that fits it changes, the consumer list may be incomplete, and in-game re-application is unproven (allow_shared + allow_unverified_effect)."
-                Items="@(consumers.Length > 0 ? consumers : null)" ItemsLabel="Known consumers:"
-                Label="I understand this affects other users of this magazine and that its effect is not gameplay-confirmed"
-                CheckboxAttributes='@(new() { ["data-attachment-ack"] = "true" })' />
+                Items="@(consumers.Length > 0 ? consumers : null)" ItemsLabel="Known consumers:" />
         }
         @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
     </article>

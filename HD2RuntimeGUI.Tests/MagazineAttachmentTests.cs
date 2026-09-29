@@ -72,19 +72,22 @@ public sealed class MagazineAttachmentTests
         var breaker = c.Resolved(c.Weapon("SG-225 Breaker")!);
         Assert.Equal(3, breaker.Count); Assert.Equal(2, breaker.Count(r => r.Relationship == "catalog_effect_fingerprint_unique"));
     }
-    [Fact] public async Task Writes_require_acknowledgement_and_emit_both_flags()
+    [Fact] public async Task Writes_build_without_acknowledgement_and_emit_both_flags()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         var capacity = Field(w, Drum, "attachment.magazine_capacity"); await w.SetEntityAsync(capacity.InstanceKey, "90");
-        Assert.Contains("Acknowledge", w.BuildError); Assert.DoesNotContain("weapon_attachment", w.LuaPreview);
-        await w.SetAttachmentAcknowledgedAsync(Drum, true); Assert.Null(w.BuildError);
+        // allow_shared and allow_unverified_effect are implicit: the write builds without an acknowledgement.
+        Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         Assert.Contains($"target=hd2.weapon_attachment('{Drum}'),", lua); Assert.Contains("allow_shared=true,", lua); Assert.Contains("allow_unverified_effect=true,", lua);
         Assert.Contains("field=hd2.fields.attachment.magazine_capacity,", lua); Assert.Contains("expect=60,", lua); Assert.Contains("value=90,", lua); Assert.Contains("patch={", lua);
-        // Changing the value or adding a field of the same acknowledged definition keeps the acknowledgement; one transaction per definition.
+        // Changing the value or adding a field of the same definition: one transaction per definition.
         await w.SetEntityAsync(capacity.InstanceKey, "100"); await w.SetEntityAsync(Field(w, Drum, "attachment.spare_magazines").InstanceKey, "8");
         Assert.Null(w.BuildError); Assert.Contains("transaction={", w.LuaPreview); Assert.Contains("{field=hd2.fields.attachment.magazine_capacity,expect=60,value=100}", w.LuaPreview);
-        await w.SetAttachmentAcknowledgedAsync(Drum, false); Assert.Contains("Acknowledge", w.BuildError);
+        // The recorded acknowledgement can be toggled but never blocks the build or drops the flags.
+        await w.SetAttachmentAcknowledgedAsync(Drum, true); Assert.True(BuilderWorkspace.AttachmentAcknowledged(w.Project, Catalog(w), Drum));
+        await w.SetAttachmentAcknowledgedAsync(Drum, false); Assert.Null(w.BuildError);
+        Assert.Contains("allow_shared=true,", w.LuaPreview); Assert.Contains("allow_unverified_effect=true,", w.LuaPreview);
         Assert.True(BuilderWorkspace.AttachmentAcknowledged(w.Project, Catalog(w), Drum) == false);
     }
     [Fact] public async Task Raw_identifiers_are_rejected()

@@ -75,8 +75,8 @@ public sealed class Runtime024Tests
         Assert.Contains(pods.BlockedFields, b => b.Field == "turret projectile / damage");
 
         await w.SetEntityAsync(rate.InstanceKey, "900"); await w.SetEntityAsync(capacity.InstanceKey, "300");
-        Assert.Equal("Acknowledge the unverified booster effect before building.", w.BuildError); Assert.DoesNotContain("hd2.booster", w.LuaPreview);
-        await w.SetBoosterAcknowledgedAsync(Pods, true); Assert.Null(w.BuildError);
+        // The unverified-effect opt-in is implicit: the booster edit builds without an acknowledgement.
+        Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         // Two Runtime operation groups on one target: one hd2.plan, matching Runtime's ArmedResupplyTurret example.
         Assert.Contains("plan={", lua); Assert.Equal(2, Count(lua, "target=hd2.booster('Armed Resupply Pods'):deployed_entity(),"));
@@ -96,16 +96,20 @@ public sealed class Runtime024Tests
         Assert.All(Boosters(w).Raw(fields[0].InstanceKey)!.Acknowledgements, a => Assert.Contains(a, new[] { "allow_shared", "allow_unverified_effect" }));
 
         await w.SetEntityAsync(Booster(w, Infusion, "status.incoming_damage_scale").InstanceKey, "0.8");
-        Assert.Equal("Acknowledge this shared object before building.", w.BuildError);
+        // Both opt-ins are implicit: the shared booster edit builds before any acknowledgement.
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true,", w.LuaPreview); Assert.Contains("allow_unverified_effect=true,", w.LuaPreview);
         await w.SetBoosterAcknowledgedAsync(Infusion, true); Assert.Null(w.BuildError);
         Assert.True(BuilderWorkspace.BoosterAcknowledged(w.Project, w.Metadata!.Entities!, Infusion));
         var lua = w.LuaPreview;
         Assert.Contains("target=hd2.booster('Experimental Infusion'):status_effect(),", lua); Assert.Contains("allow_shared=true,", lua); Assert.Contains("allow_unverified_effect=true,", lua);
         Assert.Contains("patch={", lua); Assert.Contains("expect=0.9,", lua); Assert.Contains("value=0.8,", lua);
-        // A second field of the acknowledged booster inherits the acknowledgement; one transaction per Runtime operation group.
+        // A second field of the booster joins the same Runtime operation group: one transaction.
         await w.SetEntityAsync(Booster(w, Infusion, "status.strength").InstanceKey, "1.2"); Assert.Null(w.BuildError);
         Assert.Contains("transaction={", w.LuaPreview); Assert.Contains("{field=hd2.fields.status.strength,expect=1.1,value=1.2},", w.LuaPreview);
-        await w.SetBoosterAcknowledgedAsync(Infusion, false); Assert.NotNull(w.BuildError);
+        // Revoking the recorded acknowledgement neither blocks the build nor drops the Runtime flags.
+        await w.SetBoosterAcknowledgedAsync(Infusion, false); Assert.Null(w.BuildError);
+        Assert.False(BuilderWorkspace.BoosterAcknowledged(w.Project, w.Metadata!.Entities!, Infusion));
+        Assert.Contains("allow_shared=true,", w.LuaPreview); Assert.Contains("allow_unverified_effect=true,", w.LuaPreview);
     }
     [Fact] public async Task Blocked_and_unresolved_boosters_are_listed_without_controls()
     {
@@ -214,19 +218,19 @@ public sealed class Runtime024Tests
         var mg43 = c.Weapons.Single(x => x.Name == "MG-43 Machine Gun");
         Assert.Contains(mg43.BlockedFields, b => b.Field == "projectile.lifetime"); Assert.DoesNotContain(byId["projectile.lifetime"], f => f.SupportWeapon == mg43.Name);
     }
-    [Fact] public async Task Unverified_support_fields_need_their_own_acknowledgement()
+    [Fact] public async Task Unverified_support_fields_build_without_acknowledgement_and_emit_allow_unverified_effect()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); var reload = Support(w, "MG-43 Machine Gun", "reload.duration");
         await w.SetSupportAsync(reload.InstanceKey, JsonSerializer.Serialize(reload.Value.Baseline.GetDouble() + 1));
-        Assert.StartsWith("Acknowledge the unverified gameplay effect", w.BuildError); Assert.DoesNotContain("reload.duration", w.LuaPreview);
-        await w.SetSupportEffectAcknowledgedAsync(reload.InstanceKey, true); Assert.Null(w.BuildError);
+        // The unverified-effect opt-in is implicit: the edit builds without an acknowledgement.
+        Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         Assert.Contains("target=hd2.support_weapon('MG-43 Machine Gun'),", lua); Assert.Contains("allow_unverified_effect=true,", lua);
         Assert.Contains("field=hd2.fields.reload.duration,", lua); Assert.DoesNotContain("allow_shared", lua);
-        // The acknowledgement survives a value change; resetting and re-editing needs it again.
+        // A value change, or a reset and re-edit, still builds with the flag.
         await w.SetSupportAsync(reload.InstanceKey, JsonSerializer.Serialize(reload.Value.Baseline.GetDouble() + 2)); Assert.Null(w.BuildError);
         await w.ResetSupportAsync(instance: reload.InstanceKey); await w.SetSupportAsync(reload.InstanceKey, JsonSerializer.Serialize(reload.Value.Baseline.GetDouble() + 1));
-        Assert.NotNull(w.BuildError);
+        Assert.Null(w.BuildError); Assert.Contains("allow_unverified_effect=true,", w.LuaPreview);
         await w.ResetSupportAsync(); var windUp = Support(w, "M-1000 Maxigun", "windup.wind_up_seconds");
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetSupportEffectAcknowledgedAsync(windUp.InstanceKey, true));
     }
@@ -234,8 +238,7 @@ public sealed class Runtime024Tests
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         var f = w.Metadata!.SupportAuthoring!.FieldInstances.First(x => x.SemanticFieldId == "projectile.penetration_slowdown" && x.SupportWeapon == "M-105 Stalwart");
-        await w.SetSupportAsync(f.InstanceKey, JsonSerializer.Serialize(f.Value.Baseline.GetDouble() + 0.5)); Assert.StartsWith("Acknowledge this shared object", w.BuildError);
-        await w.SetSupportApprovalAsync(f.InstanceKey, true); Assert.Null(w.BuildError);
+        await w.SetSupportAsync(f.InstanceKey, JsonSerializer.Serialize(f.Value.Baseline.GetDouble() + 0.5)); Assert.Null(w.BuildError); // approval is implicit
         Assert.Contains("target=hd2.support_weapon('M-105 Stalwart'):attack('primary'):projectile(),", w.LuaPreview); Assert.Contains("allow_shared=true,", w.LuaPreview);
         Assert.DoesNotContain("allow_unverified_effect", w.LuaPreview);
     }

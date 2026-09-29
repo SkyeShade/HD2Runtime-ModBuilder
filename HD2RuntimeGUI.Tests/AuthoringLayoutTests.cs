@@ -34,7 +34,7 @@ public sealed class AuthoringLayoutTests
     }
     private static string Bumped(WeaponCapability f) => f.Type == "integer" ? (f.CurrentDefault.GetInt64() + 1).ToString() : (f.CurrentDefault.GetDouble() + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-    [Fact] public async Task One_acknowledgement_per_shared_object_blocks_the_build_until_checked()
+    [Fact] public async Task One_acknowledgement_per_shared_object_is_recorded_but_never_blocks_the_build()
     {
         using var e = new TestEnvironment(); var w = await WeaponWorkspace(e); var (weapon, fields) = SharedObject(w);
         await w.SetWeaponChangeAsync(weapon.Name, fields[0].SemanticFieldId, Bumped(fields[0]), false);
@@ -42,7 +42,8 @@ public sealed class AuthoringLayoutTests
         Assert.False(group.Acknowledged); Assert.Equal([fields[0].SemanticFieldId], group.FieldIds);
         // The panel lists every affected weapon, including the one being edited.
         Assert.Equal(fields[0].SharedWithWeapons.Append(weapon.Name).Order(StringComparer.Ordinal), group.AffectedWeapons.Order(StringComparer.Ordinal));
-        Assert.NotNull(w.BuildError);
+        // Acknowledgement is implicit: the unacknowledged shared write builds and carries allow_shared.
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
 
         await w.SetWeaponSharedAcknowledgedAsync(weapon.Name, group.Key, true);
         Assert.True(Assert.Single(w.WeaponSharedGroups(weapon.Name)).Acknowledged); Assert.Null(w.BuildError);
@@ -52,7 +53,8 @@ public sealed class AuthoringLayoutTests
         Assert.Contains("allow_shared=true", w.LuaPreview);
 
         await w.SetWeaponSharedAcknowledgedAsync(weapon.Name, group.Key, false);
-        Assert.False(Assert.Single(w.WeaponSharedGroups(weapon.Name)).Acknowledged); Assert.NotNull(w.BuildError);
+        Assert.False(Assert.Single(w.WeaponSharedGroups(weapon.Name)).Acknowledged); Assert.Null(w.BuildError);
+        Assert.Contains("allow_shared=true", w.LuaPreview);
     }
 
     [Fact] public async Task A_new_edit_of_an_acknowledged_shared_object_inherits_the_acknowledgement()
@@ -71,26 +73,25 @@ public sealed class AuthoringLayoutTests
         Assert.Empty(w.WeaponSharedGroups("AR-23A Liberator Carbine" == weapon.Name ? "AR-23 Liberator" : "AR-23A Liberator Carbine"));
     }
 
-    [Fact] public async Task Summary_counts_modified_shared_and_required_acknowledgements()
+    [Fact] public async Task Summary_counts_modified_and_shared_edits_and_shared_writes_build_without_acknowledgement()
     {
         using var e = new TestEnvironment(); var w = await WeaponWorkspace(e); var (weapon, fields) = SharedObject(w);
-        Assert.Equal(new WeaponAuthoringSummary(0, 0, 0), w.WeaponSummary(weapon.Name));
+        Assert.Equal(new WeaponAuthoringSummary(0, 0), w.WeaponSummary(weapon.Name));
         await w.SetWeaponChangeAsync(weapon.Name, fields[0].SemanticFieldId, Bumped(fields[0]), false);
         await w.SetWeaponChangeAsync(weapon.Name, fields[1].SemanticFieldId, Bumped(fields[1]), false);
-        Assert.Equal(new WeaponAuthoringSummary(2, 2, 1), w.WeaponSummary(weapon.Name));
-        await w.SetWeaponSharedAcknowledgedAsync(weapon.Name, w.WeaponSharedGroups(weapon.Name)[0].Key, true);
-        Assert.Equal(new WeaponAuthoringSummary(2, 2, 0), w.WeaponSummary(weapon.Name));
+        Assert.Equal(new WeaponAuthoringSummary(2, 2), w.WeaponSummary(weapon.Name));
+        // Opt-ins are implicit: the shared write builds at once and always carries allow_shared.
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
     }
 
-    [Fact] public async Task Summary_includes_the_weapons_magazine_attachment_acknowledgement()
+    [Fact] public async Task Summary_includes_the_weapons_magazine_attachment_and_it_builds_without_acknowledgement()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); var catalog = w.Metadata!.Entities!.Attachments!;
         var entry = catalog.Weapons.First(x => catalog.Resolved(x).Count > 0);
         var attachment = catalog.Resolved(entry)[0].Attachment;
         var field = catalog.FieldInstances.First(f => f.Target.Attachment == attachment.SemanticId && f.Editable);
         await w.SetEntityAsync(field.InstanceKey, (field.CurrentDefault.GetInt32() + 5).ToString());
-        Assert.Equal(new WeaponAuthoringSummary(1, 1, 1), w.WeaponSummary(entry.Weapon)); Assert.NotNull(w.BuildError);
-        await w.SetAttachmentAcknowledgedAsync(attachment.SemanticId, true);
-        Assert.Equal(new WeaponAuthoringSummary(1, 1, 0), w.WeaponSummary(entry.Weapon)); Assert.Null(w.BuildError);
+        Assert.Equal(new WeaponAuthoringSummary(1, 1), w.WeaponSummary(entry.Weapon)); Assert.Null(w.BuildError);
+        Assert.Contains("allow_shared=true", w.LuaPreview); Assert.Contains("allow_unverified_effect=true", w.LuaPreview);
     }
 }

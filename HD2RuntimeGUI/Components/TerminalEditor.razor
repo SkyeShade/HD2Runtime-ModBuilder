@@ -11,8 +11,7 @@
             @foreach (var source in Workspace.ExplosionSources) { <option value="@Key(source)">@source.Label</option> }
         </select></label>
         @if (field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
-        { <AckPanel Title="Shared terminal setting" Items="@field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="Affected weapons:"
-            Checked="Acknowledged" Disabled="Busy" OnChange="v => { Acknowledged = v; return Commit(); }" /> }
+        { <AckPanel Title="Shared terminal setting" Items="@field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="Affected weapons:" /> }
     }
     else { <p>@field.Reason</p> }
     @if (Saved != null) { <button class="reset-action" @onclick="() => Run(() => Workspace.RemoveCompositionAsync(Saved.Id))">Reset terminal action</button> }
@@ -24,11 +23,11 @@
     [Parameter] public string Phase { get; set; } = "impact";
     [Parameter] public EventCallback Changed { get; set; }
     private CompositionChange? Saved => Workspace.Project!.CompositionChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Role && c.Kind == "terminal" && c.Phase == Phase);
-    private bool Acknowledged, Busy; private string? Error; private CompositionChange? Previous;
+    private bool Busy; private string? Error; private CompositionChange? Previous;
     private string Selected => Saved == null ? "baseline" : Key(Saved.DesiredExplosion!);
-    protected override void OnParametersSet() { Previous = Saved; if (!Busy) { var target = Workspace.EffectiveProjectile(Weapon, Role); Acknowledged = CompositionChangeService.HasObjectApproval(Workspace.Project!, Workspace.Metadata!, target.Weapon, CompositionChangeService.TerminalField(Workspace.Metadata!, target, Phase)); } }
+    protected override void OnParametersSet() => Previous = Saved;
     private static string Key(ExplosionReference r) => r.IsNone ? "none" : r.Projectile!.Weapon + "|" + r.Projectile.AttackRole + "|" + r.Phase;
-    private Task Select(ChangeEventArgs e) { var key = e.Value!.ToString(); var source = key == "baseline" ? CompositionChangeService.BaselineExplosion(Workspace.Metadata!, Workspace.EffectiveProjectile(Weapon, Role), Phase) : Workspace.ExplosionSources.Single(s => Key(s) == key); return Run(() => Workspace.SetTerminalAsync(Weapon, Role, Phase, source, Acknowledged)); }
-    private Task Commit() => Saved == null ? Task.CompletedTask : Run(() => Workspace.SetTerminalAsync(Weapon, Role, Phase, Saved.DesiredExplosion!, Acknowledged));
-    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; var target = Workspace.EffectiveProjectile(Weapon, Role); Acknowledged = CompositionChangeService.HasObjectApproval(Workspace.Project!, Workspace.Metadata!, target.Weapon, CompositionChangeService.TerminalField(Workspace.Metadata!, target, Phase)); } }
+    private Task Select(ChangeEventArgs e) { var key = e.Value!.ToString(); var source = key == "baseline" ? CompositionChangeService.BaselineExplosion(Workspace.Metadata!, Workspace.EffectiveProjectile(Weapon, Role), Phase) : Workspace.ExplosionSources.Single(s => Key(s) == key); return Run(() => Workspace.SetTerminalAsync(Weapon, Role, Phase, source, acknowledge: true)); }
+    private Task Commit() => Saved == null ? Task.CompletedTask : Run(() => Workspace.SetTerminalAsync(Weapon, Role, Phase, Saved.DesiredExplosion!, acknowledge: true));
+    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; } }
 }

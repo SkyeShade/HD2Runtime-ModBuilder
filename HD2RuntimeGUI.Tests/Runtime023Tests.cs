@@ -124,21 +124,21 @@ public sealed class Runtime023Tests
         Assert.Throws<InvalidDataException>(() => svc.Create(w.Metadata, gun.InstanceKey, "0x1234567890abcdef"));
         Assert.Throws<InvalidDataException>(() => svc.Create(w.Metadata, gun.InstanceKey, "mounted-weapon/v1/made-up/0000000000000000"));
     }
-    [Fact] public async Task Mount_swap_requires_acknowledgement_and_emits_allow_unverified_reference()
+    [Fact] public async Task Mount_swap_builds_without_acknowledgement_and_emits_allow_unverified_reference()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         var gun = Entity(w, Gunner, "mount.weapon", mount: "slot_0"); Assert.Equal("live_write_verified", gun.Evidence.Tier);
         var gater = w.Metadata!.Entities!.Vehicles.Find("GATER Oil Rig")!.Mounts.Single().Current!.SemanticId;
         Assert.Contains(gater, gun.AllowedValues!);
         await w.SetEntityAsync(gun.InstanceKey, gater);
-        Assert.Contains("unverified", w.BuildError); Assert.DoesNotContain("allow_unverified_reference", w.LuaPreview);
-        await w.SetEntityReferenceAcknowledgedAsync(gun.InstanceKey, true); Assert.Null(w.BuildError);
+        // The reference opt-in is implicit: the swap builds without an acknowledgement.
+        Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         Assert.Contains("target=hd2.vehicle('M-102 Gunner FRV'):mount('slot_0'),", lua); Assert.Contains("allow_unverified_reference=true,", lua);
         Assert.Contains("field=hd2.fields.mount.weapon,", lua); Assert.Contains($"expect='{gun.CurrentDefault.GetString()}',", lua); Assert.Contains($"value='{gater}',", lua);
-        // A different replacement needs a fresh acknowledgement.
+        // A different replacement builds as well and still carries allow_unverified_reference.
         var another = gun.AllowedValues!.First(x => x != gater && x != gun.CurrentDefault.GetString());
-        await w.SetEntityAsync(gun.InstanceKey, another); Assert.Contains("unverified", w.BuildError);
+        await w.SetEntityAsync(gun.InstanceKey, another); Assert.Null(w.BuildError); Assert.Contains("allow_unverified_reference=true,", w.LuaPreview); Assert.Contains($"value='{another}',", w.LuaPreview);
         await w.SetEntityAsync(gun.InstanceKey, gun.CurrentDefault.GetString()!); Assert.Empty(w.Project!.EntityChanges); Assert.Null(w.BuildError);
     }
 

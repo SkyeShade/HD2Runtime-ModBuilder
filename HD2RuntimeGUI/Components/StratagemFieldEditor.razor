@@ -4,7 +4,7 @@
 <div class="field-row @(saved != null ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-stratagem-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
         <span class="field-flags">
-            @if (Field.Shared) { <span class="badge amber" data-flag="allow_shared" title="Shared object: requires acknowledgement of every reviewed consumer">Shared · @Field.SharedConsumers.Length</span> }
+            @if (Field.Shared) { <span class="badge amber" data-flag="allow_shared" title="Shared object: the edit also changes every listed consumer">Shared · @Field.SharedConsumers.Length</span> }
             @if (saved != null) { <span class="badge modified-badge">Modified</span> }
         </span></div>
     <div class="field-value">
@@ -51,12 +51,11 @@
         </div>
         @if (saved != null && StratagemChangeService.EffectRequired(Field, desired))
         {
-            <div class="field-wide"><AckPanel Title="Mission uses · effect not gameplay-confirmed" Kind="unverified" Checked="@(saved.EffectAcknowledgement == StratagemChangeService.EffectEvidence(Field))"
-                Description="@Field.AcknowledgementReason" Label="I understand this effect is not gameplay-confirmed"
-                OnChange="v => Run(() => Workspace.SetStratagemEffectAcknowledgedAsync(Field.InstanceKey, v))" CheckboxAttributes='@(new() { ["data-uses-ack"] = "true" })' /></div>
+            <div class="field-wide"><AckPanel Title="Mission uses · effect not gameplay-confirmed" Kind="unverified"
+                Description="@Field.AcknowledgementReason" /></div>
         }
     }
-    @if (saved != null && Workspace.StratagemIssue(saved) is { } issue && !issue.StartsWith("Acknowledge that", StringComparison.Ordinal))
+    @if (saved != null && Workspace.StratagemIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>
             @if (Field.Editable && NeedsReview(saved)) { <button @onclick="() => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }</div>

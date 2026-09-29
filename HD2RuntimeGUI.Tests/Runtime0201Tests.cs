@@ -74,13 +74,13 @@ public sealed class Runtime0201Tests
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); const string weapon = "GR-8 Recoilless Rifle";
         var velocity = Field(w, weapon, "projectile.velocity"); var drag = Field(w, weapon, "projectile.drag"); var blast = Field(w, weapon, "explosion.outer_radius");
-        await Edit(w, velocity, "350", false); Assert.NotNull(w.BuildError);
+        await Edit(w, velocity, "350", false); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview); // approval is implicit
         await w.SetSupportApprovalAsync(velocity.InstanceKey, true); await Edit(w, drag, "0.2", false);
         Assert.Null(w.BuildError); Assert.Contains("transaction={", w.LuaPreview); Assert.Single(w.Project!.SupportApprovals);
-        await Edit(w, blast, "10", false); Assert.NotNull(w.BuildError);
+        await Edit(w, blast, "10", false); Assert.Null(w.BuildError);
         await w.SetSupportApprovalAsync(blast.InstanceKey, true); Assert.Null(w.BuildError); Assert.Contains("plan={", w.LuaPreview);
         Assert.Equal(1, w.LuaPreview.Split("hd2.ensure(").Length - 1); Assert.Equal(2, w.LuaPreview.Split("target=").Length - 1);
-        await w.SetSupportApprovalAsync(velocity.InstanceKey, false); Assert.NotNull(w.BuildError); Assert.True(SupportChangeService.Approved(w.Project, blast));
+        await w.SetSupportApprovalAsync(velocity.InstanceKey, false); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview); Assert.True(SupportChangeService.Approved(w.Project, blast));
     }
     [Fact] public async Task Solo_Silo_and_status_repeated_fields_keep_separate_branches()
     {

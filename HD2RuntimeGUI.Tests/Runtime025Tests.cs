@@ -57,15 +57,15 @@ public sealed class Runtime025Tests
         Assert.Null(Booster(w, "Armed Resupply Pods", "deployed_entity", "weapon.fire_rate").Range);
     }
 
-    [Fact] public async Task Tuning_writes_are_range_checked_and_need_the_unverified_effect_acknowledgement()
+    [Fact] public async Task Tuning_writes_are_range_checked_and_emit_allow_unverified_effect_without_acknowledgement()
     {
         using var e = new TestEnvironment(); var w = await Fresh(e); var vitality = Booster(w, "Vitality Enhancement", "tuning", "booster.damage_taken_scale");
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(vitality.InstanceKey, "4.5"));
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(vitality.InstanceKey, "-0.1"));
         Assert.Empty(w.Project!.EntityChanges);
         await w.SetEntityAsync(vitality.InstanceKey, "4"); await w.SetEntityAsync(vitality.InstanceKey, "0.5");
-        Assert.Equal("Acknowledge the unverified booster effect before building.", w.BuildError); Assert.DoesNotContain("hd2.booster", w.LuaPreview);
-        await w.SetBoosterAcknowledgedAsync("Vitality Enhancement", true); Assert.Null(w.BuildError);
+        // The unverified-effect opt-in is implicit: the edit builds without an acknowledgement.
+        Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         Assert.Contains("target=hd2.booster('Vitality Enhancement'):tuning(),", lua); Assert.Contains("field=hd2.fields.booster.damage_taken_scale,", lua);
         Assert.Contains("expect=0.9,", lua); Assert.Contains("value=0.5,", lua); Assert.Contains("allow_unverified_effect=true,", lua); Assert.DoesNotContain("allow_shared", lua);
@@ -84,9 +84,7 @@ public sealed class Runtime025Tests
         await w.SetEntityAsync(Booster(w, "Firebomb Hellpods", "explosion", "explosion.damage.standard_damage").InstanceKey, "300");
         await w.SetEntityAsync(Booster(w, "Dead Sprint", "status_damage", "damage.standard_damage").InstanceKey, "2");
         await w.SetEntityAsync(Booster(w, "Surplus EAT Allocation", "granted_stratagem", "stratagem.max_uses").InstanceKey, "4");
-        // Shared explosion and status-damage objects need allow_shared as well as allow_unverified_effect.
-        Assert.NotNull(w.BuildError);
-        foreach (var b in new[] { "Firebomb Hellpods", "Dead Sprint", "Surplus EAT Allocation" }) await w.SetBoosterAcknowledgedAsync(b, true);
+        // Shared explosion and status-damage objects carry allow_shared as well as allow_unverified_effect; both are implicit.
         Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         Assert.Contains("hd2.booster('Firebomb Hellpods'):explosion()", lua);

@@ -31,13 +31,12 @@
                     var published = fields.Select(f => weapons.Published[f.InstanceKey]).ToArray();
                     <div class="vehicle-weapon-group" data-vehicle-weapon-group="@group">
                         <h3 class="group-title">@title <span class="subtle scope-line" data-scope-line>@ScopeLine(published)</span></h3>
-                        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="VehicleWeaponCatalog.Tiers" AcknowledgedInGroup="true" Changed="Refresh" /> }</div>
+                        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="VehicleWeaponCatalog.Tiers" Changed="Refresh" /> }</div>
                         @foreach (var scope in fields.Where(f => f.AllowSharedRequired && EntityChangeService.Saved(Workspace.Project, f) != null).GroupBy(f => f.SharedScopeKey))
                         {
                             var p = weapons.Published[scope.First().InstanceKey];
-                            <AckPanel Title="@SharedTitle(p.Scope)" Kind="shared" Checked="EntityChangeService.Approved(Workspace.Project!, scope.First())"
+                            <AckPanel Title="@SharedTitle(p.Scope)" Kind="shared"
                                 Description="@weapons.Scopes.GetValueOrDefault(p.Scope)" Items="@(p.OtherConsumers.Length > 0 ? p.OtherConsumers.Distinct().ToArray() : null)" ItemsLabel="Also used by:"
-                                Label="I understand this affects other users of this object" OnChange="v => Run(() => Workspace.SetEntityApprovalAsync(scope.First().InstanceKey, v))"
                                 PanelAttributes='@(new() { ["data-vehicle-shared-scope"] = p.Scope })' />
                         }
                     </div>
@@ -45,11 +44,9 @@
                 var unverified = keys.Where(k => EntityChangeService.Saved(Workspace.Project, byKey[k]) is { } c && EntityScalar.AcknowledgementRequired(byKey[k], c.DesiredValue)).ToArray();
                 @if (unverified.Length > 0)
                 {
-                    <AckPanel Title="Effect not gameplay-confirmed" Kind="unverified" Checked="BuilderWorkspace.EntityAcknowledged(Workspace.Project, entities, unverified)"
+                    <AckPanel Title="Effect not gameplay-confirmed" Kind="unverified"
                         Items="@unverified.Select(k => byKey[k].DisplayName).Distinct().ToArray()" ItemsLabel="Edited:"
-                        Description="No working reference mod has changed these values in game (allow_unverified_effect). Fields a reference mod has changed need no acknowledgement."
-                        Label="I understand this effect is not gameplay-confirmed" OnChange="v => Run(() => Workspace.SetEntityAcknowledgedAsync(unverified, v))"
-                        CheckboxAttributes='@(new() { ["data-vehicle-effect-ack"] = m.Weapon.Key })' />
+                        Description="No working reference mod has changed these values in game (allow_unverified_effect). Fields a reference mod has changed need no acknowledgement." />
                 }
                 @if (!ModifiedOnly && m.Weapon.Blocked.Length > 0)
                 { <details class="blocked-fields"><summary>Not writable · @m.Weapon.Blocked.Length</summary>@foreach (var b in m.Weapon.Blocked) { <p data-blocked-field="@b.Field"><strong>@b.Field@(b.Attack != null ? " (" + b.Attack + ")" : ""):</strong> @b.Reason</p> }</details> }

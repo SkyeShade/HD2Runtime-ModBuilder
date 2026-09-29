@@ -81,11 +81,12 @@ public sealed class WeaponAutosaveTests
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetWeaponChangeAsync(Weapon, Rate, value, false));
         Assert.Equal(1100, Assert.Single((await env.Store.LoadAsync(w.Project!.Id)).WeaponChanges).DesiredValue.GetDouble());
     }
-    [Fact] public async Task Reset_uses_baseline_removal_and_shared_gating_remains_explicit()
+    [Fact] public async Task Reset_uses_baseline_removal_and_shared_writes_build_without_acknowledgement()
     {
         using var env = new TestEnvironment(); var w = await Workspace(env);
         await w.SetWeaponChangeAsync("AR-23 Liberator", "projectile.drag", "0.1", false);
-        Assert.NotNull(w.BuildError); Assert.False(w.Project!.WeaponChanges[0].SharedAcknowledged);
+        Assert.False(w.Project!.WeaponChanges[0].SharedAcknowledged);
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview); // approval is implicit
         await w.SetWeaponChangeAsync("AR-23 Liberator", "projectile.drag", "0.1", true);
         Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
         await w.ResetWeaponsAsync("AR-23 Liberator", "projectile.drag");

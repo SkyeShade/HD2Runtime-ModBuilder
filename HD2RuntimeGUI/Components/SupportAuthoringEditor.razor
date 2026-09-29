@@ -9,7 +9,7 @@
         var f = scope.First();
         @if (Workspace.Project != null && scope.Any(f => Workspace.Project.SupportChanges.Any(c => c.InstanceKey == f.InstanceKey)))
         {
-            <AckPanel Title="@($"Shared {f.Backing.SemanticType}")" Kind="shared" Checked="SupportChangeService.Approved(Workspace.Project, f)" OnChange="v => Approve(f, v)"
+            <AckPanel Title="@($"Shared {f.Backing.SemanticType}")" Kind="shared"
                 Description="@($"Changing this object may affect these consumers.{(f.SharedScope.DynamicConsumersPossible ? " Additional runtime consumers are possible." : "")}")"
                 Items="@f.SharedScope.AffectedSemanticConsumers.Select(c => $"{c.Weapon} · {c.AttackRole}").ToArray()" ItemsLabel="Affected:"
                 PanelAttributes="@(new() { ["data-support-scope"] = scope.Key })" />
@@ -28,10 +28,8 @@
             @{ var unverified = branch.Where(f => f.Operation.Acknowledgement == "allow_unverified_effect" && Saved(f) != null && (f.SemanticFieldId != FireModes.ModesField || ModifiedOnly)).ToArray(); }
             @if (unverified.Length > 0)
             {
-                <AckPanel Title="Unverified effects" Kind="unverified" Checked="unverified.All(f => Saved(f)!.EffectAcknowledgement == SupportChangeService.EffectEvidence(f))"
-                    OnChange="v => AcknowledgeEffects(unverified, v)" Items="@unverified.Select(f => f.Display.Name).ToArray()" ItemsLabel="Edited:"
-                    Description="The gameplay effect of these edits is not proven in game (allow_unverified_effect)." Label="I understand these effects are unverified"
-                    CheckboxAttributes='@(new() { ["data-support-effect-ack"] = "true" })' />
+                <AckPanel Title="Unverified effects" Kind="unverified" Items="@unverified.Select(f => f.Display.Name).ToArray()" ItemsLabel="Edited:"
+                    Description="The gameplay effect of these edits is not proven in game (allow_unverified_effect)." />
             }
         </section>
     }
@@ -56,8 +54,5 @@
     public static string Label(string domain) => domain switch { "magazine" => "Magazine ammo", "rounds" => "Rounds feed", "heatsink" => "Heatsinks", _ => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(domain) };
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
     private Task Reset() => Run(() => Workspace.ResetSupportAsync(Weapon));
-    private Task Approve(SupportField f, bool approved) => Run(() => Workspace.SetSupportApprovalAsync(f.InstanceKey, approved));
     private SupportChange? Saved(SupportField f) => Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);
-    // One checkbox for the group; Runtime still receives allow_unverified_effect on each edited field.
-    private Task AcknowledgeEffects(IEnumerable<SupportField> fields, bool value) => Run(async () => { foreach (var f in fields) await Workspace.SetSupportEffectAcknowledgedAsync(f.InstanceKey, value); });
 }

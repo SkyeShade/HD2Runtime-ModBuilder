@@ -222,7 +222,7 @@ public sealed class Runtime022Tests
         var value = f.Type == "integer" ? (f.CurrentDefault.GetInt64() + 1).ToString() : (f.CurrentDefault.GetDouble() + 0.5).ToString(System.Globalization.CultureInfo.InvariantCulture);
         await Edit(w, f, value, false); var saved = w.Project!.StratagemChanges.Single();
         Assert.Equal("mounted_weapon", saved.TargetKind); Assert.Equal("main", saved.Entity); Assert.Equal("primary", saved.Weapon); Assert.Equal(attack, saved.Attack);
-        if (f.Shared) { Assert.Contains("Acknowledge", w.BuildError); Assert.DoesNotContain("allow_shared", w.LuaPreview); await w.SetStratagemApprovalAsync(f.InstanceKey, true); }
+        // Shared approval is implicit: a shared branch builds without approval and carries allow_shared.
         Assert.Null(w.BuildError); Assert.Contains(target, w.LuaPreview); Assert.Contains("field=" + f.ApiFieldConstant, w.LuaPreview);
         Assert.Equal(f.Shared, w.LuaPreview.Contains("allow_shared=true"));
     }
@@ -234,8 +234,9 @@ public sealed class Runtime022Tests
             if (!f.Editable) { Assert.Throws<InvalidDataException>(() => svc.Create(w.Metadata, f.InstanceKey, "1")); continue; }
             var c = svc.Create(w.Metadata, f.InstanceKey, JsonSerializer.Serialize(f.CurrentDefault.GetDouble() + 1));
             w.Project!.StratagemChanges = [c]; w.Project.StratagemApprovals.Clear();
-            if (f.Shared) { Assert.Throws<InvalidDataException>(() => svc.Validate(w.Project, w.Metadata, c)); w.Project.StratagemApprovals[f.ScopeKey] = StratagemChangeService.ApprovalEvidence(f); }
+            // No approval is recorded: shared writes validate anyway and carry allow_shared.
             svc.Validate(w.Project, w.Metadata, c); var lua = e.Generator.Generate(w.Project, w.Metadata);
+            Assert.Equal(f.AllowSharedRequired, lua.Contains("allow_shared=true"));
             Assert.Contains(f.ApiFieldConstant, lua); Assert.Contains(StratagemLua.Target(f.Target), lua);
             Assert.DoesNotContain("backing:", lua); Assert.DoesNotContain("operation:", lua); Assert.DoesNotContain("shared-scope:", lua); Assert.DoesNotContain("0x", lua);
         }
@@ -274,14 +275,15 @@ public sealed class Runtime022Tests
         Assert.Single(StratagemLua.SharedOverlaps(w.Project, w.Metadata)); // advisory only; distinct slots apply independently
     }
 
-    [Fact] public async Task Shared_acknowledgement_is_keyed_to_the_exact_scope_and_lists_consumers()
+    [Fact] public async Task Shared_acknowledgement_is_keyed_to_the_exact_scope_lists_consumers_and_never_blocks_the_build()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); var c = w.Metadata!.Stratagems!;
         var mass = Field(w, AntiTank, "projectile.mass"); var damage = Field(w, AntiTank, "damage.standard_damage", "primary_damage");
-        await Edit(w, mass, "7000", false); await Edit(w, damage, "900", false); Assert.NotNull(w.BuildError);
+        await Edit(w, mass, "7000", false); await Edit(w, damage, "900", false);
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview); // approval is implicit
         await w.SetStratagemApprovalAsync(mass.InstanceKey, true);
         Assert.Equal([mass.SharedScopeKey!], w.Project!.StratagemApprovals.Keys); Assert.StartsWith("shared-scope:", mass.ScopeKey);
-        Assert.False(StratagemChangeService.Approved(w.Project, damage)); Assert.NotNull(w.BuildError);
+        Assert.False(StratagemChangeService.Approved(w.Project, damage)); Assert.Null(w.BuildError);
         await w.SetStratagemApprovalAsync(damage.InstanceKey, true); Assert.Null(w.BuildError);
         // One scope shared across Laser Sentry, Flame Sentry and three offensive stratagems uses one acknowledgement.
         var laser = Field(w, "A/LAS-98 Laser Sentry", "status.duration"); var flame = Field(w, "A/FLAM-40 Flame Sentry", "status.duration", "primary_damage_status_1");
@@ -354,15 +356,15 @@ public sealed class Runtime022Tests
         Assert.Null(w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "stratagem.cooldown")));
         Assert.Null(w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "damage.standard_damage")));
         Assert.Null(w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "eagle.rearm_time")));
-        // The napalm status object is now also consumed by two sentries: its acknowledgement must be renewed.
+        // The napalm status object is now also consumed by two sentries: its changed capability must be reviewed (the stale approval itself no longer blocks).
         var napalm22 = Field(c22, "Orbital Napalm Barrage", "status.duration", "delivery_1_projectile_impact_damage_status_1");
         Assert.Equal(6, napalm22.SharedConsumers.Length); Assert.False(StratagemChangeService.Approved(w.Project, napalm22));
         Assert.Contains("changed", w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "status.duration")));
         Assert.All(w.Project.StratagemApprovals.Keys, k => Assert.StartsWith("shared-scope:", k));
         await w.SetStratagemAsync(napalm22.InstanceKey, "12", true);
-        Assert.Contains("Acknowledge", w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "status.duration")));
+        Assert.Null(w.StratagemIssue(w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "status.duration")));
         Assert.Equal("0.22.1", w.Project.StratagemChanges.Single(x => x.SemanticFieldId == "status.duration").BaselineSdkVersion);
-        await w.SetStratagemApprovalAsync(napalm22.InstanceKey, true); Assert.Null(w.BuildError);
+        Assert.False(StratagemChangeService.Approved(w.Project, napalm22)); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
         await w.OpenAsync(w.Project.Id); Assert.Null(w.BuildError); Assert.Contains(":attack('delivery_1_projectile_impact_damage_status_1')", w.LuaPreview);
     }
     [Fact] public async Task Stale_instance_key_without_rebind_requires_review_and_accept_repairs_it()

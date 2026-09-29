@@ -24,7 +24,7 @@
             @if (Field.EffectiveRange is { } range) { <p data-field-range><strong>Allowed range:</strong> @(Bound(range.Min) ?? "−∞") – @(Bound(range.Max) ?? "∞")@(string.IsNullOrWhiteSpace(range.Reason) ? "" : " · " + range.Reason)</p> }
             <p><strong>Evidence:</strong> @EvidenceBadge.Label(Field.Evidence.Tier)@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? " — " + tier : "")</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
-    @if (saved != null && Workspace.EntityIssue(saved) is { } issue && !(AcknowledgedInGroup && issue.StartsWith("Acknowledge ", StringComparison.Ordinal)))
+    @if (saved != null && Workspace.EntityIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>
             @if (Field.Editable && (saved.CapabilityEvidence != EntityChangeService.Evidence(Field) || !EntityScalar.Equal(Field, saved.ExpectedValue, Field.CurrentDefault)))
@@ -37,8 +37,6 @@
     [Parameter] public string? Label { get; set; }
     [Parameter] public IReadOnlyDictionary<string, string>? Tiers { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
-    // The acknowledgement is given in the enclosing group's panel, so its "Acknowledge … before building" issue is not repeated per row.
-    [Parameter] public bool AcknowledgedInGroup { get; set; }
     private string? Error;
     private EntityChange? Saved => EntityChangeService.Saved(Workspace.Project, Field);
     private string Unit => Field.Unit?.Replace('_', ' ') ?? "";

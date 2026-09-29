@@ -60,9 +60,7 @@
         else { <p class="field-baseline subtle" data-fire-mode-baseline>Base @string.Join(", ", Model.Baseline.Select(FireModes.Label))</p> }
         @if (Model.Modified && Model.AckRequired)
         {
-            <AckPanel Title="Fire modes · effect not gameplay-confirmed" Kind="unverified" Checked="Model.Acknowledged" Description="@Model.AckReason"
-                Label="I understand this effect is not gameplay-confirmed" OnChange="v => Run(() => Acknowledge.InvokeAsync(v))"
-                CheckboxAttributes='@(new() { ["data-fire-mode-ack"] = "true" })' />
+            <AckPanel Title="Fire modes · effect not gameplay-confirmed" Kind="unverified" Description="@Model.AckReason" />
         }
     }
     @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
@@ -70,7 +68,7 @@
 @code {
     // One weapon's fire-mode capability and saved state, from the player or support catalog.
     public sealed record FireModeModel(string Weapon, string State, bool Writable, string? Reason, IReadOnlyList<string> Baseline, IReadOnlyList<string> Current,
-        IReadOnlyList<string> Allowed, int MaxModes, bool AckRequired, bool Acknowledged, string? AckReason, string? Evidence, IReadOnlyList<string> Observed)
+        IReadOnlyList<string> Allowed, int MaxModes, bool AckRequired, string? AckReason, string? Evidence, IReadOnlyList<string> Observed)
     {
         public bool Modified => !Baseline.SequenceEqual(Current);
     }
@@ -78,7 +76,6 @@
     // Receives the desired mode list as JSON (["single","burst","automatic"]).
     [Parameter, EditorRequired] public EventCallback<string> SetModes { get; set; }
     [Parameter] public EventCallback Reset { get; set; }
-    [Parameter] public EventCallback<bool> Acknowledge { get; set; }
     private string? Error;
     private Task Set(string[] modes) => SetModes.InvokeAsync(System.Text.Json.JsonSerializer.Serialize(modes));
     private static string[] Move(List<string> modes, int index, int by)

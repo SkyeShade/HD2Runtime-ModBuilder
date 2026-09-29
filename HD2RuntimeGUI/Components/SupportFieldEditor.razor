@@ -4,7 +4,7 @@
 <div class="field-row @(saved != null ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
     <div class="field-name"><span>@Field.Display.Name</span>@if (!string.IsNullOrEmpty(Field.Value.Unit)) { <small class="field-unit">@Field.Value.Unit!.Replace('_', ' ')</small> }
         <span class="field-flags">
-            @if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge amber" data-flag="allow_shared" title="Shared object: requires acknowledging its affected consumers">Shared</span> }
+            @if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge amber" data-flag="allow_shared" title="Shared object: the edit also changes its affected consumers">Shared</span> }
             @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">Effect unproven</span> }
             @if (Field.Reticle?.Evidence is { GameplayProven: true } proven) { <span class="badge green" data-gameplay-proven title="@proven.GameplaySource">Gameplay-proven</span> }
             @if (saved != null) { <span class="badge modified-badge">Modified</span> }

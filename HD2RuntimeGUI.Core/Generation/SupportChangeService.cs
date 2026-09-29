@@ -61,9 +61,7 @@ public sealed class SupportChangeService : ISupportChangeService
             throw new InvalidDataException("Support capability or ownership changed. Review and accept the current capability, or reset this modification.");
         if (!SupportScalar.Equal(f, c.ExpectedValue, f.Value.Baseline)) throw new InvalidDataException($"Support SDK baseline changed: saved {SupportScalar.Text(f, c.ExpectedValue)}, current {SupportScalar.Text(f, f.Value.Baseline)}. Review and explicitly accept the new baseline.");
         _ = SupportScalar.Normalize(f, c.DesiredValue);
-        if (f.SharedScope.RequiresAcknowledgement && !Approved(project, f)) throw new InvalidDataException("Acknowledge this shared object and its affected consumers before building.");
-        if (f.Operation.Acknowledgement == "allow_unverified_effect" && c.EffectAcknowledgement != EffectEvidence(f))
-            throw new InvalidDataException("Acknowledge the unverified gameplay effect of " + f.Display.Name + " before building.");
+        // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
     }
     private static void CheckWritable(SdkMetadata sdk, SupportField f)
     {

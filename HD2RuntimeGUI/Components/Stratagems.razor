@@ -214,7 +214,7 @@ else
     }
     // One short list indicator: shared objects need acknowledgement; a non-unique root is read-only.
     private static string? Warning(StratagemCatalog c, StratagemDefinition s) =>
-        s.RootResolution != "UNIQUE" ? "Root identity not unique: read-only" : c.FieldInstances.Any(f => f.Target.Stratagem == s.Name && f.Shared) ? "Includes shared objects (acknowledgement required)" : null;
+        s.RootResolution != "UNIQUE" ? "Root identity not unique: read-only" : c.FieldInstances.Any(f => f.Target.Stratagem == s.Name && f.Shared) ? "Includes shared objects (edits also affect other users)" : null;
     private static string BlockedLabel(string field) => field switch
     {
         "targeting.*" => "Targeting (range, traverse, tracking, firing arc)",

@@ -57,8 +57,8 @@ public sealed class Runtime021Tests
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         await Edit(w, Field(w, "Orbital Laser", "stratagem.cooldown"), "180"); Assert.Contains("patch={", w.LuaPreview);
-        await Edit(w, Field(w, "Orbital Laser", "damage.standard_damage"), "400", false); Assert.NotNull(w.BuildError);
-        await w.SetStratagemApprovalAsync(Field(w, "Orbital Laser", "damage.standard_damage").InstanceKey, true);
+        await Edit(w, Field(w, "Orbital Laser", "damage.standard_damage"), "400", false);
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview); // approval is implicit
         await Edit(w, Field(w, "Orbital Laser", "orbital.duration"), "40");
         Assert.Null(w.BuildError); Assert.Contains("plan={", w.LuaPreview); Assert.Equal(1, w.LuaPreview.Split("hd2.ensure(").Length - 1);
         Assert.Equal(3, w.LuaPreview.Split("target=").Length - 1); Assert.Contains(":attack('beam_damage')", w.LuaPreview);
@@ -79,12 +79,12 @@ public sealed class Runtime021Tests
         var rearm = c.FieldInstances.Where(f => f.SemanticFieldId == "eagle.rearm_time").ToArray(); Assert.Equal(8, rearm.Length);
         Assert.Single(rearm.Select(f => f.BackingObjectId).Distinct()); Assert.All(rearm, f => Assert.Equal(8, f.SharedConsumers.Length));
         Assert.Equal(8, c.FieldInstances.Count(f => f.SemanticFieldId == "eagle.uses_per_rearm" && f.Editable));
-        await Edit(w, rearm[0], "90", false); Assert.NotNull(w.BuildError);
+        await Edit(w, rearm[0], "90", false); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview); // approval is implicit
         await w.SetStratagemApprovalAsync(rearm[1].InstanceKey, true);
         Assert.All(rearm, f => Assert.True(StratagemChangeService.Approved(w.Project!, f)));
         await Edit(w, rearm[2], "80", false); Assert.Single(w.Project!.StratagemChanges); Assert.Single(w.Project.StratagemApprovals);
         Assert.Equal(80, w.Project.StratagemChanges[0].DesiredValue.GetDouble()); Assert.Null(w.BuildError);
-        await Edit(w, Field(w, "Orbital Laser", "damage.standard_damage"), "400", false); Assert.NotNull(w.BuildError);
+        await Edit(w, Field(w, "Orbital Laser", "damage.standard_damage"), "400", false); Assert.Null(w.BuildError);
         await w.SetStratagemAsync(rearm[3].InstanceKey, "150.000000"); Assert.Single(w.Project.StratagemChanges);
         Assert.Equal("Orbital Laser", w.Project.StratagemChanges[0].Stratagem);
     }

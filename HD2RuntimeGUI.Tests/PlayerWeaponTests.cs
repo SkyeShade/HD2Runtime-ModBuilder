@@ -69,19 +69,20 @@ public sealed class PlayerWeaponTests
         if (kind == "scalar") node["weapons"]![0]!["fields"]![0]!["currentDefault"] = new JsonObject();
         Assert.ThrowsAny<Exception>(() => new PlayerWeaponCatalogReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.13.0"));
     }
-    [Fact] public void Shared_approval_is_required_even_for_unnamed_consumers()
+    [Fact] public void Shared_writes_build_without_approval_even_for_unnamed_consumers()
     {
         foreach (var named in new[] { true, false })
         {
             var w = Sdk.PlayerWeapons!.Weapons.First(w => w.Fields.Any(f => f.Editable && f.AffectsMultipleWeapons && (f.SharedWithWeapons.Count > 0) == named));
             var f = w.Fields.First(f => f.Editable && f.AffectsMultipleWeapons && (f.SharedWithWeapons.Count > 0) == named);
             var c = Changes.Create(Sdk, w.Name, f.SemanticFieldId, "5", false);
-            Assert.Throws<InvalidDataException>(() => Changes.Validate(Sdk, c));
+            Changes.Validate(Sdk, c);
             c = Changes.Create(Sdk, w.Name, f.SemanticFieldId, "5", true); Changes.Validate(Sdk, c);
             var p = Project("Shared"); p.WeaponChanges.Add(c);
             Assert.Contains("allow_shared=true", new LuaGenerator(new ChangeService()).Generate(p, Sdk));
+            // Approval is implicit: revoking it neither blocks generation nor drops the Runtime flag.
             c.SharedAcknowledged = false;
-            Assert.Throws<InvalidDataException>(() => new LuaGenerator(new ChangeService()).Generate(p, Sdk));
+            Assert.Contains("allow_shared=true", new LuaGenerator(new ChangeService()).Generate(p, Sdk));
         }
     }
     [Theory]
@@ -123,11 +124,15 @@ public sealed class PlayerWeaponTests
         Assert.Contains("baseline changed", Assert.Single(issues).Message); Assert.Equal(old, c.ExpectedValue.GetRawText()); Assert.Equal(0.1, c.DesiredValue.GetDouble());
         Assert.Single(Changes.Review(Sdk with { PlayerWeapons = catalog with { Weapons = [] } }, [c]));
     }
-    [Fact] public void Changed_shared_scope_requires_renewed_approval()
+    [Fact] public void Changed_shared_scope_does_not_block_validation()
     {
         var c = Changes.Create(Sdk, "AR-23 Liberator", "projectile.drag", "0.1", true);
         c.AcknowledgedWriteScope = "old_scope";
-        Assert.Throws<InvalidDataException>(() => Changes.Validate(Sdk, c));
+        // The stale scope is still recorded as not current, but approval is implicit and no longer gates the build.
+        Assert.False(WeaponChangeService.SharedAcknowledgementCurrent(Sdk.PlayerWeapons!.Field("AR-23 Liberator", "projectile.drag"), c));
+        Changes.Validate(Sdk, c);
+        var p = Project("StaleScope"); p.WeaponChanges.Add(c);
+        Assert.Contains("allow_shared=true", new LuaGenerator(new ChangeService()).Generate(p, Sdk));
     }
     [Fact] public void Shared_conflicts_and_duplicate_overrides_are_rejected()
     {

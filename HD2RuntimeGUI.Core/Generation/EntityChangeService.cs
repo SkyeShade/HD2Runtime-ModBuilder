@@ -81,18 +81,8 @@ public sealed class EntityChangeService : IEntityChangeService
             throw new InvalidDataException("Vehicle/backpack capability, evidence or ownership changed. Review and accept the current capability, or reset the change.");
         if (!EntityScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Vehicle/backpack baseline changed. Review before accepting the new baseline.");
         EntityScalar.CheckRange(f, c.DesiredValue);
-        if (f.AllowSharedRequired && !Approved(p, f)) throw new InvalidDataException("Acknowledge this shared object before building.");
-        if (EntityScalar.AcknowledgementRequired(f, c.DesiredValue) && c.ReferenceAcknowledgement != ReferenceEvidence(f, c.DesiredValue))
-            throw new InvalidDataException(f.Target.Resource switch
-            {
-                _ when f.IsReference => "Acknowledge the unverified mount reference and package-loading risk before building.",
-                "pod_rack" when f.IsPickup => $"Acknowledge that the replacement in slot {f.Target.Slot} may not load correctly before building.",
-                "pod_rack" => "Acknowledge that the spawn-count change is not gameplay-confirmed before building.",
-                "booster" => "Acknowledge the unverified booster effect before building.",
-                "vehicle_weapon" => "Acknowledge that this vehicle weapon change is not gameplay-confirmed before building.",
-                "backpack" => "Acknowledge that the backpack ammunition change is not gameplay-confirmed before building.",
-                _ => "Acknowledge the unverified magazine attachment effect before building.",
-            });
+        // Runtime opt-ins (allow_shared, allow_unverified_effect, allow_unverified_reference) are implicit: the UI warns and the
+        // generated Lua always carries the flags Runtime requires, so a build is never blocked on an acknowledgement.
     }
     public static string Evidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
         f.BackingObjectId, f.OperationGroup, f.PlanGroup, f.SharedScopeKey, f.Shared, Tier = f.Evidence.Tier, f.AllowedValues, f.Acknowledgement, f.ResidencyWarning }));
@@ -113,7 +103,7 @@ public sealed class EntityChangeService : IEntityChangeService
 
 public interface IEntityLua { IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk, OptionBindings? options = null); }
 // One request per vehicle/backpack plan group: patch for one field, transaction for one operation group, hd2.plan across groups.
-// Flags are emitted only when Runtime requires them and the user acknowledged them: allow_shared and allow_unverified_reference.
+// Flags are emitted exactly when Runtime requires them (allow_shared, allow_unverified_effect, allow_unverified_reference).
 public sealed class EntityLua(IEntityChangeService service) : IEntityLua
 {
     public IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk, OptionBindings? options = null)

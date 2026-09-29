@@ -21,27 +21,22 @@ public sealed partial class BuilderWorkspace
 
     public WeaponAuthoringSummary WeaponSummary(string weapon)
     {
-        if (Project == null || Metadata == null) return new(0, 0, 0);
+        if (Project == null || Metadata == null) return new(0, 0);
         var groups = WeaponGroups.Where(g => g.Weapon == weapon).ToArray();
         var composition = Project.CompositionChanges.Where(c => c.Weapon == weapon && c.Enabled).ToArray();
         var modified = groups.Count(g => g.Conflict != null || FieldPresentationRules.Modified(g)) + composition.Length
             + Project.ProjectileChanges.Count(c => c.Weapon == weapon);
         var shared = groups.Count(g => g.Field?.AffectsMultipleWeapons == true) + composition.Count(c =>
         { try { return CompositionChangeService.Capability(Metadata, c).AffectsMultipleWeapons; } catch (InvalidDataException) { return false; } });
-        var required = WeaponSharedGroups(weapon).Count(g => !g.Acknowledged)
-            + composition.Where(c => { try { return CompositionChangeService.Capability(Metadata, c).AffectsMultipleWeapons; } catch (InvalidDataException) { return false; } })
-                .GroupBy(c => { try { return CompositionChangeService.ApprovalScopeKey(Metadata, c); } catch (InvalidDataException) { return c.Id.ToString(); } })
-                .Count(s => !s.All(c => CompositionChangeService.ApprovalCurrent(Metadata, c)));
-        // Magazine attachments owned by this weapon need their own acknowledgement.
+        // Edited magazine attachments owned by this weapon are shared definitions.
         if (Metadata.Entities?.Attachments is { } attachments && attachments.Weapon(weapon) is { } entry)
             foreach (var (attachment, _, _) in attachments.Resolved(entry))
             {
                 var edited = attachment.FieldInstanceKeys.Any(k => Project.EntityChanges.Any(c => c.InstanceKey == k));
                 if (!edited) continue;
                 modified += attachment.FieldInstanceKeys.Count(k => Project.EntityChanges.Any(c => c.InstanceKey == k)); shared++;
-                if (!AttachmentAcknowledged(Project, attachments, attachment.SemanticId)) required++;
             }
-        return new(modified, shared, required);
+        return new(modified, shared);
     }
 }
 

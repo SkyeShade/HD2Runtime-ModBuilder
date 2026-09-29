@@ -43,7 +43,7 @@
         }
         <label class="switch-label"><input type="checkbox" @bind="Row.Gap" />Add space above this row</label>
         <p class="subtle">The project's master toggle (@(Workspace.Project?.ModOptions?.MasterLabel ?? "Enabled")) turns this Runtime operation on and off; off restores the reviewed baseline.
-            Acknowledgements of this edit (shared or unverified) still apply.
+            Its shared and unverified-effect flags still apply.
             @if (Workspace.Project?.ModOptions is { } s && ModOptionsService.UsesDefaultsWithoutMenu(Workspace.Metadata!, s)) { <strong data-option-default-note>Without Mod Options Menu, the default is the value players get.</strong> }</p>
         @if (ModOptionsService.RowIssues(Workspace.Project!.ModOptions ?? ModOptionsService.Defaults(Workspace.Project), Row, Target) is { Count: > 0 } issues)
         { <ul class="notice warning option-issues" data-option-issues>@foreach (var issue in issues.Take(4)) { <li>@issue</li> }</ul> }

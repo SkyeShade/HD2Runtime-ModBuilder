@@ -31,6 +31,8 @@ const fill = async (selector, value) => { await evaluate(`(() => { const el = ${
 const scroll = async selector => { await evaluate(`(() => { ${q(selector)}.scrollIntoView({block: 'start'}); const c = document.querySelector('.workspace-content'); if (c) c.scrollTop -= 230; })()`); await sleep(300); };
 const text = () => evaluate('document.body.innerText');
 const reviewBlocked = async () => (await text()).includes('Build requires review');
+// Opt-ins are implicit: a risk is a warning panel with no checkbox, and the build is never blocked on it.
+const warned = async scope => { assert(await count(`${scope} [data-ack-panel]`) >= 1, 'warning shown in ' + scope); assert.equal(await count(`${scope} [data-ack-panel] input`), 0); assert(!(await reviewBlocked())); };
 const lua = async () => { await go('lua'); return evaluate('document.querySelector("pre").innerText'); };
 const weapon = async name => { await go('player-weapons'); await click(`[data-weapon="${name}"]`); };
 const stratagem = async (name, family = 'support') => { await go('stratagems:support'); await click(`[data-family-tab="${family}"]`); await click(`[data-stratagem="${name}"]`); await waitFor(`${q(`[data-stratagem-header="${name}"]`)}`, name); };
@@ -52,20 +54,20 @@ try {
     assert.equal(await count(`${card} [data-entity-field] input[type=number]`), 6, 'capacity, starting, supply, spare, reload, ergonomics');
     await fill(`${card} [data-semantic-field="attachment.magazine_capacity"] input`, '90');
     await fill(`${card} [data-semantic-field="attachment.reload_duration"] input`, '2.5');
-    assert(await reviewBlocked()); await click(`${card} [data-attachment-ack]`); assert(!(await reviewBlocked()));
+    await warned(card);
     await scroll('[data-magazine-attachments]'); await screenshot('runtime026-magazine-variants');
 
     // Player reticle: an On/Off switch; read-only reticles show only a blocker.
     assert.equal(await count('[data-field="weapon.third_person_reticle"] input[type=checkbox][role=switch]'), 1);
     await weapon('CQC-42 Machete'); assert.equal(await count('[data-field="weapon.third_person_reticle"] input'), 0);
 
-    // JAR-5 fire modes: four native slots, add Automatic, acknowledge.
+    // JAR-5 fire modes: four native slots, add Automatic; the unverified effect is a warning only.
     await weapon('JAR-5 Dominator'); await waitFor(q('[data-fire-modes="JAR-5 Dominator"]'), 'JAR-5 fire modes');
     assert.equal(await count('[data-fire-modes="JAR-5 Dominator"] [data-fire-mode-slot]'), 4);
     assert.equal(await count('[data-fire-modes="JAR-5 Dominator"] [data-fire-mode-slot][data-mode="single"]'), 1);
     await click('[data-fire-modes="JAR-5 Dominator"] [data-fire-mode-add="automatic"]');
     await waitFor(q('[data-fire-modes="JAR-5 Dominator"] [data-fire-mode-slot="3"][data-mode="automatic"]'), 'automatic added');
-    assert(await reviewBlocked()); await click('[data-fire-modes="JAR-5 Dominator"] [data-fire-mode-ack]'); assert(!(await reviewBlocked()));
+    await warned('[data-fire-modes="JAR-5 Dominator"]');
     await scroll('[data-fire-modes="JAR-5 Dominator"]'); await screenshot('runtime026-jar5-fire-modes');
     await weapon('LAS-5 Scythe'); assert.equal(await count('[data-fire-mode-blocked]'), 1);
 
@@ -83,8 +85,7 @@ try {
     const hmgCapacity = `${hmg} [data-vehicle-weapon-group="local"] [data-semantic-field="weapon.capacity"] input`;
     const base = await evaluate(`${q(hmgCapacity)}.value`); await fill(hmgCapacity, String(Number(base) + 50));
     await waitFor(q(`${hmg}.modified`), 'vehicle weapon saved');
-    if (await count(`${hmg} [data-vehicle-effect-ack]`)) await click(`${hmg} [data-vehicle-effect-ack]`);
-    assert(!(await reviewBlocked())); await scroll(hmg); await screenshot('runtime026-vehicle-weapon');
+    assert.equal(await count(`${hmg} [data-ack-panel] input`), 0); assert(!(await reviewBlocked())); await scroll(hmg); await screenshot('runtime026-vehicle-weapon');
     await stratagem('EXO-49 Emancipator Exosuit', 'vehicle'); await waitFor(q('[data-vehicle-weapon="EXO-49 Emancipator Exosuit / left_gun"]'), 'exosuit arms');
     assert.equal(await count('[data-vehicle-weapon="EXO-49 Emancipator Exosuit / right_gun"]'), 1);
 
@@ -95,7 +96,7 @@ try {
     // Maxigun backpack ammunition on its Support page.
     await stratagem('M-1000 Maxigun'); await waitFor(q('[data-backpack-ammo="M-1000 Maxigun Backpack"]'), 'Maxigun backpack ammo');
     await fill('[data-backpack-ammo] [data-semantic-field="deposit.capacity"] input', '1500');
-    assert(await reviewBlocked()); await click('[data-backpack-ammo-ack]'); assert(!(await reviewBlocked()));
+    await warned('[data-backpack-ammo]');
     await scroll('[data-backpack-ammo]'); await screenshot('runtime026-maxigun-backpack-ammo');
 
     // Surplus EAT: granted stratagem -> drop pod -> spawn count -> slots, with the shared-rack warning.
@@ -105,9 +106,8 @@ try {
     assert.equal(await count('[data-pod-slot="5"]'), 0, 'slots 5-8 are never shown');
     await fill('[data-pod-spawn-count] input[type=number]', '3');
     await fill('[data-pod-slot="2"] [data-pod-slot-select]', LEVELLER);
-    await waitFor(q('[data-pod-slot="2"] [data-pod-reference-ack]'), 'reference acknowledgement');
-    await click('[data-pod-slot="2"] [data-pod-reference-ack]'); await click('[data-pod-spawn-ack]');
-    assert(await reviewBlocked(), 'shared rack still needs allow_shared'); await click('[data-pod-shared-ack]'); assert(!(await reviewBlocked()));
+    await waitFor(q('[data-pod-slot="2"] [data-ack-panel]'), 'replacement warning');
+    await warned('[data-pod-slot="2"]'); assert(await count('[data-booster-pod] [data-ack-panel]') >= 3, 'replacement, spawn-count and shared-rack warnings');
     await scroll('[data-booster-pod]'); await screenshot('runtime026-surplus-eat-payload');
 
     const script = await lua();

@@ -32,7 +32,6 @@
                 <div class="summary-stats">
                     <span class="summary-stat @(summary.ModifiedFields > 0 ? "active" : "")" data-summary-modified="@summary.ModifiedFields"><strong>@summary.ModifiedFields</strong> modified</span>
                     <span class="summary-stat @(summary.SharedChanges > 0 ? "shared" : "")" data-summary-shared="@summary.SharedChanges"><strong>@summary.SharedChanges</strong> shared</span>
-                    <span class="summary-stat @(summary.AcknowledgementsRequired > 0 ? "warn" : "")" data-summary-acks="@summary.AcknowledgementsRequired"><strong>@summary.AcknowledgementsRequired</strong> @(summary.AcknowledgementsRequired == 1 ? "acknowledgement" : "acknowledgements") required</span>
                 </div>
                 <div class="actions"><button class="primary" data-review-changes @onclick="() => Review.InvokeAsync()">Review changes</button>
                     @if (summary.ModifiedFields > 0 || Workspace.WeaponGroups.Any(g => g.Weapon == weapon.Name)) { <button class="reset-action" @onclick="() => Reset(weapon.Name)">Reset weapon</button> }</div>
@@ -84,11 +83,11 @@
                             <div class="stat-grid">@foreach (var row in byRole) { @RowEditor(weapon, row) }</div>
                         }
                     }
-                    <WeaponSharedAcks Weapon="@weapon.Name" FieldIds="@sectionRows.Where(r => r.Role == null).Select(r => r.Field.SemanticFieldId).ToArray()" Changed="FieldChanged" />
+                    <WeaponSharedAcks Weapon="@weapon.Name" FieldIds="@sectionRows.Where(r => r.Role == null).Select(r => r.Field.SemanticFieldId).ToArray()" />
                     @if (Workspace.Metadata.Advanced != null)
                     {
                         var domains = key switch { "Projectile" => new[] { "projectile", "terminal" }, "Explosion" => ["explosion"], _ when key == damageSection => ["damage"], _ => null };
-                        @if (domains != null) { <CompositionApprovals Weapon="@weapon.Name" Changes="Workspace.Project!.CompositionChanges" Domains="domains" Changed="FieldChanged" /> }
+                        @if (domains != null) { <CompositionApprovals Weapon="@weapon.Name" Changes="Workspace.Project!.CompositionChanges" Domains="domains" /> }
                     }
                 </section>
             }

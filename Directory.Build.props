@@ -1,14 +1,14 @@
 <Project>
   <PropertyGroup>
     <!-- HD2Runtime ModBuilder application version (the property keeps its historical name). -->
-    <Hd2RuntimeGuiVersion>1.1.0</Hd2RuntimeGuiVersion>
+    <Hd2RuntimeGuiVersion>1.1.1</Hd2RuntimeGuiVersion>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(Hd2RuntimeGuiVersion)</VersionPrefix>
     <Version Condition="'$(Version)' == ''">$(Hd2RuntimeGuiVersion)</Version>
     <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">$(Hd2RuntimeGuiVersion).0</AssemblyVersion>
     <FileVersion Condition="'$(FileVersion)' == ''">$(Hd2RuntimeGuiVersion).0</FileVersion>
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Hd2RuntimeGuiVersion)</InformationalVersion>
   </PropertyGroup>
-  <!-- The SDK appends the git commit to InformationalVersion (1.1.0+<commit>). Mark builds made from uncommitted changes,
+  <!-- The SDK appends the git commit to InformationalVersion (1.1.1+<commit>). Mark builds made from uncommitted changes,
        so a build is never mistaken for the commit it was based on. -->
   <Target Name="Hd2MarkUncommittedBuild" AfterTargets="InitializeSourceControlInformationFromSourceControlManager" Condition="'$(SourceRevisionId)' != ''">
     <Exec Command="git status --porcelain" WorkingDirectory="$(MSBuildThisFileDirectory)" ConsoleToMSBuild="true" IgnoreExitCode="true" EchoOff="true" StandardOutputImportance="low">

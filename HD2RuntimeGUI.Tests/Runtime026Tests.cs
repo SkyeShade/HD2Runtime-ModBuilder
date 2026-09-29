@@ -59,8 +59,8 @@ public sealed class Runtime026Tests
         Assert.Equal("number", reload.Type); Assert.Equal("number", ergonomics.Type);
         await w.SetEntityAsync(capacity.InstanceKey, "90"); await w.SetEntityAsync(reload.InstanceKey, "2.5"); await w.SetEntityAsync(ergonomics.InstanceKey, "10");
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(reload.InstanceKey, "25"));
-        Assert.NotNull(w.BuildError);
-        await w.SetAttachmentAcknowledgedAsync(drum.SemanticId, true); Assert.Null(w.BuildError);
+        // The attachment opt-ins are implicit: the edit builds without an acknowledgement.
+        Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         Assert.Contains($"target=hd2.weapon_attachment('{drum.SemanticId}')", lua); Assert.Contains("{field=hd2.fields.attachment.magazine_capacity,expect=60,value=90}", lua);
         Assert.Contains("{field=hd2.fields.attachment.reload_duration,expect=3.5,value=2.5}", lua); Assert.Contains("{field=hd2.fields.attachment.ergonomics_modifier,expect=-15,value=10}", lua);
@@ -79,12 +79,11 @@ public sealed class Runtime026Tests
     }
 
     // ---- Third-person reticle ----
-    [Fact] public async Task Player_reticle_is_a_boolean_that_needs_the_unverified_effect_acknowledgement()
+    [Fact] public async Task Player_reticle_is_a_boolean_that_emits_allow_unverified_effect_without_acknowledgement()
     {
         using var e = new TestEnvironment(); var w = await Fresh(e);
         await w.SetWeaponChangeAsync("AR-23 Liberator", FireModes.ReticleField, "false", false);
-        Assert.NotNull(w.BuildError); Assert.Contains("gameplay-confirmed", w.BuildError);
-        await w.SetWeaponEffectAcknowledgedAsync("AR-23 Liberator", FireModes.ReticleField, true); Assert.Null(w.BuildError);
+        Assert.Null(w.BuildError); // allow_unverified_effect is implicit.
         var lua = w.LuaPreview;
         Assert.Contains("hd2.fields.weapon.third_person_reticle", lua); Assert.Contains("expect=true", lua); Assert.Contains("value=false", lua);
         Assert.Contains("allow_unverified_effect=true", lua);
@@ -112,8 +111,7 @@ public sealed class Runtime026Tests
         var entry = w.Metadata!.FireModes!.Find("player", Jar)!;
         Assert.True(entry.Writable); Assert.Equal(["single", "burst"], entry.NamedModes); Assert.Equal(4, entry.MaxModes);
         await w.SetWeaponChangeAsync(Jar, FireModes.ModesField, "[\"single\",\"burst\",\"automatic\"]", false);
-        Assert.NotNull(w.BuildError);
-        await w.SetWeaponEffectAcknowledgedAsync(Jar, FireModes.ModesField, true); Assert.Null(w.BuildError);
+        Assert.Null(w.BuildError); // allow_unverified_effect is implicit.
         var lua = w.LuaPreview;
         Assert.Contains("hd2.fields.fire_mode.modes", lua); Assert.Contains("{'single','burst','automatic'}", lua); Assert.Contains("expect={'single','burst'}", lua);
         Assert.Contains("allow_unverified_effect=true", lua);
@@ -141,16 +139,14 @@ public sealed class Runtime026Tests
         Assert.Contains("field=hd2.fields.stratagem.max_uses", lua); Assert.Contains("expect=3", lua); Assert.Contains("value='unlimited'", lua);
         Assert.DoesNotContain("allow_unverified_effect", lua); Assert.DoesNotContain("4294967295", lua);
         // finite -> finite is published but not gameplay-proven.
-        await w.SetStratagemAsync(f.InstanceKey, "5"); Assert.NotNull(w.BuildError);
-        await w.SetStratagemEffectAcknowledgedAsync(f.InstanceKey, true); Assert.Null(w.BuildError); Assert.Contains("allow_unverified_effect=true", w.LuaPreview);
+        await w.SetStratagemAsync(f.InstanceKey, "5"); Assert.Null(w.BuildError); // the opt-in is implicit Assert.Contains("allow_unverified_effect=true", w.LuaPreview);
     }
 
-    [Fact] public async Task Frv_unlimited_to_finite_needs_the_acknowledgement_and_unpublished_transitions_are_refused()
+    [Fact] public async Task Frv_unlimited_to_finite_emits_allow_unverified_effect_without_acknowledgement_and_unpublished_transitions_are_refused()
     {
         using var e = new TestEnvironment(); var w = await Fresh(e); var f = Uses(w, "M-102 Gunner FRV");
         Assert.True(StratagemUses.IsUnlimited(f.CurrentDefault)); Assert.Equal([StratagemUses.UnlimitedToFinite], f.Transitions);
-        await w.SetStratagemAsync(f.InstanceKey, "2"); Assert.NotNull(w.BuildError);
-        await w.SetStratagemEffectAcknowledgedAsync(f.InstanceKey, true); Assert.Null(w.BuildError);
+        await w.SetStratagemAsync(f.InstanceKey, "2"); Assert.Null(w.BuildError); // the opt-in is implicit
         var lua = w.LuaPreview; Assert.Contains("expect='unlimited'", lua); Assert.Contains("value=2", lua); Assert.Contains("allow_unverified_effect=true", lua);
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetStratagemAsync(f.InstanceKey, "0"));
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetStratagemAsync(f.InstanceKey, "101"));
@@ -177,8 +173,7 @@ public sealed class Runtime026Tests
         Assert.Equal(["deposit.capacity", "deposit.refill_amount", "deposit.start_amount"], fields.Select(f => f.SemanticFieldId).Order(StringComparer.Ordinal));
         var cap = fields.Single(f => f.SemanticFieldId == "deposit.capacity"); Assert.Equal(capacity, cap.CurrentDefault.GetInt32());
         await w.SetEntityAsync(cap.InstanceKey, (capacity * 2).ToString(System.Globalization.CultureInfo.InvariantCulture));
-        Assert.NotNull(w.BuildError);
-        await w.SetEntityAcknowledgedAsync(fields.Select(f => f.InstanceKey), true); Assert.Null(w.BuildError);
+        Assert.Null(w.BuildError); // the opt-in is implicit
         var lua = w.LuaPreview;
         Assert.Contains($"target=hd2.support_weapon('{weapon}'):backpack(),", lua); Assert.Contains("hd2.fields.deposit.capacity", lua);
         Assert.Contains($"value={capacity * 2},", lua); Assert.Contains("allow_unverified_effect=true", lua);
@@ -196,8 +191,7 @@ public sealed class Runtime026Tests
         Assert.Contains("hd2.vehicle('M-103 Supply FRV'):weapon('gun')", lua); Assert.Contains("hd2.fields.weapon.capacity", lua); Assert.Contains("value=240,", lua);
         Assert.DoesNotContain("allow_shared", lua); Assert.DoesNotContain("allow_unverified_effect", lua);
         var rate = VehicleWeapon(w, "M-103 Supply FRV / gun", "weapon.fire_rate");
-        await w.SetEntityAsync(rate.InstanceKey, "700"); Assert.NotNull(w.BuildError);
-        await w.SetEntityAcknowledgedAsync([rate.InstanceKey], true); Assert.Null(w.BuildError);
+        await w.SetEntityAsync(rate.InstanceKey, "700"); Assert.Null(w.BuildError); // the opt-in is implicit
         Assert.Contains("allow_unverified_effect=true", w.LuaPreview);
     }
 
@@ -217,9 +211,9 @@ public sealed class Runtime026Tests
         // A shared projectile/damage row names its other consumers and needs allow_shared at its group.
         var shared = Entities(w).VehicleWeapons!.FieldInstances.First(f => f.Target.Weapon == "TD-220 Bastion MK XVI / attach_tank_gun" && f.AllowSharedRequired);
         var published = Entities(w).VehicleWeapons!.Published[shared.InstanceKey]; Assert.NotEqual("weapon_local", published.Scope);
-        await w.SetEntityAsync(shared.InstanceKey, Bump(shared)); await w.SetEntityAcknowledgedAsync([shared.InstanceKey], true);
-        Assert.NotNull(w.BuildError);
-        await w.SetEntityApprovalAsync(shared.InstanceKey, true); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
+        await w.SetEntityAsync(shared.InstanceKey, Bump(shared));
+        // Shared approval is implicit: the shared row builds at once and carries allow_shared.
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
     }
 
     [Fact] public async Task Maelstrom_mounts_sharing_one_weapon_report_each_other()
@@ -269,9 +263,8 @@ public sealed class Runtime026Tests
         await w.SetEntityAsync(spawn.InstanceKey, "4");
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(spawn.InstanceKey, "5"));
         await w.SetEntityAsync(slot1.InstanceKey, Leveller); await w.SetEntityAsync(slot2.InstanceKey, AmmoWorld);
-        Assert.NotNull(w.BuildError);
-        await w.SetEntityAcknowledgedAsync([spawn.InstanceKey, slot1.InstanceKey, slot2.InstanceKey], true); Assert.NotNull(w.BuildError); // shared rack
-        await w.SetEntityApprovalAsync(slot1.InstanceKey, true); Assert.Null(w.BuildError);
+        // Every opt-in (shared rack, unverified reference and effect) is implicit: the edits build without acknowledgement.
+        Assert.Null(w.BuildError);
         var lua = w.LuaPreview;
         Assert.Contains("hd2.pod_rack('EAT-17 Expendable Anti-Tank pod'):slot(1)", lua); Assert.Contains("hd2.pod_rack('EAT-17 Expendable Anti-Tank pod'):slot(2)", lua);
         Assert.Contains($"value=hd2.pickup('{Leveller}')", lua); Assert.Contains($"value=hd2.pickup('{AmmoWorld}')", lua);

@@ -104,11 +104,11 @@ public sealed class ModOptionsTests
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SaveOptionRowAsync(bad));
     }
 
-    [Fact] public async Task Booster_options_stay_inside_the_published_safe_range_and_keep_acknowledgements()
+    [Fact] public async Task Booster_options_stay_inside_the_published_safe_range_and_keep_the_unverified_effect_flag()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         var vitality = w.Metadata!.Entities!.Boosters!.FieldInstances.Single(f => f.Target.Booster == "Vitality Enhancement" && f.SemanticFieldId == "booster.damage_taken_scale");
-        await w.SetEntityAsync(vitality.InstanceKey, "0.5"); await w.SetBoosterAcknowledgedAsync("Vitality Enhancement", true);
+        await w.SetEntityAsync(vitality.InstanceKey, "0.5");
         await w.SetModOptionsEnabledAsync(true);
         var t = w.OptionTarget(ModOptionsService.EntityKey(vitality.InstanceKey))!;
         Assert.Equal(0, t.RangeMin); Assert.Equal(4, t.RangeMax);
@@ -120,8 +120,9 @@ public sealed class ModOptionsTests
         var lua = w.LuaPreview;
         Assert.Contains("hd2.ensure({\n    enabled=enabled,\n    patch={", lua); Assert.Contains("target=hd2.booster('Vitality Enhancement'):tuning(),", lua);
         Assert.Contains("allow_unverified_effect=true,", lua); Assert.Contains("expect=0.9,", lua); Assert.Contains("value=option_", lua);
-        // Unacknowledging still blocks the build, options or not.
-        await w.SetBoosterAcknowledgedAsync("Vitality Enhancement", false); Assert.NotNull(w.BuildError);
+        // The opt-in is implicit: toggling the recorded acknowledgement never blocks the build or drops the flag, options or not.
+        await w.SetBoosterAcknowledgedAsync("Vitality Enhancement", true); Assert.Null(w.BuildError);
+        await w.SetBoosterAcknowledgedAsync("Vitality Enhancement", false); Assert.Null(w.BuildError); Assert.Contains("allow_unverified_effect=true,", w.LuaPreview);
     }
 
     [Fact] public async Task Boolean_and_reference_edits_are_not_eligible()

@@ -106,15 +106,16 @@ public sealed class AmmoAuthoringTests
         Assert.Equal(new[] { "AR-23 Liberator", "AR-23P Liberator Penetrator", "AR-59 Suppressor" }, presets.Where(w => w.Shared).Select(w => w.Name).Order().ToArray());
         Assert.All(presets.Where(w => w.Shared), w => Assert.Equal(2, w.DefaultMagazineOption!.SharedWithWeapons.Count));
     }
-    [Fact] public void Shared_write_gate_is_generic_for_ammo_descriptors()
+    [Fact] public void Shared_ammo_descriptor_writes_build_without_acknowledgement_and_emit_allow_shared()
     {
-        // Synthetic future writable shared descriptor tests the existing gate.
+        // Synthetic future writable shared descriptor: the shared write is implicit and always carries allow_shared.
         // Published 0.14 shared default options above must remain read-only.
         var weapon = Catalog.Weapon("P-113 Verdict"); var field = Catalog.Field(weapon.Name, "magazine.capacity");
         var shared = field with { AffectsMultipleWeapons = true, WriteScope = "shared_component", SharedWithWeapons = ["JAR-5 Dominator"], Backing = field.Backing! with { ConsumerCount = 2 } };
         var sdk = Sdk with { PlayerWeapons = Catalog with { Weapons = Catalog.Weapons.Select(w => w.Name == weapon.Name ? w with { Fields = w.Fields.Select(f => f == field ? shared : f).ToArray() } : w).ToArray() } };
         var c = Changes.Create(sdk, weapon.Name, field.SemanticFieldId, "15", false);
-        Assert.Throws<InvalidDataException>(() => Changes.Validate(sdk, c));
+        Changes.Validate(sdk, c);
+        Assert.Contains("allow_shared=true", new LuaGenerator(new ChangeService()).Generate(Project("SharedAmmoUnacknowledged", c), sdk));
         var p = Project("SharedAmmo", Changes.Create(sdk, weapon.Name, field.SemanticFieldId, "15", true));
         Assert.Contains("allow_shared=true", new LuaGenerator(new ChangeService()).Generate(p, sdk));
     }

@@ -69,5 +69,5 @@ public static class WeaponAcknowledgements
         field.AffectsMultipleWeapons && Groups(saved, weapon).FirstOrDefault(g => g.Key == ScopeKey(field)) is { Acknowledged: true };
 }
 
-// Compact authoring summary of one weapon: what is modified and what still needs the user's acknowledgement.
-public sealed record WeaponAuthoringSummary(int ModifiedFields, int SharedChanges, int AcknowledgementsRequired);
+// Compact authoring summary of one weapon: how many fields are modified and how many edits write shared objects.
+public sealed record WeaponAuthoringSummary(int ModifiedFields, int SharedChanges);

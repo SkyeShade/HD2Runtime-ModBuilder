@@ -3,7 +3,7 @@
    read-only entry (observed modes and reason) where the weapon has no writable mode set. *@
 @if (Model() is { } model)
 {
-    <FireModeEditor Model="model" SetModes="Set" Reset="Reset" Acknowledge="Acknowledge" />
+    <FireModeEditor Model="model" SetModes="Set" Reset="Reset" />
 }
 @code {
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";
@@ -20,10 +20,9 @@
         var current = writable && saved != null ? FireModes.Modes(saved.DesiredValue) : baseline;
         return new(Weapon, f?.FireMode?.FireModeState ?? entry?.State ?? "blocked", writable && Workspace.Project != null, f?.BlockedReason ?? entry?.Reason ?? "Create or open a project to author fire modes.",
             baseline, current, f?.FireMode?.AllowedModes ?? [], f?.FireMode?.MaxModes ?? 0, f?.Operation.Acknowledgement == "allow_unverified_effect",
-            saved != null && saved.EffectAcknowledgement == SupportChangeService.EffectEvidence(f!), f?.Operation.AcknowledgementReason,
+            f?.Operation.AcknowledgementReason,
             f?.FireMode?.Evidence?.NativeOwner, writable ? [] : entry?.ModeLabels.ToArray() ?? []);
     }
     private async Task Set(string json) { await Workspace.SetSupportAsync(Field!.InstanceKey, json); await Changed.InvokeAsync(); }
     private async Task Reset() { await Workspace.ResetSupportAsync(Weapon, Field!.InstanceKey); await Changed.InvokeAsync(); }
-    private async Task Acknowledge(bool value) { await Workspace.SetSupportEffectAcknowledgedAsync(Field!.InstanceKey, value); await Changed.InvokeAsync(); }
 }

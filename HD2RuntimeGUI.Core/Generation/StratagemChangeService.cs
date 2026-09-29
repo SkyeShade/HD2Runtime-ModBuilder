@@ -72,9 +72,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
         if (!StratagemScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Stratagem baseline changed. Review the saved and current values before accepting the new baseline.");
         _ = StratagemScalar.Normalize(f, c.DesiredValue);
         if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, c.ExpectedValue, c.DesiredValue);
-        if (f.AllowSharedRequired && !Approved(p, f)) throw new InvalidDataException("Acknowledge this shared stratagem object and affected consumers before building.");
-        if (EffectRequired(f, c.DesiredValue) && c.EffectAcknowledgement != EffectEvidence(f))
-            throw new InvalidDataException($"Acknowledge that {f.DisplayName.ToLowerInvariant()} for {f.Target.Stratagem} is not gameplay-confirmed before building.");
+        // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
     }
     // 0.26.0: Runtime requires allow_unverified_effect for this change (mission uses except gameplay-proven targets).
     public static bool EffectRequired(StratagemField f, JsonElement desired) => f.Type == StratagemUses.Type ? StratagemUses.EffectRequired(f, desired) : f.Acknowledgement == "allow_unverified_effect";

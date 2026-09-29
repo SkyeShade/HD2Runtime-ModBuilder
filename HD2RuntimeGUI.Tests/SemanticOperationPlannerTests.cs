@@ -56,7 +56,9 @@ public sealed class SemanticOperationPlannerTests
         await w.SetObjectScalarAsync(Concussive, "primary", "projectile", null, "projectile.drag", "0.1", false);
         Assert.Equal(2, Assert.Single(Plan(w)).Changes.Count);
         await w.SetObjectScalarAsync(Concussive, "primary", "projectile", null, "damage.push_force", "30", false);
-        Assert.NotNull(w.BuildError);
+        // The projectile approval does not carry over to the DamageInfo object, but approval is implicit: the build is not blocked.
+        Assert.False(w.Project!.CompositionChanges.Single(c => c.Scalar?.SemanticFieldId == "damage.push_force").SharedAcknowledged);
+        Assert.Null(w.BuildError); Assert.Equal(2, Plan(w).Count);
         await w.SetObjectScalarAsync(Concussive, "primary", "projectile", null, "damage.push_force", "30", true);
         Assert.Equal(2, Plan(w).Count);
     }
@@ -103,15 +105,18 @@ public sealed class SemanticOperationPlannerTests
         var f = w.Metadata!.PlayerWeapons!.Field(Concussive, "damage.ap_direct");
         Assert.NotEqual(SemanticBackingObject.For(w.Metadata, Concussive, f), SemanticBackingObject.For(w.Metadata, "P-113 Verdict", w.Metadata.PlayerWeapons.Field("P-113 Verdict", "damage.ap_direct")));
     }
-    [Fact] public async Task Approval_revocation_and_scope_change_invalidate_the_whole_group()
+    [Fact] public async Task Approval_revocation_applies_to_the_whole_group_and_neither_it_nor_a_scope_change_blocks_the_build()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e); await Damage(w);
         await w.SetObjectScalarAsync(Concussive, "primary", "projectile", null, "damage.push_force", "30", false);
-        Assert.NotNull(w.BuildError); Assert.All(w.Project!.CompositionChanges, c => Assert.False(c.SharedAcknowledged));
+        Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview); Assert.All(w.Project!.CompositionChanges, c => Assert.False(c.SharedAcknowledged));
         await w.SetObjectScalarAsync(Concussive, "primary", "projectile", null, "damage.ap_direct", "3", true); Assert.Null(w.BuildError);
+        Assert.All(w.Project.CompositionChanges, c => Assert.True(c.SharedAcknowledged));
         var sdk = w.Metadata!; var changed = sdk with { PlayerWeapons = sdk.PlayerWeapons! with { Weapons = sdk.PlayerWeapons!.Weapons.Select(w => w.Name != Concussive ? w : w with {
             Fields = w.Fields.Select(f => f.Domain != "damage" ? f : f with { WriteScope = "shared_changed_scope" }).ToArray() }).ToArray() } };
-        Assert.Throws<InvalidDataException>(() => e.Generator.Generate(w.Project, changed));
+        // The scope change leaves every recorded approval stale, yet the build still succeeds with allow_shared.
+        Assert.All(w.Project.CompositionChanges, c => Assert.False(CompositionChangeService.ApprovalCurrent(changed, c)));
+        Assert.Contains("allow_shared=true", e.Generator.Generate(w.Project, changed));
     }
     [Fact] public async Task Reset_removes_override_and_reordering_does_not_change_Lua_or_ZIP()
     {

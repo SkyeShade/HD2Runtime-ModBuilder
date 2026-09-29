@@ -16,14 +16,13 @@
             <span class="badge amber" data-flag="allow_unverified_effect" title="@fields.FirstOrDefault()?.AcknowledgementReason">Effect unverified</span>
             @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", backpack.Name))'>Reset backpack ammo</button> }</div>
         <p class="subtle" data-ammo-ownership>@Weapon has no magazine of its own: it fires from the ammunition stored in its backpack, so these values belong to the backpack.</p>
-        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="entities.Backpacks.EvidenceTiers" AcknowledgedInGroup="true" Changed="Refresh" /> }</div>
+        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="entities.Backpacks.EvidenceTiers" Changed="Refresh" /> }</div>
         @if (backpack.Ammo?.FromAmmoBox is { } box && !ModifiedOnly)
         { <p class="subtle" data-ammo-box>Ammo box: @box.Value.GetRawText()@(box.Writable ? "" : " · " + box.Reason)</p> }
         @if (edited && Workspace.Project != null)
         {
-            <AckPanel Title="Backpack ammo · effect not gameplay-confirmed" Kind="unverified" Checked="BuilderWorkspace.EntityAcknowledged(Workspace.Project, entities, keys)"
-                Description="@fields.FirstOrDefault()?.AcknowledgementReason" Label="I understand this effect is not gameplay-confirmed"
-                OnChange="v => Run(() => Workspace.SetEntityAcknowledgedAsync(keys, v))" CheckboxAttributes='@(new() { ["data-backpack-ammo-ack"] = "true" })' />
+            <AckPanel Title="Backpack ammo · effect not gameplay-confirmed" Kind="unverified"
+                Description="@fields.FirstOrDefault()?.AcknowledgementReason" />
         }
         <details class="field-info"><summary title="How this is written">ⓘ</summary><div class="field-info-body">
             <p>Written as <code>hd2.support_weapon('@Weapon'):backpack()</code> (<code>@link.Owner</code>). Keep the starting amount no greater than the capacity.</p>

@@ -1,25 +1,13 @@
 @inject BuilderWorkspace Workspace
-@* One allow_shared acknowledgement per shared object edited in this section. Setting it stores the acknowledgement on every
-   saved edit of that object, exactly as Runtime requires it per request. *@
+@* One allow_shared warning per shared object edited in this section; the flag is always emitted for its writes. *@
 @* A shared object whose edited fields span sections is shown once, in the section of its first field. *@
 @foreach (var group in Workspace.WeaponSharedGroups(Weapon).Where(g => FieldIds == null || FieldIds.Contains(g.FieldIds[0])))
 {
-    <AckPanel Title="@group.Title" Kind="shared" Checked="group.Acknowledged" Disabled="Busy" OnChange="v => Set(group.Key, v)"
+    <AckPanel Title="@group.Title" Kind="shared"
         Description="@($"{string.Join(", ", group.FieldNames)} {(group.FieldNames.Count == 1 ? "changes" : "change")} a definition that other weapons also use.")"
-        Items="group.AffectedWeapons" ItemsLabel="Affected weapons:" PanelAttributes="@(new() { ["data-weapon-shared-scope"] = group.Key })"
-        CheckboxAttributes="@(new() { ["data-weapon-shared-ack"] = group.Title })" />
+        Items="group.AffectedWeapons" ItemsLabel="Affected weapons:" PanelAttributes="@(new() { ["data-weapon-shared-scope"] = group.Key })" />
 }
-@if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 @code {
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";
     [Parameter] public IReadOnlyCollection<string>? FieldIds { get; set; }
-    [Parameter] public EventCallback Changed { get; set; }
-    private bool Busy; private string? Error;
-    private async Task Set(string key, bool value)
-    {
-        Busy = true; Error = null;
-        try { await Workspace.SetWeaponSharedAcknowledgedAsync(Weapon, key, value); await Changed.InvokeAsync(); }
-        catch (Exception e) { Error = e.Message; }
-        finally { Busy = false; }
-    }
 }

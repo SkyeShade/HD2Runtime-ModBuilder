@@ -1,6 +1,6 @@
 @inject BuilderWorkspace Workspace
-@* One projectile / damage / explosion object scalar as a compact row. On SDKs with plans, shared-object approval is given once
-   in the section's acknowledgement panel (CompositionApprovals); older SDKs keep the per-field acknowledgement. *@
+@* One projectile / damage / explosion object scalar as a compact row. Shared objects are flagged here and warned about once
+   in the section (CompositionApprovals); allow_shared is implicit. *@
 <div class="field-row @(Saved != null ? "modified" : "") @(Editable ? "" : "readonly")" data-object-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@Field.DisplayName</span>@if (FieldPresentation.Unit(Field) is { Length: > 0 } unit) { <small class="field-unit">@unit</small> }
         <span class="field-flags">
@@ -25,8 +25,7 @@
     </div>
     @if (Editable && Field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
     {
-        <div class="field-wide"><AckPanel Title="Shared definition" Description="This edits a shared object; no weapon-local clone is proven." Items="@Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct().ToArray()"
-            Label="I acknowledge this shared object and scope." Checked="Acknowledged" OnChange="Acknowledge" /></div>
+        <div class="field-wide"><AckPanel Title="Shared definition" Description="This edits a shared object; no weapon-local clone is proven." Items="@Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct().ToArray()" /></div>
     }
     @if (Saved != null && Workspace.CompositionIssue(Saved) is { } issue) { <p class="field-wide notice warning">@issue</p> }
     @if (Error != null) { <p class="field-wide dialog-error" role="alert">@Error</p> }
@@ -41,10 +40,9 @@
     private CompositionChange? Saved => Workspace.Project!.CompositionChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Role && c.Kind == Kind && c.Phase == Phase && c.Scalar?.SemanticFieldId == Field.SemanticFieldId);
     private bool Editable => Field.Editable && !Field.DerivedReadOnly;
     private System.Text.Json.JsonElement Current => Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault;
-    private string Value = "", Loaded = ""; private CompositionChange? Previous; private bool Acknowledged, Busy; private string? Error;
-    protected override void OnParametersSet() { if (!Busy) Acknowledged = HD2RuntimeGUI.Core.Generation.CompositionChangeService.HasObjectApproval(Workspace.Project!, Workspace.Metadata!, Workspace.EffectiveProjectile(Weapon, Role).Weapon, Field); var key = Weapon + Role + Kind + Phase + Field.SemanticFieldId; if (Loaded == key && Previous == Saved) return; Loaded = key; Previous = Saved; Value = Field.Format(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault); }
-    private Task Commit() => Run(() => Workspace.SetObjectScalarAsync(Weapon, Role, Kind, Phase, Field.SemanticFieldId, Value, Acknowledged));
-    private Task Acknowledge(bool value) { Acknowledged = value; return Commit(); }
+    private string Value = "", Loaded = ""; private CompositionChange? Previous; private bool Busy; private string? Error;
+    protected override void OnParametersSet() { var key = Weapon + Role + Kind + Phase + Field.SemanticFieldId; if (Loaded == key && Previous == Saved) return; Loaded = key; Previous = Saved; Value = Field.Format(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault); }
+    private Task Commit() => Run(() => Workspace.SetObjectScalarAsync(Weapon, Role, Kind, Phase, Field.SemanticFieldId, Value, acknowledge: true));
     private Task Reset() => Run(() => Workspace.RemoveCompositionAsync(Saved!.Id));
-    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; Acknowledged = HD2RuntimeGUI.Core.Generation.CompositionChangeService.HasObjectApproval(Workspace.Project!, Workspace.Metadata!, Workspace.EffectiveProjectile(Weapon, Role).Weapon, Field); } }
+    private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; } }
 }

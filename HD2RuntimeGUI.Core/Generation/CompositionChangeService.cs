@@ -137,7 +137,7 @@ public sealed class CompositionChangeService : ICompositionChangeService
             var approved = HasObjectApproval(project, sdk, c.Scalar.Weapon, f);
             scalars.Validate(sdk, approved ? WithApproval(sdk, c, true).Scalar! : c.Scalar);
         }
-        if (f.AffectsMultipleWeapons && !HasObjectApproval(project, sdk, c.Scalar?.Weapon ?? c.Target.Weapon, f)) throw new InvalidDataException("Shared object write requires acknowledgement of its current consumers.");
+        // Shared object writes are implicit (allow_shared is always emitted for them); the UI shows the affected consumers as a warning.
     }
     public void ValidateComposition(ModProject project, SdkMetadata sdk)
     {

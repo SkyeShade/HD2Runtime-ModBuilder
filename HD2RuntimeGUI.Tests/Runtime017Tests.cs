@@ -105,7 +105,8 @@ public sealed class Runtime017Tests
         using var e = new TestEnvironment(); var w = await Workspace(e);
         await w.SetProjectileAsync(Verdict, "primary", new(Jar, "primary"));
         await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", false);
-        Assert.NotNull(w.BuildError); Assert.Contains("Shared", w.BuildError, StringComparison.OrdinalIgnoreCase);
+        // Shared approval is implicit: only the composition dependency blocks the build.
+        Assert.Contains("Composition dependency", w.BuildError); Assert.DoesNotContain("Shared", w.BuildError, StringComparison.OrdinalIgnoreCase);
         await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", true);
         Assert.Contains("Composition dependency", w.BuildError);
         Assert.Equal(new(Jar, "primary"), Assert.Single(w.Project!.CompositionChanges).Target);
@@ -127,13 +128,14 @@ public sealed class Runtime017Tests
         await w.SetWeaponChangeAsync(Verdict, "projectile.velocity", "350", true); await w.SetProjectileAsync(Verdict, "primary", new(Jar, "primary"));
         Assert.Contains("old weapon-level projectile", w.BuildError); await Assert.ThrowsAsync<InvalidDataException>(w.ExportAsync);
     }
-    [Fact] public async Task Legacy_object_override_moves_without_losing_values_and_requires_fresh_shared_approval()
+    [Fact] public async Task Legacy_object_override_moves_without_losing_values_and_builds_without_fresh_shared_approval()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         await w.SetWeaponChangeAsync(Verdict, "projectile.velocity", "350", false); var old = w.Project!.WeaponChanges[0];
         await w.MoveToCompositionAsync(old.Id); Assert.Empty(w.Project.WeaponChanges); var moved = Assert.Single(w.Project.CompositionChanges);
-        Assert.Equal(old.ExpectedValue.GetRawText(), moved.Scalar!.ExpectedValue.GetRawText()); Assert.Equal(350, moved.Scalar.DesiredValue.GetDouble()); Assert.NotNull(w.BuildError);
-        await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", true); Assert.Null(w.BuildError);
+        Assert.Equal(old.ExpectedValue.GetRawText(), moved.Scalar!.ExpectedValue.GetRawText()); Assert.Equal(350, moved.Scalar.DesiredValue.GetDouble()); Assert.Null(w.BuildError);
+        Assert.Contains("allow_shared=true", w.LuaPreview);
+        await w.SetObjectScalarAsync(Verdict, "primary", "projectile", null, "projectile.velocity", "350", true); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
     }
     [Theory] [InlineData("impact")] [InlineData("expiry")]
     public async Task Terminal_add_remove_and_typed_None_roundtrip(string phase)
@@ -148,13 +150,13 @@ public sealed class Runtime017Tests
         Assert.Contains("value=hd2.weapon('R-36 Eruptor'):attack('primary'):projectile():terminal_action('" + phase + "'):no_explosion()", w.LuaPreview);
         await w.OpenAsync(w.Project.Id); Assert.True(Assert.Single(w.Project.CompositionChanges).DesiredExplosion!.IsNone);
     }
-    [Fact] public async Task Shared_terminal_requires_current_consumer_approval()
+    [Fact] public async Task Shared_terminal_builds_without_consumer_approval_and_emits_allow_shared()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         var weapon = w.Metadata!.PlayerWeapons!.Weapons.First(w => w.Fields.Any(f => f.Domain == "terminal" && f.Editable && f.AffectsMultipleWeapons));
         var f = weapon.Fields.First(f => f.Domain == "terminal" && f.Editable && f.AffectsMultipleWeapons);
         var desired = f.CurrentDefault.GetProperty("explosionType").GetInt32() == 0 ? w.ExplosionSources.First(s => !s.IsNone) : ExplosionReference.None;
-        await w.SetTerminalAsync(weapon.Name, f.ReferenceRole!, f.ReferencePhase!, desired, false); Assert.NotNull(w.BuildError);
+        await w.SetTerminalAsync(weapon.Name, f.ReferenceRole!, f.ReferencePhase!, desired, false); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
         await w.SetTerminalAsync(weapon.Name, f.ReferenceRole!, f.ReferencePhase!, desired, true); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
     }
     [Theory] [InlineData("explosion.primary.impact.outer_radius", "10", "7")] [InlineData("explosion.primary.impact.damage.standard_damage", "500", "225")]
@@ -165,15 +167,15 @@ public sealed class Runtime017Tests
         Assert.Contains(":terminal_action('impact'):explosion()", w.LuaPreview); Assert.Contains("value=" + value, w.LuaPreview);
         await w.SetObjectScalarAsync(Eruptor, "primary", "explosion", "impact", field, baseline, false); Assert.Empty(w.Project!.CompositionChanges);
     }
-    [Fact] public async Task Shared_explosion_requires_approval()
+    [Fact] public async Task Shared_explosion_builds_without_approval_and_emits_allow_shared()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
         var weapon = w.Metadata!.PlayerWeapons!.Weapons.First(w => w.Fields.Any(f => f.Domain == "explosion" && f.Editable && f.AffectsMultipleWeapons));
         var f = weapon.Fields.First(f => f.Domain == "explosion" && f.Editable && f.AffectsMultipleWeapons);
         var role = w.Metadata.Composition!.Projectiles.Weapons.Single(w => w.Weapon == weapon.Name).Attacks[0].Role;
         var value = (f.CurrentDefault.GetDouble() + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
-        await w.SetObjectScalarAsync(weapon.Name, role, "explosion", "impact", f.SemanticFieldId, value, false); Assert.NotNull(w.BuildError);
-        await w.SetObjectScalarAsync(weapon.Name, role, "explosion", "impact", f.SemanticFieldId, value, true); Assert.Null(w.BuildError);
+        await w.SetObjectScalarAsync(weapon.Name, role, "explosion", "impact", f.SemanticFieldId, value, false); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
+        await w.SetObjectScalarAsync(weapon.Name, role, "explosion", "impact", f.SemanticFieldId, value, true); Assert.Null(w.BuildError); Assert.Contains("allow_shared=true", w.LuaPreview);
     }
     [Theory] [InlineData("GR-8 Recoilless Rifle", "Projectile")] [InlineData("ARC-3 Arc Thrower", "Arc")] [InlineData("B/MD C4 Pack", "Explosion")] [InlineData("MS-11 Solo Silo", "Explosion")]
     public async Task Support_contract_preserves_system_graph_and_readonly_state(string name, string kind)
@@ -215,7 +217,7 @@ public sealed class Runtime017Tests
         await e.Store.SaveAsync(w.Project); await w.OpenAsync(w.Project.Id); Assert.NotNull(w.BuildError);
         await w.SetObjectScalarAsync(Eruptor, "primary", "explosion", "impact", c.Scalar!.SemanticFieldId, "10", false, true); Assert.Null(w.BuildError);
     }
-    [Theory] [InlineData("fire mode")] [InlineData("read-only explosion")] [InlineData("shared explosion")]
+    [Theory] [InlineData("fire mode")] [InlineData("read-only explosion")]
     public async Task Changed_capability_permissions_block_saved_changes(string scenario)
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
@@ -226,10 +228,20 @@ public sealed class Runtime017Tests
         var changed = sdk with { PlayerWeapons = sdk.PlayerWeapons! with { Weapons = sdk.PlayerWeapons!.Weapons.Select(x => x.Name != weapon ? x : x with {
             Fields = x.Fields.Select(f => f.SemanticFieldId != id ? f : scenario switch {
                 "fire mode" => f with { AllowedValues = [1] },
-                "read-only explosion" => f with { Editable = false, AcceptedForWrites = false },
-                _ => f with { AffectsMultipleWeapons = true, WriteScope = "shared_explosion_settings", SharedWithWeapons = [Jar] }
+                _ => f with { Editable = false, AcceptedForWrites = false }
             }).ToArray() }).ToArray() } };
         Assert.Throws<InvalidDataException>(() => e.Generator.Generate(w.Project!, changed));
+    }
+    [Fact] public async Task Changed_capability_to_shared_explosion_builds_without_approval_and_emits_allow_shared()
+    {
+        // A capability that becomes shared after a rebind no longer blocks on a missing approval: allow_shared is implicit.
+        using var e = new TestEnvironment(); var w = await Workspace(e);
+        await w.SetObjectScalarAsync(Eruptor, "primary", "explosion", "impact", "explosion.primary.impact.outer_radius", "10", false);
+        Assert.DoesNotContain("allow_shared", w.LuaPreview);
+        var sdk = w.Metadata!; const string id = "explosion.primary.impact.outer_radius";
+        var changed = sdk with { PlayerWeapons = sdk.PlayerWeapons! with { Weapons = sdk.PlayerWeapons!.Weapons.Select(x => x.Name != Eruptor ? x : x with {
+            Fields = x.Fields.Select(f => f.SemanticFieldId != id ? f : f with { AffectsMultipleWeapons = true, WriteScope = "shared_explosion_settings", SharedWithWeapons = [Jar] }).ToArray() }).ToArray() } };
+        Assert.Contains("allow_shared=true", e.Generator.Generate(w.Project!, changed));
     }
     [Fact] public async Task Changed_source_residency_blocks_saved_replacement()
     {
