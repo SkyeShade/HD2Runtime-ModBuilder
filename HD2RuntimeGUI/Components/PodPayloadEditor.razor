@@ -45,7 +45,7 @@
                                 var items = pods.Pickups.Where(p => p.Category == category.Key).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToArray();
                                 if (items.Length == 0) continue;
                                 <optgroup label="@category.Value">
-                                    @foreach (var p in items) { <option value="@p.SemanticId" selected="@(value == p.SemanticId)">@p.Name@(s.Current?.Pickup == p.SemanticId ? " (vanilla)" : "") · @Short(PodPayloadCatalog.CompatibilityIn(s, p), PodPayloadCatalog.LowPackageRisk(rack, s, p), AssetStatus.Pickup(sdk!, s, p))</option> }
+                                    @foreach (var p in items) { <option value="@p.SemanticId" selected="@(value == p.SemanticId)">@p.Name@(s.Current?.Pickup == p.SemanticId ? " (vanilla)" : "") · @Short(pods.LiveVerifiedPair(rack, s, p) ? LiveVerified : PodPayloadCatalog.CompatibilityIn(s, p), PodPayloadCatalog.LowPackageRisk(rack, s, p), AssetStatus.Pickup(sdk!, s, p))</option> }
                                 </optgroup>
                             }
                         </select>
@@ -54,9 +54,11 @@
                     {
                         <div class="field-badges" data-pickup-badges="@chosen.SemanticId">
                             <span class="badge">@chosen.CategoryLabel</span>
-                            @switch (PodPayloadCatalog.CompatibilityIn(s, chosen))
+                            @* A pickup Runtime verified live in this slot shows that instead of the catalog's generic "unverified" (the write still carries allow_unverified_reference). *@
+                            @switch (pods.LiveVerifiedPair(rack, s, chosen) ? LiveVerified : PodPayloadCatalog.CompatibilityIn(s, chosen))
                             {
                                 case "PROVEN_COMPATIBLE": <span class="badge green" data-pickup-badge="proven" title="@pods.CompatibilityStates["PROVEN_COMPATIBLE"]">Proven</span> break;
+                                case LiveVerified: break;
                                 case "SCHEMA_COMPATIBLE": <span class="badge" data-pickup-badge="rack-compatible" title="@pods.CompatibilityStates["SCHEMA_COMPATIBLE"]">Rack-compatible</span> break;
                                 default: <span class="badge amber" data-pickup-badge="unverified" title="@pods.CompatibilityStates["UNVERIFIED_REFERENCE"]">Unverified</span> break;
                             }
@@ -107,7 +109,8 @@
     private string? Error;
     private static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string> { ["structural_reference"] = "Rack layout proven; the in-game effect of changing it has not been tested." };
     private static int Int(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
-    private static string Short(string compatibility, bool lowRisk, AssetStatusView? assets) => (compatibility switch { "PROVEN_COMPATIBLE" => "Proven", "SCHEMA_COMPATIBLE" => "Rack-compatible", _ => "Unverified" })
+    private const string LiveVerified = "LIVE_VERIFIED";
+    private static string Short(string compatibility, bool lowRisk, AssetStatusView? assets) => (compatibility switch { "PROVEN_COMPATIBLE" => "Proven", "SCHEMA_COMPATIBLE" => "Rack-compatible", LiveVerified => "Live-verified here", _ => "Unverified" })
         + (assets != null ? (assets.State == AssetState.None ? "" : " · " + assets.Short) : lowRisk ? "" : " · package risk");
     // What the replacement acknowledgement covers. From 0.27.0 package loading is Runtime's job, so this is only slot compatibility.
     private static string CompatibilityNote(PodPayloadCatalog pods, PodRack rack, PodRackSlot slot, Pickup? chosen)

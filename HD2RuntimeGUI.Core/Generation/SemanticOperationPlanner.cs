@@ -149,14 +149,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                 throw new InvalidDataException("One backing object has mixed persistence settings. Use the same persistence setting for all its fields; splitting them would race Runtime guards.");
             if (group.Select(e => e.Family).Distinct().Count() != 1)
                 throw new InvalidDataException("Composition conflict: edits share one backing object but require different semantic targets. Transactions in this Runtime SDK have one target. Impact + expiry, or terminal + scalar edits on the same ProjectileSettings, cannot be exported together safely.");
-            var values = new List<PlannedSemanticChange>();
-            foreach (var fields in group.GroupBy(e => e.Semantic).OrderBy(g => g.Key, StringComparer.Ordinal))
-            {
-                if (fields.Select(e => (e.Expected, e.Desired)).Distinct().Count() != 1)
-                    throw new InvalidDataException("Conflicting baselines or values for one shared semantic object field.");
-                var e = fields.First(); values.Add(new(e.Field, e.Expected, e.Desired) { Keys = fields.Select(x => x.Key).ToArray() });
-            }
-            if (values.Count > 32) throw new InvalidDataException("A backing object exceeds Runtime's 32-change transaction limit. Remove edits; splitting this object into separate jobs is unsafe.");
+            if (group.Select(e => e.Semantic).Distinct().Count() > 32) throw new InvalidDataException("A backing object exceeds Runtime's 32-change transaction limit. Remove edits; splitting this object into separate jobs is unsafe.");
             // Multiple weapon handles may reach a shared record. Select a handle only
             // if its published catalog accepts every requested semantic field.
             var candidate = group.OrderBy(e => e.Target, StringComparer.Ordinal).FirstOrDefault(e => group.All(request =>
@@ -165,11 +158,25 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                     && (e.Family.StartsWith("terminal:", StringComparison.Ordinal) ? f.Domain == "terminal" && "terminal:" + f.ReferencePhase == e.Family
                         : (e.Family == "weapon" ? f.SemanticFieldId : Generic(f.SemanticFieldId)) == request.Semantic))));
             if (candidate == null) throw new InvalidDataException("No published semantic target accepts all fields on this shared backing object. Separate jobs would race; review these changes.");
+            var values = new List<PlannedSemanticChange>();
+            foreach (var fields in group.GroupBy(e => e.Semantic).OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                if (fields.Select(e => (e.Expected, e.Desired)).Distinct().Count() != 1)
+                    throw new InvalidDataException("Conflicting baselines or values for one shared semantic object field.");
+                var e = fields.First(); values.Add(new(BranchConstant(sdk, candidate, e) ?? e.Field, e.Expected, e.Desired) { Keys = fields.Select(x => x.Key).ToArray() });
+            }
             result.Add(new(group.Key.Owner, candidate.Target, group.First().Ensure, group.Any(e => e.Shared), values)
             { AllowUnverifiedEffect = group.Any(e => e.Unverified), Family = candidate.Family, Contexts = group.Where(e => e.Context != null).Select(e => e.Context!).Distinct().OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal).ToArray(), Replacement = candidate.Replacement });
         }
         return result;
     }
+    // A projectile-object field the chosen target names per branch (the SG-20 Halt's two feeds: damage.primary.*, damage.alternate.*) is
+    // written with the exact constant that target publishes. The generic name only resolves on Runtimes that map a feed role back to its
+    // branch; the published constant resolves on every Runtime that publishes it (HD2Runtime user report, 2026-09-29).
+    private static string? BranchConstant(SdkMetadata sdk, Edit candidate, Edit request) => candidate.Family != "projectile" ? null
+        : sdk.PlayerWeapons!.Weapon(candidate.Weapon).Fields.Where(f => f.IsPreferred && f.Editable && f.Backing != null && Generic(f.SemanticFieldId) == request.Semantic
+                && f.SemanticFieldId != request.Semantic && SemanticBackingObject.For(sdk, candidate.Weapon, f) == request.Owner && !string.IsNullOrEmpty(f.ApiFieldConstant))
+            .Select(f => f.ApiFieldConstant).FirstOrDefault();
     private static string Generic(string id) => Regex.Replace(id, @"\.(primary|alternate|feed_primary|feed_alternate|impact|expiry)(?=\.)", "");
     private static string Scalar(WeaponCapability f, JsonElement value) => f.Type == WeaponCapability.FireModeSet ? FireModes.Lua(value) : f.SemanticFieldId == "weapon.default_fire_mode"
         ? "hd2.enums.fire_mode." + f.EnumValues!.Single(p => JsonElement.DeepEquals(p.Value, value)).Key

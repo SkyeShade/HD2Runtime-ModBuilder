@@ -1,0 +1,81 @@
+@inject BuilderWorkspace Workspace
+@* Searchable pickers for what event scripts can make the game do, from the SDK's EventCatalog.json: explosions, projectiles, statuses and
+   healing. Each shows Runtime's limits (host only, in a mission, rate limits), whether it is live-proven, and what loads its assets.
+   Nothing here is implied to be proven when the catalog does not say so. *@
+@{ var catalog = Workspace.Metadata?.Events; var assets = Workspace.Metadata?.Assets; }
+@if (catalog != null)
+{
+    var a = catalog.Actions;
+    <div class="event-actions" data-event-actions>
+        <label class="reference-search">Search<input data-action-search @bind="Search" @bind:event="oninput" placeholder="Hellbomb, Eruptor, fire…" /></label>
+        <section class="action-group" data-action-group="explosions">
+            <h3 class="group-title">Explosions <small class="subtle">@a.Explosions.Api</small></h3>
+            <p class="subtle">@Limits(a.Explosions.HostOnly, a.Explosions.InMissionOnly, a.Explosions.RateLimit) · credited to @a.Explosions.CreditedTo.Replace('_', ' ') · other players see it: @a.Explosions.OtherPlayersSee · @a.Explosions.Assets</p>
+            @foreach (var n in a.Explosions.Named.Where(n => Match(n.Name, string.Join(" ", n.Aliases))))
+            {
+                var name = n.Aliases.FirstOrDefault() ?? n.Name;
+                <div class="action-row" data-action-explosion="@n.Name"><span><strong>@n.Name</strong>@if (n.Aliases.Length > 0) { <small class="subtle"> as '@string.Join("', '", n.Aliases)'</small> }</span>
+                    <span>@Proof(n.LiveProven)@if (n.SharedType) { <span class="badge amber" title="The explosion type is also used by other game content: requesting it is safe, editing its settings would change them too.">Shared type</span> }@AssetBadge("explosion/" + n.Name)</span>
+                    <button class="small" data-action-insert @onclick="() => Explosion(name)">Insert</button></div>
+            }
+            @foreach (var w in a.Explosions.Weapons.Where(w => Match(w)))
+            {
+                <div class="action-row" data-action-explosion="@w"><span><strong>@w</strong> <small class="subtle">weapon explosion</small></span>
+                    <span>@Proof(a.Explosions.LiveProvenWeapons.Contains(w))@AssetBadge("player_weapon/" + w)</span>
+                    <button class="small" data-action-insert @onclick="() => Explosion(w)">Insert</button></div>
+            }
+        </section>
+        <section class="action-group" data-action-group="projectiles">
+            <h3 class="group-title">Projectiles <small class="subtle">@a.Projectiles.Api</small></h3>
+            <p class="subtle">@Limits(a.Projectiles.HostOnly, a.Projectiles.InMissionOnly, a.Projectiles.RateLimit) · @string.Join(" · ", a.Projectiles.SideEffects) · other players see it: @a.Projectiles.OtherPlayersSee · @a.Projectiles.Assets</p>
+            @foreach (var w in a.Projectiles.Weapons.Where(w => Match(w)))
+            {
+                <div class="action-row" data-action-projectile="@w"><span><strong>@w</strong></span><span>@Proof(a.Projectiles.LiveProven.Contains(w))@AssetBadge("player_weapon/" + w)</span>
+                    <button class="small" data-action-insert @onclick="() => Projectile(w)">Insert</button></div>
+            }
+        </section>
+        <section class="action-group" data-action-group="statuses">
+            <h3 class="group-title">Statuses <small class="subtle">@a.StatusEffects.Api</small></h3>
+            <p class="subtle">@Limits(a.StatusEffects.HostOnly, a.StatusEffects.InMissionOnly, a.StatusEffects.RateLimit) · the amount is buildup (default 100), not strength · @string.Join(" · ", a.StatusEffects.Unproven)</p>
+            @foreach (var s in a.StatusEffects.Statuses.Where(s => Match(s.Id, s.Name, s.Family)))
+            {
+                <div class="action-row" data-action-status="@s.Id"><span><code>@s.Id</code> <small class="subtle">@s.Family@(s.Duration is { } d ? " · " + d.ToString(System.Globalization.CultureInfo.InvariantCulture) + " s" : "")</small></span><span>@Proof(s.LiveProven)</span>
+                    <button class="small" data-action-insert @onclick="() => Status(s.Id)">Insert</button></div>
+            }
+        </section>
+        <section class="action-group" data-action-group="healing">
+            <h3 class="group-title">Healing <small class="subtle">hd2.actions.heal</small></h3>
+            @if (catalog.Api.Classes.GetValueOrDefault("HD2Actions")?.Methods?.FirstOrDefault(m => m.Name == "heal") is { } heal)
+            {
+                <div class="action-row" data-action-heal><span><code>@heal.Signature</code><small class="subtle"> @heal.Doc</small></span><span></span>
+                    <button class="small" data-action-insert @onclick="Heal">Insert</button></div>
+            }
+            <p class="subtle">Spawning entities: @a.SpawnEntity.Status. @a.SpawnEntity.Reason</p>
+        </section>
+    </div>
+}
+@code {
+    [Parameter] public EventCallback<string> Insert { get; set; }
+    private string Search = "";
+    // Inserted calls use the catalogued name verbatim; positions and entities come from the event the user is handling.
+    private Task Explosion(string name) => Insert.InvokeAsync("hd2.explosions.spawn(" + LuaGenerator.Quote(name) + ", {position = event.position})\n");
+    private Task Projectile(string weapon) => Insert.InvokeAsync("hd2.projectiles.spawn(" + LuaGenerator.Quote(weapon) + ", {position = position, direction = {x = 1, y = 0, z = 0}})\n");
+    private Task Status(string id) => Insert.InvokeAsync("hd2.status.apply(event.entity, " + LuaGenerator.Quote(id) + ", {buildup = 100})\n");
+    private Task Heal() => Insert.InvokeAsync("local amount, why = hd2.actions.heal(25)\n");
+    private bool Match(params string?[] values) => Search.Trim().Length == 0 || values.Any(v => v?.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+    private static string Limits(bool host, bool mission, ActionRateLimit r) => string.Join(" · ", new[] { host ? "host only" : null, mission ? "in a mission" : null,
+        $"at most {r.Burst} at once, {r.PerSecond}/s per mod" + (r.PerTargetBurst is { } t ? $", {t} at once per target" : "") }.Where(s => s != null));
+    private static RenderFragment Proof(bool live) => __builder =>
+    {
+        if (live) { <span class="badge green" data-live-proven>Live-proven</span> }
+        else { <span class="badge" title="Catalogued and guarded, but not tested in play">Not live-tested</span> }
+    };
+    private RenderFragment AssetBadge(string key) => __builder =>
+    {
+        if (Workspace.Metadata?.Assets?.Objects.GetValueOrDefault(key)?.PackageDependency is { } d)
+        {
+            if (d.Known) { <span class="badge" title="@("Package " + d.Package + (d.AutoLoadSupported ? ", loaded automatically when needed" : ""))">Assets @(d.AutoLoadSupported ? "auto-load" : "known")</span> }
+            else { <span class="badge amber" title="@d.Blocker">Assets unknown</span> }
+        }
+    };
+}

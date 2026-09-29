@@ -5,11 +5,16 @@ Not a release: no tag, no version bump, no update manifests, no checksum publica
 The package contains a launcher that starts ModBuilder with --sdk-path <HD2Runtime>\sdk and a separate data root (dev-data\ next to the
 executable), so real projects in %LOCALAPPDATA%\HD2RuntimeGUI are never validated against unreleased metadata.
 
-  .\scripts\publish-dev.ps1 [-SdkPath <HD2Runtime>\sdk]
+  .\scripts\publish-dev.ps1 [-SdkPath <HD2Runtime>\sdk] [-RuntimeCommit <commit>]
+
+-RuntimeCommit binds the SDK exactly as committed at that HD2Runtime commit instead of the working copy (for example while a Runtime
+pass has uncommitted sdk/ changes this build does not read yet). The snapshot is extracted with git archive into artifacts\dev\ (the
+Runtime checkout is not touched) and is never put in the package; the launcher points at it.
 #>
 param(
     [string]$SdkPath = (Join-Path (Split-Path $PSScriptRoot -Parent) '..\HD2Runtime\sdk'),
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+    [string]$RuntimeCommit
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -19,10 +24,27 @@ $project = Join-Path $repoRoot 'HD2RuntimeGUI\HD2RuntimeGUI.csproj'
 $updaterProject = Join-Path $repoRoot 'HD2RuntimeModBuilder.Updater\HD2RuntimeModBuilder.Updater.csproj'
 $commit = (& git -C $repoRoot rev-parse --short=7 HEAD).Trim()
 $dirty = [bool](& git -C $repoRoot status --porcelain)
-$runtimeCommit = try { (& git -C (Split-Path $SdkPath -Parent) rev-parse --short=7 HEAD).Trim() } catch { 'unknown' }
-$runtimeDirty = try { [bool](& git -C (Split-Path $SdkPath -Parent) status --porcelain -- sdk) } catch { $false }
-$name = "HD2Runtime-ModBuilder-dev-$commit$(if ($dirty) { '-dirty' })-win-x64"
+$runtimeRoot = Split-Path $SdkPath -Parent
 $devRoot = Join-Path $repoRoot 'artifacts\dev'
+if ($RuntimeCommit) {
+    $runtimeCommit = (& git -C $runtimeRoot rev-parse --short=7 "$RuntimeCommit^{commit}").Trim()
+    if ($LASTEXITCODE -ne 0) { throw "HD2Runtime commit $RuntimeCommit was not found in $runtimeRoot." }
+    $snapshot = Join-Path $devRoot "hd2runtime-sdk-$runtimeCommit"
+    if (Test-Path -LiteralPath $snapshot) { Remove-Item -LiteralPath $snapshot -Recurse -Force }
+    New-Item -ItemType Directory -Path $snapshot -Force | Out-Null
+    $tar = Join-Path ([IO.Path]::GetTempPath()) ("hd2runtime-sdk-" + [Guid]::NewGuid().ToString('N') + '.tar')
+    & git -C $runtimeRoot archive --format=tar -o $tar $runtimeCommit sdk
+    if ($LASTEXITCODE -ne 0) { throw "git archive of $runtimeCommit sdk failed." }
+    & tar -x -f $tar -C $snapshot; $extracted = $LASTEXITCODE; Remove-Item -LiteralPath $tar -Force
+    if ($extracted -ne 0) { throw 'Extracting the SDK snapshot failed.' }
+    $SdkPath = Join-Path $snapshot 'sdk'; $runtimeDirty = $false
+    if (-not (Test-Path (Join-Path $SdkPath 'metadata.json'))) { throw "HD2Runtime $runtimeCommit has no sdk\metadata.json." }
+} else {
+    $runtimeCommit = try { (& git -C $runtimeRoot rev-parse --short=7 HEAD).Trim() } catch { 'unknown' }
+    $runtimeDirty = try { [bool](& git -C $runtimeRoot status --porcelain -- sdk) } catch { $false }
+    if ($runtimeDirty) { Write-Warning "HD2Runtime's sdk\ has uncommitted changes (a Runtime pass in progress). This build may refuse them; use -RuntimeCommit <commit> to bind a committed SDK." }
+}
+$name = "HD2Runtime-ModBuilder-dev-$commit$(if ($dirty) { '-dirty' })-win-x64"
 $stage = Join-Path $devRoot $name; $zip = "$stage.zip"
 foreach ($path in @($stage, $zip)) { if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force } }
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
@@ -60,14 +82,17 @@ HD2Runtime ModBuilder - DEVELOPMENT BUILD (not a release)
 
 ModBuilder commit: $commit$(if ($dirty) { ' (uncommitted changes)' })
 Built: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm'))
-HD2Runtime SDK: $SdkPath (HD2Runtime $runtimeCommit$(if ($runtimeDirty) { ', with uncommitted sdk changes' }); reports its own version)
+HD2Runtime SDK: $SdkPath (HD2Runtime $runtimeCommit$(if ($RuntimeCommit) { ', committed snapshot' } elseif ($runtimeDirty) { ', with uncommitted sdk changes' }); reports its own version)
 
 Start it with "Launch ModBuilder DEV (local HD2Runtime SDK).cmd". The launcher:
   - binds the unreleased local HD2Runtime SDK (--sdk-path), which is validated in memory and never cached;
   - keeps projects, SDK cache and settings in dev-data\ next to this file, not in %LOCALAPPDATA%\HD2RuntimeGUI.
-Starting HD2RuntimeModBuilder.exe directly uses your normal data folder and the published SDK.
+Starting HD2RuntimeModBuilder.exe directly uses your normal data folder and the published SDKs (or the local SDK chosen in its
+Settings > Developer panel).
 
-What is new here: Enemies and Structures authoring (hd2.enemy / hd2.structure). See docs/enemy-authoring.md in the repository.
+What is new here: custom Lua / event scripting (src/addon.lua), projectile donors through the active projectile source (attack
+outputs), Resupply, the SH-20 shield zone, the SG-20 Halt's branch-qualified fields and the Settings > Developer local SDK choice,
+on top of Enemies and Structures authoring. See docs/runtime028-integration.md and docs/enemy-authoring.md in the repository.
 The in-app version still reads 1.3.1; this build is identified by its commit.
 "@
 Set-Content -LiteralPath (Join-Path $stage 'DEV-BUILD.txt') -Value $readme -Encoding utf8

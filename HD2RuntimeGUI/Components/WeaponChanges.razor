@@ -1,12 +1,12 @@
 @inject BuilderWorkspace Workspace
 <section class="panel weapon-summary"><div class="panel-heading"><h2>Player weapon changes</h2>
-    @if (Workspace.Project!.CompositionChanges.Count > 0 || Workspace.Project!.ProjectileChanges.Count > 0 || Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
+    @if (Workspace.Project!.CompositionChanges.Count > 0 || Workspace.Project!.ProjectileChanges.Count > 0 || Workspace.Project!.AttackOutputChanges is { Count: > 0 } || Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">Reset all weapon changes</button> }
 </div>
-@foreach (var weaponName in Workspace.WeaponGroups.Select(g => g.Weapon).Concat(Workspace.Project!.ProjectileChanges.Select(c => c.Weapon)).Concat(Workspace.Project.CompositionChanges.Select(c => c.Weapon)).Distinct().Order(StringComparer.Ordinal))
+@foreach (var weaponName in Workspace.WeaponGroups.Select(g => g.Weapon).Concat(Workspace.Project!.ProjectileChanges.Select(c => c.Weapon)).Concat(Workspace.Project.CompositionChanges.Select(c => c.Weapon)).Concat(Workspace.Project.AttackOutputChanges?.Select(c => c.Weapon) ?? []).Distinct().Order(StringComparer.Ordinal))
 {
     var group = Workspace.WeaponGroups.Where(g => g.Weapon == weaponName).ToArray();
     var weapon = Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == weaponName);
-    var count = Workspace.Project!.CompositionChanges.Count(c => c.Weapon == weaponName) + Workspace.Project!.ProjectileChanges.Count(c => c.Weapon == weaponName) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
+    var count = Workspace.Project!.CompositionChanges.Count(c => c.Weapon == weaponName) + Workspace.Project!.ProjectileChanges.Count(c => c.Weapon == weaponName) + (Workspace.Project!.AttackOutputChanges?.Count(c => c.Weapon == weaponName) ?? 0) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     var showAll = AllFields.Contains(weaponName);
     var rows = (weapon?.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")).Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
         .Concat(group.Where(g => g.Field == null).Select(g => new Row(null, g)))
@@ -50,7 +50,7 @@
                 </div>
             }
         }
-        @if (Workspace.Project.ProjectileChanges.Any(c => c.Weapon == weaponName) || Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName))
+        @if (Workspace.Project.ProjectileChanges.Any(c => c.Weapon == weaponName) || Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName) || Workspace.Project.AttackOutputChanges?.Any(c => c.Weapon == weaponName) == true)
         {
             <section data-composition-changes="@weaponName"><h3 class="summary-section">Composition</h3>
                 <ProjectileChanges Weapon="@weaponName" Changed="AliasResolved" />
@@ -58,11 +58,11 @@
             </section>
         }
         @if (showAll && Workspace.Metadata?.Advanced == null) { <WeaponComposition Weapon="@weaponName" Changed="AliasResolved" /> }
-        @if (!rows.Any() && !Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weaponName) && !Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName)) { <p class="subtle">No values differ from the SDK baseline. Enable Show all fields to inspect this weapon.</p> }
+        @if (!rows.Any() && !Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weaponName) && !Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName) && Workspace.Project.AttackOutputChanges?.Any(c => c.Weapon == weaponName) != true) { <p class="subtle">No values differ from the SDK baseline. Enable Show all fields to inspect this weapon.</p> }
         </div>
     </details>
 }
-@if (Workspace.Project!.WeaponChanges.Count == 0 && Workspace.Project.ProjectileChanges.Count == 0 && Workspace.Project.CompositionChanges.Count == 0) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
+@if (Workspace.Project!.WeaponChanges.Count == 0 && Workspace.Project.ProjectileChanges.Count == 0 && Workspace.Project.CompositionChanges.Count == 0 && Workspace.Project.AttackOutputChanges is not { Count: > 0 }) { <p>No player-weapon changes yet. Choose a weapon to get started.</p> }
 @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 </section>
 @code {

@@ -5,7 +5,9 @@
 <div class="field-row @(saved != null ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
         <span class="field-flags"><EvidenceBadge Evidence="Field.Evidence" Tiers="Tiers" Compact="true" />
-            @if (saved != null) { <span class="badge modified-badge">Modified</span> }</span></div>
+            @if (saved != null) { <span class="badge modified-badge">Modified</span> }
+            @if (Field.Effect is { ActiveSource: FieldEffect.Dormant }) { <span class="badge amber" data-field-dormant title="@Field.Reason">Not active</span> }
+            else if (Field.Effect is { ActiveSourceProven: false }) { <span class="badge amber" data-field-effect-unproven title="Runtime has not proven which value the game reads here">Effect unproven</span> }</span></div>
     <div class="field-value">
         @if (!Field.Editable) { <span class="badge" title="@Field.Reason">Read-only</span> }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.EffectiveRange?.Min)" max="@Bound(Field.EffectiveRange?.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
@@ -22,8 +24,17 @@
         <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
             @if (!Field.Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }
             @if (Field.EffectiveRange is { } range) { <p data-field-range><strong>Allowed range:</strong> @(Bound(range.Min) ?? "−∞") – @(Bound(range.Max) ?? "∞")@(string.IsNullOrWhiteSpace(range.Reason) ? "" : " · " + range.Reason)</p> }
+            @if (Field.Effect is { } effect)
+            {
+                <p data-field-effect><strong>Takes effect:</strong> @(effect.ActiveSource?.Replace('_', ' ').ToLowerInvariant() ?? "unknown")@(effect.ActiveSourceProven == true ? " (proven)" : effect.ActiveSourceProven == false ? " (not proven)" : "")@(effect.InstantiationOnly == true ? " · only on newly spawned " + (effect.AppliesWhen?.Replace('_', ' ') ?? "entities") : effect.AppliesWhen != null ? " · " + effect.AppliesWhen.Replace('_', ' ') : "")</p>
+                @if (effect.DamageRule != null) { <p><strong>Damage rule:</strong> @effect.DamageRule</p> }
+                @if (effect.Reason != null) { <p>@effect.Reason</p> }
+            }
             <p><strong>Evidence:</strong> @EvidenceBadge.Label(Field.Evidence.Tier)@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? " — " + tier : "")</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
+    @* A dormant member (0.28.0 development SDKs): the game reads another field, so point at the one that takes effect. *@
+    @if (Field.Effect is { ActiveSource: FieldEffect.Dormant } dormant && dormant.ActiveField != null)
+    { <p class="field-wide subtle" data-field-active-instead>The game does not use this value; <strong>@dormant.ActiveField</strong> is the one that takes effect.</p> }
     @if (saved != null && Workspace.EntityIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>

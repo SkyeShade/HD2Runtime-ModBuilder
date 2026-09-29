@@ -43,7 +43,9 @@ public sealed class PodPayloadCatalog
     public AssetReferenceFamily? PackageResidency { get; init; }
     public string? ResidencyVersusCompatibility { get; init; }
     public IReadOnlyList<PodLiveVerifiedPair> LiveVerifiedPairs { get; init; } = [];
-    public bool LiveVerifiedPair(PodRack rack, PodRackSlot slot, Pickup p) => LiveVerifiedPairs.Any(x => x.Rack == rack.Name && x.Slot == slot.Slot && x.Pickup == p.Name);
+    // A rack-level live pair, or (0.28.0 development SDKs) a pickup the slot itself lists as live-verified (the Resupply rack's Grenade Box).
+    public bool LiveVerifiedPair(PodRack rack, PodRackSlot slot, Pickup p) => LiveVerifiedPairs.Any(x => x.Rack == rack.Name && x.Slot == slot.Slot && x.Pickup == p.Name)
+        || slot.LiveVerifiedPickups?.Contains(p.Name, StringComparer.Ordinal) == true;
     // Slots and spawn counts adapted to the entity authoring pipeline (target resource "pod_rack").
     public required EntityField[] FieldInstances { get; init; }
     public PodRack? Rack(string name) => Racks.FirstOrDefault(r => r.Name == name);
@@ -117,6 +119,7 @@ public static class PodPayloadReader
                 && (!p.PackageDependency.AutoLoadSupported || p.PackageDependency.Known) && (p.PackageDependency.Known || p.PackageDependency.AlwaysResident || !string.IsNullOrWhiteSpace(p.PackageDependency.Blocker))
                 && p.PackageDependency.AlwaysResident == p.Residency.AlwaysResident)));
             var byName = c.Pickups.ToDictionary(p => p.Name, StringComparer.Ordinal);
+            Check(c.Racks.All(r => r.Slots.All(s => (s.LiveVerifiedPickups ?? []).All(n => s.Writable && byName.ContainsKey(n)))));
             Check((c.LiveVerifiedPairs ?? []).All(x => c.Racks.FirstOrDefault(r => r.Name == x.Rack) is { } r && r.Slots.Any(s => s.Slot == x.Slot && s.Writable)
                 && byName.TryGetValue(x.Pickup, out var p) && p.PackageDependency!.LiveTested));
             var fields = c.Racks.SelectMany(r => Adapt(r, c)).ToArray();

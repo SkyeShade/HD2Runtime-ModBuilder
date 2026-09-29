@@ -1,0 +1,120 @@
+@inject BuilderWorkspace Workspace
+@* What one attack fires, through its active projectile source (AttackOutputCapabilities.json, 0.28.0 development SDKs). Runtime says which
+   member the shot actually reads: the attack's own reference (ACTIVE_DIRECT), the default ammunition's projectile (INDIRECT, e.g. the AR-23
+   Liberator), or nothing writable (AMBIGUOUS / BLOCKED, with the reason). Donors are the catalogued projectile outputs, with their class,
+   package, proof and the opt-ins the write carries; refused donors show Runtime's reason. A dormant reference is never offered. *@
+@{
+    var catalog = Workspace.Metadata!.AttackOutputs!;
+    var source = catalog.Source(Weapon, Attack.Role);
+    var host = Workspace.OutputHost(Weapon, Attack.Role, out var reason);
+    var output = Workspace.AttackOutput(Weapon, Attack.Role);
+    var classic = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Attack.Role);
+    var own = catalog.Own(Weapon);
+}
+<div class="composition-control @(output != null || classic != null ? "modified" : "")" data-attack-output="@Attack.Role">
+    <div class="panel-heading"><h3>Projectile · @Attack.Role.Replace('_', ' ')</h3>
+        <span class="badge @(output != null || classic != null ? "modified-badge" : "")">@(output != null || classic != null ? "Modified" : host != null ? "Guarded" : "Read-only")</span></div>
+    <p class="@(output != null || classic != null ? "modified-value" : "subtle")" data-attack-fires>Fires: <strong>@(output?.OutputName ?? (classic != null ? classic.ReplacementProjectile.Label : own?.Label ?? Weapon))</strong>
+        @if (output == null && classic == null) { <span class="subtle"> (its own projectile)</span> }</p>
+    @if (source != null)
+    {
+        <details class="projectile-source" data-projectile-source="@source.Status"><summary>Active projectile source: <span class="badge @(host != null ? "green" : "")">@source.Status.Replace('_', ' ').ToLowerInvariant()</span>
+            @if (source.Mechanism != null) { <span class="badge">@source.Mechanism</span> }</summary>
+            <p class="subtle">@source.Reason</p>
+            @if (source.Member != null) { <p class="subtle">Member: <code>@source.Member</code>@(source.Write != null ? " · written as " : "")@if (source.Write != null) { <code>@source.Write</code> }</p> }
+            @if (host?.Ammunition is { } ammunition)
+            {
+                <p class="subtle" data-ammunition-source>Default ammunition <strong>@ammunition.Item</strong> (@ammunition.AppliesWhen). @ammunition.SharedReason
+                    @if (ammunition.SharedWithWeapons.Length > 0) { <span> Also equipped by: @string.Join(", ", ammunition.SharedWithWeapons).</span> }</p>
+            }
+        </details>
+    }
+    @if (host == null) { <p class="notice" data-attack-output-readonly>@reason</p> }
+    else
+    {
+        var donors = catalog.Donors(host);
+        var shown = donors.Where(d => (ShowCross || !d.CrossClass || d.ProvenOnHost) && (Search.Length == 0 || $"{d.Output.Label} {d.Output.KindLabel} {d.Output.SemanticId}".Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase))).ToArray();
+        <div class="donor-filters">
+            <label>Search donors<input data-donor-search @bind="Search" @bind:event="oninput" placeholder="EAT-700, Talon, arc…" /></label>
+            <label class="switch-label"><input type="checkbox" data-donor-cross @bind="ShowCross" /> Show other classes (cross-class, unverified unless proven)</label>
+        </div>
+        @if (Pending is { } pending)
+        {
+            <div class="swap-prompt" role="group" data-output-prompt>
+                <p><strong>You changed @(pending.Edits == 1 ? "one value" : pending.Edits + " values") on this attack's projectile.</strong> Projectile and explosion edits cannot follow an attack output (@pending.Donor.Output.Label); switching discards them.</p>
+                <div class="swap-actions"><button class="primary" data-output-discard @onclick="() => Choose(pending.Donor, true)">Switch and discard them</button>
+                    <button class="link-button" data-output-cancel @onclick="() => Pending = null">Cancel</button></div>
+            </div>
+        }
+        <div class="donor-list" role="listbox" aria-label="Projectile donors" data-donor-list>
+            @foreach (var d in shown)
+            {
+                var selected = output?.Output == d.Output.SemanticId || classic != null && classic.ReplacementProjectile.Weapon == d.Output.Owner.Name;
+                <button class="donor @(selected ? "active" : "") @(d.Allowed ? "" : "refused")" role="option" aria-selected="@selected" disabled="@(!d.Allowed || Busy)" data-donor="@d.Output.SemanticId"
+                        title="@(d.Refusal ?? d.Output.SemanticId)" @onclick="() => Choose(d, false)">
+                    <span class="donor-name"><strong>@d.Output.Label</strong> <small class="subtle">@d.Output.KindLabel · @(d.Output.CompatibilityClass?.Replace('_', ' '))</small></span>
+                    <span class="donor-badges">
+                        @if (d.CrossClass) { <span class="badge amber" data-donor-cross>Cross-class</span> }
+                        @if (d.ProvenOnHost) { <span class="badge green" data-donor-proven title="This exact composition passed a live test">Proven on @Weapon</span> }
+                        else if (d.Output.LiveProof?.DonorOutput == "live_proven") { <span class="badge green" title="@string.Join(", ", d.Output.LiveProof.Tests)">Donor live-proven</span> }
+                        @if (!d.Output.Package.Known) { <span class="badge amber" title="Runtime does not know this output's package">Assets unknown</span> }
+                        else if (d.Output.Package.AutoLoad) { <span class="badge" title="@("Package " + d.Output.Package.Name + " is loaded automatically before the write")">Assets auto-load</span> }
+                        @foreach (var a in d.Acknowledgements) { <span class="badge amber" data-flag="@a">@Flag(a)</span> }
+                    </span>
+                    @if (!d.Allowed) { <small class="donor-refusal">@d.Refusal</small> }
+                </button>
+            }
+            @if (shown.Length == 0) { <p class="subtle">No donor matches.</p> }
+        </div>
+        @if (output != null || classic != null) { <button class="reset-action" data-attack-output-reset @onclick="Reset">Reset projectile</button> }
+        @if (output != null)
+        {
+            @if (Workspace.AttackOutputIssue(output) is { } issue) { <p class="notice warning" role="alert">@issue</p> }
+            <OptInWarnings Acknowledgements="output.Acknowledgements" Reasons="Reasons(host, catalog.Output(output.Output))" />
+        }
+        @if (classic != null && Workspace.ProjectileIssue(classic) is { } classicIssue) { <p class="notice warning" role="alert">@classicIssue</p> }
+    }
+    @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+</div>
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter, EditorRequired] public ProjectileAttack Attack { get; set; } = default!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private sealed record PendingOutput(AttackOutputDonor Donor, int Edits);
+    private PendingOutput? Pending; private string Search = ""; private string? Error; private bool ShowCross, Busy;
+    private static string Flag(string a) => a switch { "allow_shared" => "Shared", "allow_unverified_effect" => "Effect unverified", "allow_unverified_reference" => "Reference unverified", _ => a };
+    // Why each opt-in applies to this pair, from the published catalog (ammunition sharing and effect, the cross-class rule).
+    private static IReadOnlyDictionary<string, string> Reasons(AttackOutputHost host, AttackOutput? output) => new Dictionary<string, string>
+    {
+        ["allow_shared"] = host.Ammunition?.SharedReason ?? "The written definition is shared.",
+        ["allow_unverified_effect"] = host.Ammunition?.EffectReason ?? "Firing this output from this host has not been confirmed in play.",
+        ["allow_unverified_reference"] = "A cross-class output: " + host.Weapon + " fires a " + host.CompatibilityClass.Replace('_', ' ') + " projectile and " + (output?.Label ?? "the donor")
+            + " a " + (output?.CompatibilityClass?.Replace('_', ' ') ?? "different") + " one. Only compositions proven in play need no acknowledgement.",
+    };
+    private async Task Choose(AttackOutputDonor donor, bool discard)
+    {
+        var host = Workspace.OutputHost(Weapon, Attack.Role, out _)!;
+        var edits = Workspace.Project!.CompositionChanges.Count(c => c.Weapon == Weapon && c.AttackRole == Attack.Role);
+        // A same-class donor the projectile graph also offers stays a classic reference swap, so projectile edits can follow it.
+        if (Workspace.ClassicSource(host, donor.Output) is { } reference)
+        {
+            if (edits > 0 && !discard) { Pending = new(donor, edits); return; }
+            await Run(async () => { await Workspace.SetAttackOutputAsync(Weapon, Attack.Role, null); await Workspace.SwapProjectileAsync(Weapon, Attack.Role, reference, keepValues: false); });
+            return;
+        }
+        if (edits > 0 && !discard) { Pending = new(donor, edits); return; }
+        await Run(() => Workspace.SetAttackOutputAsync(Weapon, Attack.Role, donor.Output.SemanticId, discardObjectEdits: true));
+    }
+    private Task Reset() => Run(async () =>
+    {
+        await Workspace.SetAttackOutputAsync(Weapon, Attack.Role, null);
+        if (Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == Weapon && c.AttackRole == Attack.Role)) await Workspace.SwapProjectileAsync(Weapon, Attack.Role, null, keepValues: false);
+    });
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); Pending = null; await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

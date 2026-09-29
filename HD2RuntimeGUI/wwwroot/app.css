@@ -1406,3 +1406,83 @@ h2.native-name { font-size:21px }
 .zone-detail h3.group-title small, .attack-detail h3.group-title small { margin-left:8px; font-size:12px; font-weight:400 }
 .native-name { overflow-wrap:anywhere }
 .enemy-browser .resource-item { min-width:0; max-width:100% }
+/* Mission stratagems (Resupply and other mission call-ins published by 0.28.0 development SDKs). */
+:root { --cat-mission:#5fc7c9 }
+.cat-mission { --cat:var(--cat-mission) }
+.badge.red { color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, transparent); background:color-mix(in srgb, var(--danger) 9%, transparent) }
+/* Custom Lua (src/addon.lua): editor, diagnostics, snippets, event reference and action pickers. */
+.custom-lua { display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:20px; align-items:start }
+.custom-lua-side { position:sticky; top:0; max-height:calc(100vh - 150px); overflow:auto; min-width:0 }
+.custom-lua-side button.small, .custom-lua button.small { padding:4px 10px; font-size:12px }
+.custom-lua-side code { word-break:break-word }
+.custom-lua-toolbar { display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; margin-bottom:12px }
+.custom-lua-file { display:flex; gap:8px; align-items:center; flex-wrap:wrap; min-width:0 }
+.custom-lua-file small { max-width:460px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.custom-lua-toolbar .actions, .custom-lua-conflict .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+.custom-lua-toolbar .actions button { padding:7px 12px }
+.custom-lua-conflict { display:flex; flex-direction:column; gap:8px; margin-bottom:12px }
+.lua-editor { --lua-line:20px; position:relative; display:grid; grid-template-columns:auto minmax(0,1fr); height:62vh; min-height:360px; border:1px solid var(--border);
+    border-radius:10px; background:#0d0f13; font-family:'Cascadia Mono','Consolas',monospace; font-size:13px; line-height:var(--lua-line); overflow:hidden }
+.lua-editor:focus-within { border-color:var(--accent-border) }
+.lua-gutter { overflow:hidden; padding:10px 8px 60px 12px; min-width:3.6em; text-align:right; color:#5d6676; user-select:none; border-right:1px solid var(--border); background:#111419 }
+.lua-gutter > div { height:var(--lua-line); padding:0 4px; border-radius:3px }
+.lua-gutter .lua-line-error { color:var(--danger); background:color-mix(in srgb, var(--danger) 18%, transparent) }
+.lua-gutter .lua-line-warning { color:var(--warning); background:color-mix(in srgb, var(--warning) 14%, transparent) }
+.lua-surface { position:relative; overflow:hidden; min-width:0 }
+.lua-highlight, .lua-input, .lua-mirror { margin:0; padding:10px 14px; border:0; box-sizing:border-box; font:inherit; line-height:var(--lua-line); tab-size:4; white-space:pre; letter-spacing:0 }
+.lua-highlight { position:absolute; inset:0; overflow:hidden; pointer-events:none; color:var(--text); background:transparent }
+.lua-highlight code { display:block; min-width:max-content; padding:0 60px 60px 0; font:inherit; background:none; color:inherit }
+.lua-input { position:absolute; inset:0; width:100%; height:100%; resize:none; overflow:auto; background:transparent; color:transparent; caret-color:var(--text); outline:none !important; border-radius:0 }
+.lua-input::selection { background:rgba(121,174,252,.32); color:transparent }
+.lua-mirror { position:absolute; top:0; left:0; visibility:hidden; pointer-events:none }
+.lua-comment { color:#6c7686; font-style:italic }
+.lua-string { color:#9fd89f }
+.lua-number { color:#f2b27a }
+.lua-keyword { color:#c7a0ff }
+.lua-constant { color:#f08aa0 }
+.lua-hd2 { color:var(--brand-yellow) }
+.lua-call { color:#79aefc }
+.lua-popup { position:absolute; z-index:30; min-width:260px; max-width:520px; max-height:240px; overflow:auto; background:var(--surface2); border:1px solid #3a4150;
+    border-radius:8px; box-shadow:0 10px 28px rgba(0,0,0,.45); font-size:12.5px }
+.lua-completion { display:flex; gap:10px; justify-content:space-between; padding:4px 10px; cursor:pointer; white-space:nowrap }
+.lua-completion small { color:var(--muted); overflow:hidden; text-overflow:ellipsis }
+.lua-completion.active, .lua-completion:hover { background:var(--accent-selected-bg); color:var(--accent-selected) }
+.custom-lua-diagnostics { display:flex; flex-direction:column; gap:4px; margin-top:10px }
+.lua-diagnostic { display:flex; gap:8px; align-items:center; text-align:left; padding:5px 9px; background:transparent; border:1px solid var(--border); font-size:13px }
+.lua-diagnostic.error { border-color:color-mix(in srgb, var(--danger) 45%, transparent) }
+.lua-diagnostic.warning { border-color:#5a4c29 }
+.custom-lua-tabs, .custom-lua-subtabs { display:flex; gap:2px; border-bottom:1px solid var(--border); margin-bottom:12px }
+.custom-lua-tabs button, .custom-lua-subtabs button { background:transparent; border:0; border-bottom:2px solid transparent; border-radius:0; padding:7px 11px; color:var(--muted) }
+.custom-lua-tabs button:hover, .custom-lua-subtabs button:hover { color:var(--text); background:transparent }
+.custom-lua-tabs button.active, .custom-lua-subtabs button.active { color:var(--text); border-bottom-color:var(--accent) }
+.snippet { padding:10px 0; border-bottom:1px solid var(--border) }
+.snippet p { margin:4px 0 }
+.snippet-head { display:flex; justify-content:space-between; align-items:center; gap:8px }
+.reference-search { display:block; margin-bottom:10px }
+.reference-search input { width:100% }
+.reference-item { padding:8px 0; border-bottom:1px solid var(--border) }
+.reference-item summary { display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.reference-item p { margin:4px 0 }
+.reference-method { display:flex; flex-direction:column; margin:5px 0 }
+.reference-table { width:100%; border-collapse:collapse; font-size:12.5px; margin:6px 0 }
+.reference-table th, .reference-table td { padding:3px 6px; text-align:left; vertical-align:top; border-bottom:1px solid var(--border) }
+.reference-table th { color:var(--muted); font-weight:600 }
+.action-group { margin-bottom:18px }
+.action-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid var(--border) }
+.action-row > span:nth-child(2) { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end }
+@media (max-width:1250px) { .custom-lua { grid-template-columns:minmax(0,1fr) } .custom-lua-side { position:static; max-height:none } }
+/* Projectile donors through the active projectile source (0.28.0 development SDKs). */
+.projectile-source { margin:8px 0; font-size:13px }
+.projectile-source summary { display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.projectile-source p { margin:4px 0 }
+.donor-filters { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin:10px 0 }
+.donor-filters input:not([type=checkbox]) { min-width:240px }
+.donor-list { display:flex; flex-direction:column; gap:3px; max-height:360px; overflow:auto; padding:4px; border:1px solid var(--border); border-radius:10px }
+.donor { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; align-items:center; text-align:left; padding:7px 10px; background:transparent; border:1px solid transparent; border-radius:8px }
+.donor:hover:not(:disabled) { background:var(--surface2); border-color:var(--border) }
+.donor.active { background:var(--accent-selected-bg); border-color:var(--accent-selected-border) }
+.donor.active .donor-name strong { color:var(--accent-selected) }
+.donor.refused { opacity:.62; cursor:not-allowed }
+.donor-name { min-width:0 }
+.donor-badges { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end }
+.donor-refusal { grid-column:1 / -1; color:var(--muted) }

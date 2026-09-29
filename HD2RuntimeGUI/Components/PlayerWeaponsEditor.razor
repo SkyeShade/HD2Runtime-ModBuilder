@@ -55,7 +55,9 @@
                                 <summary><span class="subtle">Projectile@(attacks.Length > 1 ? " · " + attack.Role.Replace('_', ' ') : ""):</span> <strong data-projectile-object="@target.Weapon" data-projectile-role="@target.AttackRole">@target.Label</strong>
                                     @if (swap != null) { <span class="badge modified-badge">Replaced</span> }
                                     @if (orphaned) { <span class="badge amber" data-projectile-needs-attention>Needs attention</span> }<span class="composition-action">Change projectile…</span></summary>
-                                <ProjectileSelector @key="(weapon.Name, attack.Role)" Weapon="@weapon.Name" Attack="attack" Changed="FieldChanged" />
+                                @* 0.28.0 development SDKs publish the active projectile source: donors are chosen through it. *@
+                                @if (Workspace.Metadata?.AttackOutputs != null) { <AttackOutputSelector @key="(weapon.Name, attack.Role)" Weapon="@weapon.Name" Attack="attack" Changed="FieldChanged" /> }
+                                else { <ProjectileSelector @key="(weapon.Name, attack.Role)" Weapon="@weapon.Name" Attack="attack" Changed="FieldChanged" /> }
                                 @foreach (var phase in Phases.Where(p => !explosions.Any(e => e.Attack == attack && e.Phase == p)))
                                 { <TerminalEditor @key="(weapon.Name, attack.Role, target, phase)" Weapon="@weapon.Name" Role="@attack.Role" Phase="@phase" Changed="FieldChanged" /> }
                             </details>

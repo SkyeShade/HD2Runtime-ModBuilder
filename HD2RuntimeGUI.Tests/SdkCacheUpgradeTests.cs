@@ -31,7 +31,7 @@ public sealed class SdkCacheUpgradeTests
         var sdk = await SdkFixtures.Install(e, "0.23.1");
         Assert.Equal("0.23.1", sdk.Version); Assert.Equal(43, sdk.Entities!.Attachments!.Attachments.Count());
         Assert.Equal(SdkFixtures.Entry("0.23.1", Magazine), File.ReadAllBytes(Path.Combine(Dir(e, "0.23.1"), Magazine)));
-        Assert.Equal(18, Directory.GetFiles(Dir(e, "0.23.1")).Length);
+        Assert.Equal(19, Directory.GetFiles(Dir(e, "0.23.1")).Length); // with its LuaLS stub (custom Lua autocomplete)
         Assert.Equal("0.23.1", Current(e));
         e.GitHub.Release = FakeGitHub.MakeRelease("0.23.1", e.GitHub.Archive);
         var status = await e.Updates.CheckAsync(); Assert.True(status.VerifiedOnline); Assert.Equal("0.23.1", status.Installed.Version); Assert.Equal("0.23.1", status.Latest!.Version); Assert.False(status.UpdateAvailable);

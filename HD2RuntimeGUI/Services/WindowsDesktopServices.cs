@@ -14,6 +14,14 @@ public sealed class WindowsFolderOpener : IFolderOpener
         Process.Start(start);
         return Task.CompletedTask;
     }
+    // The OS file association (ShellExecute): the user's default editor for .lua, or Windows' "open with" choice when there is none.
+    public Task OpenFileAsync(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (!File.Exists(fullPath)) throw new FileNotFoundException("The file does not exist.", fullPath);
+        Process.Start(new ProcessStartInfo(fullPath) { UseShellExecute = true })?.Dispose();
+        return Task.CompletedTask;
+    }
 }
 public sealed class ProjectFilePicker : IProjectFilePicker
 {

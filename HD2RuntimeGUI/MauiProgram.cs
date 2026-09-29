@@ -33,13 +33,16 @@ public static class MauiProgram
         // An explicit root is useful for isolated smoke tests; normal users continue to use LocalAppData.
         var configuredRoot = Environment.GetEnvironmentVariable("HD2RUNTIMEGUI_DATA_ROOT");
         if (!string.IsNullOrWhiteSpace(configuredRoot)) dataRoot = Path.GetFullPath(configuredRoot);
-        builder.Services.AddSingleton(new AppPaths(dataRoot));
+        var paths = new AppPaths(dataRoot);
+        builder.Services.AddSingleton(paths);
         builder.Services.AddSingleton(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(25) });
         builder.Services.AddSingleton<IGitHubReleaseClient, GitHubReleaseClient>();
         builder.Services.AddSingleton<IMetadataReader, MetadataReader>();
-        // Developer-only: bind an unpublished local Runtime SDK (sdk/ directory or SDK zip) for this run without touching the SDK cache.
-        var localSdk = LocalSdkArgument(Environment.GetCommandLineArgs()) ?? Environment.GetEnvironmentVariable("HD2RUNTIME_SDK_PATH");
-        builder.Services.AddSingleton<ISdkCache>(services => { var cache = ActivatorUtilities.CreateInstance<SdkCache>(services); if (!string.IsNullOrWhiteSpace(localSdk)) cache.LocalSdkPath = Path.GetFullPath(localSdk); return cache; });
+        // Developer-only: bind an unpublished local Runtime SDK (sdk/ directory or SDK zip) for this run without touching the SDK cache:
+        // --sdk-path, then HD2RUNTIME_SDK_PATH, then the local SDK remembered in Settings.
+        var localSdk = DeveloperSdk.Resolve(Environment.GetCommandLineArgs(), Environment.GetEnvironmentVariable("HD2RUNTIME_SDK_PATH"), DeveloperSdk.Load(paths));
+        builder.Services.AddSingleton(new ActiveLocalSdk(localSdk));
+        builder.Services.AddSingleton<ISdkCache>(services => { var cache = ActivatorUtilities.CreateInstance<SdkCache>(services); if (localSdk != null) cache.LocalSdkPath = localSdk.Path; return cache; });
         builder.Services.AddSingleton<ISdkUpdateService, SdkUpdateService>();
         // HD2Runtime ModBuilder application updates (GitHub Releases of SkyeShade/HD2Runtime-ModBuilder), separate from SDK updates.
         builder.Services.AddSingleton<IAppReleaseClient, AppReleaseClient>();
@@ -80,15 +83,5 @@ public static class MauiProgram
 #endif
 
         return builder.Build();
-    }
-    // --sdk-path <path> or --sdk-path=<path>.
-    internal static string? LocalSdkArgument(string[] args)
-    {
-        for (var i = 0; i < args.Length; i++)
-        {
-            if (args[i].StartsWith("--sdk-path=", StringComparison.OrdinalIgnoreCase)) return args[i]["--sdk-path=".Length..];
-            if (args[i].Equals("--sdk-path", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length) return args[i + 1];
-        }
-        return null;
     }
 }

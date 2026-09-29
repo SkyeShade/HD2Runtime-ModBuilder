@@ -13,7 +13,7 @@ public sealed class NavigationTests
         using var e = new TestEnvironment(); var sdk = await Current(e);
         var nav = Navigation.Build(sdk, null);
         // Vehicles and Backpacks are Support stratagems (Stratagems → Support tabs), not separate sidebar destinations.
-        Assert.Equal(["overview", "player-weapons", "throwables", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "boosters", "changes", "lua", "export", "research"],
+        Assert.Equal(["overview", "player-weapons", "throwables", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "boosters", "changes", "scripting", "lua", "export", "research"],
             nav.Select(i => i.Page));
         var labels = nav.Select(i => i.Label).ToArray();
         // "Vehicles" is now the hd2.vehicle destination (page "vehicles"), never the legacy mapped "vehicle" builder category.

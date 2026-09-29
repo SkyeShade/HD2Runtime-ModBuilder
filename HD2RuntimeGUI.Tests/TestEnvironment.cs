@@ -42,7 +42,8 @@ public sealed class TestEnvironment : IDisposable
 }
 public sealed class FakeDesktop : IFolderOpener, IProjectFilePicker
 {
-    public string? OpenedPath, PickedPath;
+    public string? OpenedPath, PickedPath, OpenedFile;
+    public Task OpenFileAsync(string path) { OpenedFile = path; return Task.CompletedTask; }
     public bool SelectedFile;
     public Task OpenAsync(string path, bool selectFile = false) { OpenedPath = path; SelectedFile = selectFile; return Task.CompletedTask; }
     public Task<string?> PickAsync() => Task.FromResult(PickedPath);

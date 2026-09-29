@@ -15,7 +15,7 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
     public async Task<string> ExportAsync(ModProject project, SdkMetadata sdk)
     {
         var lua = generator.Generate(project, sdk);
-        if (!project.EntityChanges.Any(c => c.Enabled) && !project.StratagemChanges.Any(c => c.Enabled) && !project.SupportChanges.Any(c => c.Enabled) && !project.Changes.Any(c => c.Enabled) && !project.WeaponChanges.Any(c => c.Enabled) && !project.ProjectileChanges.Any(c => c.Enabled) && !project.CompositionChanges.Any(c => c.Enabled)) throw new InvalidDataException("Add at least one enabled modification before exporting.");
+        if (LuaGenerator.CustomSource(project) == null && !(project.AttackOutputChanges ?? []).Any(c => c.Enabled) && !project.EntityChanges.Any(c => c.Enabled) && !project.StratagemChanges.Any(c => c.Enabled) && !project.SupportChanges.Any(c => c.Enabled) && !project.Changes.Any(c => c.Enabled) && !project.WeaponChanges.Any(c => c.Enabled) && !project.ProjectileChanges.Any(c => c.Enabled) && !project.CompositionChanges.Any(c => c.Enabled)) throw new InvalidDataException("Add at least one enabled modification or custom Lua before exporting.");
         var requires = new { bingus = new { min_release = 15, api = 1 }, hd2runtime = new { module = ProjectIdentity.RuntimeModule, min_version = sdk.Version, api = sdk.ApiVersion } };
         var description = $"Requires Bingus Shared Loader v15+ / API 1 and HD2Runtime {sdk.Version}+ / API {sdk.ApiVersion}; install dependencies separately.";
         // In-game options: Mod Options Menu is optional (never in requires), declared only when at least one active edit is bound.

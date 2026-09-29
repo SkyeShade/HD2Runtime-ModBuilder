@@ -51,6 +51,7 @@
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "boosters") { <Boosters Changed="RefreshWeaponUI" /> }
         else if (Page == "throwables") { <Throwables Changed="RefreshWeaponUI" /> }
+        else if (Page == "scripting") { <CustomLuaPage Changed="RefreshWeaponUI" /> }
         else if (Page == "enemies") { <Enemies Kind="@EnemyAuthoringReader.Enemy" Changed="RefreshWeaponUI" /> }
         else if (Page == "structures") { <Enemies Kind="@EnemyAuthoringReader.Structure" Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
@@ -67,6 +68,7 @@
             else
             { <p class="notice warning" data-sdk-error>@(Workspace.SdkError is { } sdkError ? "The installed SDK could not be loaded: " + sdkError : "Loading the installed SDK…")</p> }<p class="subtle">Source: github.com/SkyeShade/HD2Runtime · Public access, no token required.</p><div class="actions"><button @onclick="CheckUpdates">Check for SDK updates</button>@if (Workspace.SdkStatus?.UpdateAvailable == true) { <button class="primary" @onclick="InstallUpdate">Install Update</button> }</div></section>
             @if (Workspace.SdkStatus?.Installed.PlayerWeapons is { } capabilities) { <section class="panel"><h2>Player weapon capability catalog</h2><p>@capabilities.Summary.Weapons weapons · @capabilities.Summary.FieldInstances entries · @capabilities.Summary.WritableSemanticFieldDefinitions writable / @capabilities.Summary.ReadOnlySemanticFieldDefinitions read-only definitions · @capabilities.Summary.DerivedSemanticFieldDefinitions derived definitions</p><p>@capabilities.Summary.DuplicateWeapons ambiguous identities fail closed. Shared settings are flagged with a warning.</p></section> }
+            <LocalSdkSettings />
             <section class="panel" data-game-icons><h2>Game icons</h2>
                 <p>Stratagem and booster icons are read from your own Helldivers 2 installation on this computer and stored in the local data folder. They are game assets and are not shipped with this tool; the game folder is only read.</p>
                 <label>Game data folder<input id="icon-data-path" @bind="IconDataPath" placeholder="…\steamapps\common\Helldivers 2\data" /></label>
@@ -166,6 +168,13 @@
                 <SupportChanges Changed="RefreshWeaponUI" />
                 <StratagemChanges Changed="RefreshWeaponUI" />
                 <EntityChanges Changed="RefreshWeaponUI" />
+                @if (Workspace.Project?.CustomLua is { } customLua)
+                {
+                    <section class="panel" data-custom-lua-change><div class="panel-heading"><h2>Custom Lua</h2><span class="badge @(customLua.Enabled ? "modified-badge" : "")">@(customLua.Enabled ? "Included" : "Not included")</span></div>
+                        <p class="subtle"><code>@CustomLuaSettings.RelativePath</code> · @LineCount(customLua.Source) lines</p>
+                        @if (Workspace.CustomLuaSyncIssue() is { } syncIssue) { <p class="notice warning">@syncIssue</p> }
+                        <button @onclick='() => Navigate("scripting")'>Open custom Lua</button></section>
+                }
                 @if (active.Changes.Count > 0) {
                 <section class="panel"><div class="panel-heading"><h2>Other configured modifications</h2><span class="badge">@active.Changes.Count(c => c.Enabled) enabled</span></div>
                     @foreach (var group in active.Changes.GroupBy(c => c.Group))
@@ -178,7 +187,7 @@
             }
             else if (Page == "export")
             {
-                <section class="panel"><h2>Build your gameplay mod</h2><p>The ZIP contains your mod's archive, Lua source and dependency metadata. Install Bingus v15+ / API 1 and HD2Runtime @active.SdkVersion+ / API @active.RuntimeApi separately.</p><label for="export-directory">Export directory</label><div class="input-action"><input id="export-directory" @bind="ExportDirectory" /><button @onclick="SaveExportDirectory">Save directory</button></div><p class="subtle">Repeated exports of the same project produce identical ZIP content.</p><button class="primary" @onclick="BuildExport">↗ Build / Export Mod</button></section>
+                <section class="panel"><h2>Build your gameplay mod</h2><p>The ZIP contains your mod's archive, Lua source and dependency metadata. Install Bingus v15+ / API 1 and HD2Runtime @active.SdkVersion+ / API @active.RuntimeApi separately.</p><label for="export-directory">Export directory</label><div class="input-action"><input id="export-directory" @bind="ExportDirectory" /><button @onclick="SaveExportDirectory">Save directory</button></div><p class="subtle">Repeated exports of the same project produce identical ZIP content.</p>@if (Workspace.Metadata?.Has028 == true) { <p class="subtle" data-export-apply-timing>Weapon values reach weapons the game builds after the change applied; a weapon already in hand keeps its old copy until it is rebuilt. HD2Runtime logs <code>registered operations settled</code> in HD2Runtime.log once every change has been applied or refused.</p> }<button class="primary" @onclick="BuildExport">↗ Build / Export Mod</button></section>
                 @if (Workspace.LastExport != null) { <section class="panel export-success" role="status"><span class="badge green">BUILD SUCCEEDED</span><h2>Export complete</h2><code class="path">@Workspace.LastExport</code><button @onclick="() => Run(Workspace.OpenExportAsync)">Open Export Folder ↗</button></section> }
                 <LuaPreview Source="@Workspace.LuaPreview" />
             }

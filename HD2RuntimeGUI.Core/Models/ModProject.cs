@@ -30,6 +30,12 @@ public sealed class ModProject
     // Format 7: in-game options. Omitted when never configured, so older projects save unchanged.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ModOptionsSettings? ModOptions { get; set; }
+    // Format 11: hand-written Runtime Lua (src/addon.lua). Omitted until a project adds it.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CustomLuaSettings? CustomLua { get; set; }
+    // Format 11: attacks that fire another catalogued output (hd2.attack_output). Omitted until a project has one.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<AttackOutputChange>? AttackOutputChanges { get; set; }
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

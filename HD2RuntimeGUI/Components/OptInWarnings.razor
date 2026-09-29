@@ -1,0 +1,27 @@
+@* Runtime opt-ins a write carries (allow_shared, allow_unverified_effect, allow_unverified_reference), each with why it is required. Opt-ins
+   are implicit: the generated Lua always carries them and nothing needs ticking; these panels only make the risk visible. *@
+@foreach (var flag in Acknowledgements.Order(StringComparer.Ordinal))
+{
+    <AckPanel Title="@Title(flag)" Kind="@(flag == "allow_shared" ? "shared" : "unverified")" Description="@(Reasons?.GetValueOrDefault(flag) ?? Default(flag))"
+        PanelAttributes='@(new() { ["data-opt-in"] = flag })'>
+        <p class="subtle">Written with <code>@flag=true</code>.</p>
+    </AckPanel>
+}
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<string> Acknowledgements { get; set; } = [];
+    [Parameter] public IReadOnlyDictionary<string, string>? Reasons { get; set; }
+    public static string Title(string flag) => flag switch
+    {
+        "allow_shared" => "Shared definition",
+        "allow_unverified_effect" => "Effect not gameplay-confirmed",
+        "allow_unverified_reference" => "Reference not gameplay-confirmed",
+        _ => flag,
+    };
+    public static string Default(string flag) => flag switch
+    {
+        "allow_shared" => "The written object is shared: every user of it changes too.",
+        "allow_unverified_effect" => "Runtime proves the value is written where it belongs, but the in-game effect of changing it has not been confirmed in play.",
+        "allow_unverified_reference" => "Runtime proves the reference is written and its assets load, but the game has not been observed using this replacement in play.",
+        _ => "Required by Runtime for this write.",
+    };
+}

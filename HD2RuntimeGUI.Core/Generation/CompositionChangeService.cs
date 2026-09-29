@@ -22,6 +22,8 @@ public interface ICompositionChangeService
 public sealed class CompositionChangeService : ICompositionChangeService
 {
     private readonly WeaponChangeService scalars = new();
+    public static AttackOutputChange? FiresOutput(ModProject project, string weapon, string role) =>
+        project.AttackOutputChanges?.FirstOrDefault(c => c.Enabled && c.Weapon == weapon && c.AttackRole == role);
     public ProjectileReference EffectiveProjectile(ModProject project, string weapon, string role) => project.ProjectileChanges.SingleOrDefault(c => c.Enabled && c.Weapon == weapon && c.AttackRole == role)?.ReplacementProjectile ?? new(weapon, role);
     public static bool ProjectileOwned(WeaponCapability f) => f.Domain is "projectile" or "damage" && f.Backing?.Branch != null;
     private static string Branch(string role) => role.StartsWith("feed_", StringComparison.Ordinal) ? role[5..] : role;
@@ -40,6 +42,8 @@ public sealed class CompositionChangeService : ICompositionChangeService
     public ExplosionReference EffectiveExplosion(ModProject project, SdkMetadata sdk, string weapon, string role, string phase) => project.CompositionChanges.SingleOrDefault(c => c.Enabled && c.Weapon == weapon && c.AttackRole == role && c.Kind == "terminal" && c.Phase == phase)?.DesiredExplosion ?? BaselineExplosion(sdk, EffectiveProjectile(project, weapon, role), phase);
     public IReadOnlyList<WeaponCapability> Fields(ModProject project, SdkMetadata sdk, string weapon, string role, string kind, string? phase)
     {
+        // An attack that fires another output (0.28.0 development SDKs) has no projectile object ModBuilder can edit through it.
+        if (FiresOutput(project, weapon, role) != null) return [];
         var target = EffectiveProjectile(project, weapon, role);
         if (kind == "projectile") return sdk.PlayerWeapons!.Weapon(target.Weapon).Fields.Where(f => f.IsPreferred && ProjectileOwned(f) && f.Backing!.Branch == Branch(target.AttackRole)).ToArray();
         var explosion = EffectiveExplosion(project, sdk, weapon, role, phase!);
@@ -145,6 +149,8 @@ public sealed class CompositionChangeService : ICompositionChangeService
     public void Validate(ModProject project, SdkMetadata sdk, CompositionChange c)
     {
         RequireModern(sdk);
+        if (FiresOutput(project, c.Weapon, c.AttackRole) is { } output)
+            throw new InvalidDataException($"{c.Weapon} fires the {output.OutputName} output now, so its projectile and explosion edits no longer apply. Discard them in its Projectile section, or reset the output.");
         if (EffectiveProjectile(project, c.Weapon, c.AttackRole) != c.Target) throw new InvalidDataException($"{c.Weapon} has edits on the {c.Target.Label}, which it no longer fires. Keep or discard them in its Projectile section.");
         if (c.TargetEvidence != ProjectileChangeService.Evidence(sdk, c.Target)) throw new InvalidDataException("Projectile object identity/residency changed. Review and reset or explicitly accept the new baseline.");
         WeaponCapability f;

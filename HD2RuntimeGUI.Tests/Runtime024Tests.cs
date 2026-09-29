@@ -47,7 +47,7 @@ public sealed class Runtime024Tests
         Assert.Contains("--booster-category-yellow:#f2c94c;", css); Assert.Contains("--cat-booster:var(--booster-category-yellow);", css);
         // Brand and category tokens are separate, so a brand change never alters the Booster category colour.
         Assert.Contains("--brand-yellow:#fdd00e;", css); Assert.Contains("--accent:var(--brand-yellow);", css); Assert.Contains(".cat-booster { --cat:var(--cat-booster) }", css);
-        Assert.Equal(["cat-support", "cat-offensive", "cat-defensive"], StratagemCategories.All.Select(c => c.CssClass));
+        Assert.Equal(["cat-support", "cat-offensive", "cat-defensive", "cat-mission"], StratagemCategories.All.Select(c => c.CssClass));
     }
     private static string Root()
     {

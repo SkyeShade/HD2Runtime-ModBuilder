@@ -50,7 +50,8 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader, IStratagemCatalogReader stratagemReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
     private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName)
-        .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName).Append(AssetDependencyReader.FileName).Append(ThrowableAuthoringReader.FileName).Append(EnemyAuthoringReader.FileName);
+        .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName).Append(AssetDependencyReader.FileName).Append(ThrowableAuthoringReader.FileName).Append(EnemyAuthoringReader.FileName)
+        .Append(EventCatalogReader.FileName).Append(AttackOutputReader.FileName).Append(Scripting.LuaApiIndex.CacheName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -160,7 +161,18 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 if (!sdk.Has027) throw new InvalidDataException("Enemy authoring metadata requires SDK 0.27.0 or newer.");
                 sdk = sdk with { Entities = sdk.Entities.WithEnemies(EnemyAuthoringReader.Read(enemies, sdk.Version)) };
             }
+            // Event scripting (EventCatalog.json), attack outputs / active projectile sources (AttackOutputCapabilities.json) and the SDK's
+            // LuaLS stub (autocomplete): unreleased 0.28.0 development SDKs. Read whenever present; the two catalogs are required from 0.28.0.
+            if (payload.Composition.GetValueOrDefault(EventCatalogReader.FileName) is { } events) sdk = sdk with { Events = EventCatalogReader.Read(events, sdk.Version) };
+            else if (sdk.Has028) throw MissingFile(EventCatalogReader.FileName, "SDK is missing its event catalog.");
+            if (payload.Composition.GetValueOrDefault(AttackOutputReader.FileName) is { } outputs) sdk = sdk with { AttackOutputs = AttackOutputReader.Read(outputs, sdk.Version, sdk.PlayerWeapons!) };
+            else if (sdk.Has028) throw MissingFile(AttackOutputReader.FileName, "SDK is missing attack output capabilities.");
         }
+        // The LuaLS stub only drives custom Lua autocomplete, for any SDK that ships one: an unreadable stub leaves autocomplete off
+        // instead of refusing the SDK (nothing is written from it).
+        if (payload.Composition?.GetValueOrDefault(Scripting.LuaApiIndex.CacheName) is { } stub)
+            try { sdk = sdk with { LuaApi = Scripting.LuaStubReader.Read(System.Text.Encoding.UTF8.GetString(stub)) }; }
+            catch (InvalidDataException) { }
         return sdk;
     }
     private static void LinkAssets(AssetDependencyCatalog assets, EntityAuthoring entities, PlayerWeaponComposition? composition)
@@ -222,6 +234,8 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         var metadata = await Read("metadata.json", MetadataReader.MaxBytes) ?? throw new InvalidDataException("Local SDK directory must contain metadata.json.");
         var graphs = new Dictionary<string, byte[]>();
         foreach (var name in GraphFiles) if (await Read(name, GraphLimit(name)) is { } bytes) graphs.Add(name, bytes);
+        // The generated LuaLS stub lives under stubs/ in an SDK; it is kept under a flat name.
+        if (!graphs.ContainsKey(Scripting.LuaApiIndex.CacheName) && await Read(Scripting.LuaApiIndex.StubPath, Scripting.LuaApiIndex.MaxBytes) is { } stub) graphs.Add(Scripting.LuaApiIndex.CacheName, stub);
         return new(metadata, await Read(PlayerWeaponCatalogReader.FileName, PlayerWeaponCatalogReader.MaxBytes), await Read(PlayerWeaponAmmoCatalogReader.FileName, PlayerWeaponAmmoCatalogReader.MaxBytes), graphs);
     }
     public async Task<SdkMetadata> GetCurrentAsync(CancellationToken ct = default)
@@ -384,7 +398,9 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         var ammo = archive.GetEntry(PlayerWeaponAmmoCatalogReader.FileName);
         return new(Read(metadata, MetadataReader.MaxBytes), catalog == null ? null : Read(catalog, PlayerWeaponCatalogReader.MaxBytes),
             ammo == null ? null : Read(ammo, PlayerWeaponAmmoCatalogReader.MaxBytes),
-            GraphFiles.Where(n => archive.GetEntry(n) != null).ToDictionary(n => n, n => Read(archive.GetEntry(n)!, GraphLimit(n))));
+            GraphFiles.Where(n => archive.GetEntry(n) != null).ToDictionary(n => n, n => Read(archive.GetEntry(n)!, GraphLimit(n)))
+                .Concat(archive.GetEntry(Scripting.LuaApiIndex.StubPath) is { } stub ? [new(Scripting.LuaApiIndex.CacheName, Read(stub, Scripting.LuaApiIndex.MaxBytes))] : Array.Empty<KeyValuePair<string, byte[]>>())
+                .GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value));
     }
     // Each capability file is bounded by its own reader limit; the canonical catalogs are larger than composition graphs.
     private static int GraphLimit(string name) => name switch
@@ -400,6 +416,9 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         AssetDependencyReader.FileName => AssetDependencyReader.MaxBytes,
         ThrowableAuthoringReader.FileName => ThrowableAuthoringReader.MaxBytes,
         EnemyAuthoringReader.FileName => EnemyAuthoringReader.MaxBytes,
+        EventCatalogReader.FileName => EventCatalogReader.MaxBytes,
+        AttackOutputReader.FileName => AttackOutputReader.MaxBytes,
+        Scripting.LuaApiIndex.CacheName => Scripting.LuaApiIndex.MaxBytes,
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };
     public static void ValidateEntryPath(string name)

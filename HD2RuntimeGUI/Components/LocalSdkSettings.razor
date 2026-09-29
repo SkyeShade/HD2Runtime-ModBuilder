@@ -1,0 +1,55 @@
+@using System.Diagnostics
+@using HD2RuntimeGUI.Core.Storage
+@inject AppPaths Paths
+@inject ActiveLocalSdk Active
+@inject HD2RuntimeGUI.Core.Updates.IAppUpdateHost Host
+@* Settings → Developer: remember a local HD2Runtime SDK (an unreleased Runtime build's sdk folder or SDK zip) and bind it from the next start.
+   --sdk-path and HD2RUNTIME_SDK_PATH still win. A local SDK is never cached or packaged; exports require its version. *@
+<section class="panel" data-local-sdk-settings>
+    <div class="panel-heading"><h2>Developer · local HD2Runtime SDK</h2>
+        <span class="badge @(Active.Choice != null ? "amber" : "")" data-local-sdk-mode>@(Active.Choice != null ? "Local SDK this run" : "Published SDKs")</span></div>
+    <p class="subtle">For testing ModBuilder against an unreleased HD2Runtime build. A local SDK is read from its folder at start-up and validated like a release,
+        but it is never cached, never offered as an update and never packaged: exports require its version, which players only get from a published
+        HD2Runtime release. Rebind projects to a published SDK before sharing them.</p>
+    @if (Active.Choice is { } active)
+    {
+        <p data-local-sdk-active>This run uses <code>@active.Path</code> (from @(active.Source == LocalSdkChoice.Settings ? "this setting" : active.Source))@if (Commit is { } commit) { <span> · HD2Runtime commit <code data-local-sdk-commit>@commit</code></span> }.</p>
+        @if (active.Source != LocalSdkChoice.Settings) { <p class="subtle" data-local-sdk-override>@active.Source overrides this setting while it is set.</p> }
+    }
+    <label>Local SDK folder or zip<input data-local-sdk-input @bind="Input" @bind:event="oninput" placeholder="…\HD2Runtime\sdk" /></label>
+    @if (Message != null) { <p class="@(Failed ? "notice warning" : "subtle")" data-local-sdk-message>@Message</p> }
+    <div class="actions">
+        <button data-local-sdk-save @onclick="Save" disabled="@(Input.Trim().Length == 0)">Use from next start</button>
+        @if (Saved.LocalSdkPath != null) { <button data-local-sdk-clear @onclick="Clear">Use published SDKs from next start</button> }
+        @if (RestartNeeded) { <button class="primary" data-local-sdk-restart @onclick="Restart">Restart ModBuilder now</button> }
+    </div>
+</section>
+@code {
+    private DeveloperSettings Saved = new(); private string Input = ""; private string? Message, Commit; private bool Failed;
+    protected override void OnInitialized()
+    {
+        Saved = DeveloperSdk.Load(Paths); Input = Saved.LocalSdkPath ?? Active.Choice?.Path ?? "";
+        Commit = Active.Choice is { } c ? DeveloperSdk.RuntimeCommit(c.Path) : null;
+        if (Saved.LocalSdkPath is { } remembered && DeveloperSdk.Normalize(remembered, out _) is { } problem) (Message, Failed) = ($"The remembered local SDK is not used: {problem}", true);
+    }
+    // Restart is offered only when the next start would bind a different SDK than this run.
+    private bool RestartNeeded => Active.Choice?.Source is not (LocalSdkChoice.CommandLine or LocalSdkChoice.Environment)
+        && !string.Equals(Saved.LocalSdkPath is { } p && DeveloperSdk.Normalize(p, out var next) == null ? next : null, Active.Choice?.Path, StringComparison.OrdinalIgnoreCase);
+    private async Task Save()
+    {
+        if (DeveloperSdk.Normalize(Input, out var path) is { } problem) { (Message, Failed) = (problem, true); return; }
+        try { await DeveloperSdk.SaveAsync(Paths, Saved = new(path)); Input = path!; var commit = DeveloperSdk.RuntimeCommit(path!); (Message, Failed) = ($"Saved{(commit != null ? " (HD2Runtime commit " + commit + ")" : "")}. It is used from the next start.", false); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { (Message, Failed) = (e.Message, true); }
+    }
+    private async Task Clear()
+    {
+        try { await DeveloperSdk.SaveAsync(Paths, Saved = new()); (Message, Failed) = ("Published SDKs are used from the next start.", false); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { (Message, Failed) = (e.Message, true); }
+    }
+    private void Restart()
+    {
+        var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
+        foreach (var arg in Environment.GetCommandLineArgs().Skip(1)) start.ArgumentList.Add(arg);
+        Host.Launch(start); Host.Exit();
+    }
+}

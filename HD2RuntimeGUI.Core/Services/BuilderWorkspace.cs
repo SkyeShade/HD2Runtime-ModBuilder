@@ -6,7 +6,12 @@ using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Services;
 
-public interface IFolderOpener { Task OpenAsync(string path, bool selectFile = false); }
+public interface IFolderOpener
+{
+    Task OpenAsync(string path, bool selectFile = false);
+    // Opens a file with the application the OS associates with it (for src/addon.lua: the user's Lua editor).
+    Task OpenFileAsync(string path) => OpenAsync(path, true);
+}
 public interface IProjectFilePicker { Task<string?> PickAsync(); }
 
 // Application use cases. Components delegate I/O and generation to this service.
@@ -285,6 +290,8 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         // the project. Unknown/type-changed fields remain available for review.
         if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) + project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(sdk, c)) + project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(sdk, c)) + project.EntityChanges.RemoveAll(c => EntityChangeService.NoOp(sdk, c)) > 0) await store.SaveAsync(project);
         Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
+        // Custom Lua gets its working copy back if it was removed (never over an existing file, which may hold outside edits).
+        await EnsureCustomLuaFileAsync();
         Library = await store.ListAsync();
     }
     public async Task ImportAsync()
@@ -370,9 +377,11 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field || saved?.Sources.Contains(c) == true));
             var oldReferences = Project.ProjectileChanges.ToList();
             var oldObjects = Project.CompositionChanges.ToList();
+            var oldOutputs = Project.AttackOutputChanges?.ToList();
             if (field == null) Project.CompositionChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
             if (field == null) Project.ProjectileChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
-            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; Project.CompositionChanges = oldObjects; throw; }
+            if (field == null && Project.AttackOutputChanges != null) { Project.AttackOutputChanges.RemoveAll(c => weapon == null || c.Weapon == weapon); if (Project.AttackOutputChanges.Count == 0) Project.AttackOutputChanges = null; }
+            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; Project.CompositionChanges = oldObjects; Project.AttackOutputChanges = oldOutputs; throw; }
         }
         finally { weaponEditGate.Release(); }
     }
@@ -456,7 +465,12 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         try { await SaveChangesAsync(); }
         catch { (p.DisplayName, p.Author, p.Version, p.Description) = previous; throw; }
     }
-    public async Task ExportAsync() => LastExport = await exporter.ExportAsync(Project!, Metadata!);
+    public async Task ExportAsync()
+    {
+        // Custom Lua is exported as ModBuilder saved it; a working copy changed outside ModBuilder must be reloaded or overwritten first.
+        if (CustomLuaSyncIssue() is { } issue) throw new InvalidDataException(issue);
+        LastExport = await exporter.ExportAsync(Project!, Metadata!);
+    }
     public Task OpenExportAsync() => folders.OpenAsync(LastExport ?? Project!.ExportDirectory, LastExport != null);
     public Task OpenProjectFolderAsync(Guid id) => folders.OpenAsync(paths.ProjectDirectory(id));
 }

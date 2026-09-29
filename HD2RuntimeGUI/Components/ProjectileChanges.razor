@@ -15,6 +15,20 @@
         @if (change.Notes != null) { <p>@change.Notes</p> }
     </div>
 }
+@* Attack outputs (0.28.0 development SDKs): the donor output an attack fires through its active projectile source. *@
+@foreach (var output in (Workspace.Project!.AttackOutputChanges ?? []).Where(c => c.Weapon == Weapon).OrderBy(c => c.AttackRole))
+{
+    <div class="weapon-change modified" data-attack-output-change="@output.AttackRole">
+        <div class="change-row"><div class="change-name"><strong>Projectile · @output.AttackRole.Replace('_', ' ')</strong><span class="badge modified-badge">Modified</span><small>@output.Group · @(output.Mechanism == AttackOutputHost.AmmunitionMechanism ? "through its ammunition" : "attack output") · @(output.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div>
+            <div class="modified-value">Fires <strong>@output.OutputName</strong></div>
+            <label class="switch-label"><input type="checkbox" checked="@output.Enabled" @onchange="() => Run(() => Workspace.ToggleAttackOutputAsync(output.Id))" />Enabled</label>
+            <button class="reset-action" @onclick="() => Run(() => Workspace.SetAttackOutputAsync(output.Weapon, output.AttackRole, null))">Reset projectile</button>
+        </div>
+        @if (Workspace.AttackOutputIssue(output) is { } outputIssue)
+        { <div class="notice warning"><span>@outputIssue</span><button @onclick="() => Run(() => Workspace.SetAttackOutputAsync(output.Weapon, output.AttackRole, output.Output))">Review: accept current SDK</button></div> }
+        @if (output.Acknowledgements.Length > 0) { <p class="subtle" data-attack-output-flags>Written with @string.Join(", ", output.Acknowledgements.Select(a => a + "=true")).</p> }
+    </div>
+}
 @if (Result is { } result) { <ProjectileSwapResult Result="result" Dismiss="() => Result = null" /> }
 @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 @code {

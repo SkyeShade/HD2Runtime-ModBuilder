@@ -78,16 +78,40 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
                 operations.AddRange(CompositionChangeService.Operations(project, sdk, compositionChanges));
             }
         }
+        // Attack outputs (0.28.0 development SDKs): each a patch through the attack's active projectile source.
+        if (project.AttackOutputChanges is { Count: > 0 }) operations.AddRange(AttackOutputChangeService.Operations(project, sdk));
         operations.AddRange(supportLua.Operations(project, sdk, options));
         operations.AddRange(stratagemLua.Operations(project, sdk, options));
         operations.AddRange(entityLua.Operations(project, sdk, options));
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         // One options page, its master toggle, then one handle per bound field, in registration (display) order.
         if (options != null) prefix += options.Header + "\n";
-        if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
-        if (project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1)
-            return prefix + "local operations={}\n" + string.Join("\n", operations.Select(o => "operations[#operations+1]=" + o)) + "\nreturn operations\n";
-        return prefix + (operations.Count == 1 ? "return " + operations[0] : "return {\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}") + "\n";
+        var custom = CustomSource(project);
+        if (custom == null)
+        {
+            if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
+            if (project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1)
+                return prefix + "local operations={}\n" + string.Join("\n", operations.Select(o => "operations[#operations+1]=" + o)) + "\nreturn operations\n";
+            return prefix + (operations.Count == 1 ? "return " + operations[0] : "return {\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}") + "\n";
+        }
+        // Custom Lua (src/addon.lua) runs after the generated modifications are registered, as its own function so its locals and return
+        // stay its own. Its text is copied exactly (line endings normalized to LF as the SDK builder does); ModBuilder never edits it.
+        var generated = operations.Count == 0 ? "local generated={}\n"
+            : project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1
+                ? "local generated={}\n" + string.Join("\n", operations.Select(o => "generated[#generated+1]=" + o)) + "\n"
+                : "local generated={\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}\n";
+        return prefix + generated + "\n-- Custom Lua: " + Models.CustomLuaSettings.RelativePath + " (hand-written; ModBuilder copies it unchanged)\nlocal function addon(...)\n"
+            + custom + (custom.EndsWith('\n') ? "" : "\n") + "end\naddon()\nreturn generated\n";
+    }
+    // The enabled custom Lua, checked for syntax (a syntax error blocks the build and export, with its line); null when there is none.
+    public static string? CustomSource(ModProject project)
+    {
+        if (project.CustomLua is not { Enabled: true } lua || string.IsNullOrWhiteSpace(lua.Source)) return null;
+        var source = lua.Source.Replace("\r\n", "\n").Replace('\r', '\n');
+        if (source.StartsWith('\uFEFF')) source = source[1..];
+        foreach (var d in Scripting.LuaScriptAnalyzer.Analyze(source, null).Where(d => d.Severity == Scripting.LuaDiagnostic.Error))
+            throw new InvalidDataException(Models.CustomLuaSettings.RelativePath + " line " + d.Line + ": " + d.Message);
+        return source;
     }
     public static string Quote(string value)
     {

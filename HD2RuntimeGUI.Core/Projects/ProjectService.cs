@@ -78,7 +78,9 @@ public static class ProjectIdentity
     // Format 8: SDK 0.26.0 edits (fire-mode lists, mission uses, effect acknowledgements, vehicle weapons, drop-pod payloads).
     // Format 9: SDK 0.27.0 throwable edits (older ModBuilder versions cannot read them).
     // Format 10: enemy and enemy-structure edits (0.28.0 development SDKs); older ModBuilder versions reject the format instead of the edits.
-    public static int RequiredFormat(ModProject p) => p.EntityChanges.Any(c => Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers != null) ? 10 :
+    // Format 11: hand-written Runtime Lua (custom src/addon.lua).
+    public static int RequiredFormat(ModProject p) => p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } ? 11 :
+        p.EntityChanges.Any(c => Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers != null) ? 10 :
         p.EntityChanges.Any(c => c.Resource == ThrowableAuthoringReader.Resource || c.Effect != null) ? 9 :
         p.WeaponChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet || c.EffectAcknowledgement != null)
         || p.SupportChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet)
@@ -86,7 +88,18 @@ public static class ProjectIdentity
         || p.EntityChanges.Any(c => c.Resource is "vehicle_weapon" or "pod_rack" || c.Attack != null || c.Slot != null) ? 8 : 1;
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.CustomLua is { } lua && (lua.Source == null || lua.Source.Length > CustomLuaSettings.MaxLength || lua.Source.Contains('\0')))
+            throw new InvalidDataException("Invalid custom Lua source.");
+        // Attack outputs: semantic weapon / role / output identities and the published opt-ins only.
+        if (p.AttackOutputChanges is { } outputs && (outputs.Count > 500 || outputs.Select(c => c.Id).Distinct().Count() != outputs.Count
+            || outputs.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)
+            || outputs.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || !Regex.IsMatch(c.AttackRole, @"\A[a-z][a-z_0-9]{0,63}\z")
+                || c.Mechanism is not ("component" or "ammunition") || !Regex.IsMatch(c.Output, @"\Aoutput/v1/projectile/[a-z0-9-]{1,128}\z") || c.OutputName.Length > 256
+                || c.Acknowledgements.Any(a => a is not ("allow_shared" or "allow_unverified_effect" or "allow_unverified_reference")) || !Regex.IsMatch(c.Evidence, @"\A[a-f0-9]{64}\z")
+                || c.Group.Length > 120 || c.Notes?.Length > 4000)))
+            throw new InvalidDataException("Invalid attack output changes.");
+        foreach (var c in p.AttackOutputChanges ?? []) SemVersion.Parse(c.BaselineSdkVersion);
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -290,6 +303,9 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         project.StratagemApprovals = new(source.StratagemApprovals);
         project.EntityChanges = source.EntityChanges.Select(c => c with { Id = Guid.NewGuid() }).ToList();
         project.EntityApprovals = new(source.EntityApprovals);
+        // Format 11: the saved custom Lua text (the copy's own src/addon.lua is created from it when it opens) and attack outputs.
+        project.CustomLua = source.CustomLua;
+        project.AttackOutputChanges = source.AttackOutputChanges?.Select(c => c with { Id = Guid.NewGuid() }).ToList();
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

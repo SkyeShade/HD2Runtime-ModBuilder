@@ -12,7 +12,9 @@ public static class StratagemCategories
     public static readonly StratagemCategory Support = new("support", "Support", "cat-support", ["support", "vehicle", "backpack"]);
     public static readonly StratagemCategory Offensive = new("offensive", "Offensive", "cat-offensive", ["orbital", "eagle"]);
     public static readonly StratagemCategory Defensive = new("defensive", "Defensive", "cat-defensive", ["sentry", "emplacement", "mine"]);
-    public static readonly IReadOnlyList<StratagemCategory> All = [Support, Offensive, Defensive];
+    // Mission stratagems (Resupply, family "mission" in 0.28.0 development SDKs); listed only when the SDK publishes one.
+    public static readonly StratagemCategory Mission = new("mission", "Mission", "cat-mission", ["mission"]);
+    public static readonly IReadOnlyList<StratagemCategory> All = [Support, Offensive, Defensive, Mission];
     public static StratagemCategory? Of(string family) => All.FirstOrDefault(c => c.Families.Contains(family));
     public static StratagemCategory? Find(string key) => All.FirstOrDefault(c => c.Key == key);
     // Boosters (SDK 0.24.0+) are their own authoring domain, not a stratagem family; yellow alongside the stratagem categories.
@@ -54,7 +56,8 @@ public static class Navigation
         if (entities?.Throwables is { } throwables)
             items.Insert(items.FindIndex(i => i.Page == "player-weapons") + 1, new("throwables", "Throwables", Workspace, throwables.Throwables.Length, StratagemCategories.ThrowableCssClass));
         if (sdk?.Stratagems is { } catalog)
-            items.AddRange(StratagemCategories.All.Select(c => new NavItem("stratagems:" + c.Key, c.Label, Workspace, StratagemCategories.Count(catalog, c, entities), c.CssClass, true)));
+            items.AddRange(StratagemCategories.All.Select(c => new NavItem("stratagems:" + c.Key, c.Label, Workspace, StratagemCategories.Count(catalog, c, entities), c.CssClass, true))
+                .Where(i => i.Page != "stratagems:" + StratagemCategories.Mission.Key || i.Count > 0));
         // hd2.vehicle / hd2.backpack authoring (SDK 0.23.0+) lives in Stratagems → Support (Vehicles / Backpacks tabs);
         // the old "vehicles" / "backpacks" pages redirect there.
         // Support equipment lives in Stratagems → Support: linked weapons inside their call-in, unlinked ones in its
@@ -71,6 +74,9 @@ public static class Navigation
             items.Add(new("structures", "Structures", Workspace, enemies.Of(EnemyAuthoringReader.Structure).Count(), StratagemCategories.StructureCssClass));
         }
         items.Add(new("changes", "Changes", Workspace, project == null ? null : modifications));
+        // Hand-written Runtime Lua (src/addon.lua): events, timers, keybinds and gameplay actions. Works with every SDK; the event reference
+        // and snippets need an SDK that publishes EventCatalog.json.
+        items.Add(new("scripting", "Custom Lua", Workspace));
         items.Add(new("lua", "Lua Preview", Workspace));
         items.Add(new("export", "Build / Export", Workspace));
         items.Add(new("research", "Snapshot Research", Research, RequiresProject: false));
