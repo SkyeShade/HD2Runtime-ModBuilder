@@ -67,8 +67,10 @@ public sealed class ThrowableTests
         // The frag shrapnel row is also the Lure Mine's (identical published consumers): one value, edited through one throwable only.
         var mine = Field(w, "TM-1 Lure Mine", "shrapnel", "damage.standard_damage");
         Assert.Equal(shrapnel.BackingObjectId, mine.BackingObjectId);
-        await w.SetEntityAsync(mine.InstanceKey, "175");
-        Assert.Contains("one shared value", w.BuildError);
+        // The second edit is refused where it is made, naming the throwable that already edits the row; the build stays valid.
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(mine.InstanceKey, "175"));
+        Assert.Contains("one shared value, already edited through G-6 Frag", error.Message);
+        Assert.Null(w.BuildError); Assert.DoesNotContain(w.Project!.EntityChanges, c => c.InstanceKey == mine.InstanceKey);
     }
 
     [Fact] public async Task Incendiary_status_effect_writes_strength_and_the_shared_fire_definition()

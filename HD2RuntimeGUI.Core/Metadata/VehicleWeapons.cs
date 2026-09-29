@@ -9,7 +9,7 @@ namespace HD2RuntimeGUI.Core.Metadata;
 // own target: hd2.vehicle(v):weapon(label), with :projectile(), :explosion(phase) and :attack(role) for its shared attack objects.
 // Scopes are exactly as published: weapon_local (one mount), shared_mounted_weapon (one weapon entity in several mounts) and the
 // shared projectile/damage/explosion rows. Every non-local scope requires allow_shared.
-public sealed record VehicleWeaponFieldInstance(string InstanceKey, string Weapon, string WeaponSemanticId, string SemanticFieldId, string ApiFieldConstant,
+public sealed record VehicleWeaponFieldInstance(string InstanceKey, string Weapon, string WeaponSemanticId, string SemanticFieldId, string? ApiFieldConstant,
     VehicleWeaponTargetJson Target, string DisplayName, string? Unit, string Type, JsonElement Baseline, bool Writable, string Scope, bool AllowSharedRequired,
     string[] OtherConsumers, string? Acknowledgement, string? GameplayEvidence, string BackingComponent);
 public sealed record VehicleWeaponTargetJson(string Resource, string Path, string Weapon, string? Attack = null);
@@ -56,6 +56,7 @@ public static class VehicleWeaponReader
     public static bool ValidKey(string key) => key.Length <= 256 && Regex.IsMatch(key, @"\A[^\p{C}/]{1,200} / [a-z][a-z_0-9]{0,63}\z");
     public static (string Vehicle, string Mount) Split(string key) { var i = key.LastIndexOf(" / ", StringComparison.Ordinal); return (key[..i], key[(i + 3)..]); }
 
+    public const string NoApiConstantReason = "Runtime publishes no typed API field constant for this status slot, so it cannot be written.";
     public static VehicleWeaponCatalog Read(byte[] bytes, string version, VehicleCatalog vehicles)
     {
         try
@@ -87,8 +88,11 @@ public static class VehicleWeaponReader
                     && weapons.TryGetValue(f.Weapon, out var w) && w!.SemanticId == f.WeaponSemanticId
                     && f.Target.Resource == "vehicle_weapon" && f.Target.Weapon == f.Weapon && Paths.Contains(f.Target.Path)
                     && (f.Target.Path == "weapon" ? f.Target.Attack == null : f.Target.Attack != null && w.Attacks.Contains(f.Target.Attack))
-                    && Api.IsMatch(f.ApiFieldConstant) && !string.IsNullOrWhiteSpace(f.DisplayName) && f.Type is "integer" or "number"
-                    && f.Baseline.ValueKind == JsonValueKind.Number && Scopes.Contains(f.Scope) && f.AllowSharedRequired == (f.Scope != "weapon_local")
+                    // 0.28.0 development SDKs publish some explosion status slots without an API constant; those can only be shown (see Adapt).
+                    && (f.ApiFieldConstant is { } api ? Api.IsMatch(api) : f.SemanticFieldId.Contains(".status_", StringComparison.Ordinal)) && !string.IsNullOrWhiteSpace(f.DisplayName)
+                    // Status references (0.28.0 development SDKs) are a status key or 'none'; they stay read-only in this build (see Adapt).
+                    && (f.Type is "integer" or "number" ? f.Baseline.ValueKind == JsonValueKind.Number : f.Type == WeaponCapability.StatusReference && f.Baseline.ValueKind == JsonValueKind.String && f.Target.Path != "weapon")
+                    && Scopes.Contains(f.Scope) && f.AllowSharedRequired == (f.Scope != "weapon_local")
                     && (f.Scope == "weapon_local" ? f.OtherConsumers.Length == 0 : f.Scope != "shared_mounted_weapon" || f.OtherConsumers.All(weapons.ContainsKey))
                     && f.Acknowledgement is null or "allow_unverified_effect" && (f.Acknowledgement == null) == (f.GameplayEvidence != null)
                     && !string.IsNullOrWhiteSpace(f.BackingComponent) && f.Writable);
@@ -120,10 +124,12 @@ public static class VehicleWeaponReader
         var target = new EntityTarget("vehicle_weapon", f.Target.Path, Weapon: f.Weapon, Attack: f.Target.Attack);
         // One transaction per target and native component; all of a vehicle's operations form one plan.
         var operation = "vehicle-weapon-op:" + f.Weapon + "|" + f.Target.Path + "|" + (f.Target.Attack ?? "") + "|" + f.BackingComponent;
-        return new EntityField(f.InstanceKey, f.SemanticFieldId, f.DisplayName, f.Type, f.Unit, f.Baseline.Clone(), f.Writable, null, target,
+        var status = f.Type == WeaponCapability.StatusReference;
+        var reason = status ? WeaponCapability.StatusReferenceReason : f.ApiFieldConstant == null ? NoApiConstantReason : null;
+        return new EntityField(f.InstanceKey, f.SemanticFieldId, f.DisplayName, f.Type, f.Unit, f.Baseline.Clone(), f.Writable && reason == null, reason, target,
             owner, operation, "vehicle-weapon-plan:" + vehicle, "patch_or_transaction", f.AllowSharedRequired, f.Scope != "weapon_local", [], owner,
             ReviewedScopeComplete: f.Scope == "weapon_local", DynamicConsumersPossible: f.Scope is "shared_projectile" or "shared_damage" or "shared_explosion",
-            BackingObjectKind: f.BackingComponent, Domain: f.SemanticFieldId.Split('.')[0], ApiFieldConstant: f.ApiFieldConstant, PlanPhase: 1, DependsOn: [],
+            BackingObjectKind: f.BackingComponent, Domain: f.SemanticFieldId.Split('.')[0], ApiFieldConstant: f.ApiFieldConstant ?? "", PlanPhase: 1, DependsOn: [],
             Evidence: new EntityEvidence(f.GameplayEvidence != null ? "gameplay_proven" : "structural_reference", ReferenceMod: f.GameplayEvidence),
             Provenance: "VehicleWeaponCapabilities (" + f.Scope + ", " + f.BackingComponent + ")", Acknowledgement: f.Acknowledgement);
     }

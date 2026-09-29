@@ -33,7 +33,11 @@ public sealed record SupportField(string InstanceKey, string SupportWeapon, Supp
     string SemanticFieldId, string QualifiedSemanticFieldId, string ApiFieldConstant, SupportDisplay Display, SupportValue Value,
     bool Writable, bool ReadOnly, string? BlockedReason, SupportBacking Backing, SupportScope SharedScope,
     SupportOperation Operation, SupportResolution Resolution, SupportProvenance Provenance,
-    SupportFireMode? FireMode = null, SupportReticle? Reticle = null);
+    SupportFireMode? FireMode = null, SupportReticle? Reticle = null, FieldLiveEvidence? LiveEvidence = null)
+{
+    // Unreleased Runtime (0.28.0 development): a typed status reference (value kind "reference"). Validated, but kept read-only here.
+    [JsonIgnore] public bool IsStatusReference => Value.Kind == "reference" && Value.Type == WeaponCapability.StatusReference;
+}
 // 0.26.0: support weapons whose ammunition is stored in their backpack (support weapon -> ammoBackpack).
 public sealed record SupportAmmoBackpackBaseline(int Capacity, int StartAmount, int RefillAmount);
 public sealed record SupportAmmoBackpack(string Backpack, string SemanticId, string Accessor, string Owner, bool WeaponOwnsMagazine,
@@ -121,13 +125,14 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
                     && SupportAuthoringWeapon.Resolved(f.SupportWeaponIdentity.IdentityStatus)
                     && (f.Operation.Acknowledgement == null ? f.Operation.AcknowledgementReason == null
                         : f.Operation.Acknowledgement == "allow_unverified_effect" && !string.IsNullOrWhiteSpace(f.Operation.AcknowledgementReason))
-                    && f.Writable && !f.ReadOnly && f.Value.Kind == "scalar" && f.Value.Type is "number" or "integer" or "boolean" or WeaponCapability.FireModeSet
+                    && f.Writable && !f.ReadOnly && (f.IsStatusReference ? f.Value.Baseline.ValueKind == JsonValueKind.String
+                        : f.Value.Kind == "scalar" && f.Value.Type is "number" or "integer" or "boolean" or WeaponCapability.FireModeSet)
                     && (f.Value.Type == WeaponCapability.FireModeSet) == (f.FireMode != null && f.SemanticFieldId == FireModes.ModesField)
                     && (f.Reticle == null) == (f.SemanticFieldId != FireModes.ReticleField) && (f.Reticle == null || f.Value.Type == "boolean" && f.Reticle.Encoding != null)
                     && JsonElement.DeepEquals(f.Value.Baseline, f.Value.Expected));
                 if (f.FireMode is { } fm && f.Value.Type == WeaponCapability.FireModeSet)
                     FireModes.ValidateCapability(fm.FireModeState, f.Value.Baseline, f.Writable, fm.AllowedModes, fm.ModeValues, fm.MaxModes, fm.NativeSlots);
-                _ = Generation.SupportScalar.Normalize(f, f.Value.Baseline);
+                if (!f.IsStatusReference) _ = Generation.SupportScalar.Normalize(f, f.Value.Baseline);
                 Check(Regex.IsMatch(f.ApiFieldConstant, @"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z"));
                 ValidateTarget(f.Target);
                 var o = objects[f.Backing.ObjectKey]; var g = operations[f.Backing.OperationGroupingKey];
@@ -150,7 +155,10 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
             foreach (var o in objects.Values) Check(o.FieldInstanceKeys.Distinct().Count() == o.FieldInstanceKeys.Length && o.FieldInstanceKeys.All(k => fields[k].Backing.ObjectKey == o.ObjectKey));
             foreach (var g in operations.Values) Check(g.FieldInstanceKeys.Distinct().Count() == g.FieldInstanceKeys.Length && g.FieldInstanceKeys.All(k => fields[k].Backing.OperationGroupingKey == g.OperationGroupingKey));
             Check(c.Summary.SharedConsumerScopeCount == fields.Values.Where(f => f.SharedScope.Shared).Select(f => f.SharedScope.ScopeKey).Distinct().Count());
-            return c;
+            // Status references stay visible with Runtime's baseline, but this build has no status-reference editor or Lua form.
+            return c.FieldInstances.Any(f => f.IsStatusReference)
+                ? c with { FieldInstances = c.FieldInstances.Select(f => f.IsStatusReference ? f with { Writable = false, ReadOnly = true, BlockedReason = WeaponCapability.StatusReferenceReason } : f).ToArray() }
+                : c;
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException)
         { throw new InvalidDataException("Malformed support authoring metadata.", e); }

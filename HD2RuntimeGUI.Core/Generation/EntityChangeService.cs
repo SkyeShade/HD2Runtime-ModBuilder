@@ -52,10 +52,14 @@ public interface IEntityChangeService
 public sealed class EntityChangeService : IEntityChangeService
 {
     public static EntityAuthoring Catalog(SdkMetadata sdk) => sdk.Entities ?? throw new InvalidDataException("Explicitly rebind to SDK 0.23.0 or newer for vehicle and backpack authoring.");
+    public static bool IsEnemy(string resource) => resource is EnemyAuthoringReader.Enemy or EnemyAuthoringReader.Structure;
+    private static string Missing(string resource) => IsEnemy(resource)
+        ? "Enemy capability is missing from this SDK. Enemy and structure authoring needs an SDK that publishes " + EnemyAuthoringReader.FileName + " (a local HD2Runtime development SDK until 0.28.0); review or reset this modification."
+        : "Vehicle/backpack capability is missing. Review or reset this modification.";
     public static EntityField Resolve(EntityAuthoring catalog, EntityChange c) => catalog.Field(c.InstanceKey)
         ?? catalog.AllFields.SingleOrDefault(f => f.Target.Resource == c.Resource && f.Target.Entity == c.Entity && f.Target.Path == c.Path
             && f.Target.Zone == c.Zone && f.Target.Mount == c.Mount && f.Target.Attack == c.Attack && f.Target.Slot == c.Slot && f.Target.Effect == c.Effect && f.SemanticFieldId == c.SemanticFieldId)
-        ?? throw new InvalidDataException("Vehicle/backpack capability is missing. Review or reset this modification.");
+        ?? throw new InvalidDataException(Missing(c.Resource));
     public EntityChange Create(SdkMetadata sdk, string instance, string value)
     {
         var f = Catalog(sdk).Field(instance) ?? throw new InvalidDataException("Vehicle/backpack capability is missing.");
@@ -68,9 +72,12 @@ public sealed class EntityChangeService : IEntityChangeService
             EntityScalar.CheckRange(f, desired);
         }
         catch (JsonException e) { throw new InvalidDataException("Enter a complete scalar value.", e); }
+        var enemy = IsEnemy(f.Target.Resource);
         return new() { Resource = f.Target.Resource, Entity = f.Target.Entity, Path = f.Target.Path, Zone = f.Target.Zone, Mount = f.Target.Mount, Attack = f.Target.Attack, Slot = f.Target.Slot, Effect = f.Target.Effect,
             InstanceKey = f.InstanceKey, SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(),
-            DesiredValue = desired, BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f) };
+            DesiredValue = desired, BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f),
+            Group = enemy ? (f.Target.Resource == EnemyAuthoringReader.Structure ? "Structures" : "Enemies") : "Vehicles & backpacks",
+            SharedConsumers = enemy && f.Shared ? f.SharedConsumers.Select(c => c.Name).ToArray() : null };
     }
     public void Validate(ModProject p, SdkMetadata sdk, EntityChange c)
     {
@@ -78,20 +85,27 @@ public sealed class EntityChangeService : IEntityChangeService
         if (!f.Editable) throw new InvalidDataException(f.Reason ?? "Read-only field.");
         if (c.InstanceKey != f.InstanceKey || c.Resource != f.Target.Resource || c.Entity != f.Target.Entity || c.Path != f.Target.Path || c.Zone != f.Target.Zone
             || c.Mount != f.Target.Mount || c.Attack != f.Target.Attack || c.Slot != f.Target.Slot || c.Effect != f.Target.Effect || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Type || c.CapabilityEvidence != Evidence(f))
-            throw new InvalidDataException("Vehicle/backpack capability, evidence or ownership changed. Review and accept the current capability, or reset the change.");
-        if (!EntityScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Vehicle/backpack baseline changed. Review before accepting the new baseline.");
+            throw new InvalidDataException(IsEnemy(c.Resource) ? "The enemy capability, evidence or shared ownership changed. Review and accept the current capability, or reset the change."
+                : "Vehicle/backpack capability, evidence or ownership changed. Review and accept the current capability, or reset the change.");
+        if (!EntityScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException(IsEnemy(c.Resource) ? "The enemy baseline changed. Review before accepting the new baseline."
+            : "Vehicle/backpack baseline changed. Review before accepting the new baseline.");
         EntityScalar.CheckRange(f, c.DesiredValue);
         // Runtime opt-ins (allow_shared, allow_unverified_effect, allow_unverified_reference) are implicit: the UI warns and the
         // generated Lua always carries the flags Runtime requires, so a build is never blocked on an acknowledgement.
     }
-    public static string Evidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
+    public static string Evidence(EntityField f) => f.Target.Enemy != null ? EnemyEvidence(f) : SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
         f.BackingObjectId, f.OperationGroup, f.PlanGroup, f.SharedScopeKey, f.Shared, Tier = f.Evidence.Tier, f.AllowedValues, f.Acknowledgement, f.ResidencyWarning }));
+    // Enemy fields bind their semantic content only: target, type, writability, API constant, row kind, sharing (with the reviewed consumer
+    // classes), opt-in and evidence tier. Runtime's opaque native row identities move between game builds without any semantic change, so they
+    // are not part of it; a changed consumer set, opt-in or writability still requires review.
+    private static string EnemyEvidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
+        f.BackingObjectKind, f.Shared, f.AllowSharedRequired, f.DynamicConsumersPossible, Consumers = f.SharedConsumers.Select(c => c.Name).Order(StringComparer.Ordinal), f.Acknowledgement, Tier = f.Evidence.Tier }));
     // Acknowledgement of a Runtime-required unverified opt-in. A mount reference acknowledgement covers one exact replacement;
     // an unverified-effect acknowledgement covers the field regardless of value. Both bind the published warning and evidence tier.
     public static string ReferenceEvidence(EntityField f, JsonElement desired) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.InstanceKey,
         Desired = !f.IsChoice ? null : desired.ValueKind == JsonValueKind.String ? desired.GetString() : desired.GetRawText(), f.Acknowledgement, f.ResidencyWarning, Tier = f.Evidence.Tier }));
     public static string ApprovalEvidence(EntityField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.SharedScopeKey, f.Shared, f.AllowSharedRequired,
-        f.ReviewedScopeComplete, f.DynamicConsumersPossible, Consumers = f.SharedConsumers.Select(c => c.Vehicle ?? c.Backpack).Order(StringComparer.Ordinal) }));
+        f.ReviewedScopeComplete, f.DynamicConsumersPossible, Consumers = f.SharedConsumers.Select(c => c.Name).Order(StringComparer.Ordinal) }));
     // Rebind: capability evidence (and the reference acknowledgement record) stays valid when the field is unchanged apart from
     // Runtime's residency prose, e.g. SDK 0.27.0 rewording pod and mount package warnings for automatic asset loading.
     public static int Rebind(ModProject p, EntityAuthoring? previous, EntityAuthoring next)
@@ -134,7 +148,7 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         // is one value: edit it through one of them only, otherwise two jobs would race on the same bytes.
         foreach (var same in effective.GroupBy(r => (r.Field.BackingObjectId, r.Field.ApiFieldConstant)))
             if (same.Select(r => r.Field.Target).Distinct().Count() > 1)
-                throw new InvalidDataException($"{same.First().Field.DisplayName} is one shared value reached through {string.Join(" and ", same.Select(r => r.Field.Target.Entity).Distinct())}. Edit it through one of them only.");
+                throw new InvalidDataException($"{same.First().Field.DisplayName} is one shared value reached through {string.Join(" and ", same.Select(r => Describe(catalog, r.Field.Target)).Distinct())}. Edit it through one of them only.");
         foreach (var plan in effective.GroupBy(r => r.Field.PlanGroup).OrderBy(g => g.Key, StringComparer.Ordinal))
         {
             var entries = plan.ToArray();
@@ -172,8 +186,12 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         return list.All(f => f.Target.Path == "backpack" && f.UiGroup == Backpack.AmmoGroup) && catalog.Backpacks.Find(list[0].Target.Backpack!)?.Feeds is { } feeds
             ? feeds.SupportWeapon : null;
     }
+    // A readable name for a target in messages: enemies by class name and zone/attack, other entities by their published name.
+    public static string Describe(EntityAuthoring catalog, EntityTarget t) => t.Enemy != null ? catalog.Enemies?.Describe(t) ?? t.Enemy : t.Entity;
     public static string Target(EntityTarget t, string? fedWeapon = null) => t.Path switch
     {
+        // Enemies and enemy structures first: their paths (entity, damage_zone, attack) reuse names other resources also use.
+        _ when t.Enemy != null => EnemyTarget(t),
         // 0.27.0 throwables first: their target paths (entity, damage, explosion, ...) reuse names other resources also use.
         _ when t.Resource == ThrowableAuthoringReader.Resource => ThrowableTarget(t),
         "backpack" when fedWeapon != null => "hd2.support_weapon(" + LuaGenerator.Quote(fedWeapon) + "):backpack()",
@@ -191,6 +209,20 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         _ when t.Resource == "booster" && BoosterAuthoringReader.Paths.Contains(t.Path) => "hd2.booster(" + LuaGenerator.Quote(t.Booster!) + "):" + t.Path + "()",
         _ => throw new InvalidDataException("Unsupported vehicle/backpack target."),
     };
+    // hd2.enemy(class) / hd2.structure(class) by native class name (Runtime also accepts a proven wiki name; the class name does not change
+    // when one is proven later), then :zone(zone_N) or :attack(slot_N...) by published ID.
+    private static string EnemyTarget(EntityTarget t)
+    {
+        var root = (t.Resource == EnemyAuthoringReader.Structure ? "hd2.structure(" : t.Resource == EnemyAuthoringReader.Enemy ? "hd2.enemy(" : throw new InvalidDataException("Unsupported enemy target."))
+            + LuaGenerator.Quote(t.EnemyClass ?? throw new InvalidDataException("Missing enemy class.")) + ")";
+        return t.Path switch
+        {
+            EnemyAuthoringReader.EntityPath => root,
+            EnemyAuthoringReader.ZonePath => root + ":zone(" + LuaGenerator.Quote(t.Zone!) + ")",
+            EnemyAuthoringReader.AttackPath => root + ":attack(" + LuaGenerator.Quote(t.Attack!) + ")",
+            _ => throw new InvalidDataException("Unsupported enemy target."),
+        };
+    }
     private static string ThrowableTarget(EntityTarget t)
     {
         var chain = ThrowableAuthoringReader.Accessors.GetValueOrDefault(t.Path) ?? throw new InvalidDataException("Unsupported throwable target.");

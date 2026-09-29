@@ -1,0 +1,205 @@
+@inject BuilderWorkspace Workspace
+@* One published enemy or enemy structure (hd2.enemy / hd2.structure). Identity is shown exactly as Runtime publishes it (wiki name only where
+   proven, else the native class, with wiki candidates as candidates). Controls exist only for published field instances: the main health block,
+   one selected damage zone at a time (a compact table lists them all), and one selected attack row at a time (grouped by mount slot). Each field
+   row is the shared entity editor used by vehicles, throwables and boosters. Shared rows and unconfirmed effects are warnings only; the generated
+   Lua always carries the opt-ins Runtime requires. *@
+@{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.Enemies; var c = catalog?.Find(SemanticId); }
+@if (catalog != null && c != null)
+{
+    var css = c.IsStructure ? "cat-structure" : "cat-enemy";
+    var fields = catalog.Fields(c.SemanticId);
+    var saved = Workspace.Project?.EntityChanges.Where(x => x.Entity == c.SemanticId).ToDictionary(x => x.InstanceKey, StringComparer.Ordinal) ?? new();
+    bool IsSaved(EntityField f) => saved.ContainsKey(f.InstanceKey);
+    bool Show(EntityField f) => !ModifiedOnly || IsSaved(f);
+    var main = fields.Where(f => f.Target.Path == EnemyAuthoringReader.EntityPath && Show(f)).ToArray();
+    var zoneFields = fields.Where(f => f.Target.Path == EnemyAuthoringReader.ZonePath).GroupBy(f => f.Target.Zone!).ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
+    var attackFields = fields.Where(f => f.Target.Path == EnemyAuthoringReader.AttackPath).GroupBy(f => f.Target.Attack!).ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
+    @if (!ModifiedOnly)
+    {
+        <section class="panel category-panel @css" data-enemy="@c.SemanticId">
+            <div class="eyebrow">@(c.IsStructure ? "STRUCTURE" : "ENEMY") · @Enemies.FactionLabel(c.Faction).ToUpperInvariant()</div>
+            <h2 class="@(c.Named ? "" : "native-name")" data-enemy-name>@c.Name</h2>
+            <div class="field-badges">
+                @if (c.Named) { <span class="badge green" data-enemy-identity="named" title="The class's anatomy matches exactly one wiki page, through at least two damage zones.">Wiki name</span> }
+                else { <span class="badge" data-enemy-identity="native" title="@catalog.Model.Identity">Native class</span> }
+                <span class="badge">@c.Zones.Length @(c.Zones.Length == 1 ? "zone" : "zones")</span>
+                @if (c.Attacks.Length > 0) { <span class="badge">@c.Attacks.Length @(c.Attacks.Length == 1 ? "attack" : "attacks")</span> }
+                <span class="badge">@fields.Count(f => f.Editable) writable</span>
+                @if (c.SharedHealthRecord) { <span class="badge amber" data-flag="allow_shared" title="@string.Join(", ", c.HealthRecordConsumers)">Shared health record</span> }
+            </div>
+            <p class="subtle enemy-identity">Native class <code data-enemy-class>@c.ClassName</code> · <code data-semantic-id>@c.SemanticId</code></p>
+            @if (!c.Named && c.WikiCandidates.Length > 0)
+            {
+                <p class="subtle" data-wiki-candidates>Wiki pages with the same anatomy (candidates, not identity): @string.Join(" · ", c.WikiCandidateEvidence.Select(Candidate))</p>
+            }
+            <details><summary>Identity evidence</summary>
+                <p class="subtle">@c.Identity.Basis: <code>@c.Identity.Path</code></p>
+                @if (c.Identity.WikiEvidence is { } w)
+                {
+                    <p class="subtle">Wiki page <strong>@w.Page</strong> · @w.ZonesMatched matching zones@(w.AnatomyLabel is { } label ? " · " + label : "")</p>
+                    <ul>@foreach (var pair in w.ZonePairs) { <li>@pair.WikiZone → zone_@pair.Zone@(pair.Unambiguous ? "" : " (ambiguous)")</li> }</ul>
+                }
+                <p class="subtle">@catalog.Model.Identity</p>
+            </details>
+            <p class="subtle" data-applies-to>Applies to @catalog.Model.AppliesTo.</p>
+            @if (saved.Count > 0 && Workspace.Project != null) { <button class="reset-action" data-enemy-reset @onclick="() => Run(() => Workspace.ResetEntityAsync(c.Kind, c.SemanticId))">Reset @(c.IsStructure ? "structure" : "enemy")</button> }
+        </section>
+    }
+    @if (main.Length > 0)
+    {
+        <section class="panel @(main.Any(IsSaved) ? "modified" : "")" data-enemy-section="general">
+            <div class="panel-heading"><h2>General</h2><span class="badge">Main health block</span></div>
+            <div class="stat-grid">@foreach (var f in main) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
+        </section>
+    }
+    @if (c.Zones.Length > 0)
+    {
+        var zones = c.Zones.Where(z => ModifiedOnly ? zoneFields[z.Id].Any(IsSaved) : ZoneFilter.Length == 0 || $"{z.Label} {z.Name} {z.Id}".Contains(ZoneFilter.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+        @if (!ModifiedOnly || zones.Length > 0)
+        {
+            <section class="panel enemy-zones" data-enemy-section="zones">
+                <div class="panel-heading"><h2>Body zones</h2><span class="badge">@c.Zones.Length</span></div>
+                @if (ModifiedOnly)
+                {
+                    @foreach (var z in zones)
+                    {
+                        <div class="zone-detail" data-zone-detail="@z.Id"><h3 class="group-title">@z.Label <small class="subtle">@ZoneIdentity(z)</small></h3>
+                            <div class="stat-grid">@foreach (var f in zoneFields[z.Id].Where(IsSaved)) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div></div>
+                    }
+                }
+                else
+                {
+                    <p class="subtle">Each native damage zone has its own armor and share of damage forwarded to main health, and its own health pool unless it uses the main pool. Labels are Runtime's: a wiki label only where Runtime pins one, otherwise the native zone name or ID.</p>
+                    @if (c.Zones.Length > 8) { <label class="zone-filter">Filter zones<input data-zone-filter @bind="ZoneFilter" @bind:event="oninput" placeholder="head, leg, zone_3…" /></label> }
+                    <div class="zone-table-wrap"><table class="zone-table" data-zone-table>
+                        <thead><tr><th>Zone</th><th>Health</th><th>Armor</th><th title="Damage forwarded to main health">To main</th><th>Flags</th></tr></thead>
+                        <tbody>
+                            @foreach (var z in zones)
+                            {
+                                var zf = zoneFields[z.Id].ToDictionary(f => f.SemanticFieldId, StringComparer.Ordinal); var edited = zoneFields[z.Id].Count(IsSaved);
+                                <tr @key="z.Id" class="@(SelectedZone == z.Id ? "active" : "") @(edited > 0 ? "modified" : "")" data-zone="@z.Id" tabindex="0" @onclick="() => SelectedZone = z.Id" @onkeydown="e => SelectZoneKey(e, z.Id)">
+                                    <td><strong>@z.Label</strong>@if (z.Label != z.Id) { <small class="subtle"> @z.Id</small> }@if (edited > 0) { <span class="badge modified-badge">@edited</span> }</td>
+                                    <td>@(z.UsesMainHealth ? "main pool" : Value(zf, "zone.health", saved))</td>
+                                    <td>@Value(zf, "zone.armor", saved)</td>
+                                    <td>@Percent(zf, "zone.affects_main_health", saved)</td>
+                                    <td class="zone-flags">@if (z.Fatal) { <span class="badge" title="Published read-only flag: fatal">Fatal</span> }@if (z.DownsOnDeath) { <span class="badge" title="Published read-only flag: downs on death">Downs on death</span> }@if (z.MainHealthCapped) { <span class="badge" title="Published read-only flag: main health capped">Main health capped</span> }</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table></div>
+                    @if (zones.Length == 0) { <p class="subtle">No zone matches this filter.</p> }
+                    @if (c.Zone(SelectedZone) is { } zone)
+                    {
+                        <div class="zone-detail selected" data-zone-detail="@zone.Id">
+                            <h3 class="group-title">@zone.Label <small class="subtle">@ZoneIdentity(zone)</small></h3>
+                            @if (zone.UsesMainHealth) { <p class="subtle" data-zone-main-pool>@catalog.Model.Sentinels.GetValueOrDefault("zone.health = -1")</p> }
+                            <div class="stat-grid">@foreach (var f in zoneFields[zone.Id]) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
+                        </div>
+                    }
+                    else { <p class="subtle" data-zone-hint>Select a zone to edit its values.</p> }
+                }
+            </section>
+        }
+    }
+    @if (c.Attacks.Length > 0)
+    {
+        var attacks = c.Attacks.Where(a => !ModifiedOnly || attackFields[a.Id].Any(IsSaved)).ToArray();
+        @if (!ModifiedOnly || attacks.Length > 0)
+        {
+            <section class="panel enemy-attacks" data-enemy-section="attacks">
+                <div class="panel-heading"><h2>Attacks</h2><span class="badge">@c.Attacks.Length</span></div>
+                @if (!ModifiedOnly) { <p class="subtle">Rows Runtime reaches through this class's mounted weapons. Each attack ID is one global settings row: damage (DamageInfo), projectile settings or explosion settings. A wiki attack name appears only where all nine published damage values match the class's own page.</p> }
+                @foreach (var slot in attacks.GroupBy(a => a.MountSlot).OrderBy(g => g.Key))
+                {
+                    <div class="attack-slot" data-mount-slot="@slot.Key">
+                        <h3 class="group-title">Mount slot @(slot.Key)@(slot.SelectMany(a => a.WikiAttacks).Distinct().ToArray() is { Length: > 0 } names ? " · " + string.Join(" / ", names) : "")</h3>
+                        @if (ModifiedOnly)
+                        {
+                            @foreach (var a in slot) { @AttackDetail(c, a, attackFields[a.Id].Where(IsSaved).ToArray(), saved) }
+                        }
+                        else
+                        {
+                            <div class="attack-list">
+                                @foreach (var a in slot)
+                                {
+                                    var edited = attackFields[a.Id].Count(IsSaved);
+                                    <button @key="a.Id" class="attack-chip @(SelectedAttack == a.Id ? "active" : "") @(edited > 0 ? "modified" : "")" data-enemy-attack="@a.Id" @onclick="() => SelectedAttack = a.Id">
+                                        <strong>@a.RoleLabel</strong><small>@a.Id@(a.WikiAttacks.Length > 0 ? " · " + string.Join(" / ", a.WikiAttacks) : "")</small>
+                                        @if (edited > 0) { <span class="badge modified-badge">@edited</span> }</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                @if (!ModifiedOnly)
+                {
+                    @if (c.Attack(SelectedAttack) is { } attack) { @AttackDetail(c, attack, attackFields[attack.Id], saved) }
+                    else { <p class="subtle" data-attack-hint>Select an attack to edit its values.</p> }
+                }
+            </section>
+        }
+    }
+    var unverified = fields.Where(f => IsSaved(f) && f.Acknowledgement == "allow_unverified_effect").ToArray();
+    @if (unverified.Length > 0)
+    {
+        <AckPanel Title="Effect not gameplay-confirmed" Kind="unverified" Description="@unverified[0].AcknowledgementReason"
+            Items="@unverified.Select(f => catalog.Describe(f.Target) + " · " + f.DisplayName).ToArray()" ItemsLabel="Edited:"
+            PanelAttributes='@(new() { ["data-enemy-unverified"] = c.SemanticId })' />
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+}
+@code {
+    [Parameter, EditorRequired] public string SemanticId { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error; private string ZoneFilter = "", SelectedZone = "", SelectedAttack = "";
+    // Enemy evidence tiers, as Runtime defines them (sdk/docs/enemy-authoring.md).
+    private static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string>
+    {
+        ["live_proven"] = "Changed in game on an enemy by a Runtime live test (listed).",
+        ["gameplay_proven_member"] = "The HealthComponent member is gameplay-proven on vehicle zones; this class's value is not tested in game.",
+        ["schema_wiki_correlated"] = "Identified by its hidden member-name length and exact agreement with the wiki anatomy tables; the effect on enemies is not confirmed in game.",
+        ["mount_chain_structural"] = "Reached through this class's own mount chain, re-proven before every write; a change to an enemy attack is not confirmed in game.",
+    };
+    // One attack row: its identity (wiki names only as Runtime matched them), sharing, and fields.
+    private RenderFragment AttackDetail(EnemyClass c, EnemyAttack a, EntityField[] fields, IReadOnlyDictionary<string, EntityChange> saved) => __builder =>
+    {
+        var catalog = Workspace.Metadata!.Entities!.Enemies!;
+        var others = a.SharedWithClasses.Where(n => n != c.Name).ToArray();
+        <div class="attack-detail" data-attack-detail="@a.Id">
+            <h3 class="group-title">@a.Title <small class="subtle">@a.Id · @a.RoleLabel · @a.Row row</small></h3>
+            <div class="field-badges">
+                @if (a.WikiAttacks.Length > 0) { <span class="badge green" data-attack-wiki title="All nine published damage values equal this attack on the class's own wiki page.">Wiki attack</span> }
+                @foreach (var of in a.WikiExplosionOf) { <span class="badge" title="Standard damage and three radii equal this explosion on the class's own wiki page.">Explosion of @of</span> }
+                <span class="badge amber" data-flag="allow_shared" title="@catalog.Model.Attacks.Sharing">Shared row · @a.SharedWithClasses.Length @(a.SharedWithClasses.Length == 1 ? "class" : "classes")</span>
+            </div>
+            @if (!ModifiedOnly && a.RowWikiMatches.Length > 0) { <p class="subtle" data-row-wiki-matches>Same nine values as: @string.Join(" · ", a.RowWikiMatches) (describes the shared row, not this class).</p> }
+            <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
+            @if (fields.Any(f => saved.ContainsKey(f.InstanceKey)))
+            {
+                <AckPanel Title="Shared settings row" Kind="shared" Description="@(catalog.Model.Attacks.Sharing + ".")"
+                    Items="@(others.Length > 0 ? others : ["no other reviewed class"])" ItemsLabel="Also used by:"
+                    PanelAttributes='@(new() { ["data-enemy-shared"] = a.Id })' />
+            }
+        </div>
+    };
+    private static string Candidate(EnemyWikiCandidate w) => w.Page + " (" + (w.ZonesMatched == 0 ? "main values only" : w.ZonesMatched + (w.ZonesMatched == 1 ? " zone" : " zones")) + (w.KindAgrees ? "" : ", other kind") + ")";
+    private static string ZoneIdentity(EnemyZone z) => string.Join(" · ", new[] { z.Id, z.Name is { } n && n != z.Label ? "native " + n : null, z.WikiZone != null && z.Name != null ? "wiki label" : null }.Where(s => s != null));
+    // The value a zone shows in the table: the saved desired value, else its baseline.
+    private static string Value(IReadOnlyDictionary<string, EntityField> fields, string id, IReadOnlyDictionary<string, EntityChange> saved)
+    {
+        if (!fields.TryGetValue(id, out var f)) return "—";
+        var v = saved.GetValueOrDefault(f.InstanceKey)?.DesiredValue ?? f.CurrentDefault;
+        try { return EntityScalar.Text(f, v); } catch (InvalidDataException) { return v.ValueKind == System.Text.Json.JsonValueKind.Null ? "not set" : v.GetRawText(); }
+    }
+    private static string Percent(IReadOnlyDictionary<string, EntityField> fields, string id, IReadOnlyDictionary<string, EntityChange> saved)
+    {
+        if (!fields.TryGetValue(id, out var f)) return "—";
+        var v = saved.GetValueOrDefault(f.InstanceKey)?.DesiredValue ?? f.CurrentDefault;
+        return v.ValueKind == System.Text.Json.JsonValueKind.Number ? Math.Round(v.GetDouble() * 100, 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + " %" : "—";
+    }
+    private void SelectZoneKey(KeyboardEventArgs e, string id) { if (e.Key is "Enter" or " ") SelectedZone = id; }
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

@@ -10,7 +10,9 @@
             @if (saved != null) { <span class="badge modified-badge">Modified</span> }
         </span></div>
     <div class="field-value">
-        @if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Field.Display.Name" /> }
+        @* Status references (0.28.0 development SDKs) are shown with Runtime's baseline but not authored by this build. *@
+        @if (!Field.Writable) { <span class="readonly-value">@(Field.Value.Baseline.ValueKind == System.Text.Json.JsonValueKind.String ? Field.Value.Baseline.GetString() : Format(Field.Value.Baseline))</span> <span class="badge" title="@Field.BlockedReason">Read-only</span> }
+        else if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Field.Display.Name" /> }
         else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@Field.Display.Name" /> }
     </div>
     @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Display(saved.ExpectedValue) → <strong>@Display(saved.DesiredValue)</strong></div> }

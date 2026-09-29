@@ -81,11 +81,14 @@ public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLu
             "stratagem" => root,
             "eagle_rearm" => root + ":eagle_rearm()",
             "deployed_entity" => Entity(),
-            "shield" => Entity() + ":shield()",
+            _ when StratagemCatalog.EntityComponents.Contains(target.Path) => Entity() + ":" + target.Path + "()",
             "damage_zone" => Entity() + ":damage_zone(" + LuaGenerator.Quote(target.Zone!) + ")",
             "weapon" => Weapon(),
             "attack" when target.Weapon == null => root + ":attack(" + LuaGenerator.Quote(target.Attack!) + ")",
             "attack" when target.Weapon == "primary" => Weapon() + ":attack(" + LuaGenerator.Quote(target.Attack!) + ")",
+            // Unreleased Runtime (0.28.0 development): a mine stratagem's explosion is hd2.stratagem(name):mine(); its DamageInfo and
+            // status rows are stratagem-level attack roles.
+            "attack" when target.Weapon == StratagemMine.Weapon && target.Entity == "main" => target.Attack == StratagemMine.Weapon ? root + ":mine()" : root + ":attack(" + LuaGenerator.Quote(target.Attack!) + ")",
             "attack" => throw new InvalidDataException("The public Runtime API resolves attack branches only under the primary mounted weapon."),
             _ => throw new InvalidDataException("Unsupported stratagem target."),
         };

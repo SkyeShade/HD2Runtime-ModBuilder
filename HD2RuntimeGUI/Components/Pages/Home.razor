@@ -51,6 +51,8 @@
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "boosters") { <Boosters Changed="RefreshWeaponUI" /> }
         else if (Page == "throwables") { <Throwables Changed="RefreshWeaponUI" /> }
+        else if (Page == "enemies") { <Enemies Kind="@EnemyAuthoringReader.Enemy" Changed="RefreshWeaponUI" /> }
+        else if (Page == "structures") { <Enemies Kind="@EnemyAuthoringReader.Structure" Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
@@ -154,6 +156,7 @@
                         @if (Workspace.Metadata.Entities?.Throwables != null) { <button @onclick='() => Navigate("throwables")'>Throwables</button> }
                         @if (Workspace.Metadata.Stratagems != null) { <button @onclick='() => NavigateTo("stratagems")'>Stratagems</button> }
                         @if (Workspace.Metadata.Entities?.Boosters != null) { <button @onclick='() => Navigate("boosters")'>Boosters</button> }
+                        @if (Workspace.Metadata.Entities?.Enemies != null) { <button data-quick-enemies @onclick='() => Navigate("enemies")'>Enemies</button><button @onclick='() => Navigate("structures")'>Structures</button> }
                     </nav>
                 </div>
             }

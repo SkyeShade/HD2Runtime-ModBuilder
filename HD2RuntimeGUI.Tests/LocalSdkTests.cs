@@ -59,5 +59,7 @@ public sealed class LocalSdkTests
         using var e = new TestEnvironment(); var (_, updates, _) = Local(e, path);
         var sdk = (await updates.CheckAsync()).Installed;
         Assert.NotNull(sdk.PlayerWeapons); Assert.NotNull(sdk.Entities?.Boosters); Assert.NotNull(sdk.SupportLinks);
+        // Development SDKs for 0.28.0 also publish enemy and structure authoring.
+        if (File.Exists(Path.Combine(path, EnemyAuthoringReader.FileName))) Assert.NotEmpty(sdk.Entities!.Enemies!.Classes);
     }
 }

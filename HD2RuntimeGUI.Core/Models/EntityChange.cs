@@ -20,6 +20,10 @@ public sealed record EntityChange
     // 0.27.0 throwables (Resource "throwable", Entity = the published throwable name): the status effect key of a status_effect edit.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Effect { get; init; }
+    // Enemies and enemy structures (Resource "enemy" / "structure", Entity = the class's semantic ID; 0.28.0 development SDKs): the reviewed
+    // classes that share the edited row when it was saved. Kept with the change so the project records who else a shared edit affects.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string[]? SharedConsumers { get; init; }
     public string InstanceKey { get; init; } = "";
     public string SemanticFieldId { get; init; } = "";
     public string FieldType { get; init; } = "";

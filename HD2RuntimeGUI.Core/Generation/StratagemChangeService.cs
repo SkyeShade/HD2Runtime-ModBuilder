@@ -39,7 +39,8 @@ public sealed class StratagemChangeService : IStratagemChangeService
     public static StratagemCatalog Catalog(SdkMetadata sdk) => sdk.Stratagems ?? throw new InvalidDataException("Explicitly rebind to SDK 0.21 or newer for stratagem authoring.");
     public static string TargetKind(StratagemField f) => f.Target.Path switch
     {
-        "deployed_entity" or "damage_zone" or "shield" => "deployed_entity",
+        "deployed_entity" or "damage_zone" => "deployed_entity",
+        _ when StratagemCatalog.EntityComponents.Contains(f.Target.Path) => "deployed_entity",
         "weapon" => "mounted_weapon",
         "attack" when f.Target.Weapon != null => "mounted_weapon",
         _ => "stratagem",

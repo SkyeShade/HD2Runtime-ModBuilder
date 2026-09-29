@@ -18,6 +18,7 @@ public static class StratagemCategories
     // Boosters (SDK 0.24.0+) are their own authoring domain, not a stratagem family; yellow alongside the stratagem categories.
     public const string BoosterCssClass = "cat-booster";
     public const string ThrowableCssClass = "cat-throwable";
+    public const string EnemyCssClass = "cat-enemy", StructureCssClass = "cat-structure";
     // Every call-in root is listed, including vehicle and backpack call-ins (edited through their Support entry).
     // 0.25.0+: a catalog root Runtime proves has no call-in (no_call_in) is not a stratagem; its equipment is listed as standalone.
     public static bool Listed(StratagemDefinition s, EntityAuthoring? entities = null) => s.Delivers?.IsNoCallIn != true;
@@ -62,6 +63,13 @@ public static class Navigation
             items.Add(new("support", "Support equipment", Workspace, support.Weapons.Count, StratagemCategories.Support.CssClass));
         // hd2.booster authoring appears only when the bound SDK publishes BoosterAuthoringCapabilities.json (0.24.0+).
         if (entities?.Boosters is { } boosters) items.Add(new("boosters", "Boosters", Workspace, boosters.Boosters.Length, StratagemCategories.BoosterCssClass));
+        // hd2.enemy / hd2.structure authoring appears when the bound SDK publishes EnemyAuthoringCapabilities.json (unreleased Runtime 0.28.0
+        // development SDKs today). Structures are their own destination, as Runtime publishes them with their own accessor.
+        if (entities?.Enemies is { } enemies)
+        {
+            items.Add(new("enemies", "Enemies", Workspace, enemies.Of(EnemyAuthoringReader.Enemy).Count(), StratagemCategories.EnemyCssClass));
+            items.Add(new("structures", "Structures", Workspace, enemies.Of(EnemyAuthoringReader.Structure).Count(), StratagemCategories.StructureCssClass));
+        }
         items.Add(new("changes", "Changes", Workspace, project == null ? null : modifications));
         items.Add(new("lua", "Lua Preview", Workspace));
         items.Add(new("export", "Build / Export", Workspace));

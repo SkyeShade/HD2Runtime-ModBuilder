@@ -28,6 +28,11 @@
         // Throwable tiers (0.27.0): the native member is proven, and "wiki exact" adds an exact published-value match. Effects remain unproven in game.
         "wiki_exact" => "Native member · exact value match · effect unproven",
         "native_member" => "Native member · effect unproven",
+        // Enemy tiers (0.28.0 development SDKs): live-tested on enemies, a member proven on vehicles, wiki-correlated members, and mount-chain rows.
+        "live_proven" => "In-game tested on enemies",
+        "gameplay_proven_member" => "Member proven on vehicles · enemy value untested",
+        "schema_wiki_correlated" => "Member + wiki match · effect unproven",
+        "mount_chain_structural" => "Mount chain · effect unproven",
         _ => tier.Replace('_', ' '),
     };
     public static string Short(string tier) => tier switch
@@ -45,6 +50,10 @@
         "structural_code_selector_exact_fingerprint" or "structural_code_selector" => "Code selector",
         "wiki_exact" => "Exact match",
         "native_member" => "Native member",
+        "live_proven" => "In-game tested",
+        "gameplay_proven_member" => "Proven member",
+        "schema_wiki_correlated" => "Wiki-correlated",
+        "mount_chain_structural" => "Mount chain",
         _ => tier.Replace('_', ' '),
     };
     private string Tooltip => string.Join("\n", new[] { Label(Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,

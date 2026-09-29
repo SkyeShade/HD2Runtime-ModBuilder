@@ -10,7 +10,9 @@ public sealed record MagazineGraphSummary(int Weapons, int NativeOptionIdentitie
     int? OpticsMapped = null, int? UnderbarrelMapped = null, int? MuzzleMapped = null, int? CompleteCustomizationRecordsCompared = null,
     int? CustomizationRecordsScanned = null, int? NativeOptionIdsObservedInCorpus = null, int? NativeAddPathsObservedInCorpus = null,
     int? WritableAttachmentSelections = null, int? AlternateAllowedRelationshipsProven = null);
-public sealed record ProjectileGraphSummary(int Weapons, int WeaponsWithProjectileAttack, int ProjectileAttacks, int WritableTargetAttacks, int CompatibleSourceAttacks, int? WritableExplosiveSelectors = null, int? SharedProjectileGroups = null, Dictionary<string, int>? CompatibilityClasses = null);
+public sealed record ProjectileGraphSummary(int Weapons, int WeaponsWithProjectileAttack, int ProjectileAttacks, int WritableTargetAttacks, int CompatibleSourceAttacks, int? WritableExplosiveSelectors = null, int? SharedProjectileGroups = null, Dictionary<string, int>? CompatibilityClasses = null,
+    // Unreleased Runtime (0.28.0 development): attacks whose active projectile source is a writable target.
+    int? ActiveSourceWritableTargetAttacks = null);
 public sealed record FireModeGraphSummary(int Weapons, int NativePrimaryValueReadable, int AllowedModeListsProven, int WritableWeapons);
 public sealed record TerminalGraphSummary(int Weapons, int ProjectileAttacks, int ReadableActions, int WritableActions, int ImpactExplosionLinks, int ExpiryExplosionLinks, int? WritableImpactRefs = null, int? WritableExpiryRefs = null);
 public sealed record CompositionSummary(MagazineGraphSummary Magazine, ProjectileGraphSummary Projectile,
@@ -79,10 +81,12 @@ public sealed class PlayerWeaponCompositionReader : IPlayerWeaponCompositionRead
                 {
                     if (!Regex.IsMatch(a.Role, "\\A[a-z][a-z_0-9]{0,63}\\z")) throw new InvalidDataException("Invalid attack role.");
                     var f = weapon.Fields.SingleOrDefault(f => f.Domain == "attack" && f.ReferenceRole == a.Role);
-                    if (f == null || f.Editable != a.WritableReferenceSwap || f.CompatibilityClass != a.CompatibilityClass) throw new InvalidDataException("Projectile graph/capability mismatch.");
+                    // A published projectile source (0.28.0 development SDKs) narrows the graph's writable target to attacks whose shot fires it directly.
+                    var writable = a.WritableReferenceSwap && (f?.ProjectileSource is not { } source || source.Status == WeaponProjectileSource.ActiveDirect);
+                    if (f == null || f.Editable != writable || f.CompatibilityClass != a.CompatibilityClass || !writable && f.ProjectileSource != null && string.IsNullOrWhiteSpace(f.Reason)) throw new InvalidDataException("Projectile graph/capability mismatch.");
                     var baseline = f.CurrentDefault.Deserialize<ProjectileBaseline>(Options)!;
                     if (baseline.Weapon != w.Weapon || baseline.Attack != a.Role || baseline.ProjectileType != a.ProjectileType || f.ReferenceSettings != a.ProjectileSettings) throw new InvalidDataException("Projectile baseline mismatch.");
-                    if (a.WritableReferenceSwap && (weapon.OrdinaryWritesBlocked || !f.WriteAccepted || f.AffectsMultipleWeapons || !a.SourceIdentityResolvable || !a.TargetOwnershipProven
+                    if (writable && (weapon.OrdinaryWritesBlocked || !f.WriteAccepted || f.AffectsMultipleWeapons || !a.SourceIdentityResolvable || !a.TargetOwnershipProven
                         || a.TargetBacking?.UniqueOwner != true || a.ProjectileSettings == null || !(modern ? result.Projectiles.GuardPolicy?.ApprovedClasses?.Contains(a.CompatibilityClass) == true : a.CompatibilityClass == "conventional_plain"))) throw new InvalidDataException("Unsafe projectile selector.");
                 }
             }
@@ -113,7 +117,11 @@ public sealed class PlayerWeaponCompositionReader : IPlayerWeaponCompositionRead
                 || summary.Terminal.ImpactExplosionLinks != actions.Count(a => a.Phase == "impact" && a.LinkedExplosionRecord)
                 || summary.Terminal.ExpiryExplosionLinks != actions.Count(a => a.Phase == "expiry" && a.LinkedExplosionRecord)
                 || summary.Magazine.WeaponsWithNativeDefaultOption != result.Magazines.Weapons.Count(w => w.DefaultOption != null)) throw new InvalidDataException("Composition summary mismatch.");
-            return result;
+            // The graph's writable target stays as published for the summary; the effective selector follows the capability (active source).
+            var active = result.Projectiles.Weapons.Select(w => w with { Attacks = w.Attacks.Select(a => catalog.Weapon(w.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == a.Role) is { ProjectileSource: not null, Editable: false } f && a.WritableReferenceSwap
+                ? a with { WritableReferenceSwap = false, Reason = f.Reason } : a).ToArray() }).ToArray();
+            if (summary.Projectile.ActiveSourceWritableTargetAttacks is { } count && count != active.Sum(w => w.Attacks.Count(a => a.WritableReferenceSwap))) throw new InvalidDataException("Composition summary mismatch.");
+            return result with { Projectiles = result.Projectiles with { Weapons = active } };
         }
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or ArgumentException)
         { throw new InvalidDataException("Malformed composition metadata: " + e.Message, e); }

@@ -35,6 +35,8 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
     // SDK 0.27.0+: automatic asset loading; what each reference-swappable object needs and whether Runtime loads it.
     public AssetDependencyCatalog? Assets { get; init; }
     public bool Has027 => Models.SemVersion.Parse(Version).CompareTo(Models.SemVersion.Parse("0.27.0")) >= 0;
+    // 0.28.0 is not published yet; unreleased Runtime builds for it may still report 0.27.0 (see SdkCache: enemy authoring).
+    public bool Has028 => Models.SemVersion.Parse(Version).CompareTo(Models.SemVersion.Parse("0.28.0")) >= 0;
     public string CategoryName(string key)
     {
         var name = Types[key].Name;

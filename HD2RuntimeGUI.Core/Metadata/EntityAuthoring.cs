@@ -17,15 +17,23 @@ public sealed record EntityTarget(string Resource, string Path, string? Vehicle 
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Slot = null,
     // 0.27.0 throwables (published name) and a throwable status effect's key (for example "fire").
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Throwable = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Effect = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Effect = null,
+    // Enemies and enemy structures (0.28.0 development SDKs): the class's semantic ID and the native class name Lua addresses it by.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Enemy = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? EnemyClass = null)
 {
     // Vehicle or backpack name, the magazine attachment semantic ID (weapon_attachment, 0.23.1+), the booster name (booster, 0.24.0+),
-    // the vehicle weapon key (vehicle_weapon, 0.26.0) or the rack name (pod_rack, 0.26.0).
-    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? Throwable ?? "";
+    // the vehicle weapon key (vehicle_weapon, 0.26.0), the rack name (pod_rack, 0.26.0), the throwable name (0.27.0) or the enemy
+    // class semantic ID (enemy / structure).
+    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? Throwable ?? Enemy ?? "";
 }
 public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
     string? NativeOwner = null, string? GameplayWriteEffect = null);
-public sealed record EntityConsumer(string? Vehicle = null, string? Backpack = null);
+public sealed record EntityConsumer(string? Vehicle = null, string? Backpack = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Enemy = null)
+{
+    [JsonIgnore] public string Name => Vehicle ?? Backpack ?? Enemy ?? "";
+}
 // 0.25.0+: a published safe value range (inclusive); Runtime rejects writes outside it.
 public sealed record EntityRange(double Min, double Max, bool Integer, string? Reason = null);
 public sealed record EntityField(string InstanceKey, string SemanticFieldId, string DisplayName, string Type, string? Unit, JsonElement CurrentDefault,
@@ -38,6 +46,8 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     public const string ReferenceType = "mounted_weapon_reference";
     // 0.26.0 drop-pod slot payload: a reviewed pickup semantic ID or 'empty'.
     public const string PickupType = "pickup_reference";
+    // A status reference (0.28.0 development SDKs) is never authored by this build: it is published read-only with a reason.
+    [JsonIgnore] public bool IsStatusReference => Type == WeaponCapability.StatusReference;
     [JsonIgnore] public bool IsReference => Type == ReferenceType;
     [JsonIgnore] public bool IsPickup => Type == PickupType;
     // A value chosen from a published list (mount weapon or pickup) rather than typed.
@@ -117,11 +127,20 @@ public sealed class EntityAuthoring
     public PodPayloadCatalog? Pods { get; init; }
     // SDK 0.27.0+: throwables (hd2.throwable).
     public ThrowableCatalog? Throwables { get; init; }
+    // Unreleased Runtime (0.28.0 development) SDKs: enemies and enemy structures (hd2.enemy / hd2.structure).
+    public EnemyCatalog? Enemies { get; init; }
     public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []).Concat(Boosters?.FieldInstances ?? [])
-        .Concat(VehicleWeapons?.FieldInstances ?? []).Concat(Pods?.FieldInstances ?? []).Concat(Throwables?.FieldInstances ?? []);
+        .Concat(VehicleWeapons?.FieldInstances ?? []).Concat(Pods?.FieldInstances ?? []).Concat(Throwables?.FieldInstances ?? []).Concat(Enemies?.FieldInstances ?? []);
+    // The same catalogs with the enemy catalog attached (the catalogs are immutable once read).
+    public EntityAuthoring WithEnemies(EnemyCatalog? enemies) => new() { Vehicles = Vehicles, Backpacks = Backpacks, CallIns = CallIns, Attachments = Attachments,
+        Boosters = Boosters, VehicleWeapons = VehicleWeapons, Pods = Pods, Throwables = Throwables, Enemies = enemies };
     // The backpack whose deposit feeds a support weapon (0.26.0 backpack ammunition).
     public Backpack? AmmoBackpackOf(string supportWeapon) => Backpacks.Backpacks.FirstOrDefault(b => b.Feeds?.SupportWeapon == supportWeapon);
-    public EntityField? Field(string instanceKey) => AllFields.FirstOrDefault(f => f.InstanceKey == instanceKey);
+    // Indexed once per SDK load: with enemy catalogs there are more than fifteen thousand published fields, and every edit, validation and
+    // Changes render resolves fields by key.
+    private Dictionary<string, EntityField>? index;
+    public EntityField? Field(string instanceKey) => (index ??= AllFields.GroupBy(f => f.InstanceKey, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal))
+        .GetValueOrDefault(instanceKey);
     public string? CallInFor(string resource, string entity) => CallIns.FirstOrDefault(p => p.Value == (resource, entity)).Key;
 }
 

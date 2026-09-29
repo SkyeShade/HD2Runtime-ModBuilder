@@ -1370,3 +1370,39 @@ input[type=checkbox]:checked:before {
 .swap-actions { display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center }
 .swap-result { display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px 8px; margin:8px 0; font-size:12.5px; color:var(--muted) }
 .swap-result .swap-edits { flex-basis:100%; margin:0; color:var(--warning) }
+
+/* Enemies and enemy structures (hd2.enemy / hd2.structure). */
+:root { --cat-enemy:#ff9f5a; --cat-structure:#b8a888 }
+.cat-enemy { --cat:var(--cat-enemy) }
+.cat-structure { --cat:var(--cat-structure) }
+.native-name { font-family:'Cascadia Mono','Consolas',monospace; font-weight:600; letter-spacing:-.01em }
+h2.native-name { font-size:21px }
+.resource-item strong.native-name { font-size:13px }
+.enemy-faction { margin:14px 0 6px }
+.enemy-identity code { font-size:12px }
+.zone-filter { max-width:320px; margin-bottom:10px }
+.zone-table-wrap { max-height:420px; overflow:auto; border:1px solid var(--border); border-radius:10px }
+.zone-table { width:100%; border-collapse:collapse; font-size:13px }
+.zone-table th { position:sticky; top:0; background:var(--surface); text-align:left; font-weight:600; color:var(--muted); padding:7px 10px; border-bottom:1px solid var(--border) }
+.zone-table td { padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:middle }
+.zone-table tbody tr { cursor:pointer }
+.zone-table tbody tr:hover { background:color-mix(in srgb, var(--cat, var(--accent)) 6%, transparent) }
+.zone-table tbody tr.active { background:color-mix(in srgb, var(--cat, var(--accent)) 14%, transparent); box-shadow:inset 3px 0 0 var(--cat, var(--accent)) }
+.zone-table tbody tr.modified td:first-child strong { color:var(--accent) }
+.zone-table .badge { margin-left:6px; font-size:10.5px; padding:0 6px }
+.zone-flags .badge:first-child { margin-left:0 }
+.zone-detail { margin-top:14px }
+.zone-detail.selected { padding-top:4px }
+.attack-slot { margin-bottom:10px }
+.attack-list { display:flex; flex-wrap:wrap; gap:8px }
+.attack-chip { display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:7px 12px; border-radius:9px; text-align:left }
+.attack-chip small { color:var(--muted); font-size:11.5px }
+.attack-chip.active { border-color:var(--cat, var(--accent)); background:color-mix(in srgb, var(--cat, var(--accent)) 12%, transparent) }
+.attack-chip.modified strong { color:var(--accent) }
+.attack-detail { margin-top:14px; padding-top:12px; border-top:1px solid var(--border) }
+.attack-detail .field-badges { margin:4px 0 8px }
+.zone-table td small { margin-left:6px }
+.zone-detail h3.group-title, .attack-detail h3.group-title { text-transform:none; letter-spacing:normal; font-size:15px; color:var(--text) }
+.zone-detail h3.group-title small, .attack-detail h3.group-title small { margin-left:8px; font-size:12px; font-weight:400 }
+.native-name { overflow-wrap:anywhere }
+.enemy-browser .resource-item { min-width:0; max-width:100% }

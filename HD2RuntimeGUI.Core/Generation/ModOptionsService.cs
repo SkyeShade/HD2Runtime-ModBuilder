@@ -85,7 +85,7 @@ public static class ModOptionsService
                 EntityField f; try { f = EntityChangeService.Resolve(sdk.Entities, c); } catch (InvalidDataException) { continue; }
                 var blocker = f.IsReference ? "Reference swaps cannot be bound to in-game options." : f.IsPickup ? "Drop-pod contents are pickup references and cannot be in-game options." : Scalar(f.Type);
                 // Magazine attachments are identified by semantic ID; show their published name.
-                var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Entity;
+                var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Enemy != null ? EntityLua.Describe(sdk.Entities, f.Target) : f.Target.Entity;
                 result.Add(Numeric(EntityKey(c.InstanceKey), "entity", owner, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
                     c.Enabled, c.EnsureEnabled, Finite(f.EffectiveRange?.Min), Finite(f.EffectiveRange?.Max), blocker, v => EntityScalar.CheckRange(f, Json(v))));
             }

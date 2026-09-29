@@ -60,7 +60,7 @@ public static class ProjectIdentity
             _ when c.Zone != null && (c.TargetKind, c.Path) != ("deployed_entity", "damage_zone") => false,
             ("stratagem", "stratagem" or "eagle_rearm") => c.Entity == null && c.Weapon == null && c.Attack == null,
             ("stratagem", "attack") => c.Entity == null && c.Weapon == null && Id(c.Attack),
-            ("deployed_entity", "deployed_entity" or "shield") => Id(c.Entity) && c.Weapon == null && c.Attack == null,
+            ("deployed_entity", "deployed_entity" or "shield" or "turret" or "targeting" or "minefield") => Id(c.Entity) && c.Weapon == null && c.Attack == null,
             ("deployed_entity", "damage_zone") => Id(c.Entity) && Id(c.Zone) && c.Weapon == null && c.Attack == null,
             ("mounted_weapon", "weapon") => Id(c.Entity) && Id(c.Weapon) && c.Attack == null,
             ("mounted_weapon", "attack") => Id(c.Entity) && Id(c.Weapon) && Id(c.Attack),
@@ -77,14 +77,16 @@ public static class ProjectIdentity
         || v.ValueKind == System.Text.Json.JsonValueKind.String && v.GetString() == Metadata.StratagemUses.Unlimited;
     // Format 8: SDK 0.26.0 edits (fire-mode lists, mission uses, effect acknowledgements, vehicle weapons, drop-pod payloads).
     // Format 9: SDK 0.27.0 throwable edits (older ModBuilder versions cannot read them).
-    public static int RequiredFormat(ModProject p) => p.EntityChanges.Any(c => c.Resource == ThrowableAuthoringReader.Resource || c.Effect != null) ? 9 :
+    // Format 10: enemy and enemy-structure edits (0.28.0 development SDKs); older ModBuilder versions reject the format instead of the edits.
+    public static int RequiredFormat(ModProject p) => p.EntityChanges.Any(c => Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers != null) ? 10 :
+        p.EntityChanges.Any(c => c.Resource == ThrowableAuthoringReader.Resource || c.Effect != null) ? 9 :
         p.WeaponChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet || c.EffectAcknowledgement != null)
         || p.SupportChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet)
         || p.StratagemChanges.Any(c => c.FieldType == Metadata.StratagemUses.Type || c.EffectAcknowledgement != null)
         || p.EntityChanges.Any(c => c.Resource is "vehicle_weapon" or "pod_rack" || c.Attack != null || c.Slot != null) ? 8 : 1;
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -157,8 +159,18 @@ public static class ProjectIdentity
                     ("throwable", var throwablePath) when ThrowableAuthoringReader.Accessors.ContainsKey(throwablePath) => c.Zone == null && c.Mount == null && c.Slot == null && c.Attack == null
                         && ThrowableAuthoringReader.ValidName(c.Entity) && (throwablePath == "status_effect" ? c.Effect != null && ThrowableAuthoringReader.ValidKey(c.Effect) : c.Effect == null),
                     ("pod_rack", "slot") => c.Zone == null && c.Mount == null && c.Slot is >= 1 and <= 4 && c.Attack == null && PodPayloadReader.ValidName(c.Entity) && c.FieldType == EntityField.PickupType,
+                    // Enemies and enemy structures: Entity is the class semantic ID; the class, one damage zone (zone_N) or one attack row (slot_N...).
+                    (EnemyAuthoringReader.Enemy or EnemyAuthoringReader.Structure, var enemyPath) => c.Mount == null && c.Slot == null && c.Effect == null
+                        && EnemyAuthoringReader.ValidSemanticId(c.Entity) && c.FieldType is "integer" or "number" && enemyPath switch
+                        {
+                            EnemyAuthoringReader.EntityPath => c.Zone == null && c.Attack == null,
+                            EnemyAuthoringReader.ZonePath => EnemyAuthoringReader.ValidZone(c.Zone) && c.Attack == null,
+                            EnemyAuthoringReader.AttackPath => c.Zone == null && EnemyAuthoringReader.ValidAttack(c.Attack),
+                            _ => false,
+                        },
                     _ => false,
                 })
+                || c.SharedConsumers != null && (!Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers.Length is 0 or > 256 || c.SharedConsumers.Any(n => string.IsNullOrWhiteSpace(n) || n.Length > 256))
                 || (c.FieldType switch
                 {
                     EntityField.ReferenceType => c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.String || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.String

@@ -44,7 +44,15 @@ public sealed partial class BuilderWorkspace
         // A magazine attachment or booster target is acknowledged as a whole: new edits inherit an existing acknowledgement of the same scope.
         else if (f.Acknowledgement == "allow_unverified_effect" && EntityChangeService.Approved(p, f))
             next = next with { ReferenceAcknowledgement = EntityChangeService.ReferenceEvidence(f, next.DesiredValue) };
-        if (!EntityScalar.Equal(f, next.DesiredValue, f.CurrentDefault)) p.EntityChanges.Add(next);
+        if (EntityScalar.Equal(f, next.DesiredValue, f.CurrentDefault)) return;
+        // One native row reached through two targets (an enemy attack row shared by two mounts or classes, a settings row shared by two
+        // throwables) is one value. The second edit is refused right here, naming where the value is already edited, instead of at build time.
+        var catalog = EntityChangeService.Catalog(Metadata!);
+        if (p.EntityChanges.FirstOrDefault(c => c.InstanceKey != f.InstanceKey && catalog.Field(c.InstanceKey) is { } other && other.BackingObjectId == f.BackingObjectId
+                && other.ApiFieldConstant == f.ApiFieldConstant && other.Target != f.Target) is { } clash)
+            throw new InvalidDataException(f.DisplayName + " is one shared value, already edited through " + EntityLua.Describe(catalog, catalog.Field(clash.InstanceKey)!.Target)
+                + ". Change it there, or reset that edit first.");
+        p.EntityChanges.Add(next);
     });
     public Task SetEntityReferenceAcknowledgedAsync(string instance, bool acknowledged) => EditEntityAsync(p =>
     {
