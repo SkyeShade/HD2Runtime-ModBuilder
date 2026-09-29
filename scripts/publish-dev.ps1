@@ -16,7 +16,7 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 $SdkPath = [IO.Path]::GetFullPath($SdkPath)
 if (-not (Test-Path (Join-Path $SdkPath 'metadata.json'))) { throw "No HD2Runtime SDK at $SdkPath (metadata.json missing)." }
 $project = Join-Path $repoRoot 'HD2RuntimeGUI\HD2RuntimeGUI.csproj'
-$updaterProject = Join-Path $repoRoot 'HD2RuntimeGUI.Updater\HD2RuntimeGUI.Updater.csproj'
+$updaterProject = Join-Path $repoRoot 'HD2RuntimeModBuilder.Updater\HD2RuntimeModBuilder.Updater.csproj'
 $commit = (& git -C $repoRoot rev-parse --short=7 HEAD).Trim()
 $dirty = [bool](& git -C $repoRoot status --porcelain)
 $runtimeCommit = try { (& git -C (Split-Path $SdkPath -Parent) rev-parse --short=7 HEAD).Trim() } catch { 'unknown' }
