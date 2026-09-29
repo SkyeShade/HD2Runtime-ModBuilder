@@ -5,6 +5,8 @@ namespace HD2RuntimeGUI.Core.Metadata;
 // Runtime 0.26.0 generic mission uses (hd2.fields.stratagem.max_uses): Runtime's own 'unlimited' (native 0xFFFFFFFF, never a large
 // finite number) or a finite count in the published range. Only the transitions Runtime publishes for the stratagem are offered.
 // Eagles use the same native field for uses per rearm (hd2.fields.eagle.uses_per_rearm), so max_uses is read-only for them.
+public sealed record UsesControl(bool Unlimited, bool CanUnlimited, bool CanLimited, bool CountEditable, int Count);
+
 public static class StratagemUses
 {
     public const string Type = "stratagem_uses", Unlimited = "unlimited", Field = "stratagem.max_uses";
@@ -38,6 +40,18 @@ public static class StratagemUses
     // allow_unverified_effect is required unless the desired value is one Runtime lists as gameplay-proven (Exosuit 3 -> unlimited).
     public static bool EffectRequired(StratagemField f, JsonElement desired) => f.Acknowledgement == "allow_unverified_effect"
         && !(f.GameplayProvenValues ?? []).Any(p => JsonElement.DeepEquals(p, IsUnlimited(desired) ? JsonSerializer.SerializeToElement(Unlimited) : desired));
+    // Editor state for the compact [Unlimited ▼] / [Limited ▼] [N] control: which modes the published transitions allow from the
+    // baseline, the count shown when Limited, and whether that count may change (unlimited -> finite accepts any count in range;
+    // finite -> finite needs its own transition). Choosing Limited from Unlimited proposes the baseline count, or the range minimum.
+    public static UsesControl Control(StratagemField f, JsonElement current)
+    {
+        var baseUnlimited = IsUnlimited(f.CurrentDefault); var unlimited = IsUnlimited(current);
+        var canUnlimited = baseUnlimited || f.Transitions?.Contains(FiniteToUnlimited) == true;
+        var canLimited = !baseUnlimited || f.Transitions?.Contains(UnlimitedToFinite) == true;
+        var countEditable = baseUnlimited ? canLimited : f.Transitions?.Contains(FiniteToFinite) == true;
+        var count = !unlimited ? current.GetInt32() : baseUnlimited ? (int)(f.Min ?? 1) : f.CurrentDefault.GetInt32();
+        return new(unlimited, canUnlimited, canLimited, countEditable, count);
+    }
     public static string Lua(JsonElement v) => IsUnlimited(v) ? "'" + Unlimited + "'" : v.GetRawText();
     public static string Text(JsonElement v) => IsUnlimited(v) ? "Unlimited" : v.GetRawText();
 }

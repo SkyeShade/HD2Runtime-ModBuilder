@@ -152,6 +152,34 @@ public sealed class Runtime026Tests
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetStratagemAsync(f.InstanceKey, "101"));
     }
 
+    // The compact [Unlimited ▼] / [Limited ▼] [N] control offers only the published transitions from the baseline.
+    [Fact] public async Task Mission_use_control_offers_only_published_modes_and_counts()
+    {
+        using var e = new TestEnvironment(); var w = await Fresh(e);
+        static System.Text.Json.JsonElement J(string json) => System.Text.Json.JsonDocument.Parse(json).RootElement.Clone();
+        // Exosuit (finite 3): Unlimited and Limited, count editable (finite_to_finite); baseline shown as Limited 3.
+        var exo = Uses(w, "EXO-45 Patriot Exosuit");
+        Assert.Equal(new UsesControl(false, true, true, true, 3), StratagemUses.Control(exo, exo.CurrentDefault));
+        // After choosing Unlimited, switching back to Limited proposes the baseline count.
+        Assert.Equal(new UsesControl(true, true, true, true, 3), StratagemUses.Control(exo, J("\"unlimited\"")));
+        Assert.Equal(new UsesControl(false, true, true, true, 7), StratagemUses.Control(exo, J("7")));
+        // FRV (unlimited, only unlimited_to_finite): both modes; Limited proposes the range minimum and any count is allowed.
+        var frv = Uses(w, "M-102 Gunner FRV");
+        Assert.Equal(new UsesControl(true, true, true, true, 1), StratagemUses.Control(frv, frv.CurrentDefault));
+        Assert.Equal(new UsesControl(false, true, true, true, 2), StratagemUses.Control(frv, J("2")));
+        // Every mode offered is a transition Runtime accepts, and Unlimited stays Runtime's token.
+        foreach (var f in w.Metadata!.Stratagems!.FieldInstances.Where(f => f.SemanticFieldId == StratagemUses.Field && f.Editable))
+        {
+            var c = StratagemUses.Control(f, f.CurrentDefault);
+            if (c.CanUnlimited) StratagemUses.CheckTransition(f, f.CurrentDefault, J("\"unlimited\""));
+            if (c.CanLimited && StratagemUses.IsUnlimited(f.CurrentDefault)) StratagemUses.CheckTransition(f, f.CurrentDefault, J(c.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            if (c.CountEditable && !StratagemUses.IsUnlimited(f.CurrentDefault)) StratagemUses.CheckTransition(f, f.CurrentDefault, J((f.CurrentDefault.GetInt32() + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            if (!c.CanUnlimited) Assert.Throws<InvalidDataException>(() => StratagemUses.CheckTransition(f, f.CurrentDefault, J("\"unlimited\"")));
+        }
+        await w.SetStratagemAsync(exo.InstanceKey, "\"unlimited\"");
+        Assert.Contains("value='unlimited'", w.LuaPreview); Assert.DoesNotContain("4294967295", w.LuaPreview);
+    }
+
     [Fact] public async Task Eagle_max_uses_is_excluded()
     {
         using var e = new TestEnvironment(); var w = await Fresh(e); var f = Uses(w, "Eagle 500kg Bomb");

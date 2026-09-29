@@ -1068,7 +1068,8 @@ input[type=checkbox]:checked:before {
 /* ---- Readability pass: compact field rows, icons and object sections ---- */
 /* A group of published fields renders as one compact table instead of a card per scalar. */
 .stat-grid:has(> .field-row) { display:block; border:1px solid var(--border); border-radius:10px; background:var(--surface); overflow:visible }
-.field-row { display:grid; grid-template-columns:minmax(170px,1.5fr) minmax(96px,150px) minmax(110px,1fr) auto; align-items:center; gap:4px 12px; padding:7px 12px; border-bottom:1px solid var(--border); min-width:0 }
+/* A fixed tools column keeps every row's value column aligned whether or not it shows On / Reset field. */
+.field-row { display:grid; grid-template-columns:minmax(170px,1.5fr) minmax(96px,150px) minmax(110px,1fr) 170px; align-items:center; gap:4px 12px; padding:7px 12px; border-bottom:1px solid var(--border); min-width:0 }
 .field-row:last-child { border-bottom:0 }
 .field-row.modified { box-shadow:inset 3px 0 var(--accent); background:color-mix(in srgb, var(--accent) 4%, transparent) }
 .field-row.readonly .field-name > span:first-child { color:var(--muted) }
@@ -1079,7 +1080,7 @@ input[type=checkbox]:checked:before {
 .field-value input[type=number] { width:100%; height:30px; min-height:0; padding:3px 8px; font-size:13px; border-radius:6px }
 .field-baseline { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 .field-baseline.modified-value { color:var(--accent) }
-.field-tools { display:flex; align-items:center; gap:8px; justify-self:end }
+.field-tools { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:4px 8px; justify-self:end }
 .field-toggle { display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:var(--muted) }
 .reset-action.small { padding:3px 8px; font-size:11.5px }
 .field-info { position:relative }
@@ -1317,10 +1318,12 @@ input[type=checkbox]:checked:before {
 .fire-mode-slot .slot-actions { display:flex; gap:4px; flex-wrap:wrap }
 .fire-mode-add { display:flex; flex-wrap:wrap; gap:6px }
 .fire-mode-blocked { color:var(--muted); font-size:12.5px }
-.mission-uses { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px }
-.mission-uses-option { display:inline-flex; align-items:center; gap:5px; white-space:nowrap }
-.mission-uses input[type=number] { width:72px }
-.mission-uses-notes { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12px }
+/* Mission uses: [Unlimited ▼] or [Limited ▼] [N] in the same value column as Cooldown. */
+.mission-uses { display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-width:0 }
+.mission-uses select { flex:1 1 auto; min-width:0; width:100%; height:30px; min-height:0; padding:3px 2px 3px 6px; font-size:13px; border-radius:6px }
+.mission-uses input[type=number] { flex:0 0 46px; width:46px; padding:3px 6px }
+.uses-caveat { margin-left:6px; color:var(--muted); font-size:12px; cursor:help }
+.uses-caveat:hover, .uses-caveat:focus { color:var(--text) }
 .backpack-ammo { margin-top:12px }
 .vehicle-weapon { margin-top:12px }
 .vehicle-weapon.modified { box-shadow:inset 3px 0 var(--accent) }

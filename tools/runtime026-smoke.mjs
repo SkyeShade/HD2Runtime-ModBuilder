@@ -89,9 +89,25 @@ try {
     await stratagem('EXO-49 Emancipator Exosuit', 'vehicle'); await waitFor(q('[data-vehicle-weapon="EXO-49 Emancipator Exosuit / left_gun"]'), 'exosuit arms');
     assert.equal(await count('[data-vehicle-weapon="EXO-49 Emancipator Exosuit / right_gun"]'), 1);
 
-    // Mission uses: Exosuit 3 -> Unlimited is gameplay-proven.
-    await click('[data-uses-unlimited]'); await waitFor(q('[data-mission-uses] input[data-uses-unlimited]:checked'), 'unlimited'); assert(!(await reviewBlocked()));
-    await stratagem('M-102 Gunner FRV', 'vehicle'); assert.equal(await count('[data-uses-unlimited]:checked'), 1);
+    // Mission uses: compact [Limited ▼] [3] -> [Unlimited ▼] (no count input); Exosuit 3 -> Unlimited is gameplay-proven.
+    const uses = '[data-mission-uses]';
+    assert.equal(await evaluate(`${q(uses)}.dataset.usesMode`), 'limited'); assert.equal(await evaluate(`${q(uses + ' [data-uses-count]')}.value`), '3');
+    assert.equal(await count(uses + ' input[type=radio]'), 0); assert.equal(await evaluate(`${q(uses)}.closest('.field-row').querySelectorAll('[data-uses-caveat]').length`), 1);
+    await scroll('[data-callin]'); await screenshot('runtime026-mission-uses-limited');
+    await fill(uses + ' [data-uses-select]', 'unlimited'); await waitFor(`${q(uses)}.dataset.usesMode === 'unlimited'`, 'unlimited');
+    assert.equal(await count(uses + ' [data-uses-count]'), 0); assert.equal(await count('[data-gameplay-proven]'), 1); assert(!(await reviewBlocked()));
+    await screenshot('runtime026-mission-uses-unlimited');
+    // Unlimited -> Limited proposes the baseline count; the value returns to base, so the change is removed.
+    await fill(uses + ' [data-uses-select]', 'limited'); await waitFor(`${q(uses)}.dataset.usesMode === 'limited'`, 'limited again');
+    assert.equal(await evaluate(`${q(uses + ' [data-uses-count]')}.value`), '3'); assert.equal(await evaluate(`${q(uses)}.closest('.field-row').classList.contains('modified')`), false);
+    await fill(uses + ' [data-uses-select]', 'unlimited'); await waitFor(`${q(uses)}.dataset.usesMode === 'unlimited'`, 'unlimited again');
+    // FRV: baseline Unlimited; Limited shows the count and the unverified-effect warning.
+    await stratagem('M-102 Gunner FRV', 'vehicle'); assert.equal(await evaluate(`${q(uses)}.dataset.usesMode`), 'unlimited');
+    await fill(uses + ' [data-uses-select]', 'limited'); await waitFor(q(uses + ' [data-uses-count]'), 'FRV limited count');
+    await fill(uses + ' [data-uses-count]', '2'); await waitFor(`${q(uses + ' [data-uses-count]')}.value === '2'`, 'FRV count 2');
+    await warned(`[data-stratagem-field="${await evaluate(`${q(uses)}.closest('[data-stratagem-field]').dataset.stratagemField`)}"]`);
+    await screenshot('runtime026-mission-uses-frv');
+    assert((await lua()).includes("value=2"));
 
     // Maxigun backpack ammunition on its Support page.
     await stratagem('M-1000 Maxigun'); await waitFor(q('[data-backpack-ammo="M-1000 Maxigun Backpack"]'), 'Maxigun backpack ammo');
