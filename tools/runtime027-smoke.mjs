@@ -85,11 +85,31 @@ try {
     assert(!/fail/i.test(details), 'the inconclusive mount live test is not presented as a failure');
     await scroll('[data-vehicle-weapon] [data-mount]'); await screenshot('runtime027-mount-assets');
 
+    // Throwables: sidebar destination with all 23, filterable by published family; frag shrapnel shows a shared-row warning
+    // separate from the unverified-effect warning; the knife exposes its direct hit.
+    const nav = await evaluate(`[...document.querySelectorAll('.sidebar [data-nav]')].map(b => b.dataset.nav)`); assert.equal(nav.indexOf('throwables'), nav.indexOf('player-weapons') + 1);
+    await go('throwables'); await waitFor(q('[data-throwable-item]'), 'throwable list');
+    assert.equal(await count('[data-throwable-item]'), 23);
+    await fill('[data-throwable-family-filter]', 'Fragmentation'); assert.equal(await count('[data-throwable-item]'), 1); await fill('[data-throwable-family-filter]', '');
+    await click('[data-throwable-item="G-6 Frag"]'); await waitFor(q('[data-throwable="G-6 Frag"]'), 'frag editor');
+    for (const target of ['throwable', 'detonation', 'explosion', 'shrapnel']) assert.equal(await count(`[data-throwable-target="${target}"]`), 1, target);
+    const shrapnelDamage = '[data-throwable-target="shrapnel"] [data-semantic-field="damage.standard_damage"] input';
+    await fill(shrapnelDamage, '150'); await waitFor(q('[data-throwable-target="shrapnel"] [data-throwable-shared]'), 'shared row warning');
+    assert((await evaluate(`${q('[data-throwable-target="shrapnel"] [data-throwable-shared]')}.innerText`)).includes('TM-1 Lure Mine'));
+    assert.equal(await count('[data-throwable-unverified]'), 1); assert.equal(await count('[data-throwable-shared] input, [data-throwable-unverified] input'), 0);
+    await scroll('[data-throwable-target="shrapnel"]'); await screenshot('runtime027-throwable-frag-shrapnel');
+    await click('[data-throwable-item="K-2 Throwing Knife"]'); await waitFor(q('[data-throwable-target="damage"]'), 'knife direct hit');
+    assert.equal(await count('[data-throwable-target="explosion"]'), 0);
+    await fill('[data-throwable-target="damage"] [data-semantic-field="damage.standard_damage"] input', '450');
+    await click('[data-throwable-item="G-10 Incendiary"]'); await waitFor(q('[data-throwable-target="status_effect:fire"]'), 'incendiary status');
+    await scroll('[data-throwable-target="status_effect:fire"]'); await screenshot('runtime027-throwable-incendiary-status');
+
     const script = await lua();
-    for (const part of [`hd2.pod_rack('M-105 Stalwart pod'):slot(2)`, `value=hd2.pickup('${EAT700}')`, 'LAS-58 Talon', 'allow_unverified_reference=true'])
+    for (const part of [`hd2.pod_rack('M-105 Stalwart pod'):slot(2)`, `value=hd2.pickup('${EAT700}')`, 'LAS-58 Talon', 'allow_unverified_reference=true',
+        "hd2.throwable('G-6 Frag'):shrapnel()", "hd2.throwable('K-2 Throwing Knife'):damage()", 'hd2.fields.damage.player_standard_damage'])
         assert(script.includes(part), part);
     assert(!script.includes('require_assets'), 'Runtime loads dependencies itself: no preload calls are generated');
     await go('changes'); await go('export'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Build / Export Mod')).click()"); await waitFor("document.body.innerText.includes('Export complete')", 'export');
     await go('library');
-    console.log('PASS: SDK 0.27.0 bound (supported up to 0.27.0), pod assets live-verified / unknown with separate compatibility warning, Talon projectile live-verified, FRV mount auto-loaded (offline-proven), typed Lua without preload calls, export');
+    console.log('PASS: SDK 0.27.0 bound (supported up to 0.27.0), 23 throwables (frag shrapnel shared row, knife direct hit, incendiary status), pod assets live-verified / unknown with separate compatibility warning, Talon projectile live-verified, FRV mount auto-loaded (offline-proven), typed Lua without preload calls, export');
 } finally { socket.close(); }

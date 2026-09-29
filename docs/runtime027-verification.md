@@ -14,7 +14,7 @@ used as the test fixture `HD2RuntimeGUI.Tests/Fixtures/sdk-0.27.0.zip`.
 | `VehicleAuthoringCapabilities.json` mounted weapons | Joined to `mounted_weapon/<semanticId>` asset entries (all 79 present). |
 | `PlayerWeaponAuthoringCapabilities.json` `apiFieldConstant` | Accepted (typed API constant). |
 
-`ThrowableAuthoringCapabilities.json` is not consumed yet (no throwable editor).
+`ThrowableAuthoringCapabilities.json` (`hd2runtime.throwable.guarded_authoring.v1`) drives the Throwables page (ModBuilder 1.3.0): 23 throwables, 411 fields (388 editable, 316 on shared settings rows), validated fail-closed (accessor chains, typed API constants against the published field definitions, ranges, opt-ins, consumer blocks, summary). `HD2RuntimeGUI.Tests/ThrowableTests.cs` (19 tests) covers frag, incendiary, gas, stun, knife, shield, mine and Pineapple submunitions, shared-row identity, save/load and a 0.26 upgrade.
 
 ## Tests
 

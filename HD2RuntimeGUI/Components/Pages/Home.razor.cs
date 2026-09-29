@@ -59,7 +59,7 @@ public partial class Home : IDisposable
     private CreationTicket? Ticket;
     private SdkMetadata? CreationSdk;
     private ElementReference DialogElement;
-    private string PageTitle => Page switch { "stratagems" => "Stratagems", "vehicles" => "Vehicles", "backpacks" => "Backpacks", "boosters" => "Boosters", "support" => "Support equipment", "player-weapons" => "Player Weapons", "lua" => "Lua Preview", "research" => "Snapshot Research", "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
+    private string PageTitle => Page switch { "stratagems" => "Stratagems", "vehicles" => "Vehicles", "backpacks" => "Backpacks", "boosters" => "Boosters", "throwables" => "Throwables", "support" => "Support equipment", "player-weapons" => "Player Weapons", "lua" => "Lua Preview", "research" => "Snapshot Research", "library" => "Projects", "overview" => "Overview", "changes" => "Changes", "export" => "Export", "settings" => "Settings", _ => Workspace.Metadata?.CategoryName(Page) ?? Page };
     private IEnumerable<SdkResource> VisibleResources => Workspace.Metadata!.Resources.Values.Where(r => r.Kind == Page && r.Label.Contains(Search, StringComparison.OrdinalIgnoreCase));
     private SdkResource? SelectedResource => Workspace.Metadata?.Resources.GetValueOrDefault(TargetKey);
     private SdkField? SelectedField => SelectedResource?.Fields.GetValueOrDefault(FieldKey);
@@ -67,7 +67,7 @@ public partial class Home : IDisposable
     private bool LegacyDraftModified => SelectedField?.Expected != null && FieldPresentation.Parse(NewValue) is { } value && !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(SelectedField.Expected), value);
     private string SupportedValues => string.Join(", ", Workspace.Metadata!.Transitions.Where(t => t.Resource == TargetKey && t.Field == FieldKey).Select(t => $"{t.Expected} → {t.Value}"));
     // Icons import in parallel with project loading and the GitHub check; open pages refresh through Icons.Changed.
-    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; _ = AutoImportIconsAsync(); _ = AppUpdates.CheckOnStartupAsync(); await Run(Workspace.InitializeAsync, "Loading projects and checking GitHub releases…"); }
+    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; _ = AutoImportIconsAsync(); _ = AppUpdates.StartAutomaticChecksAsync(); await Run(Workspace.InitializeAsync, "Loading projects and checking GitHub releases…"); }
     public void Dispose() => Icons.Changed -= IconsChanged;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

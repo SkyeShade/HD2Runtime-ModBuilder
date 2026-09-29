@@ -1,0 +1,89 @@
+@inject BuilderWorkspace Workspace
+@* One published throwable (hd2.throwable, SDK 0.27.0+). Identity, category and family are shown exactly as Runtime publishes them; controls exist
+   only for published field instances, grouped by the throwable target (and, inside a target, by the native row) that owns them. Shared
+   settings rows and unverified effects are separate warnings; the generated Lua always carries the opt-ins Runtime requires. *@
+@{ var entities = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities; var catalog = entities?.Throwables; var throwable = catalog?.Find(Name); }
+@if (entities != null && catalog != null && throwable != null)
+{
+    var fields = catalog.FieldInstances.Where(f => f.Target.Throwable == Name).ToDictionary(f => f.InstanceKey);
+    bool Show(EntityField f) => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null;
+    var edited = fields.Values.Where(f => EntityChangeService.Saved(Workspace.Project, f) != null).ToArray();
+    @if (!ModifiedOnly)
+    {
+        <section class="panel category-panel cat-throwable" data-throwable="@throwable.Name">
+            <div class="object-header"><GameIcon Kind="throwable" Label="@throwable.Name" CssClass="cat-throwable" Size="md" /><div>
+                <div class="eyebrow">THROWABLE@(throwable.Designation is { } d ? " · " + d : "")</div><h2>@throwable.Name</h2>
+                <div class="field-badges"><span class="badge" data-throwable-category>@throwable.Category</span><span class="badge" data-throwable-family>@FamilyLabel(throwable.Family)</span>
+                    <span class="badge @(throwable.Identity.Status == "RESOLVED" ? "green" : "")" title="@string.Join("\n", throwable.Identity.Evidence)">@(throwable.Identity.Status == "RESOLVED" ? "Resolved identity" : throwable.Identity.Status)</span>
+                    <span class="badge">@throwable.WritableFields writable</span></div></div></div>
+            <p class="subtle"><code data-semantic-id>@throwable.SemanticId</code></p>
+            <details><summary>Identity evidence</summary><ul>@foreach (var e in throwable.Identity.Evidence) { <li>@e</li> }</ul><p class="subtle">Matched facts: @string.Join(", ", throwable.Identity.MatchedFacts)</p></details>
+            @if (edited.Length > 0 && Workspace.Project != null) { <button class="reset-action" data-throwable-reset @onclick='() => Run(() => Workspace.ResetEntityAsync(ThrowableAuthoringReader.Resource, Name))'>Reset throwable</button> }
+        </section>
+    }
+    @foreach (var target in throwable.Targets.OrderBy(t => Order(t.Path)))
+    {
+        var targetFields = target.Fields.Select(f => fields[f.InstanceKey]).Where(Show).ToArray();
+        if (targetFields.Length == 0) continue;
+        <section class="panel throwable-target @(targetFields.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null) ? "modified" : "")" data-throwable-target="@TargetKey(target)">
+            <div class="panel-heading"><h2>@TargetTitle(target)</h2>
+                @if (target.LabelConfidence is { } confidence && confidence != "exact") { <span class="badge" title="Runtime's confidence in this status label">Label @confidence</span> }</div>
+            @if (!ModifiedOnly) { <p class="subtle">@target.Relationship</p> }
+            @if (target.SharedDamageWithParentExplosion && !ModifiedOnly) { <p class="subtle" data-bomblet-shared-damage>Each bomblet's direct hit uses this grenade's explosion damage; edit it under Explosion.</p> }
+            @foreach (var row in targetFields.GroupBy(f => ThrowableAuthoringReader.Block(target.Path, f.SemanticFieldId)))
+            {
+                var raw = catalog.Raw(row.First().InstanceKey)!.Value; var consumers = ThrowableCatalog.Consumers(target, raw.Field); var shared = row.First().Shared;
+                <div class="throwable-row" data-throwable-row="@row.Key">
+                    @if (target.Scope is { Count: > 1 } || shared)
+                    {
+                        <h3 class="group-title">@RowTitle(row.Key)
+                            @if (shared && consumers != null) { <span class="badge amber" data-flag="allow_shared" title="@ConsumerText(consumers)">Shared · @consumers.RootEntities</span> }
+                            else { <span class="badge" title="Owned by this throwable only">Own record</span> }</h3>
+                    }
+                    <div class="stat-grid">@foreach (var f in row) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
+                    @if (shared && consumers != null && row.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null))
+                    {
+                        <AckPanel Title="Shared settings row" Kind="shared" Description="@raw.Field.Scope.Note" Items="@Consumers(consumers)" ItemsLabel="Also used by:"
+                            PanelAttributes='@(new() { ["data-throwable-shared"] = row.Key })' />
+                    }
+                </div>
+            }
+        </section>
+    }
+    @if (edited.Any(f => f.Acknowledgement == "allow_unverified_effect"))
+    {
+        <AckPanel Title="Throwable effect not gameplay-confirmed" Kind="unverified" Description="@edited.First().AcknowledgementReason"
+            Items="@edited.Select(f => TargetTitle(throwable.Targets.First(t => t.Path == f.Target.Path && t.Key == f.Target.Effect)) + " · " + f.DisplayName).ToArray()" ItemsLabel="Edited:"
+            PanelAttributes='@(new() { ["data-throwable-unverified"] = "true" })' />
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+}
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string>
+    {
+        ["wiki_exact"] = "Native member proven, and the value matches the published wiki value exactly. No changed value has been tested in game.",
+        ["native_member"] = "Native member proven. No changed value has been tested in game.",
+    };
+    // Presentation order and titles of the published targets (the target set itself comes from the SDK).
+    private static int Order(string path) => Array.IndexOf(["throwable", "detonation", "damage", "explosion", "status_effect", "shrapnel", "bomblets", "bomblet_explosion", "entity", "shield"], path);
+    public static string TargetTitle(ThrowableTarget t) => t.Path switch
+    {
+        "throwable" => "Inventory", "detonation" => "Detonation", "damage" => "Direct hit", "explosion" => "Explosion",
+        "status_effect" => "Status effect · " + (t.Label ?? t.Key), "shrapnel" => "Shrapnel", "bomblets" => "Bomblets", "bomblet_explosion" => "Bomblet explosion",
+        "entity" => "Deployed entity", "shield" => "Shield", _ => FieldPresentation.EnumLabel(t.Path),
+    };
+    private static string RowTitle(string block) => block switch
+    {
+        "explosion" => "Explosion settings", "damage" => "Damage", "projectile" => "Projectile", "definition" => "Status definition", _ => FieldPresentation.EnumLabel(block),
+    };
+    private static string TargetKey(ThrowableTarget t) => t.Key == null ? t.Path : t.Path + ":" + t.Key;
+    public static string FamilyLabel(string family) => System.Text.RegularExpressions.Regex.Replace(family, "(?<=[a-z])(?=[A-Z])", " ");
+    private static string[] Consumers(ThrowableScopeBlock b) => [.. b.Throwables, .. b.OtherEntities > 0 ? new[] { b.OtherEntities + " other " + (b.OtherEntities == 1 ? "entity" : "entities") } : []];
+    private static string ConsumerText(ThrowableScopeBlock b) => "Shared settings row: " + string.Join(", ", Consumers(b)) + ". Edits change every user of this row.";
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

@@ -54,7 +54,7 @@ public sealed class EntityChangeService : IEntityChangeService
     public static EntityAuthoring Catalog(SdkMetadata sdk) => sdk.Entities ?? throw new InvalidDataException("Explicitly rebind to SDK 0.23.0 or newer for vehicle and backpack authoring.");
     public static EntityField Resolve(EntityAuthoring catalog, EntityChange c) => catalog.Field(c.InstanceKey)
         ?? catalog.AllFields.SingleOrDefault(f => f.Target.Resource == c.Resource && f.Target.Entity == c.Entity && f.Target.Path == c.Path
-            && f.Target.Zone == c.Zone && f.Target.Mount == c.Mount && f.Target.Attack == c.Attack && f.Target.Slot == c.Slot && f.SemanticFieldId == c.SemanticFieldId)
+            && f.Target.Zone == c.Zone && f.Target.Mount == c.Mount && f.Target.Attack == c.Attack && f.Target.Slot == c.Slot && f.Target.Effect == c.Effect && f.SemanticFieldId == c.SemanticFieldId)
         ?? throw new InvalidDataException("Vehicle/backpack capability is missing. Review or reset this modification.");
     public EntityChange Create(SdkMetadata sdk, string instance, string value)
     {
@@ -68,7 +68,7 @@ public sealed class EntityChangeService : IEntityChangeService
             EntityScalar.CheckRange(f, desired);
         }
         catch (JsonException e) { throw new InvalidDataException("Enter a complete scalar value.", e); }
-        return new() { Resource = f.Target.Resource, Entity = f.Target.Entity, Path = f.Target.Path, Zone = f.Target.Zone, Mount = f.Target.Mount, Attack = f.Target.Attack, Slot = f.Target.Slot,
+        return new() { Resource = f.Target.Resource, Entity = f.Target.Entity, Path = f.Target.Path, Zone = f.Target.Zone, Mount = f.Target.Mount, Attack = f.Target.Attack, Slot = f.Target.Slot, Effect = f.Target.Effect,
             InstanceKey = f.InstanceKey, SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(),
             DesiredValue = desired, BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f) };
     }
@@ -77,7 +77,7 @@ public sealed class EntityChangeService : IEntityChangeService
         var f = Resolve(Catalog(sdk), c);
         if (!f.Editable) throw new InvalidDataException(f.Reason ?? "Read-only field.");
         if (c.InstanceKey != f.InstanceKey || c.Resource != f.Target.Resource || c.Entity != f.Target.Entity || c.Path != f.Target.Path || c.Zone != f.Target.Zone
-            || c.Mount != f.Target.Mount || c.Attack != f.Target.Attack || c.Slot != f.Target.Slot || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Type || c.CapabilityEvidence != Evidence(f))
+            || c.Mount != f.Target.Mount || c.Attack != f.Target.Attack || c.Slot != f.Target.Slot || c.Effect != f.Target.Effect || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Type || c.CapabilityEvidence != Evidence(f))
             throw new InvalidDataException("Vehicle/backpack capability, evidence or ownership changed. Review and accept the current capability, or reset the change.");
         if (!EntityScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Vehicle/backpack baseline changed. Review before accepting the new baseline.");
         EntityScalar.CheckRange(f, c.DesiredValue);
@@ -174,6 +174,8 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
     }
     public static string Target(EntityTarget t, string? fedWeapon = null) => t.Path switch
     {
+        // 0.27.0 throwables first: their target paths (entity, damage, explosion, ...) reuse names other resources also use.
+        _ when t.Resource == ThrowableAuthoringReader.Resource => ThrowableTarget(t),
         "backpack" when fedWeapon != null => "hd2.support_weapon(" + LuaGenerator.Quote(fedWeapon) + "):backpack()",
         // 0.26.0 mounted vehicle weapons: hd2.vehicle(v):weapon(mount label), then its attack objects.
         _ when t.Resource == "vehicle_weapon" => VehicleWeaponTarget(t),
@@ -189,6 +191,14 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         _ when t.Resource == "booster" && BoosterAuthoringReader.Paths.Contains(t.Path) => "hd2.booster(" + LuaGenerator.Quote(t.Booster!) + "):" + t.Path + "()",
         _ => throw new InvalidDataException("Unsupported vehicle/backpack target."),
     };
+    private static string ThrowableTarget(EntityTarget t)
+    {
+        var chain = ThrowableAuthoringReader.Accessors.GetValueOrDefault(t.Path) ?? throw new InvalidDataException("Unsupported throwable target.");
+        var lua = "hd2.throwable(" + LuaGenerator.Quote(t.Throwable!) + ")";
+        foreach (var accessor in chain.Where(a => a != "throwable"))
+            lua += accessor == "status_effect" ? ":status_effect(" + LuaGenerator.Quote(t.Effect ?? throw new InvalidDataException("Missing status effect key.")) + ")" : ":" + accessor + "()";
+        return lua;
+    }
     // weapon(label) is the mount's weapon; projectile() is attack('primary') and explosion() is attack('impact') in Runtime.
     private static string VehicleWeaponTarget(EntityTarget t)
     {

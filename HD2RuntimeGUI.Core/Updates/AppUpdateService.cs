@@ -19,14 +19,16 @@ public interface IAppUpdateHost
 public sealed record AppUpdateCache(DateTimeOffset? LastChecked, AppRelease? Latest, string? DismissedVersion);
 
 /// <summary>
-/// HD2Runtime ModBuilder's own updates from GitHub Releases (separate from HD2Runtime SDK updates). Checks once per start
-/// (reusing a check from the last hour), never blocks startup, and stays silent when up to date or offline. Installing
+/// HD2Runtime ModBuilder's own updates from GitHub Releases (separate from HD2Runtime SDK updates). Checks when the app starts
+/// and then every 10 minutes while it runs, never blocks the UI, and stays silent when up to date or offline. Installing
 /// downloads and verifies the release, stages it in %TEMP%, starts the staged updater and exits; the updater replaces the
 /// application files and restarts the app. User data in the data root is never part of an update.
 /// </summary>
-public sealed class AppUpdateService(IAppReleaseClient client, AppPaths paths, IAppUpdateHost host, string? currentVersion = null, string? tempRoot = null, TimeProvider? time = null)
+public sealed class AppUpdateService(IAppReleaseClient client, AppPaths paths, IAppUpdateHost host, string? currentVersion = null, string? tempRoot = null, TimeProvider? time = null) : IDisposable
 {
-    public static readonly TimeSpan StartupCheckInterval = TimeSpan.FromHours(1);
+    /// <summary>Background check interval while the app runs (6 requests an hour, well inside GitHub's unauthenticated limit).</summary>
+    public static readonly TimeSpan PeriodicCheckInterval = TimeSpan.FromMinutes(10);
+    private ITimer? timer;
     private readonly TimeProvider clock = time ?? TimeProvider.System;
     private readonly SemaphoreSlim gate = new(1, 1);
     private AppUpdateCache cache = new(null, null, null);
@@ -76,34 +78,42 @@ public sealed class AppUpdateService(IAppReleaseClient client, AppPaths paths, I
         Changed?.Invoke();
     }
 
-    /// <summary>Startup check: at most one GitHub request per hour, never throws.</summary>
-    public async Task CheckOnStartupAsync()
+    /// <summary>Checks now (at startup) and then every 10 minutes until disposed. Idempotent; never throws.</summary>
+    public async Task StartAutomaticChecksAsync()
     {
-        await InitializeAsync();
-        if (cache.LastChecked is { } last && clock.GetUtcNow() - last < StartupCheckInterval && Status != AppUpdateStatus.NotChecked) return;
-        await CheckAsync();
+        timer ??= clock.CreateTimer(_ => _ = CheckInBackgroundAsync(), null, PeriodicCheckInterval, PeriodicCheckInterval);
+        await CheckAsync(background: true);
     }
+    // A periodic check is skipped while an update installs; it runs quietly (see CheckAsync).
+    private Task CheckInBackgroundAsync() => Installing ? Task.CompletedTask : CheckAsync(background: true);
 
-    public async Task CheckAsync()
+    /// <summary>Queries GitHub now. A background check keeps the current state visible while it runs, and a failed background
+    /// check (offline, rate-limited) keeps the last known result, so an available update's banner never flickers away.</summary>
+    public async Task CheckAsync(bool background = false)
     {
         if (!await gate.WaitAsync(0)) return;
         try
         {
             await InitializeAsync();
-            Status = AppUpdateStatus.Checking; CheckMessage = null; Changed?.Invoke();
+            var known = Status != AppUpdateStatus.NotChecked;
+            if (!background || !known) { Status = AppUpdateStatus.Checking; CheckMessage = null; Changed?.Invoke(); }
+            var previous = Status;
             try
             {
                 var latest = await client.GetLatestAsync();
                 cache = cache with { LastChecked = clock.GetUtcNow(), Latest = latest };
                 Status = latest == null ? AppUpdateStatus.UpToDate : Compare(latest);
-                if (latest == null) CheckMessage = "No HD2Runtime ModBuilder release is published yet.";
+                CheckMessage = latest == null ? "No HD2Runtime ModBuilder release is published yet." : null;
                 await SaveAsync();
             }
-            catch (AppUpdateCheckException e) { Status = e.Status; CheckMessage = e.Message; }
-            catch (Exception e) when (e is not OperationCanceledException) { Status = AppUpdateStatus.CheckFailed; CheckMessage = e.Message; }
+            catch (AppUpdateCheckException e) { if (background && known) CheckMessage = e.Message; else { Status = e.Status; CheckMessage = e.Message; } }
+            catch (Exception e) when (e is not OperationCanceledException) { if (background && known) CheckMessage = e.Message; else { Status = AppUpdateStatus.CheckFailed; CheckMessage = e.Message; } }
+            if (background && known && Status == AppUpdateStatus.Checking) Status = previous;
         }
         finally { gate.Release(); Changed?.Invoke(); }
     }
+
+    public void Dispose() { timer?.Dispose(); timer = null; }
 
     public async Task DismissAsync()
     {

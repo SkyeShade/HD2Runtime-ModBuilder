@@ -14,11 +14,14 @@ public sealed record EntityTarget(string Resource, string Path, string? Vehicle 
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Weapon = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Attack = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Rack = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Slot = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Slot = null,
+    // 0.27.0 throwables (published name) and a throwable status effect's key (for example "fire").
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Throwable = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Effect = null)
 {
     // Vehicle or backpack name, the magazine attachment semantic ID (weapon_attachment, 0.23.1+), the booster name (booster, 0.24.0+),
     // the vehicle weapon key (vehicle_weapon, 0.26.0) or the rack name (pod_rack, 0.26.0).
-    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? "";
+    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? Throwable ?? "";
 }
 public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
     string? NativeOwner = null, string? GameplayWriteEffect = null);
@@ -112,8 +115,10 @@ public sealed class EntityAuthoring
     // Mounted vehicle weapons and drop-pod payloads (SDK 0.26.0+); null on older SDKs.
     public VehicleWeaponCatalog? VehicleWeapons { get; init; }
     public PodPayloadCatalog? Pods { get; init; }
+    // SDK 0.27.0+: throwables (hd2.throwable).
+    public ThrowableCatalog? Throwables { get; init; }
     public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []).Concat(Boosters?.FieldInstances ?? [])
-        .Concat(VehicleWeapons?.FieldInstances ?? []).Concat(Pods?.FieldInstances ?? []);
+        .Concat(VehicleWeapons?.FieldInstances ?? []).Concat(Pods?.FieldInstances ?? []).Concat(Throwables?.FieldInstances ?? []);
     // The backpack whose deposit feeds a support weapon (0.26.0 backpack ammunition).
     public Backpack? AmmoBackpackOf(string supportWeapon) => Backpacks.Backpacks.FirstOrDefault(b => b.Feeds?.SupportWeapon == supportWeapon);
     public EntityField? Field(string instanceKey) => AllFields.FirstOrDefault(f => f.InstanceKey == instanceKey);

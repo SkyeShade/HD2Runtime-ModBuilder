@@ -16,7 +16,7 @@ HD2Runtime ModBuilder is a Windows app for building Helldivers 2 gameplay mods o
 
 ## Download
 
-1. Download **`HD2Runtime-ModBuilder-v1.2.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
+1. Download **`HD2Runtime-ModBuilder-v1.3.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
 2. Extract it to a folder you can write to (for example `Documents\HD2Runtime ModBuilder`).
 3. Run **`HD2RuntimeModBuilder.exe`**.
 
@@ -28,11 +28,11 @@ Your projects, SDK cache, imported icons and settings live in `%LOCALAPPDATA%\HD
 
 ### Updating
 
-HD2Runtime ModBuilder checks [GitHub Releases](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases) once when it starts. When a newer version exists, a banner offers **Install update**: the app downloads the release, verifies its SHA-256, closes, replaces its own files and restarts. **Settings → Application updates** shows the current and latest version and has **Check for updates**. If the app folder is not writable, it links to the release page instead. See [the update design](docs/app-updates.md).
+HD2Runtime ModBuilder checks [GitHub Releases](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases) when it starts and every 10 minutes while it runs. When a newer version exists, a banner offers **Install update**: the app downloads the release, verifies its SHA-256, closes, replaces its own files and restarts. **Settings → Application updates** shows the current and latest version and has **Check for updates**. If the app folder is not writable, it links to the release page instead. See [the update design](docs/app-updates.md).
 
 Updating 1.0.0 to 1.0.1 or later replaces `HD2RuntimeGUI.exe` with `HD2RuntimeModBuilder.exe`. A taskbar pin or shortcut to the old exe needs to be pinned again.
 
-Release notes: [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
+Release notes: [1.3.0](docs/release-notes/v1.3.0.md) · [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
 
 ## Why "HD2RuntimeGUI" still appears
 
@@ -51,7 +51,7 @@ The product was renamed from HD2RuntimeGUI to HD2Runtime ModBuilder, and the rep
 git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
 ```
 
-A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.2.0 supports **HD2Runtime SDK 0.27.0** (automatic asset loading for reference swaps) and **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
+A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.3.0 supports **HD2Runtime SDK 0.27.0** (throwables and automatic asset loading for reference swaps) and **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 3,814 entries, 104 field definitions (84 writable, 20 read-only, 9 derived)** in SDK 0.27.0. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
@@ -156,6 +156,17 @@ SDK 0.18 adds a dedicated **Heat / Heatsink** section for seven energy weapons. 
 
 Direct heat mechanics and heatsink inventory are separate from read-only attachment presets. Warmup, post-overheat cooldown and derived values remain read-only with SDK explanations. Heat overrides use the existing project format, baseline-aware autosave, reset and Changes/Lua Preview paths. Sibling heat/heatsink edits share one component transaction and ensure. See [0.18 verification and sample](docs/runtime018-verification.md).
 
+## Throwables (SDK 0.27.0)
+
+**Throwables** (sidebar, right after Player Weapons) lists every throwable `ThrowableAuthoringCapabilities.json` (`hd2runtime.throwable.guarded_authoring.v1`) publishes: all 23 armory grenades, the K-2 Throwing Knife, the two mines and the G/SH-39 Shield. They are tagged and filterable by the published category (Standard / Special) and family (High Explosive, Fragmentation, Incendiary, Gas, Stun, Throwing Knife, Shield, …). Each throwable shows only its published targets, in the compact field-row editor used everywhere else:
+
+- **Inventory** (starting, maximum and from-supply counts) and **Detonation** (fuse, where it is a real fuse);
+- **Explosion** settings and damage (radii, shrapnel/bomblet count, standard/durable damage, AP, demolition, stagger, push);
+- **Status effect** chains (fire, gas, gas confusion, stun): per-hit strength and the shared status duration, with Runtime's label confidence;
+- **Shrapnel**, **Bomblets** and **Bomblet explosion** submunitions; the knife's **Direct hit**; the mines' **Deployed entity** health; the shield's radius and health.
+
+388 of 411 published fields are editable; read-only ones show Runtime's reason (for example multi-setting or impact fuses). Every write is generated as `hd2.throwable(name)` plus its published accessor chain (`:explosion()`, `:shrapnel()`, `:explosion():status_effect('fire')`, `:bomblets():explosion()`, `:damage()`, `:shield()`, …) with Runtime's published typed field constants, and carries `allow_unverified_effect` (no changed throwable value is gameplay-tested yet). Settings rows are global definitions: they show a **Shared · N** badge and a warning listing the throwables and other entities that use them, and are written with `allow_shared`. The same row reached through two throwables (for example the frag shrapnel used by the G-6 Frag and the TM-1 Lure Mine, or the fire status definition) is one value: editing it through both is refused. Throwable edits appear on Changes, reset per field or throwable, work with in-game Mod Options, and save as project format 9.
+
 ## SDK 0.27.0 automatic asset loading
 
 HD2Runtime 0.27.0 loads the package a reference swap needs (the donor item's assets) before writing it, so nobody has to carry the donor item. `AssetDependencyCapabilities.json` (`hd2runtime.asset_dependencies.v1`) and the per-pickup / per-projectile residency data drive one compact state on every reference-swap editor:
@@ -234,7 +245,7 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 This section is about the HD2Runtime SDK; ModBuilder application updates are described in [docs/app-updates.md](docs/app-updates.md).
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.27.0 metadata supports first launch offline. Each ModBuilder release declares the newest HD2Runtime SDK it supports (1.2.0: **0.27.0**); newer SDK releases are reported in Settings as needing a newer ModBuilder and are never downloaded or offered, and a release whose metadata cannot be read is skipped without affecting the installed SDK.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. A verified copy of the published 0.27.0 metadata supports first launch offline. Each ModBuilder release declares the newest HD2Runtime SDK it supports (1.3.0: **0.27.0**); newer SDK releases are reported in Settings as needing a newer ModBuilder and are never downloaded or offered, and a release whose metadata cannot be read is skipped without affecting the installed SDK.
 
 Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only nineteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities, CompositionPlanCapabilities, VehicleAuthoringCapabilities, BackpackAuthoringCapabilities, MagazineAttachmentCapabilities and BoosterAuthoringCapabilities contracts (the last four only for the SDK versions that publish them, and then required). Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 

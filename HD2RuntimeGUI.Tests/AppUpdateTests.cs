@@ -109,7 +109,7 @@ public sealed class AppUpdateTests : IDisposable
         var client = new AppReleaseClient(new HttpClient(handler));
         Assert.Equal(expected, (await Assert.ThrowsAsync<AppUpdateCheckException>(() => client.GetLatestAsync())).Status);
         var service = Service(client, "1.0.0");
-        await service.CheckOnStartupAsync();
+        await service.StartAutomaticChecksAsync();
         Assert.Equal(expected, service.Status); Assert.False(service.ShowBanner); Assert.NotNull(service.CheckMessage);
     }
 
@@ -144,14 +144,37 @@ public sealed class AppUpdateTests : IDisposable
         public void Exit() => Exits++;
         public Task OpenUrlAsync(Uri url) { Opened.Add(url); return Task.CompletedTask; }
     }
-    private sealed class Clock : TimeProvider { public DateTimeOffset Now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero); public override DateTimeOffset GetUtcNow() => Now; }
+    // Test clock: fixed time, and timers that fire only when a test says so (the 10-minute background check).
+    private sealed class Clock : TimeProvider
+    {
+        public DateTimeOffset Now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
+        public List<ManualTimer> Timers = [];
+        public override DateTimeOffset GetUtcNow() => Now;
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        { var timer = new ManualTimer(callback, state, dueTime, period); Timers.Add(timer); return timer; }
+    }
+    private sealed class ManualTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) : ITimer
+    {
+        public TimeSpan DueTime = dueTime, Period = period; public bool Disposed;
+        public void Fire() { if (!Disposed) callback(state); }
+        public bool Change(TimeSpan due, TimeSpan next) { DueTime = due; Period = next; return true; }
+        public void Dispose() => Disposed = true;
+        public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
+    }
+    // The timer callback starts the background check without awaiting it; wait for it to settle.
+    private static async Task Tick(Clock clock, FakeClient client, AppUpdateService service)
+    {
+        var before = client.Checks; clock.Timers.Single(t => !t.Disposed).Fire();
+        for (var i = 0; i < 200 && (client.Checks == before || service.Status == AppUpdateStatus.Checking); i++) await Task.Delay(10);
+        await Task.Delay(20);
+    }
 
     private string DataRoot => Path.Combine(root, "data");
     private FakeHost? host;
     private AppUpdateService Service(IAppReleaseClient client, string current, Clock? clock = null, string? install = null)
     {
         host = new FakeHost(install ?? Dir("install-empty"));
-        return new AppUpdateService(client, new AppPaths(DataRoot), host, current, Path.Combine(root, "temp"), clock);
+        return new AppUpdateService(client, new AppPaths(DataRoot), host, current, Path.Combine(root, "temp"), clock ?? new Clock());
     }
     private static AppRelease Release(string version, long size = 1000, string? digest = null) =>
         new(version, "v" + version, AppReleaseClient.ReleasePage("v" + version),
@@ -167,7 +190,7 @@ public sealed class AppUpdateTests : IDisposable
     public async Task Versions_are_compared_semantically(string latest, string current, AppUpdateStatus expected)
     {
         var service = Service(new FakeClient { Latest = Release(latest) }, current);
-        await service.CheckOnStartupAsync();
+        await service.StartAutomaticChecksAsync();
         Assert.Equal(expected, service.Status);
         Assert.Equal(expected == AppUpdateStatus.UpdateAvailable, service.ShowBanner);
     }
@@ -175,22 +198,46 @@ public sealed class AppUpdateTests : IDisposable
     [Fact] public async Task No_published_release_is_quietly_up_to_date()
     {
         var service = Service(new FakeClient(), "1.0.0");
-        await service.CheckOnStartupAsync();
+        await service.StartAutomaticChecksAsync();
         Assert.Equal(AppUpdateStatus.UpToDate, service.Status); Assert.False(service.ShowBanner); Assert.Null(service.Latest);
     }
 
-    [Fact] public async Task Startup_check_is_cached_for_an_hour_and_manual_checks_always_query()
+    [Fact] public async Task Every_start_checks_then_every_ten_minutes_and_manual_checks_always_query()
+    {
+        var client = new FakeClient(); var clock = new Clock();
+        var service = Service(client, "1.0.0", clock);
+        await service.StartAutomaticChecksAsync();
+        Assert.Equal(1, client.Checks); Assert.False(service.ShowBanner);
+        var timer = Assert.Single(clock.Timers);
+        Assert.Equal(AppUpdateService.PeriodicCheckInterval, timer.DueTime); Assert.Equal(TimeSpan.FromMinutes(10), timer.Period);
+        // Starting twice keeps one timer; a restart checks again right away (no reuse of an earlier result).
+        await service.StartAutomaticChecksAsync(); Assert.Single(clock.Timers); Assert.Equal(2, client.Checks);
+        await Service(client, "1.0.0", new Clock()).StartAutomaticChecksAsync(); Assert.Equal(3, client.Checks);
+        // A release published while the app runs appears at the next 10-minute check.
+        client.Latest = Release("1.1.0");
+        await Tick(clock, client, service);
+        Assert.Equal(AppUpdateStatus.UpdateAvailable, service.Status); Assert.True(service.ShowBanner); Assert.Equal("1.1.0", service.Latest!.Version);
+        await service.CheckAsync(); await service.CheckAsync(); Assert.Equal(6, client.Checks);
+        service.Dispose(); Assert.True(timer.Disposed);
+    }
+
+    [Fact] public async Task A_failed_background_check_keeps_the_banner_and_a_newer_release_replaces_it()
     {
         var client = new FakeClient { Latest = Release("1.1.0") }; var clock = new Clock();
-        await Service(client, "1.0.0", clock).CheckOnStartupAsync();
-        var second = Service(client, "1.0.0", clock);
-        await second.CheckOnStartupAsync();
-        Assert.Equal(1, client.Checks); Assert.Equal(AppUpdateStatus.UpdateAvailable, second.Status); Assert.Equal("1.1.0", second.Latest!.Version);
-        await second.CheckAsync(); await second.CheckAsync();
-        Assert.Equal(3, client.Checks);
-        clock.Now += TimeSpan.FromHours(2);
-        await Service(client, "1.0.0", clock).CheckOnStartupAsync();
-        Assert.Equal(4, client.Checks);
+        var service = Service(client, "1.0.0", clock); var shown = new List<bool>(); service.Changed += () => shown.Add(service.ShowBanner);
+        await service.StartAutomaticChecksAsync(); Assert.True(service.ShowBanner); shown.Clear();
+        // Background checks never hide the banner while they run, and going offline keeps the last known result.
+        client.Failure = new HttpRequestException("offline");
+        await Tick(clock, client, service);
+        Assert.True(service.ShowBanner); Assert.Equal(AppUpdateStatus.UpdateAvailable, service.Status); Assert.All(shown, Assert.True);
+        client.Failure = null; client.Latest = Release("1.2.0");
+        await Tick(clock, client, service);
+        Assert.True(service.ShowBanner); Assert.Equal("1.2.0", service.Latest!.Version); Assert.All(shown, Assert.True);
+        // A dismissed version stays hidden across background checks until a newer one is published.
+        await service.DismissAsync(); await Tick(clock, client, service); Assert.False(service.ShowBanner);
+        client.Latest = Release("1.3.0"); await Tick(clock, client, service); Assert.True(service.ShowBanner);
+        // A manual check that fails still reports the failure.
+        client.Failure = new HttpRequestException("offline"); await service.CheckAsync(); Assert.Equal(AppUpdateStatus.CheckFailed, service.Status);
     }
 
     [Fact] public async Task Dismissing_hides_that_version_until_a_newer_one_is_released()
@@ -198,13 +245,13 @@ public sealed class AppUpdateTests : IDisposable
         var client = new FakeClient { Latest = Release("1.1.0") }; var clock = new Clock();
         var service = Service(client, "1.0.0", clock);
         var changes = 0; service.Changed += () => changes++;
-        await service.CheckOnStartupAsync();
+        await service.StartAutomaticChecksAsync();
         Assert.True(service.ShowBanner);
         await service.DismissAsync();
         Assert.False(service.ShowBanner); Assert.True(service.UpdateAvailable); Assert.True(changes > 0);
         // Dismissal survives a restart; a newer release shows the banner again.
         var restarted = Service(client, "1.0.0", clock);
-        await restarted.CheckOnStartupAsync();
+        await restarted.StartAutomaticChecksAsync();
         Assert.False(restarted.ShowBanner);
         client.Latest = Release("1.2.0");
         await restarted.CheckAsync();
@@ -450,7 +497,7 @@ public sealed class AppUpdateTests : IDisposable
     {
         var install = Install("1.0.0"); var package = BuildPackage("1.1.0");
         var service = Service(new FakeClient { Latest = package.Release, Manifest = package.ManifestJson, PackagePath = package.Zip }, "1.0.0", install: install);
-        await service.CheckOnStartupAsync();
+        await service.StartAutomaticChecksAsync();
         Assert.True(service.ShowBanner);
         await service.InstallAsync();
         var options = UpdateContract.Parse(Assert.Single(host!.Launched).ArgumentList.ToArray());
@@ -461,7 +508,7 @@ public sealed class AppUpdateTests : IDisposable
         Assert.False(File.Exists(Path.Combine(install, "HD2RuntimeGUI.exe")));
         // Next start of the new version: the result is shown once and the staging area is cleaned up.
         var next = Service(new FakeClient { Latest = package.Release }, "1.1.0", install: install);
-        await next.CheckOnStartupAsync();
+        await next.StartAutomaticChecksAsync();
         Assert.True(next.PreviousResult!.Success); Assert.Contains("1.1.0", next.PreviousResult.Message);
         Assert.False(File.Exists(next.ResultPath)); Assert.False(Directory.Exists(Path.Combine(root, "temp")));
         Assert.Equal(AppUpdateStatus.UpToDate, next.Status); Assert.False(next.ShowBanner);

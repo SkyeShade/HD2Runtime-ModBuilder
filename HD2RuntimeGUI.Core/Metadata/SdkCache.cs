@@ -50,7 +50,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     public SdkCache(AppPaths paths, IMetadataReader reader, IGitHubReleaseClient github, IPlayerWeaponCatalogReader catalogReader, IPlayerWeaponAmmoCatalogReader ammoReader, IPlayerWeaponCompositionReader compositionReader, IAdvancedCapabilitiesReader advancedReader, IPlayerWeaponHeatCatalogReader heatReader, ICompositionPlanCapabilitiesReader planReader, ISupportAuthoringReader supportReader, IStratagemCatalogReader stratagemReader)
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
     private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName)
-        .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName).Append(AssetDependencyReader.FileName);
+        .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName).Append(AssetDependencyReader.FileName).Append(ThrowableAuthoringReader.FileName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -139,7 +139,12 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             {
                 var assets = AssetDependencyReader.Read(Required(AssetDependencyReader.FileName, "asset dependency capabilities"));
                 LinkAssets(assets, sdk.Entities, sdk.Composition);
-                sdk = sdk with { Assets = assets };
+                // Throwables (hd2.throwable): every armory throwable, each with a published asset dependency.
+                var throwables = ThrowableAuthoringReader.Read(Required(ThrowableAuthoringReader.FileName, "throwable authoring capabilities"));
+                if (!throwables.Throwables.All(t => assets.Objects.ContainsKey("throwable/" + t.Name))) throw new InvalidDataException("Inconsistent throwable asset link.");
+                var e27 = sdk.Entities;
+                sdk = sdk with { Assets = assets, Entities = new EntityAuthoring { Vehicles = e27.Vehicles, Backpacks = e27.Backpacks, CallIns = e27.CallIns, Attachments = e27.Attachments,
+                    Boosters = e27.Boosters, VehicleWeapons = e27.VehicleWeapons, Pods = e27.Pods, Throwables = throwables } };
             }
             else if (sdk.Entities.Pods!.PackageResidency != null) throw new InvalidDataException("Asset-loading metadata is published only from SDK 0.27.0.");
         }
@@ -379,6 +384,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         PodPayloadReader.FileName => PodPayloadReader.MaxBytes,
         WeaponFireModeReader.FileName => WeaponFireModeReader.MaxBytes,
         AssetDependencyReader.FileName => AssetDependencyReader.MaxBytes,
+        ThrowableAuthoringReader.FileName => ThrowableAuthoringReader.MaxBytes,
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };
     public static void ValidateEntryPath(string name)

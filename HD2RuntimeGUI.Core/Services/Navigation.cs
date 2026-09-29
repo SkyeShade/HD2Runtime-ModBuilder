@@ -17,6 +17,7 @@ public static class StratagemCategories
     public static StratagemCategory? Find(string key) => All.FirstOrDefault(c => c.Key == key);
     // Boosters (SDK 0.24.0+) are their own authoring domain, not a stratagem family; yellow alongside the stratagem categories.
     public const string BoosterCssClass = "cat-booster";
+    public const string ThrowableCssClass = "cat-throwable";
     // Every call-in root is listed, including vehicle and backpack call-ins (edited through their Support entry).
     // 0.25.0+: a catalog root Runtime proves has no call-in (no_call_in) is not a stratagem; its equipment is listed as standalone.
     public static bool Listed(StratagemDefinition s, EntityAuthoring? entities = null) => s.Delivers?.IsNoCallIn != true;
@@ -47,6 +48,10 @@ public static class Navigation
             new("player-weapons", "Player Weapons", Workspace, sdk?.PlayerWeapons?.Weapons.Count),
             new("stratagems", "Stratagems", Workspace, sdk?.Stratagems?.Stratagems.Count(s => StratagemCategories.Listed(s, entities))),
         };
+        // hd2.throwable authoring (grenades, knife, mines, shield) appears after Player Weapons when the bound SDK publishes
+        // ThrowableAuthoringCapabilities.json (0.27.0+).
+        if (entities?.Throwables is { } throwables)
+            items.Insert(items.FindIndex(i => i.Page == "player-weapons") + 1, new("throwables", "Throwables", Workspace, throwables.Throwables.Length, StratagemCategories.ThrowableCssClass));
         if (sdk?.Stratagems is { } catalog)
             items.AddRange(StratagemCategories.All.Select(c => new NavItem("stratagems:" + c.Key, c.Label, Workspace, StratagemCategories.Count(catalog, c, entities), c.CssClass, true)));
         // hd2.vehicle / hd2.backpack authoring (SDK 0.23.0+) lives in Stratagems → Support (Vehicles / Backpacks tabs);

@@ -50,6 +50,7 @@
         else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => { StratagemCategory = c; StratagemSupportTab = null; }" SupportTab="@StratagemSupportTab" Changed="RefreshWeaponUI" /> }
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "boosters") { <Boosters Changed="RefreshWeaponUI" /> }
+        else if (Page == "throwables") { <Throwables Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
@@ -143,6 +144,7 @@
                     </section>
                     <nav class="panel quick-author" data-quick-author aria-label="Start authoring"><span class="quick-author-label">Author</span>
                         @if (Workspace.Metadata!.PlayerWeapons != null) { <button @onclick='() => Navigate("player-weapons")'>Player Weapons</button> }
+                        @if (Workspace.Metadata.Entities?.Throwables != null) { <button @onclick='() => Navigate("throwables")'>Throwables</button> }
                         @if (Workspace.Metadata.Stratagems != null) { <button @onclick='() => NavigateTo("stratagems")'>Stratagems</button> }
                         @if (Workspace.Metadata.Entities?.Boosters != null) { <button @onclick='() => Navigate("boosters")'>Boosters</button> }
                     </nav>

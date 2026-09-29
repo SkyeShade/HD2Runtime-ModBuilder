@@ -76,14 +76,15 @@ public static class ProjectIdentity
     private static bool Uses(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number
         || v.ValueKind == System.Text.Json.JsonValueKind.String && v.GetString() == Metadata.StratagemUses.Unlimited;
     // Format 8: SDK 0.26.0 edits (fire-mode lists, mission uses, effect acknowledgements, vehicle weapons, drop-pod payloads).
-    public static int RequiredFormat(ModProject p) =>
+    // Format 9: SDK 0.27.0 throwable edits (older ModBuilder versions cannot read them).
+    public static int RequiredFormat(ModProject p) => p.EntityChanges.Any(c => c.Resource == ThrowableAuthoringReader.Resource || c.Effect != null) ? 9 :
         p.WeaponChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet || c.EffectAcknowledgement != null)
         || p.SupportChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet)
         || p.StratagemChanges.Any(c => c.FieldType == Metadata.StratagemUses.Type || c.EffectAcknowledgement != null)
         || p.EntityChanges.Any(c => c.Resource is "vehicle_weapon" or "pod_rack" || c.Attack != null || c.Slot != null) ? 8 : 1;
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
         ValidateResource(p.ResourceId);
@@ -152,6 +153,9 @@ public static class ProjectIdentity
                         && c.Attack != null && Regex.IsMatch(c.Attack, @"\A[a-z][a-z_0-9]{0,63}\z") && VehicleWeaponReader.ValidKey(c.Entity),
                     // 0.26.0 drop-pod racks: Entity is the published rack name; spawn count on the rack, payload items on slots 1-4.
                     ("pod_rack", "rack") => c.Zone == null && c.Mount == null && c.Slot == null && c.Attack == null && PodPayloadReader.ValidName(c.Entity) && c.FieldType == "integer",
+                    // 0.27.0 throwables: Entity is the published throwable name; a published target, and a status effect's key.
+                    ("throwable", var throwablePath) when ThrowableAuthoringReader.Accessors.ContainsKey(throwablePath) => c.Zone == null && c.Mount == null && c.Slot == null && c.Attack == null
+                        && ThrowableAuthoringReader.ValidName(c.Entity) && (throwablePath == "status_effect" ? c.Effect != null && ThrowableAuthoringReader.ValidKey(c.Effect) : c.Effect == null),
                     ("pod_rack", "slot") => c.Zone == null && c.Mount == null && c.Slot is >= 1 and <= 4 && c.Attack == null && PodPayloadReader.ValidName(c.Entity) && c.FieldType == EntityField.PickupType,
                     _ => false,
                 })

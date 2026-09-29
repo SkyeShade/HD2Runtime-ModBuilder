@@ -25,6 +25,9 @@
         "structural_code_chain_exact_fingerprint" => "Code chain · exact match · effect unproven",
         "structural_code_selector_exact_fingerprint" => "Code selector · exact match · effect unproven",
         "structural_code_selector" => "Code selector · effect unproven",
+        // Throwable tiers (0.27.0): the native member is proven, and "wiki exact" adds an exact published-value match. Effects remain unproven in game.
+        "wiki_exact" => "Native member · exact value match · effect unproven",
+        "native_member" => "Native member · effect unproven",
         _ => tier.Replace('_', ' '),
     };
     public static string Short(string tier) => tier switch
@@ -40,6 +43,8 @@
         "native_table_code_consumer_exact_fingerprint" or "native_table_code_consumer" => "Native consumer",
         "structural_code_chain_exact_fingerprint" => "Code chain",
         "structural_code_selector_exact_fingerprint" or "structural_code_selector" => "Code selector",
+        "wiki_exact" => "Exact match",
+        "native_member" => "Native member",
         _ => tier.Replace('_', ' '),
     };
     private string Tooltip => string.Join("\n", new[] { Label(Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,

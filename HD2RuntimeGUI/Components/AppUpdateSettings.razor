@@ -11,9 +11,9 @@
     </div>
     @if (Updates.CheckMessage is { } message && Updates.Status is not (AppUpdateStatus.UpToDate or AppUpdateStatus.UpdateAvailable)) { <p class="subtle" data-app-update-message>@message</p> }
     @if (Updates.InstallError is { } error) { <p class="notice warning" data-app-update-settings-error>@error</p> }
-    <p class="subtle">Source: github.com/@BuildInfo.Repository · checked once when the app starts. Updates replace only the application files; projects, SDKs, icons and settings in <code>%LOCALAPPDATA%\HD2RuntimeGUI</code> are kept.</p>
+    <p class="subtle">Source: github.com/@BuildInfo.Repository · checked when the app starts and every 10 minutes while it runs. Updates replace only the application files; projects, SDKs, icons and settings in <code>%LOCALAPPDATA%\HD2RuntimeGUI</code> are kept.</p>
     <div class="actions">
-        <button @onclick="Updates.CheckAsync" disabled="@(Updates.Status == AppUpdateStatus.Checking || Updates.Installing)" data-app-update-check>@(Updates.Status == AppUpdateStatus.Checking ? "Checking…" : "Check for updates")</button>
+        <button @onclick="() => Updates.CheckAsync()" disabled="@(Updates.Status == AppUpdateStatus.Checking || Updates.Installing)" data-app-update-check>@(Updates.Status == AppUpdateStatus.Checking ? "Checking…" : "Check for updates")</button>
         @if (Updates.UpdateAvailable)
         {
             @if (Updates.InstallNeedsManualDownload) { <button class="primary" @onclick="OpenNotes">Open release page</button> }
