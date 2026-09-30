@@ -33,6 +33,12 @@ public sealed class WeaponPresentationCatalog
     public required string GameplaySeparation { get; init; }
     public required string Refresh { get; init; }
     public string TraitLabel(string semanticId) => Traits.GetValueOrDefault(semanticId)?.Label ?? semanticId;
+    // Two published traits can share a label (two INCENDIARY string IDs): where a list offers both, each also names its published ID.
+    public string ChoiceLabel(string semanticId)
+    {
+        var label = TraitLabel(semanticId);
+        return Traits.Values.Count(t => t.Label == label) > 1 ? label + " (" + semanticId + ")" : label;
+    }
     public string? PenetrationLabel(string value) => PenetrationChoices.FirstOrDefault(c => c.Value == value)?.Label;
 }
 

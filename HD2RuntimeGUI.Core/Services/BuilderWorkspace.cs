@@ -257,6 +257,10 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     }
     public string? BuildError { get; private set; }
     public IReadOnlyList<WeaponChangeGroup> WeaponGroups => Project == null || Metadata == null ? [] : WeaponAliasResolver.Group(Metadata, Project.WeaponChanges);
+    // One weapon's groups: a group never mixes weapons, so this is WeaponGroups filtered to the weapon, without grouping every other
+    // weapon's edits (field editors read it several times per render).
+    public IReadOnlyList<WeaponChangeGroup> WeaponGroupsFor(string weapon) => Project == null || Metadata == null ? []
+        : WeaponAliasResolver.Group(Metadata, Project.WeaponChanges.Where(c => c.Weapon == weapon));
     public IReadOnlyList<WeaponChangeIssue> WeaponIssues => Project == null || Metadata == null ? [] : weaponChanges.Review(Metadata, Project.WeaponChanges);
     public IReadOnlyList<ProjectSummary> Library { get; private set; } = [];
     public SdkStatus? SdkStatus { get; private set; }
@@ -297,7 +301,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         // Clean redundant overrides written by older GUI versions before exposing
         // the project. Unknown/type-changed fields remain available for review.
         if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) + project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(sdk, c)) + project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(sdk, c)) + project.EntityChanges.RemoveAll(c => EntityChangeService.NoOp(sdk, c)) > 0) await store.SaveAsync(project);
-        Project = project; Metadata = sdk; RefreshPreview(); LastExport = null;
+        Project = project; Metadata = sdk; savedState = SavedState(project); RefreshPreview(); LastExport = null;
         // Custom Lua gets its working copy back if it was removed (never over an existing file, which may hold outside edits).
         await EnsureCustomLuaFileAsync();
         Library = await store.ListAsync();
@@ -308,7 +312,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     { await projects.RenameAsync(await store.LoadAsync(id), name); Library = await store.ListAsync(); if (Project?.Id == id) await OpenAsync(id); }
     public async Task RemoveAsync(Guid id)
     { await store.RemoveFromLibraryAsync(id); Library = await store.ListAsync(); if (Project?.Id == id) CloseProject(); }
-    public void CloseProject() { Project = null; Metadata = null; LastExport = null; LuaPreview = ""; }
+    public void CloseProject() { Project = null; Metadata = null; LastExport = null; LuaPreview = ""; savedState = null; }
     public async Task AddOrEditChangeAsync(string target, string field, string value, bool ensure, string group, Guid? editId)
     {
         var next = changes.Create(Metadata!, target, field, value, ensure, group);
@@ -336,9 +340,19 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         RemoveProjectileNoOps(Metadata!, Project);
         // Format 8 marks 0.26.0 edits; a project without them keeps its format, so older ModBuilders still open it.
         var format = Project.FormatVersion; Project.FormatVersion = Math.Max(Project.FormatVersion, Projects.ProjectIdentity.RequiredFormat(Project));
+        // An edit that leaves the project exactly as saved (a value committed again) has nothing to save, regenerate or re-list. The saved
+        // JSON is the whole project state generation reads.
+        if (SavedState(Project) == savedState) return;
         try { await store.SaveAsync(Project); } catch { Project.WeaponChanges = previous; Project.ProjectileChanges = previousReferences; Project.FormatVersion = format; throw; }
-        RefreshPreview(); LastExport = null; Library = await store.ListAsync();
+        savedState = SavedState(Project);
+        RefreshPreview(); LastExport = null;
+        // The store has just written this project's library entry; an edit changes no other entry, so the library is not read back.
+        Library = [.. Library.Where(s => s.Id != Project.Id).Append(new ProjectSummary(Project.Id, Project.DisplayName, Project.ResourceId, Project.SdkVersion, Project.ModifiedAt))
+            .OrderByDescending(s => s.ModifiedAt)];
     }
+    // The project as the store writes it (JsonStorage.Options), including the ModifiedAt of its last save.
+    private string? savedState;
+    private static string SavedState(ModProject project) => System.Text.Json.JsonSerializer.Serialize(project, JsonStorage.Options);
     private int RemoveProjectileNoOps(SdkMetadata sdk, ModProject project) => project.ProjectileChanges.RemoveAll(c =>
     {
         // Changed/missing SDK evidence must remain visible for explicit review.

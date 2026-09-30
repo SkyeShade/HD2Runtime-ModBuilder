@@ -31,7 +31,9 @@
                 }
                 else
                 {
-                    <strong>@PenetrationLabel(penetration.Current)</strong> <span class="badge" title="@penetration.Reason">@T["Common.ReadOnly"]</span>
+                    @* A blocked label has no single current value (the weapon shows several, or its roots disagree): the reason says which. *@
+                    @if (!penetration.Blocked) { <strong>@PenetrationLabel(penetration.Current)</strong> }
+                    <span class="badge" title="@penetration.Reason">@T["Common.ReadOnly"]</span>
                     <small class="subtle" data-presentation-blocked>@(penetration.Reason ?? T["Messages.Build.Traits.ReadOnly"])</small>
                 }
                 @if (penetration.Modified) { <small class="modified-value">@T.Format("WeaponPresentation.BaselineToCurrent", PenetrationLabel(penetration.Baseline), PenetrationLabel(penetration.Current))</small> }
@@ -67,13 +69,13 @@
                         <label class="trait-add">@T["WeaponPresentation.AddTrait"]
                             <select data-trait-add disabled="@Busy" @onchange="e => Add(traits, e.Value?.ToString())">
                                 <option value="" selected>@T["WeaponPresentation.AddTrait.Choose"]</option>
-                                @foreach (var choice in traits.Choices.Where(c => !traits.Current.Contains(c))) { <option value="@choice">@Label(choice)</option> }
+                                @foreach (var choice in traits.Choices.Where(c => !traits.Current.Contains(c))) { <option value="@choice">@(catalog?.ChoiceLabel(choice) ?? choice)</option> }
                             </select></label>
                     }
                 }
                 else
                 {
-                    <strong>@string.Join(" · ", traits.Current.Select(Label))</strong> <span class="badge" title="@traits.Reason">@T["Common.ReadOnly"]</span>
+                    <strong>@(traits.Current.Count == 0 ? T["Common.Empty"] : string.Join(" · ", traits.Current.Select(Label)))</strong> <span class="badge" title="@traits.Reason">@T["Common.ReadOnly"]</span>
                     <small class="subtle" data-presentation-blocked>@(traits.Reason ?? T["Messages.Build.Traits.ReadOnly"])</small>
                 }
                 @if (traits.Modified) { <small class="modified-value">@T.Format("WeaponPresentation.BaselineToCurrent", string.Join(" · ", traits.Baseline.Select(Label)), string.Join(" · ", traits.Current.Select(Label)))</small> }

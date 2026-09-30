@@ -1,4 +1,4 @@
-// Programmable ammunition as base and alternate mode cards (packaged app, bundled SDK 0.28.0): a player weapon with no alternate, adding
+// Programmable ammunition as base and alternate mode cards (packaged app, bundled SDK 0.28.1): a player weapon with no alternate, adding
 // one, choosing a donor and its label, reopening the project, removing it (and the label edit it leaves on its row), a support weapon with
 // a live-proven and an unverified donor, a native programmable weapon (replace and restore, never remove), the cards stacked at a narrow
 // width, and the editor in 简体中文 and back. The generated Lua follows every step and is the same in both languages.

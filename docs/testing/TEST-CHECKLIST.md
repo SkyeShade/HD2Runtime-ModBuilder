@@ -1,11 +1,11 @@
-# ModBuilder 1.4.1 release candidate: manual check (10-20 minutes)
+# ModBuilder 1.4.2 release candidate: manual check (10-20 minutes)
 
-Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4.1/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
+Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4.2/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
 
 ## Start
-1. [ ] ModBuilder starts; the sidebar footer shows **SDK 0.28.0**.
-2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.4.1**; installed SDK **0.28.0**; supported up to **0.28.0**.
-3. [ ] **Project library → Create New Mod**, name it `RC Check`. The overview shows SDK 0.28.0.
+1. [ ] ModBuilder starts; the sidebar footer shows **SDK 0.28.1**.
+2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.4.2**; installed SDK **0.28.1**; supported up to **0.28.1**.
+3. [ ] **Project library → Create New Mod**, name it `RC Check`. The overview shows SDK 0.28.1.
 
 ## Weapons
 4. [ ] **Player Weapons → JAR-5 Dominator**: change a damage or stat value; the row turns modified and autosaves.
@@ -40,4 +40,4 @@ Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4
 23. [ ] **Changes** lists every edit above; **Lua Preview** wraps each operation in `add(function() return ... end)`.
 24. [ ] **Build / Export**: the ZIP is written.
 25. [ ] In Lua Preview, `allow_shared` / `allow_unverified_effect` / `allow_unverified_reference` appear only where the editors showed those warnings.
-26. [ ] The ZIP's `hd2runtime.json` has `requires.hd2runtime.min_version` **0.28.0**.
+26. [ ] The ZIP's `hd2runtime.json` has `requires.hd2runtime.min_version` **0.28.1**.

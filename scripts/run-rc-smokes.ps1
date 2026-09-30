@@ -3,7 +3,7 @@ param(
     # The packaged executable to test (default: the release candidate built by build-rc.ps1).
     [string]$App,
     [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'programmable-ammo', 'projectile-builder', 'export', 'old-project'),
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.0-public'),
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.1-public'),
     [int]$BasePort = 9260
 )
 
@@ -14,7 +14,7 @@ param(
 #   runtime028   underbarrel, programmable ammo, mounted projectile host, event/action and localization (+ Runtime validation of its export)
 #   programmable-ammo  base / alternate mode cards: add, donor, labels, reopen, remove, support + native weapons, narrow layout, zh-Hans (+ export validation)
 #   projectile-builder  hosts (player, support, mounted), read-only reasons, donor rows, slots, mode presentation, LAS-98 beam
-#   export       export in both languages (byte-identical) + HD2Runtime 0.28.0 validation of the export
+#   export       export in both languages (byte-identical) + HD2Runtime 0.28.1 validation of the export
 #   old-project  a ModBuilder 1.3.1 user's data folder: projects stay on 0.27.0, rebind and export
 
 $ErrorActionPreference = 'Stop'
@@ -29,8 +29,8 @@ New-Item -ItemType Directory -Path $out | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # The pinned SDK as a local folder (for the scripting smoke's developer-SDK checks); byte-identical to the bundled SDK.
-$sdkDir = Join-Path $out 'sdk-0.28.0'
-[IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $repoRoot 'HD2RuntimeGUI.Tests\Fixtures\sdk-0.28.0.zip'), $sdkDir)
+$sdkDir = Join-Path $out 'sdk-0.28.1'
+[IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $repoRoot 'HD2RuntimeGUI.Tests\Fixtures\sdk-0.28.1.zip'), $sdkDir)
 
 # A ModBuilder 1.3.1 user's data folder: SDK 0.27.0 cached and current, and the projects 1.3.1 saved.
 function Initialize-OldProjectData([string]$data) {
@@ -76,7 +76,7 @@ foreach ($smoke in $Smokes) {
         & taskkill /PID $process.Id /T /F *> $null
     }
     $result = if ($exit -eq 0) { 'PASS' } else { 'FAIL' }
-    # The export smoke's ZIP is validated by HD2Runtime 0.28.0 itself.
+    # The export smoke's ZIP is validated by HD2Runtime 0.28.1 itself.
     if ($smoke -in @('export', 'runtime028', 'programmable-ammo') -and $exit -eq 0) {
         $zip = ((Get-Content -LiteralPath $log -Raw) | Select-String -Pattern '"export":\s*"([^"]+)"').Matches[0].Groups[1].Value -replace '\\\\', '\'
         & py -3 -B (Join-Path $repoRoot 'tools\validate-exports.py') --isolation --runtime $RuntimeTree --output (Join-Path $out "$smoke-export-validation.json") $zip *>> $log

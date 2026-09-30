@@ -60,7 +60,7 @@
     [Parameter, EditorRequired] public PlayerWeapon Weapon { get; set; } = default!;
     [Parameter, EditorRequired] public WeaponCapability Field { get; set; } = default!;
     [Parameter] public EventCallback Changed { get; set; }
-    private HD2RuntimeGUI.Core.Generation.WeaponChangeGroup? SavedGroup => Workspace.WeaponGroups.SingleOrDefault(g => g.Weapon == Weapon.Name && g.FieldId == Field.SemanticFieldId);
+    private HD2RuntimeGUI.Core.Generation.WeaponChangeGroup? SavedGroup => Workspace.WeaponGroupsFor(Weapon.Name).SingleOrDefault(g => g.FieldId == Field.SemanticFieldId);
     private WeaponChange? Change => SavedGroup?.Representative;
     private string InputId => "stat-" + Field.SemanticFieldId.Replace('.', '-');
     private System.Text.Json.JsonElement CurrentValue => FieldPresentation.Parse(Value) ?? Change?.DesiredValue ?? Field.CurrentDefault;

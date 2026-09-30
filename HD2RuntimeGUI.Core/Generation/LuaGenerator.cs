@@ -65,13 +65,14 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
             var operation = patch ? "patch" : "transaction";
             operations.Add(group.Key.EnsureEnabled ? $"hd2.ensure({{\n    {operation}={body.ToString().Replace("\n", "\n    ")}\n}})" : $"hd2.{operation}({body})");
         }
+        // Composition was validated above; planning does not validate it again.
         if (sdk.Plans != null)
-            operations.AddRange(CompositionPlanLua.Operations(project.ResourceId, sdk, planner.Plan(project, sdk), options));
+            operations.AddRange(CompositionPlanLua.Operations(project.ResourceId, sdk, planner.PlanValidated(project, sdk), options));
         else
         {
             operations.AddRange(ProjectileChangeService.Operations(project, sdk, projectileChanges));
             if (sdk.Advanced != null)
-                operations.AddRange(planner.Plan(project, sdk).Select(o => o.Lua(project.ResourceId)));
+                operations.AddRange(planner.PlanValidated(project, sdk).Select(o => o.Lua(project.ResourceId)));
             else
             {
                 operations.AddRange(PlayerWeaponLua.Operations(project, sdk, weaponChanges));

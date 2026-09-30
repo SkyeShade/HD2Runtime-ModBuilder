@@ -7689,6 +7689,14 @@
     <value>未解析的链接</value>
     <comment>issue #1</comment>
   </data>
+  <data name="Support.Detail.WikiTraits" xml:space="preserve">
+    <value>Wiki：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Support.Detail.WikiTraits.Tooltip" xml:space="preserve">
+    <value>Helldivers Wiki 列出的特性，并非从游戏中读取。游戏军械库显示的标签见“军械库标签”；两者可能不同。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Support.Detail.Writable" xml:space="preserve">
     <value>可写</value>
     <comment>new: needs native review</comment>

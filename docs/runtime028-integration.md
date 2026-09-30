@@ -1,5 +1,21 @@
 # HD2Runtime 0.28.0 integration (ModBuilder 1.4.0)
 
+## 0.28.1 (ModBuilder 1.4.2)
+
+ModBuilder 1.4.2 pins **HD2Runtime 0.28.1** (public release `v0.28.1`, commit `96ab2d2`, which is also the SDK generation commit; SDK archive
+SHA-256 `02060ea78afe4fd59426cb86b85d087cc247b1a2f06d88a822a4190bb323f7c8`, fixture `HD2RuntimeGUI.Tests/Fixtures/sdk-0.28.1.zip`).
+
+- **What changed.** Every capability catalog ModBuilder reads is byte-identical to 0.28.0 or differs only in its version label; the Lua stubs
+  add `hd2.diagnostics.operations()`. The eight graph artifacts still labelled 0.19.0 are republished byte for byte from 0.27.0
+  (`PublishedArtifactVersion`). The bundle was copied from the release asset as before, and `SdkPin` / `SdkCompatibility` name 0.28.1.
+- **SDK 0.27-era mods.** 0.28.0 added `allow_unverified_effect` to 146 fields 0.27.0 wrote without it. Runtime 0.28.1 applies such an operation
+  (logged as a legacy operation) when the mod declares SDK 0.27.x or older, reading the declaration from the wrapper ModBuilder writes
+  (`local x,y,z=version('<bound SDK>')`, `ModExporter.Wrap`). ModBuilder therefore keeps declaring each project's bound SDK, emits exactly
+  the opt-ins that SDK requires, and does not duplicate Runtime's rule: an SDK 0.27.0 project still exports SDK 0.27.0's operations.
+- **Bindings.** Upgrading ModBuilder never rebinds a project or rewrites its file. Rebinding (Settings) moves it to 0.28.1: the edits are
+  kept, the acknowledgements 0.28.x requires are written, and the export declares 0.28.1. A 0.28.0 project generates identical operations on
+  0.28.1. `OldProjectCompatibilityTests` pin all of this (new project, 0.27.0 and 0.28.0 projects, their exports).
+
 Internal notes on how ModBuilder 1.4.0 consumes the frozen **HD2Runtime 0.28.0** SDK: public release `v0.28.0` (commit `085acc7`), SDK generated
 at `e304f26`, API 1, schema 1. ModBuilder was integrated on the release candidate `39aabe3` (SDK archive SHA-256
 `42b9cac4e0d3328a638b766d70bf04e03e064a357f897bc1f89e0066f188851e`). The public release adds only the guarded read-budget fix to the Runtime:

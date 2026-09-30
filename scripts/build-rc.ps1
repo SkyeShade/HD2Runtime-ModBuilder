@@ -1,10 +1,10 @@
 [CmdletBinding()]
 param(
     # An extracted, read-only HD2Runtime release tree for export validation (created from ..\HD2Runtime at $RuntimeCommit if missing).
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.0-public'),
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.1-public'),
     [string]$RuntimeRepo = (Join-Path $PSScriptRoot '..\..\HD2Runtime'),
-    # The public HD2Runtime v0.28.0 release (its sdk/ is unchanged from the release candidate 39aabe3 ModBuilder was integrated on).
-    [string]$RuntimeCommit = '085acc7cfc6ecccd57c9b8c415d455a92731083d',
+    # The public HD2Runtime v0.28.1 release, whose SDK ModBuilder bundles (SdkPin).
+    [string]$RuntimeCommit = '96ab2d258d867a5df4f22bb7b3321d84d28de21d',
     # Local test builds only: allow uncommitted changes (the build report marks them).
     [switch]$AllowDirty,
     # Reuse an existing artifacts\release package instead of publishing again.
@@ -93,12 +93,12 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
 
     # 6. Build report.
     $zip = Get-Item -LiteralPath (Join-Path $package "$name.zip")
-    $sdkZip = Join-Path $repoRoot 'HD2RuntimeGUI.Tests\Fixtures\sdk-0.28.0.zip'
+    $sdkZip = Join-Path $repoRoot 'HD2RuntimeGUI.Tests\Fixtures\sdk-0.28.1.zip'
     $audit = Get-Content -LiteralPath (Join-Path $rc 'capability-audit.json') -Raw | ConvertFrom-Json
     $report = [ordered]@{
         product = 'HD2Runtime ModBuilder'; version = $version; commit = $commit; dirty = [bool]$dirty; built = (Get-Date).ToUniversalTime().ToString('o')
         package = [ordered]@{ zip = $zip.Name; size = $zip.Length; sha256 = (Get-FileHash -LiteralPath $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
-        runtime = [ordered]@{ version = '0.28.0'; releaseCommit = $RuntimeCommit; sdkCommit = 'e304f26fe0c09e9c059fa6b2b5a2a2d91e81c65c'; apiVersion = 1; schemaVersion = 1
+        runtime = [ordered]@{ version = '0.28.1'; releaseCommit = $RuntimeCommit; sdkCommit = '96ab2d258d867a5df4f22bb7b3321d84d28de21d'; apiVersion = 1; schemaVersion = 1
             sdkArchiveSha256 = (Get-FileHash -LiteralPath $sdkZip -Algorithm SHA256).Hash.ToLowerInvariant(); contentFingerprint = $audit.contentFingerprint; pinnedBuild = $audit.pinnedBuild }
         tests = [ordered]@{ total = [int]$counters.total; passed = [int]$counters.passed; failed = [int]$counters.failed; exitCode = $testExit }
         exportValidation = [ordered]@{ status = $exports.status; mode = $exports.mode; snapshot = $exports.snapshot; exports = $exports.exports; failed = @($exports.failed); exitCode = $exportExit }
@@ -110,10 +110,10 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
         "# HD2Runtime ModBuilder $version release candidate - build report", '',
         "- Commit: ``$commit``$(if ($dirty) { ' (**uncommitted changes**: local test build only)' })",
         "- Package: ``$($zip.Name)`` ($('{0:N1}' -f ($zip.Length / 1MB)) MB), SHA-256 ``$($report.package.sha256)``",
-        "- HD2Runtime: 0.28.0 (release commit ``$RuntimeCommit``, SDK generated at ``e304f26``), API 1, schema 1",
+        "- HD2Runtime: 0.28.1 (release commit ``$RuntimeCommit``, SDK generated at ``96ab2d2``), API 1, schema 1",
         "- SDK archive SHA-256: ``$($report.runtime.sdkArchiveSha256)``; bundled content fingerprint ``$($audit.contentFingerprint)`` (pinned build: $($audit.pinnedBuild))",
         "- Tests: $($counters.passed) passed, $($counters.failed) failed of $($counters.total)",
-        "- Export validation (HD2Runtime 0.28.0 validator, $($exports.mode) $($exports.snapshot)): $($exports.status), $(@($exports.failed).Count) failed of $($exports.exports) exports (with isolation probes)",
+        "- Export validation (HD2Runtime 0.28.1 validator, $($exports.mode) $($exports.snapshot)): $($exports.status), $(@($exports.failed).Count) failed of $($exports.exports) exports (with isolation probes)",
         "- Capability audit: unexpected missing = $($audit.unexpectedMissing) (see COVERAGE.md)",
         "- Desktop smokes on the packaged app: $(if ($smokeSummary) { ($smokeSummary.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ' } else { 'not run' })",
         '', 'Open the app with "Launch ModBuilder RC (test data).cmd" and follow TEST-CHECKLIST.md. Nothing here is published.'

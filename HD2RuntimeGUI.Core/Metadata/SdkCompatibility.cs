@@ -9,7 +9,7 @@ namespace HD2RuntimeGUI.Core.Metadata;
 /// </summary>
 public static class SdkCompatibility
 {
-    public const string NewestSupportedVersion = "0.28.0";
+    public const string NewestSupportedVersion = "0.28.1";
     public static SemVersion NewestSupported { get; } = SemVersion.Parse(NewestSupportedVersion);
     public static bool IsSupported(string version) => SemVersion.Parse(version).CompareTo(NewestSupported) <= 0;
 }

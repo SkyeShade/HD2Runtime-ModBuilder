@@ -1,0 +1,14 @@
+@* A <details> group whose content is built only while it is open. Change lists can hold hundreds of groups, each with a full editor inside;
+   a closed native <details> would still build and render all of them. The summary toggles the group itself (the native toggle is
+   prevented, so the open state and the content always agree); the group keeps its open state across re-renders. *@
+<details @attributes="Attributes" open="@Open">
+    <summary @onclick="Toggle" @onclick:preventDefault>@Summary</summary>
+    @if (Open) { @ChildContent }
+</details>
+@code {
+    [Parameter, EditorRequired] public RenderFragment Summary { get; set; } = default!;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+    private bool Open;
+    private void Toggle() => Open = !Open;
+}

@@ -6943,6 +6943,14 @@
   <data name="Support.Detail.UnresolvedLinks" xml:space="preserve">
     <value>Unresolved links</value>
   </data>
+  <data name="Support.Detail.WikiTraits" xml:space="preserve">
+    <value>Wiki: {0}</value>
+    <comment>Badge. {0}: the traits the Helldivers wiki lists for the weapon (wiki text, not translated), joined with " · "</comment>
+  </data>
+  <data name="Support.Detail.WikiTraits.Tooltip" xml:space="preserve">
+    <value>Traits listed on the Helldivers wiki, not read from the game. The labels the game's armory shows are under Armory labels; the two can differ.</value>
+    <comment>Tooltip of Support.Detail.WikiTraits; "Armory labels" is WeaponPresentation.Title</comment>
+  </data>
   <data name="Support.Detail.Writable" xml:space="preserve">
     <value>Writable</value>
     <comment>Badge</comment>

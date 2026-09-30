@@ -146,7 +146,9 @@ try {
 
     // Changes and Lua.
     assert(!(await text()).includes('Build requires review'), 'build is valid');
-    await go('changes'); await waitFor(q('[data-attack-output-change="primary"]'), 'attack output on Changes');
+    // A weapon's group builds its rows only while it is open (1.4.2): open the Liberator's.
+    await go('changes'); await click('[data-weapon-group="AR-23 Liberator"] > summary');
+    await waitFor(q('[data-weapon-group="AR-23 Liberator"] [data-attack-output-change="primary"]'), 'attack output on Changes');
     assert.equal(await count('[data-custom-lua-change]'), 1, 'custom Lua on Changes');
     await go('lua'); const lua = await evaluate('document.querySelector("pre").innerText');
     for (const s of ["hd2.weapon('AR-23 Liberator'):ammunition()", 'hd2.fields.ammunition.projectile', `hd2.attack_output('${NAPALM}')`,

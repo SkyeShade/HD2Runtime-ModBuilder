@@ -233,11 +233,12 @@ public sealed class ProgrammableAmmoModesTests
     {
         // Saved by the 1.4.0 RC before the mode cards (runtime028 desktop smoke: MG-206 rates and the live-proven Hyena), with the addon.lua that
         // RC exported for it.
-        using var e = new TestEnvironment(); await SdkFixtures.Install(e, SdkPin.Version);
+        // The project is bound to SDK 0.28.0 (the SDK 1.4.0 shipped); a later ModBuilder keeps that binding until it is rebound.
+        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.28.0");
         var folder = Path.Combine(AppContext.BaseDirectory, "Fixtures", "projects-1.4.0-rc");
         var w = e.Workspace(); var project = await e.Store.ImportAsync(Path.Combine(folder, "runtime028-smoke.hd2mod.json"));
         await w.OpenAsync(project.Id);
-        Assert.Equal(11, w.Project!.FormatVersion); Assert.Equal(SdkPin.Version, w.Project.SdkVersion);
+        Assert.Equal(11, w.Project!.FormatVersion); Assert.Equal("0.28.0", w.Project.SdkVersion);
         var modes = Modes(w, CompositionKind.Support, Hmg);
         Assert.Equal(AlternateAmmoMode.DonorMode, modes.Alternate.Mode); Assert.Equal(Hyena, modes.Alternate.Token); Assert.True(modes.Alternate.LiveProven);
         Input(modes, AmmoSelectorInput.Bound, "left", "left");

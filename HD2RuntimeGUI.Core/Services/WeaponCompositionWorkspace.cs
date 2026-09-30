@@ -73,6 +73,9 @@ public sealed record PresentationPenetration(bool Writable, string? Reason, stri
     string? AcknowledgementReason, bool NeedsEffect, IReadOnlyList<string>? LiveValues)
 {
     public bool Modified => Baseline != Current;
+    // Runtime publishes no single current label (the weapon shows several, or its roots disagree); the value it carries is a placeholder,
+    // so only the reason is shown.
+    public bool Blocked => State == "blocked";
 }
 public sealed record WeaponPresentation(string Kind, string Weapon, PresentationTraits? Traits, PresentationPenetration? Penetration, string? GameplaySeparation, string? Refresh);
 

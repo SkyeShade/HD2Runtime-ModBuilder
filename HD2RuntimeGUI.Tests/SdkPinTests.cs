@@ -7,7 +7,7 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// ModBuilder 1.4.0 is built against the frozen HD2Runtime 0.28.0 release candidate. The fixture sdk-0.28.0.zip is that release asset; the
+// ModBuilder 1.4.2 is built against HD2Runtime 0.28.1 (1.4.0 and 1.4.1: 0.28.0). The fixture sdk-<SdkPin.Version>.zip is that release asset; the
 // bundled SDK is its files byte for byte, a newer bundled SDK becomes current on upgrade, and a same-version build that differs (a local
 // sdk/ folder of a later Runtime commit) is always reported as a different build.
 public sealed class SdkPinTests
@@ -76,13 +76,13 @@ public sealed class SdkPinTests
         var dir = Path.Combine(e.Paths.Root, "local-sdk"); ZipFile.ExtractToDirectory(Fixture, dir);
         var exact = new SdkCache(e.Paths, e.Reader, e.GitHub) { LocalSdkPath = dir };
         var status = await new SdkUpdateService(exact, e.GitHub, e.Paths).CheckAsync();
-        Assert.True(status.Installed.IsPinnedBuild); Assert.Contains("byte-identical to the pinned HD2Runtime 0.28.0 release", status.Message);
-        // Same version, one catalog differs (a later development build of 0.28.0).
+        Assert.True(status.Installed.IsPinnedBuild); Assert.Contains("byte-identical to the pinned HD2Runtime " + SdkPin.Version + " release", status.Message);
+        // Same version, one catalog differs (a later development build of the pinned version).
         var events = Path.Combine(dir, EventCatalogReader.FileName); File.AppendAllText(events, "\n");
         var other = new SdkCache(e.Paths, e.Reader, e.GitHub) { LocalSdkPath = dir };
         status = await new SdkUpdateService(other, e.GitHub, e.Paths).CheckAsync();
         Assert.Equal(SdkPin.Version, status.Installed.Version); Assert.False(status.Installed.IsPinnedBuild);
-        Assert.Contains("is not the pinned HD2Runtime 0.28.0 release", status.Message);
+        Assert.Contains("is not the pinned HD2Runtime " + SdkPin.Version + " release", status.Message);
         // A local SDK is never cached, so it cannot replace the pinned release for later runs.
         Assert.False(Directory.Exists(Path.GetDirectoryName(e.Paths.SdkFile(SdkPin.Version))));
     }

@@ -20,14 +20,17 @@
     {
         var group = stratagemChanges.Where(c => Key(c) == key).ToArray(); var weaponChanges = linked[key].ToArray();
         var shared = key == "Eagle Shared System"; var name = group.FirstOrDefault()?.Stratagem ?? key;
-        <details class="panel" data-stratagem-change-group="@key"><summary>@if (!shared && catalog?.Root(name) is { } root && StratagemCategories.Of(root.Family) is { } category) { <span class="category-pill static @category.CssClass" data-change-category="@category.Key"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }<strong>@(shared ? T["StratagemChanges.EagleSharedSystem"] : key)</strong> <span class="badge">@T.Plural("StratagemChanges.Count", group.Length + weaponChanges.Length)</span> <small class="subtle">@string.Join(" · ", group.Select(Section).Concat(weaponChanges.Length > 0 ? [T.Format("Stratagem.Delivered.Weapon", weaponChanges[0].Weapon)] : []).Distinct())</small></summary>
+        @* The editor is built only while its group is open. *@
+        <LazyDetails class="panel" data-stratagem-change-group="@key" @key="key"><Summary>@if (!shared && catalog?.Root(name) is { } root && StratagemCategories.Of(root.Family) is { } category) { <span class="category-pill static @category.CssClass" data-change-category="@category.Key"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }<strong>@(shared ? T["StratagemChanges.EagleSharedSystem"] : key)</strong> <span class="badge">@T.Plural("StratagemChanges.Count", group.Length + weaponChanges.Length)</span> <small class="subtle">@string.Join(" · ", group.Select(Section).Concat(weaponChanges.Length > 0 ? [T.Format("Stratagem.Delivered.Weapon", weaponChanges[0].Weapon)] : []).Distinct())</small></Summary>
+            <ChildContent>
             <label><input type="checkbox" checked="@ShowAll.Contains(key)" @onchange="e => Toggle(key, (bool)e.Value!)" /> @T["StratagemChanges.ShowAll"]</label>
             <StratagemEditor Name="@name" ModifiedOnly="@(!ShowAll.Contains(key))" ExcludeRearm="@(!shared)" RearmOnly="@shared" Changed="Refresh" />
             @foreach (var c in group.Where(c => catalog?.Resolve(c) == null))
             { <p class="notice warning">@T.Format("StratagemChanges.Missing", c.SemanticFieldId, c.Attack ?? c.Weapon ?? c.Entity ?? c.Path)</p><button @onclick="() => Run(() => Workspace.ResetStratagemAsync(instance: c.InstanceKey))">@T["StratagemChanges.RemoveMissing"]</button> }
             @foreach (var c in weaponChanges.Where(c => Workspace.Metadata?.SupportAuthoring?.FieldInstances.All(f => f.InstanceKey != c.InstanceKey) != false))
             { <p class="notice warning">@T.Format("StratagemChanges.Missing", c.SemanticFieldId, c.AttackRole)</p><button @onclick="() => Run(() => Workspace.ResetSupportAsync(instance: c.InstanceKey))">@T["StratagemChanges.RemoveMissing"]</button> }
-        </details>
+            </ChildContent>
+        </LazyDetails>
     }
     @if (Error != null) { <p class="notice warning">@Error</p> }
 }

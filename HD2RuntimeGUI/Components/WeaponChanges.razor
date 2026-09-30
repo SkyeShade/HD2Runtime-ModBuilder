@@ -1,26 +1,36 @@
 @inject BuilderWorkspace Workspace
+@{
+    // Read once per render: WeaponGroups regroups and WeaponIssues re-validates every weapon edit on each read, so reading them inside the
+    // per-weapon and per-field lambdas re-validated the whole project thousands of times per redraw.
+    var project = Workspace.Project!; var groups = Workspace.WeaponGroups; var issues = Workspace.WeaponIssues;
+    var byWeapon = groups.ToLookup(g => g.Weapon); var withIssues = issues.Select(i => i.ChangeId).ToHashSet();
+}
 <section class="panel weapon-summary"><div class="panel-heading"><h2>@T["WeaponChanges.Title"]</h2>
-    @if (Workspace.Project!.CompositionChanges.Count > 0 || Workspace.Project!.ProjectileChanges.Count > 0 || Workspace.Project!.AttackOutputChanges?.Any(c => c.IsPlayer) == true || Workspace.WeaponGroups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">@T["WeaponChanges.ResetAll"]</button> }
+    @if (project.CompositionChanges.Count > 0 || project.ProjectileChanges.Count > 0 || project.AttackOutputChanges?.Any(c => c.IsPlayer) == true || groups.Any(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative))) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync())">@T["WeaponChanges.ResetAll"]</button> }
 </div>
-@foreach (var weaponName in Workspace.WeaponGroups.Select(g => g.Weapon).Concat(Workspace.Project!.ProjectileChanges.Select(c => c.Weapon)).Concat(Workspace.Project.CompositionChanges.Select(c => c.Weapon)).Concat(Workspace.Project.AttackOutputChanges?.Where(c => c.IsPlayer).Select(c => c.Weapon) ?? []).Distinct().Order(StringComparer.Ordinal))
+@foreach (var weaponName in groups.Select(g => g.Weapon).Concat(project.ProjectileChanges.Select(c => c.Weapon)).Concat(project.CompositionChanges.Select(c => c.Weapon)).Concat(project.AttackOutputChanges?.Where(c => c.IsPlayer).Select(c => c.Weapon) ?? []).Distinct().Order(StringComparer.Ordinal))
 {
-    var group = Workspace.WeaponGroups.Where(g => g.Weapon == weaponName).ToArray();
+    var group = byWeapon[weaponName].ToArray();
     // A sub-target (underbarrel) is listed by its own name and edited on its parent weapon's page.
     var weapon = Workspace.Metadata?.PlayerWeapons?.Find(weaponName); var editTarget = Workspace.Metadata?.PlayerWeapons?.FindSubweapon(weaponName)?.SubweaponOf ?? weaponName;
-    var count = Workspace.Project!.CompositionChanges.Count(c => c.Weapon == weaponName) + Workspace.Project!.ProjectileChanges.Count(c => c.Weapon == weaponName) + (Workspace.Project!.AttackOutputChanges?.Count(c => c.IsPlayer && c.Weapon == weaponName) ?? 0) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
+    var count = project.CompositionChanges.Count(c => c.Weapon == weaponName) + project.ProjectileChanges.Count(c => c.Weapon == weaponName) + (project.AttackOutputChanges?.Count(c => c.IsPlayer && c.Weapon == weaponName) ?? 0) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     var showAll = AllFields.Contains(weaponName);
-    var rows = (weapon?.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")).Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
-        .Concat(group.Where(g => g.Field == null).Select(g => new Row(null, g)))
-        .Where(r => showAll || r.Group?.Conflict != null || FieldPresentation.Modified(r.Field, r.Change) || Workspace.WeaponIssues.Any(i => r.Group?.Sources.Any(c => c.Id == i.ChangeId) == true));
-    <details class="weapon-change-group" data-weapon-group="@weaponName" @key="weaponName">
-        <summary><strong>@weaponName</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@T.Plural("WeaponChanges.Count", count)</span></summary>
+    @* The group's rows and editors are built only while it is open. *@
+    <LazyDetails class="weapon-change-group" data-weapon-group="@weaponName" @key="weaponName">
+        <Summary><strong>@weaponName</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@T.Plural("WeaponChanges.Count", count)</span></Summary>
+        <ChildContent>
+        @{
+            var rows = (weapon?.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")).Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
+                .Concat(group.Where(g => g.Field == null).Select(g => new Row(null, g)))
+                .Where(r => showAll || r.Group?.Conflict != null || FieldPresentation.Modified(r.Field, r.Change) || r.Group?.Sources.Any(c => withIssues.Contains(c.Id)) == true).ToArray();
+        }
         <div class="weapon-group-content"><div class="panel-heading">
             <label class="switch-label"><input type="checkbox" checked="@showAll" @onchange="e => ShowAll(weaponName, (bool)e.Value!)" />@T["WeaponChanges.ShowAllFields"]</label>
             <div class="actions"><button @onclick="() => Edit.InvokeAsync(editTarget)">@T["WeaponChanges.EditWeapon"]</button>@if (count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(weaponName))">@T["WeaponEditor.ResetWeapon"]</button> }</div>
         </div>
         @* The same acknowledgement panels as the editor, so a blocked build can be resolved here. *@
         <WeaponSharedAcks Weapon="@weaponName" />
-        @if (Workspace.Metadata?.Advanced != null) { <CompositionApprovals Weapon="@weaponName" Changes="Workspace.Project!.CompositionChanges" /> }
+        @if (Workspace.Metadata?.Advanced != null) { <CompositionApprovals Weapon="@weaponName" Changes="project.CompositionChanges" /> }
         @foreach (var section in rows.GroupBy(r => r.Field == null ? "Unavailable" : FieldPresentation.Section(r.Field)).OrderBy(g => FieldPresentation.SectionOrder(g.Key)))
         {
             <h3 class="summary-section">@FieldPresentation.SectionLabel(T, section.Key)</h3>
@@ -45,13 +55,13 @@
                     @if (f != null && FieldPresentation.Explanation(T, f) is { } explanation) { <p class="flag-explanation">@explanation</p> }
                     @if (c != null && f?.AffectsMultipleWeapons == true) { <small>@T["WeaponChanges.SharedNote"]</small> }
                     @if (!string.IsNullOrWhiteSpace(c?.Notes)) { <p>@c.Notes</p> }
-                    @foreach (var issue in Workspace.WeaponIssues.Where(i => row.Group?.Sources.Any(source => source.Id == i.ChangeId) == true && i.Message != row.Group.Conflict))
+                    @foreach (var issue in issues.Where(i => row.Group?.Sources.Any(source => source.Id == i.ChangeId) == true && i.Message != row.Group.Conflict))
                     { var source = row.Group!.Sources.Single(source => source.Id == issue.ChangeId);
                         <div class="notice warning"><span>@issue.Message</span>@if (f != null && f.Format(source.ExpectedValue) != f.Format(f.CurrentDefault)) { <button @onclick="() => Run(() => Workspace.AcceptWeaponBaselineAsync(source.Id))">@T.Format("WeaponChanges.AcceptBaseline", FieldPresentation.DisplayFormat(T, f, f.CurrentDefault))</button> }</div> }
                 </div>
             }
         }
-        @if (Workspace.Project.ProjectileChanges.Any(c => c.Weapon == weaponName) || Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName) || Workspace.Project.AttackOutputChanges?.Any(c => c.IsPlayer && c.Weapon == weaponName) == true)
+        @if (project.ProjectileChanges.Any(c => c.Weapon == weaponName) || project.CompositionChanges.Any(c => c.Weapon == weaponName) || project.AttackOutputChanges?.Any(c => c.IsPlayer && c.Weapon == weaponName) == true)
         {
             <section data-composition-changes="@weaponName"><h3 class="summary-section">@T["Section.Composition"]</h3>
                 <ProjectileChanges Weapon="@weaponName" Changed="AliasResolved" />
@@ -59,11 +69,12 @@
             </section>
         }
         @if (showAll && Workspace.Metadata?.Advanced == null) { <WeaponComposition Weapon="@weaponName" Changed="AliasResolved" /> }
-        @if (!rows.Any() && !Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == weaponName) && !Workspace.Project.CompositionChanges.Any(c => c.Weapon == weaponName) && Workspace.Project.AttackOutputChanges?.Any(c => c.IsPlayer && c.Weapon == weaponName) != true) { <p class="subtle">@T["WeaponChanges.NoDifferences"]</p> }
+        @if (rows.Length == 0 && !project.ProjectileChanges.Any(c => c.Weapon == weaponName) && !project.CompositionChanges.Any(c => c.Weapon == weaponName) && project.AttackOutputChanges?.Any(c => c.IsPlayer && c.Weapon == weaponName) != true) { <p class="subtle">@T["WeaponChanges.NoDifferences"]</p> }
         </div>
-    </details>
+        </ChildContent>
+    </LazyDetails>
 }
-@if (Workspace.Project!.WeaponChanges.Count == 0 && Workspace.Project.ProjectileChanges.Count == 0 && Workspace.Project.CompositionChanges.Count == 0 && Workspace.Project.AttackOutputChanges?.Any(c => c.IsPlayer) != true) { <p>@T["WeaponChanges.Empty"]</p> }
+@if (project.WeaponChanges.Count == 0 && project.ProjectileChanges.Count == 0 && project.CompositionChanges.Count == 0 && project.AttackOutputChanges?.Any(c => c.IsPlayer) != true) { <p>@T["WeaponChanges.Empty"]</p> }
 @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 </section>
 @code {

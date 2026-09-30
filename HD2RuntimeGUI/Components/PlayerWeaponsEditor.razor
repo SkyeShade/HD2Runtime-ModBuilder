@@ -38,7 +38,7 @@
                     <span class="summary-stat @(summary.SharedChanges > 0 ? "shared" : "")" data-summary-shared="@summary.SharedChanges">@T.Markup("WeaponEditor.Summary.Shared.Html", summary.SharedChanges)</span>
                 </div>
                 <div class="actions"><button class="primary" data-review-changes @onclick="() => Review.InvokeAsync()">@T["WeaponEditor.ReviewChanges"]</button>
-                    @if (summary.ModifiedFields > 0 || Workspace.WeaponGroups.Any(g => g.Weapon == weapon.Name)) { <button class="reset-action" @onclick="() => Reset(weapon.Name)">@T["WeaponEditor.ResetWeapon"]</button> }</div>
+                    @if (summary.ModifiedFields > 0 || Workspace.WeaponGroupsFor(weapon.Name).Count > 0) { <button class="reset-action" @onclick="() => Reset(weapon.Name)">@T["WeaponEditor.ResetWeapon"]</button> }</div>
                 @if (weapon.OrdinaryWritesBlocked) { <div class="notice warning summary-wide"><div><strong>@T["WeaponEditor.WritesUnavailable"]</strong><p>@weapon.BlockReason</p></div></div> }
             </section>
             @foreach (var key in sections)
@@ -177,7 +177,7 @@
     private static bool HasModeList(PlayerWeapon w) => w.Fields.Any(f => f.SemanticFieldId == FireModes.ModesField);
     private static bool LegacyDefaultMode(PlayerWeapon w, WeaponCapability f) => f.SemanticFieldId == "weapon.default_fire_mode" && f.Editable && HasModeList(w);
     private bool LegacyDefaultHidden(PlayerWeapon w, WeaponCapability f) => LegacyDefaultMode(w, f)
-        && w.Fields.Any(x => x.SemanticFieldId == FireModes.ModesField && x.Editable) && !Workspace.WeaponGroups.Any(g => g.Weapon == w.Name && g.FieldId == f.SemanticFieldId);
+        && w.Fields.Any(x => x.SemanticFieldId == FireModes.ModesField && x.Editable) && !Workspace.WeaponGroupsFor(w.Name).Any(g => g.FieldId == f.SemanticFieldId);
     private static int Order(string section) => section == HeatSection ? FieldPresentation.SectionOrder("Heat") : FieldPresentation.SectionOrder(section);
     // The heading of one of Phases' explosions, with the attack role (an SDK token) when the weapon has several attacks.
     private string ExplosionLabel(string phase, string? role) => (phase, role) switch

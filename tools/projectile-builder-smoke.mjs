@@ -1,6 +1,6 @@
 // Developer-only smoke test for the 0.28.0 projectile builder (unified projectile hosts, row slots, mode presentation) against a running
-// isolated app (WebView2 CDP) bound to the HD2Runtime 0.28.0 SDK. Launch the app with HD2RUNTIMEGUI_DATA_ROOT=<empty folder>,
-// --sdk-path <extracted sdk-0.28.0> and WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9263, then:
+// isolated app (WebView2 CDP) bound to the pinned HD2Runtime SDK (0.28.1). Launch the app with HD2RUNTIMEGUI_DATA_ROOT=<empty folder>,
+// --sdk-path <extracted sdk-0.28.1> and WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9263, then:
 // HD2GUI_CDP_PORT=9263 node tools/projectile-builder-smoke.mjs
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';

@@ -68,6 +68,9 @@ public sealed record PlannedSemanticOperation(SemanticBackingObject Owner, strin
 public interface ISemanticOperationPlanner
 {
     IReadOnlyList<PlannedSemanticOperation> Plan(ModProject project, SdkMetadata sdk);
+    // For a caller that has just validated the project's composition (LuaGenerator.Generate does, before planning): the same plan without
+    // validating it a second time.
+    IReadOnlyList<PlannedSemanticOperation> PlanValidated(ModProject project, SdkMetadata sdk) => Plan(project, sdk);
 }
 
 public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
@@ -75,11 +78,13 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
     private sealed record Edit(SemanticBackingObject Owner, string Weapon, string Family, string Target, string Semantic,
         string Field, string Expected, string Desired, bool Ensure, bool Shared, ProjectileReference? Context = null, ProjectileReference? Replacement = null, string? Key = null, bool Unverified = false,
         bool UnverifiedReference = false);
-    public IReadOnlyList<PlannedSemanticOperation> Plan(ModProject project, SdkMetadata sdk)
+    public IReadOnlyList<PlannedSemanticOperation> Plan(ModProject project, SdkMetadata sdk) => Plan(project, sdk, validateComposition: true);
+    public IReadOnlyList<PlannedSemanticOperation> PlanValidated(ModProject project, SdkMetadata sdk) => Plan(project, sdk, validateComposition: false);
+    private IReadOnlyList<PlannedSemanticOperation> Plan(ModProject project, SdkMetadata sdk, bool validateComposition)
     {
         var edits = new List<Edit>();
         var weaponService = new WeaponChangeService(); var objects = new CompositionChangeService();
-        objects.ValidateComposition(project, sdk);
+        if (validateComposition) objects.ValidateComposition(project, sdk);
         var aliases = WeaponAliasResolver.Group(sdk, project.WeaponChanges);
         if (aliases.FirstOrDefault(g => g.Conflict != null) is { } conflict) throw new InvalidDataException(conflict.Conflict);
         foreach (var change in project.WeaponChanges.Where(c => c.Enabled)) weaponService.Validate(sdk, change);

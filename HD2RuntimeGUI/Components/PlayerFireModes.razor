@@ -14,7 +14,7 @@
         var entry = Workspace.Metadata?.FireModes?.Find("player", Weapon.Name);
         if (f == null && entry == null) return null;
         var writable = f is { Editable: true, AllowedModes: not null, MaxModes: not null } && f.WriteAccepted && !Weapon.OrdinaryWritesBlocked;
-        var change = Workspace.WeaponGroups.SingleOrDefault(g => g.Weapon == Weapon.Name && g.FieldId == FireModes.ModesField)?.Representative;
+        var change = Workspace.WeaponGroupsFor(Weapon.Name).SingleOrDefault(g => g.FieldId == FireModes.ModesField)?.Representative;
         var baseline = writable ? FireModes.Modes(f!.CurrentDefault) : [];
         var current = writable && change != null ? FireModes.Modes(change.DesiredValue) : baseline;
         return new(Weapon.Name, f?.FireModeState ?? entry?.State ?? "blocked", writable, Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : f?.Reason ?? entry?.Reason,

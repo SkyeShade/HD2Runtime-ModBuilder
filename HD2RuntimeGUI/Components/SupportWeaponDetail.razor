@@ -12,7 +12,10 @@
         <div class="panel-heading"><h3>@(Embedded ? T.Format("Support.Detail.Delivered", weapon.CatalogIdentity) : weapon.CatalogIdentity)</h3></div>
         <div class="field-badges"><span class="badge" data-support-writable="@(descriptor?.Writable == true ? "true" : "false")">@(descriptor?.Writable == true ? T["Support.Detail.Writable"] : T["Common.ReadOnly"])</span>
             <span class="badge" data-support-identity="@(descriptor?.IdentityStatus ?? weapon.IdentityResolution)" title="@T["Support.Detail.IdentityStatus"]">@((descriptor?.IdentityStatus ?? weapon.IdentityResolution).Replace('_', ' '))</span>
-            <span class="badge">@weapon.WeaponType</span>@foreach (var trait in weapon.Traits.Take(3)) { <span class="badge">@trait</span> }</div>
+            <span class="badge">@weapon.WeaponType</span>
+            @* The wiki's trait list (SupportWeaponCapabilities), complete and labelled as the wiki's: the labels the game's armory shows are
+               read from the weapon and shown under Armory labels, and the two can differ. *@
+            @if (weapon.Traits.Count > 0) { <span class="badge" data-wiki-traits title="@T["Support.Detail.WikiTraits.Tooltip"]">@T.Format("Support.Detail.WikiTraits", string.Join(" · ", weapon.Traits))</span> }</div>
         @if (authoring == null || descriptor == null) { <p class="subtle">@weapon.AuthoringReason</p> }
         @if (descriptor?.IdentityResolution is { } resolution)
         {

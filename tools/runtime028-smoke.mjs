@@ -10,7 +10,7 @@ const cjk = s => (s.match(/[一-鿿]/g) ?? []).length;
 await run('runtime028', async (ui, report) => {
     const { q, click, fill, waitFor, count, evaluate, screenshot, sleep } = ui;
     await ui.startup();
-    assert((await evaluate("document.querySelector('.sdk-mini')?.innerText ?? ''")).includes('SDK 0.28.0'), 'bundled SDK 0.28.0');
+    assert((await evaluate("document.querySelector('.sdk-mini')?.innerText ?? ''")).includes('SDK 0.28.1'), 'bundled SDK 0.28.1');
     await ui.createProject('Runtime 0.28 Smoke');
 
     // Underbarrel: a nested section of the One-Two, never flattened into the rifle.
