@@ -545,6 +545,86 @@
     <value>投放的背包</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Backpack.Group.Ammo" xml:space="preserve">
+    <value>弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Charges" xml:space="preserve">
+    <value>充能次数</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.DroneMagazines" xml:space="preserve">
+    <value>无人机弹匣</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Durability" xml:space="preserve">
+    <value>耐久</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Hover" xml:space="preserve">
+    <value>悬停</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Movement" xml:space="preserve">
+    <value>移动</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Recharge" xml:space="preserve">
+    <value>充能</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Shield" xml:space="preserve">
+    <value>护盾</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.ShieldPlate" xml:space="preserve">
+    <value>护盾板</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Warp" xml:space="preserve">
+    <value>跃迁</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Chain" xml:space="preserve">
+    <value>所有权链与研究结论</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Drone" xml:space="preserve">
+    <value>护卫犬无人机</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.EnergyShield" xml:space="preserve">
+    <value>能量护盾</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Help.Html" xml:space="preserve">
+    <value>通过 &lt;code&gt;{0}&lt;/code&gt; 写入。Runtime 在每次写入前都会重新验证背包与此实体的关联，修改只作用于写入之后生成的实体。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Relationship.DeployedDrone" xml:space="preserve">
+    <value>由背包部署</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Relationship.SpawnedShield" xml:space="preserve">
+    <value>由背包投射</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Relationship.Tooltip" xml:space="preserve">
+    <value>背包如何关联到此实体。Runtime 在每次写入前都会重新验证该关联。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.WeaponFamily" xml:space="preserve">
+    <value>武器：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Zone" xml:space="preserve">
+    <value>{0} 伤害部位（{1}）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.ZoneUnnamed" xml:space="preserve">
+    <value>伤害部位 {0}（{1}）</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Backpack.OtherGroup" xml:space="preserve">
     <value>其他</value>
     <comment>new: needs native review</comment>
@@ -552,6 +632,10 @@
   <data name="Backpack.Reset" xml:space="preserve">
     <value>重置背包</value>
     <comment>issue #1</comment>
+  </data>
+  <data name="Backpack.Unverified.Title" xml:space="preserve">
+    <value>背包效果未经实机确认</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="Backpack.ZoneField" xml:space="preserve">
     <value>{0} 部位 · {1}</value>
@@ -1277,6 +1361,10 @@
     <value>此拾取物已在该挂架槽位中经过实机验证。HD2Runtime 仍会以 allow_unverified_reference 写入空投舱替换。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="DropPod.Note.LiveVerifiedNoFlag" xml:space="preserve">
+    <value>实机测试曾在这个槽位中使用此拾取物，因此写入无需 allow_unverified_reference。共享挂架仍会带有 allow_shared。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="DropPod.Note.NotVanilla" xml:space="preserve">
     <value>不是此槽位的原版内容（allow_unverified_reference）。</value>
     <comment>new: needs native review</comment>
@@ -1849,8 +1937,16 @@
     <value>部署实体</value>
     <comment>issue #1 (adapted)</comment>
   </data>
+  <data name="EntityChanges.Part.DroneWeapon" xml:space="preserve">
+    <value>无人机武器</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="EntityChanges.Part.Durability" xml:space="preserve">
     <value>耐久</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EntityChanges.Part.LinkedEntity" xml:space="preserve">
+    <value>无人机或能量护盾</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="EntityChanges.Part.MagazineValues" xml:space="preserve">
@@ -1905,12 +2001,24 @@
     <value>游戏不使用此值；实际生效的是 &lt;strong&gt;{0}&lt;/strong&gt;。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="EntityField.AppliesTo" xml:space="preserve">
+    <value>作用于：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="EntityField.Base" xml:space="preserve">
     <value>基线 {0}</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="EntityField.BaseToDesired.Html" xml:space="preserve">
     <value>基线 {0} → &lt;strong&gt;{1}&lt;/strong&gt;</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EntityField.Correlation" xml:space="preserve">
+    <value>{0}：原生 {1} = 公开 {2}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EntityField.Correlations" xml:space="preserve">
+    <value>已匹配的原生数值：{0}</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="EntityField.DamageRule.Html" xml:space="preserve">
@@ -1988,6 +2096,18 @@
   <data name="EntityField.Reset" xml:space="preserve">
     <value>重置字段</value>
     <comment>issue #1</comment>
+  </data>
+  <data name="EntityField.Status.CurrentSuffix" xml:space="preserve">
+    <value>（当前）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EntityField.Status.None" xml:space="preserve">
+    <value>无</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EntityField.UnverifiedReason" xml:space="preserve">
+    <value>写入时带有 allow_unverified_effect：{0}</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="EntityPanel.AlsoUsedBy" xml:space="preserve">
     <value>也被以下使用：</value>
@@ -2289,6 +2409,10 @@
     <value>原生使用方</value>
     <comment>issue #1</comment>
   </data>
+  <data name="Evidence.Short.NativeCorrelated" xml:space="preserve">
+    <value>原生关联</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Evidence.Short.NativeMember" xml:space="preserve">
     <value>原生成员</value>
     <comment>issue #1</comment>
@@ -2339,6 +2463,10 @@
   </data>
   <data name="Evidence.Tier.MountChainStructural" xml:space="preserve">
     <value>挂载链 · 效果未证实</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Evidence.Tier.NativeCorrelated" xml:space="preserve">
+    <value>原生关联 · 效果未证实</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Evidence.Tier.NativeMember" xml:space="preserve">
@@ -3689,8 +3817,20 @@
     <value>SDK 未批准此选择器使用该弹体来源。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.Status.CatalogMissing" xml:space="preserve">
+    <value>此 SDK 未发布状态效果目录，因此无法写入状态槽位。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
     <value>请选择一个状态效果，或选择无。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Status.ClearLastOnly" xml:space="preserve">
+    <value>只有在后续所有槽位都为空时才能清除状态槽位 {0}：状态槽位须从槽位 1 起保持连续。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Status.Gap" xml:space="preserve">
+    <value>槽位 {0} 为空时，状态槽位 {1} 不能施加状态：状态槽位须从槽位 1 起保持连续。请为槽位 {0} 设置状态，或让槽位 {1} 保持为空。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Messages.Build.Status.NotAllowed" xml:space="preserve">
@@ -6661,6 +6801,10 @@
     <value>为什么？／溯源</value>
     <comment>issue #1</comment>
   </data>
+  <data name="StratagemField.LiveEvidence.Tooltip" xml:space="preserve">
+    <value>已由 {0}（{1}）实机证实：写入时无需 allow_unverified_effect。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="StratagemField.NotWritable" xml:space="preserve">
     <value>不可写：</value>
     <comment>new: needs native review</comment>
@@ -7333,6 +7477,14 @@
     <value>同一武器实体位于这些挂载中</value>
     <comment>issue #1</comment>
   </data>
+  <data name="VehicleWeapon.Carrier.Html" xml:space="preserve">
+    <value>通过 &lt;code&gt;{0}&lt;/code&gt; 写入：Runtime 在每次写入前都会重新验证 背包 → 无人机 → 武器 链。无人机从背包的无人机弹匣装填，因此武器自身的备用弹匣不开放编辑。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.DroneWeapon" xml:space="preserve">
+    <value>无人机武器</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="VehicleWeapon.Mount.CoaxialMachineGun" xml:space="preserve">
     <value>同轴机枪</value>
     <comment>new: needs native review</comment>
@@ -7377,6 +7529,14 @@
     <value>与其他挂载共享</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="VehicleWeapon.Shared.Arc" xml:space="preserve">
+    <value>共享电弧定义</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.Shared.Beam" xml:space="preserve">
+    <value>共享光束定义</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="VehicleWeapon.Shared.Damage" xml:space="preserve">
     <value>共享伤害定义</value>
     <comment>issue #1</comment>
@@ -7403,6 +7563,22 @@
   </data>
   <data name="VehicleWeapon.Slot" xml:space="preserve">
     <value>槽位 {0} · {1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.Status.Help" xml:space="preserve">
+    <value>状态槽位：已使用的槽位可以换成另一个可附加的状态，第一个空槽位可以新增一个状态（同时设置其强度）。只有最后一个已使用的槽位可以清除，从而使槽位从槽位 1 起保持连续。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.Status.StrengthHint" xml:space="preserve">
+    <value>状态槽位 {0} 新增了状态，但其强度仍为 0。请同时设置该槽位的强度；状态目录列出了现有攻击使用的强度。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.StatusSlot" xml:space="preserve">
+    <value>状态 {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.StatusStrengthSlot" xml:space="preserve">
+    <value>状态 {0} 强度</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="VehicleWeapon.Swap" xml:space="preserve">

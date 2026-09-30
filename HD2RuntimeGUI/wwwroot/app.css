@@ -1066,6 +1066,7 @@ input[type=checkbox]:checked:before {
 .badge.tier-schema-proven { color:var(--cat-support); border-color:color-mix(in srgb, var(--cat-support) 40%, transparent) }
 .badge.tier-live-write-verified { color:var(--accent); border-color:var(--accent-border) }
 .badge.tier-structural-reference { color:var(--muted); border-style:dashed }
+.badge.tier-native-correlated { color:var(--cat-support); border-style:dashed; border-color:color-mix(in srgb, var(--cat-support) 40%, transparent) }
 
 /* ---- Readability pass: compact field rows, icons and object sections ---- */
 /* A group of published fields renders as one compact table instead of a card per scalar. */
@@ -1340,6 +1341,15 @@ input[type=checkbox]:checked:before {
 .pod-slot.inactive { opacity:.72 }
 .pod-slot select { width:100% }
 .pod-slot .field-tools { display:flex; gap:8px; align-items:center; margin-top:8px }
+.field-value select { width:100%; height:30px; min-height:0; padding:3px 6px; font-size:13px; border-radius:6px }
+.linked-entity { margin-top:12px; border-left:2px solid color-mix(in srgb, var(--cat-support) 55%, transparent) }
+.linked-entity.modified { box-shadow:inset 3px 0 var(--accent) }
+.linked-entity .linked-details { margin:4px 0 10px }
+.linked-entity .linked-details > summary { cursor:pointer; color:var(--muted); font-size:12.5px }
+.linked-entity .linked-chain { margin:4px 0 0; padding-left:18px; font-size:12.5px; color:var(--muted) }
+.linked-entity .linked-details p { margin:6px 0 0; font-size:12.5px }
+.linked-entity .linked-zone { margin-top:10px }
+.linked-entity .vehicle-weapon { margin-top:10px; box-shadow:none; padding:0; border:0; background:none }
 @media (max-width:760px) { .fire-mode-slots { grid-template-columns:repeat(2, minmax(0, 1fr)) } }
 .fire-mode-slot.unavailable { opacity:.6 }
 .fire-mode-slots { list-style:none; padding:0; margin:0 }

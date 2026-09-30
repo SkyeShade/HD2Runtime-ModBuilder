@@ -16,8 +16,10 @@ public sealed class DevelopmentSdkTests
         Assert.Contains(player, f => f.Reason == WeaponCapability.StatusReferenceReason); // published writable, kept read-only by this build
         var support = sdk.SupportAuthoring!.FieldInstances.Where(f => f.IsStatusReference).ToArray();
         Assert.NotEmpty(support); Assert.All(support, f => Assert.False(f.Writable));
-        var vehicle = sdk.Entities!.VehicleWeapons!.FieldInstances.Where(f => f.IsStatusReference || f.ApiFieldConstant.Length == 0).ToArray();
-        Assert.NotEmpty(vehicle); Assert.All(vehicle, f => Assert.False(f.Editable));
+        // Mounted-weapon status slots are authored from 1.4.0 (EquipmentTests); a slot without a published API constant stays read-only.
+        var vehicle = sdk.Entities!.VehicleWeapons!.FieldInstances.Where(f => f.ApiFieldConstant.Length == 0).ToArray();
+        Assert.NotEmpty(vehicle); Assert.All(vehicle, f => { Assert.False(f.Editable); Assert.Equal(VehicleWeaponReader.NoApiConstantReason, f.Reason); });
+        Assert.All(sdk.Entities.VehicleWeapons.FieldInstances.Where(f => f.IsStatusReference && f.ApiFieldConstant.Length > 0), f => Assert.True(f.Editable));
         // The other new player-weapon fields are published as ordinary writable fields.
         Assert.Contains(sdk.PlayerWeapons.Weapons.SelectMany(w => w.Fields), f => f.SemanticFieldId == "projectile.lifetime" && f.Editable);
     }

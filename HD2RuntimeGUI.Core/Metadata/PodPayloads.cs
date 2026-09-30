@@ -141,12 +141,15 @@ public static class PodPayloadReader
         var tier = new EntityEvidence("structural_reference");
         var provenance = "PodPayloadCapabilities: hellpod rack delivered by " + string.Join(", ", r.Consumers.Select(x => x.Name));
         var offered = c.Pickups.Select(p => p.SemanticId).Prepend(Empty).ToArray();
+        var byName = c.Pickups.ToDictionary(p => p.Name, p => p.SemanticId, StringComparer.Ordinal);
         foreach (var s in r.AuthoredSlots)
             yield return new EntityField(SlotKey(r, s.Slot), "payload.entity", "Slot " + s.Slot, EntityField.PickupType, null,
                 JsonSerializer.SerializeToElement(s.Current?.Pickup ?? Empty), s.Writable, s.Reason ?? (s.Writable ? null : r.Reason ?? "Read-only slot."),
                 new EntityTarget("pod_rack", "slot", Rack: r.Name, Slot: s.Slot), owner + ":slot-" + s.Slot, "pod-rack-op:" + r.SemanticId + ":slot-" + s.Slot, plan, "patch_or_transaction",
                 r.Shared, r.Shared, [], scope, !r.Shared, false, "HellpodRackComponent", "payload", "hd2.fields.payload.entity", 1, [], tier, provenance,
-                AllowedValues: offered, Acknowledgement: "allow_unverified_reference", ValueKind: "pickup_semantic_id", ResidencyWarning: c.PackageRisk);
+                AllowedValues: offered, Acknowledgement: "allow_unverified_reference", ValueKind: "pickup_semantic_id", ResidencyWarning: c.PackageRisk,
+                // 0.28.0: a pickup a live test used in exactly this slot needs no allow_unverified_reference there (allow_shared stays).
+                LiveProvenValues: s.LiveVerifiedPickups is { Length: > 0 } proven ? proven.Select(n => byName[n]).ToArray() : null);
         if (r.SpawnCount.Value is int count)
             yield return new EntityField(SpawnKey(r), "payload.spawn_count", "Spawn count", "integer", "slots", JsonSerializer.SerializeToElement(count),
                 r.SpawnCount.Writable, r.SpawnCount.Writable ? null : r.Reason ?? "Read-only spawn count.", new EntityTarget("pod_rack", "rack", Rack: r.Name),

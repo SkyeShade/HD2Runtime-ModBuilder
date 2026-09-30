@@ -80,7 +80,9 @@ public static class ProjectIdentity
     // Format 9: SDK 0.27.0 throwable edits (older ModBuilder versions cannot read them).
     // Format 10: enemy and enemy-structure edits (0.28.0 development SDKs); older ModBuilder versions reject the format instead of the edits.
     // Format 11: hand-written Runtime Lua (custom src/addon.lua).
-    public static int RequiredFormat(ModProject p) => p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } ? 11 :
+    // Format 11 (1.4.0) also covers backpack-linked entities and Guard Dog drone weapons (EntityChange.Linked) and mounted-weapon status slots.
+    public static int RequiredFormat(ModProject p) => p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 }
+        || p.EntityChanges.Any(c => c.Linked != null || c.FieldType == Metadata.WeaponCapability.StatusReference) ? 11 :
         p.EntityChanges.Any(c => Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers != null) ? 10 :
         p.EntityChanges.Any(c => c.Resource == ThrowableAuthoringReader.Resource || c.Effect != null) ? 9 :
         p.WeaponChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet || c.EffectAcknowledgement != null)
@@ -156,8 +158,10 @@ public static class ProjectIdentity
                     ("vehicle", "entity") => c.Zone == null && c.Mount == null,
                     ("vehicle", "damage_zone") => Slot(c.Zone, "zone") && c.Mount == null,
                     ("vehicle", "mount") => Slot(c.Mount, "slot") && c.Zone == null && c.FieldType == EntityField.ReferenceType,
-                    ("backpack", "backpack") => c.Zone == null && c.Mount == null,
-                    ("backpack", "damage_zone") => Slot(c.Zone, "zone") && c.Mount == null,
+                    ("backpack", "backpack") => c.Zone == null && c.Mount == null && c.Linked == null,
+                    // 1.4.0: a backpack's own damage zone, or one of the entity it deploys or projects (a Guard Dog drone, the SH-51 energy shield).
+                    ("backpack", "damage_zone") => Slot(c.Zone, "zone") && c.Mount == null && (c.Linked == null || BackpackLinkedEntity.Kinds.Contains(c.Linked)),
+                    ("backpack", "linked") => c.Zone == null && c.Mount == null && c.Linked != null && BackpackLinkedEntity.Kinds.Contains(c.Linked),
                     // 0.23.1 magazine attachment definitions: Entity is the published attachment semantic ID.
                     // 0.26.0 adds reload duration and ergonomics modifier (numbers) to the four integer ammo fields.
                     ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType is "integer" or "number"
@@ -186,11 +190,15 @@ public static class ProjectIdentity
                     _ => false,
                 })
                 || c.SharedConsumers != null && (!Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers.Length is 0 or > 256 || c.SharedConsumers.Any(n => string.IsNullOrWhiteSpace(n) || n.Length > 256))
+                // 1.4.0: a linked entity only on a backpack field, and a Guard Dog drone ("drone") only on a mounted-weapon field.
+                || c.Linked != null && !(c.Resource == "backpack" && c.Path is "linked" or "damage_zone" || c.Resource == "vehicle_weapon" && c.Linked == BackpackLinkedEntity.Drone)
                 || (c.FieldType switch
                 {
                     EntityField.ReferenceType => c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.String || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.String
                         || !Regex.IsMatch(c.DesiredValue.GetString()!, @"\Amounted-weapon/v1/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
                     EntityField.PickupType => !PodPayloadReader.ValidValue(c.ExpectedValue) || !PodPayloadReader.ValidValue(c.DesiredValue),
+                    // 1.4.0: a mounted-weapon status slot holds a status key or 'none'.
+                    Metadata.WeaponCapability.StatusReference => c.Resource != "vehicle_weapon" || !Generation.EntityScalar.ValidStatusKey(c.ExpectedValue) || !Generation.EntityScalar.ValidStatusKey(c.DesiredValue),
                     _ => c.FieldType is not ("integer" or "number") || c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.Number || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.Number,
                 })
                 || c.Group.Length > 120 || c.Notes?.Length > 4000 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")

@@ -13,11 +13,13 @@ public static class AuthoredTypes
     {
         "scalar/number", "scalar/integer", "scalar/boolean", "scalar/" + WeaponCapability.FireModeSet,
     };
-    // Backpack-linked entities (Guard Dog drones, the SH-51 energy shield: hd2.backpack(name):drone()).
-    public const bool LinkedBackpackEntities = false;
+    // Backpack-linked entities (Guard Dog drones, the SH-51 energy shield: hd2.backpack(name):drone()), authored since 1.4.0.
+    public static readonly bool LinkedBackpackEntities = true;
     // Mounted-weapon value types, and whether weapons carried by a backpack drone (hd2.backpack(name):drone():weapon()) are authored.
-    public static readonly IReadOnlySet<string> MountedWeapon = new HashSet<string>(StringComparer.Ordinal) { "number", "integer" };
-    public const bool CarriedWeapons = false;
+    // 1.4.0 adds typed status references (damage.status_<k>_type) and the Guard Dog drone weapons. A projectile reference (a host swap)
+    // is not in this set, so it stays read-only here.
+    public static readonly IReadOnlySet<string> MountedWeapon = new HashSet<string>(StringComparer.Ordinal) { "number", "integer", WeaponCapability.StatusReference };
+    public static readonly bool CarriedWeapons = true;
     public static bool Weapon(WeaponCapability f) => PlayerWeapon.Contains(f.Type);
     public static bool VehicleWeapon(VehicleWeaponFieldInstance f, bool carried) => MountedWeapon.Contains(f.Type) && (CarriedWeapons || !carried);
     public static bool SupportField(SupportField f) => Support.Contains(f.Value.Kind + "/" + f.Value.Type);

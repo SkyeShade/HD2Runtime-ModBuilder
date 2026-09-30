@@ -1,31 +1,81 @@
 @inject BuilderWorkspace Workspace
-@{ var entities = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities; var backpack = entities?.Backpacks.Find(Name); }
+@* A backpack's published settings (hd2.backpack). 0.28.0: the entities a backpack deploys or projects (a Guard Dog drone, the SH-51 energy
+   barrier) are nested sections of the backpack, each with its own fields and damage zones, and a Guard Dog drone's weapon (written through
+   hd2.backpack(name):drone():weapon(), never hd2.vehicle). Runtime's opt-ins are implicit: edited fields that need one show a warning. *@
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var entities = sdk?.Entities; var backpack = entities?.Backpacks.Find(Name); }
 @if (entities != null && backpack != null)
 {
     var catalog = entities.Backpacks; var fields = catalog.FieldInstances.Where(f => f.Target.Backpack == Name).ToDictionary(f => f.InstanceKey);
     bool Show(EntityField f) => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null;
     var callIn = entities.CallInFor("backpack", Name);
-    // Published setting groups first; any remaining instances keep their own group so nothing is hidden. Title identifies the group
-    // (data-backpack-group); Label is what is shown (the published group name, or ModBuilder's "Other").
-    var grouped = backpack.SettingGroups.Select(g => (Title: Title(g.Group), Label: Title(g.Group), Fields: g.FieldInstanceKeys.Select(k => fields[k]).ToArray()))
-        .Append((Title: "Other", Label: T["Backpack.OtherGroup"], Fields: backpack.FieldInstanceKeys.Where(k => backpack.SettingGroups.All(g => !g.FieldInstanceKeys.Contains(k))).Select(k => fields[k]).ToArray()))
+    var linked = backpack.LinkedEntities ?? [];
+    var linkedKeys = linked.SelectMany(l => l.FieldInstanceKeys).ToHashSet(StringComparer.Ordinal);
+    // A Guard Dog drone's weapon (VehicleWeaponCapabilities carrier), shown in the drone's section.
+    var carried = entities.VehicleWeapons?.CarriedBy(Name);
+    var weaponKeys = carried?.Mounts.Where(m => m.Weapon != null).SelectMany(m => m.Weapon!.FieldGroups.Values.SelectMany(k => k)).ToArray() ?? [];
+    var weaponEdited = weaponKeys.Any(k => entities.Field(k) is { } f && EntityChangeService.Saved(Workspace.Project, f) != null);
+    // Published setting groups first (a linked entity's group is its own section); any remaining instances keep their own group so nothing
+    // is hidden. Title identifies the group (data-backpack-group); Label is what is shown.
+    var grouped = backpack.SettingGroups.Where(g => g.Linked == null).Select(g => (Title: Title(g.Group), Label: GroupLabel(g.Group), Fields: g.FieldInstanceKeys.Where(k => !linkedKeys.Contains(k)).Select(k => fields[k]).ToArray()))
+        .Append((Title: "Other", Label: T["Backpack.OtherGroup"], Fields: backpack.FieldInstanceKeys.Where(k => !linkedKeys.Contains(k) && backpack.SettingGroups.All(g => !g.FieldInstanceKeys.Contains(k))).Select(k => fields[k]).ToArray()))
         .Select(g => (g.Title, g.Label, Fields: g.Fields.Where(Show).ToArray())).Where(g => g.Fields.Length > 0).ToArray();
     @if (!ModifiedOnly)
     {
         <section class="panel @(Embedded ? "delivered-panel" : "category-panel cat-support")" data-backpack="@backpack.Name">
             <div class="eyebrow">@(Embedded ? T["Backpack.Eyebrow.Delivered"] : T["Backpack.Eyebrow"])@(backpack.Components.Any(c => c != "Backpack") ? " · " + string.Join(" · ", backpack.Components.Where(c => c != "Backpack")).ToUpperInvariant() : "")</div>@if (Embedded) { <h3>@backpack.Name</h3> } else { <h2>@backpack.Name</h2> }
             <div class="field-badges"><span class="badge">@T.Format("EntityPanel.WritableCount", fields.Values.Count(f => f.Editable))</span><span class="badge">@T.Format("EntityPanel.ReadOnlyCount", fields.Values.Count(f => !f.Editable))</span>
-                <span class="badge" title="@T["Backpack.DeliveryChain.Tooltip"]">@string.Join(" → ", backpack.DeliveryChain).Replace('_', ' ')</span></div>
+                <span class="badge" title="@T["Backpack.DeliveryChain.Tooltip"]">@string.Join(" → ", backpack.DeliveryChain).Replace('_', ' ')</span>
+                @foreach (var l in linked) { <span class="badge" data-linked-badge="@l.Linked">@LinkedTitle(l.Linked)</span> }</div>
             @if (fields.Count == 0) { <p class="notice" data-backpack-empty>@T["Backpack.Empty"]</p> }
-            @if (Workspace.Project != null && Workspace.Project.EntityChanges.Any(c => c.Resource == "backpack" && c.Entity == Name))
-            { <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", Name))'>@T["Backpack.Reset"]</button> }
+            @if (Workspace.Project != null && (Workspace.Project.EntityChanges.Any(c => c.Resource == "backpack" && c.Entity == Name) || weaponEdited))
+            { <button class="reset-action" @onclick='() => Run(() => ResetAll(carried))'>@T["Backpack.Reset"]</button> }
         </section>
     }
-    @if (callIn != null) { <CallInFields Stratagem="@callIn" ModifiedOnly="ModifiedOnly" Changed="Changed" /> }
+    @if (callIn != null) { <CallInFields Stratagem="@callIn" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> }
     @foreach (var group in grouped)
     {
         <section class="panel" data-backpack-group="@group.Title"><h2>@group.Label</h2>
-            <div class="stat-grid">@foreach (var f in group.Fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@Label(backpack, f)" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
+            <div class="stat-grid">@foreach (var f in group.Fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@Label(backpack, f)" Tiers="catalog.EvidenceTiers" Changed="Refresh" /> }</div>
+            @foreach (var (reason, items) in Unverified(group.Fields, backpack))
+            {
+                <AckPanel Title="@T["Backpack.Unverified.Title"]" Kind="unverified" Description="@reason" Items="@items" ItemsLabel="@T["EntityPanel.Edited"]"
+                    PanelAttributes='@(new() { ["data-backpack-unverified"] = group.Title })'><p class="subtle">@T.Markup("OptIn.WrittenWith.Html", "allow_unverified_effect=true")</p></AckPanel>
+            }
+            @if (group.Fields.Any(f => f.AllowSharedRequired && EntityChangeService.Saved(Workspace.Project, f) != null)) { <OptInWarnings Acknowledgements="@(["allow_shared"])" /> }
+        </section>
+    }
+    @foreach (var l in linked)
+    {
+        var own = l.FieldInstanceKeys.Where(fields.ContainsKey).Select(k => fields[k]).ToArray();
+        var main = own.Where(f => f.Target.Path == "linked").Where(Show).OrderBy(f => EntityStats.Order(f.SemanticFieldId)).ToArray();
+        var zones = (l.DamageZones ?? []).Select(z => (Zone: z, Fields: own.Where(f => f.Target.Path == "damage_zone" && f.Target.Zone == z.ZoneId).Where(Show).ToArray())).Where(z => z.Fields.Length > 0).ToArray();
+        var drone = l.Linked == BackpackLinkedEntity.Drone && carried != null;
+        var edited = own.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null) || drone && weaponEdited;
+        if (ModifiedOnly && !edited) continue;
+        <section class="panel linked-entity @(edited ? "modified" : "")" data-backpack-linked="@l.Linked">
+            <div class="panel-heading"><h2>@LinkedTitle(l.Linked)</h2>
+                <span class="badge" data-linked-relationship="@l.Relationship" title="@T["Backpack.Linked.Relationship.Tooltip"]">@Relationship(l.Relationship)</span>
+                @if (l.WeaponFamily != null) { <span class="badge" data-linked-weapon-family="@l.WeaponFamily">@T.Format("Backpack.Linked.WeaponFamily", Title(l.WeaponFamily))</span> }
+                @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }</div>
+            @if (!ModifiedOnly)
+            {
+                <p class="subtle" data-linked-accessor>@T.Markup("Backpack.Linked.Help.Html", EntityLua.Target(new EntityTarget("backpack", "linked", Backpack: Name, Linked: l.Linked)))</p>
+                <details class="linked-details"><summary>@T["Backpack.Linked.Chain"]</summary>
+                    <ol class="linked-chain" data-linked-chain>@foreach (var step in l.Chain) { <li>@step</li> }</ol>
+                    @foreach (var finding in l.Findings ?? []) { <p class="subtle" data-linked-finding>@finding</p> }</details>
+            }
+            @if (main.Length > 0) { <div class="stat-grid">@foreach (var f in main) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@EntityStats.Label(f.SemanticFieldId)" Tiers="catalog.EvidenceTiers" Changed="Refresh" /> }</div> }
+            @foreach (var (zone, zoneFields) in zones)
+            {
+                <div class="linked-zone" data-linked-zone="@zone.ZoneId"><h3 class="group-title">@ZoneTitle(zone)</h3>
+                    <div class="stat-grid">@foreach (var f in zoneFields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="catalog.EvidenceTiers" Changed="Refresh" /> }</div></div>
+            }
+            @foreach (var (reason, items) in Unverified(own, backpack))
+            {
+                <AckPanel Title="@T["Backpack.Unverified.Title"]" Kind="unverified" Description="@reason" Items="@items" ItemsLabel="@T["EntityPanel.Edited"]"
+                    PanelAttributes='@(new() { ["data-backpack-unverified"] = l.Linked })'><p class="subtle">@T.Markup("OptIn.WrittenWith.Html", "allow_unverified_effect=true")</p></AckPanel>
+            }
+            @if (drone) { <VehicleWeaponsPanel Vehicle="@Name" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> }
         </section>
     }
     @if (!ModifiedOnly && backpack.BlockedFields.Length > 0)
@@ -44,10 +94,41 @@
     // A damage-zone field names its zone (the SH-20's "shield" plate armor), so it never reads as the backpack's default-zone armor.
     private string? Label(Backpack backpack, EntityField f)
     {
-        if (f.Target.Path != "damage_zone" || backpack.DamageZones?.FirstOrDefault(z => z.ZoneId == f.Target.Zone) is not { } zone) return EntityStats.Label(f.SemanticFieldId);
+        if (f.Target.Path != "damage_zone" || f.Target.Linked != null || backpack.DamageZones?.FirstOrDefault(z => z.ZoneId == f.Target.Zone) is not { } zone) return EntityStats.Label(f.SemanticFieldId);
         var name = f.DisplayName.StartsWith("Zone ", StringComparison.OrdinalIgnoreCase) ? char.ToUpperInvariant(f.DisplayName[5]) + f.DisplayName[6..] : f.DisplayName;
         return T.Format("Backpack.ZoneField", Title(zone.Name ?? zone.ZoneId), name);
     }
+    private string FieldName(Backpack backpack, EntityField f) => Label(backpack, f) ?? f.DisplayName;
     private static string Title(string s) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.Replace('_', ' '));
-    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
+    // Published setting-group ids get ModBuilder's names; an unknown group shows as published.
+    private string GroupLabel(string group) => group switch
+    {
+        "charges" => T["Backpack.Group.Charges"], "recharge" => T["Backpack.Group.Recharge"], "movement" => T["Backpack.Group.Movement"],
+        "hover" => T["Backpack.Group.Hover"], "warp" => T["Backpack.Group.Warp"], "shield" => T["Backpack.Group.Shield"],
+        "durability" => T["Backpack.Group.Durability"], "shield_plate" => T["Backpack.Group.ShieldPlate"], "drone_magazines" => T["Backpack.Group.DroneMagazines"],
+        Backpack.AmmoGroup => T["Backpack.Group.Ammo"],
+        _ => Title(group),
+    };
+    private string LinkedTitle(string linked) => linked switch
+    {
+        BackpackLinkedEntity.Drone => T["Backpack.Linked.Drone"], BackpackLinkedEntity.EnergyShield => T["Backpack.Linked.EnergyShield"], _ => Title(linked),
+    };
+    private string Relationship(string relationship) => relationship switch
+    {
+        "deployed_drone" => T["Backpack.Linked.Relationship.DeployedDrone"], "spawned_shield" => T["Backpack.Linked.Relationship.SpawnedShield"], _ => Title(relationship),
+    };
+    private string ZoneTitle(BackpackZone zone) => zone.Name != null ? T.Format("Backpack.Linked.Zone", Title(zone.Name), zone.ZoneId) : T.Format("Backpack.Linked.ZoneUnnamed", zone.Index, zone.ZoneId);
+    // Edited fields whose write carries allow_unverified_effect, grouped by Runtime's published reason (shown as published).
+    private IEnumerable<(string Reason, string[] Items)> Unverified(IEnumerable<EntityField> fields, Backpack backpack) => fields
+        .Where(f => f.Acknowledgement == "allow_unverified_effect" && EntityChangeService.Saved(Workspace.Project, f) is { } c && EntityScalar.AcknowledgementRequired(f, c.DesiredValue))
+        .GroupBy(f => f.AcknowledgementReason ?? T["OptIn.UnverifiedEffect.Reason"])
+        .Select(g => (g.Key, g.Select(f => FieldName(backpack, f)).Distinct().ToArray()));
+    private async Task ResetAll(VehicleWeaponVehicle? carried)
+    {
+        await Workspace.ResetEntityAsync("backpack", Name);
+        foreach (var m in carried?.Mounts.Where(m => m.Weapon != null) ?? []) await Workspace.ResetEntityAsync("vehicle_weapon", m.Weapon!.Key);
+    }
+    // An edit changes this editor too (linked sections, warnings, the reset button), not only the field that was edited.
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) { Error = e.Message; } }
 }

@@ -44,11 +44,50 @@ public sealed class VehicleWeaponCatalog
     // The same fields adapted to the entity authoring pipeline (target resource "vehicle_weapon").
     public required EntityField[] FieldInstances { get; init; }
     public VehicleWeaponVehicle? Find(string vehicle) => Vehicles.FirstOrDefault(v => v.Vehicle == vehicle);
+    // 0.28.0: the weapon a backpack's drone carries (Guard Dogs), keyed by the backpack name.
+    public VehicleWeaponVehicle? CarriedBy(string backpack) => Vehicles.FirstOrDefault(v => v.Carrier?.Backpack == backpack);
     public static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string>
     {
         ["gameplay_proven"] = "Changed in game by a working reference mod (listed); no acknowledgement needed.",
         ["structural_reference"] = "Owner and bytes proven; the in-game effect of changing it has not been tested.",
     };
+}
+
+// Typed status slots of a mounted weapon's damage row (Runtime 0.28.0, docs/status-effects.md): damage.<attack>.status_<k>_type for every
+// used slot and the first empty one. A slot takes an attachable status (StatusEffectCatalog) or keeps its current one; 'none' clears only
+// the last used slot, and the slots stay packed from slot 1.
+public static class MountedStatusSlots
+{
+    private static readonly Regex TypeField = new(@"\A(?<row>[a-z_.0-9]+\.status_)(?<k>[1-4])_type\z", RegexOptions.CultureInvariant);
+    private static readonly Regex StrengthField = new(@"\A(?<row>[a-z_.0-9]+\.status_)(?<k>[1-4])_strength\z", RegexOptions.CultureInvariant);
+    // The slot number (1-4) of a status type or strength field.
+    public static int? Slot(EntityField f) => (TypeField.Match(f.SemanticFieldId) is { Success: true } t ? t : StrengthField.Match(f.SemanticFieldId)) is { Success: true } m
+        ? m.Groups["k"].Value[0] - '0' : null;
+    public static bool IsStrength(EntityField f) => StrengthField.IsMatch(f.SemanticFieldId);
+    private static string? Row(EntityField f) => TypeField.Match(f.SemanticFieldId) is { Success: true } m ? m.Groups["row"].Value : null;
+    // The status type fields of one damage row (same target and row), in slot order.
+    public static EntityField[] Siblings(EntityAuthoring catalog, EntityField f) => Row(f) is not { } row ? []
+        : (catalog.VehicleWeapons?.FieldInstances ?? []).Where(x => x.IsStatusReference && x.Target == f.Target && Row(x) == row).OrderBy(x => Slot(x)).ToArray();
+    public sealed record Choices(IReadOnlyList<string> Statuses, bool AllowNone);
+    public static Choices For(SdkMetadata sdk, EntityField f)
+    {
+        var current = f.CurrentDefault.ValueKind == JsonValueKind.String ? f.CurrentDefault.GetString()! : StatusReference.None;
+        var statuses = (sdk.StatusEffects?.Statuses.Values.Where(s => s.Attachable).Select(s => s.SemanticId) ?? []).ToList();
+        if (current != StatusReference.None) statuses.Add(current);
+        var next = sdk.Entities is { } e ? Siblings(e, f).FirstOrDefault(x => Slot(x) == Slot(f) + 1) : null;
+        var allowNone = current == StatusReference.None || next == null || next.CurrentDefault.GetString() == StatusReference.None;
+        return new(statuses.Distinct().Order(StringComparer.Ordinal).ToArray(), allowNone);
+    }
+    // The first packing violation involving this slot, given each sibling's effective value (saved desired value, else the baseline):
+    // a status after an empty slot. Returns the (empty slot, slot with a status) pair.
+    public static (int Empty, int Used)? Gap(IReadOnlyList<EntityField> siblings, Func<EntityField, string> effective, EntityField f)
+    {
+        var values = siblings.Select(x => (Slot: Slot(x)!.Value, Value: effective(x))).ToArray();
+        foreach (var used in values.Where(v => v.Value != StatusReference.None))
+            if (values.FirstOrDefault(v => v.Slot < used.Slot && v.Value == StatusReference.None) is { Slot: > 0 } empty && (Slot(f) == used.Slot || Slot(f) == empty.Slot))
+                return (empty.Slot, used.Slot);
+        return null;
+    }
 }
 
 public static class VehicleWeaponReader
@@ -62,8 +101,9 @@ public static class VehicleWeaponReader
     private static readonly Regex Role = new(@"\A[a-z][a-z_0-9]{0,63}\z", RegexOptions.CultureInvariant);
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip };
     private static void Check(bool valid, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0) { if (!valid) throw new InvalidDataException($"Inconsistent vehicle weapon capability metadata (check {line})."); }
-    // "<vehicle name> / <mount label>" as published.
-    public static bool ValidKey(string key) => key.Length <= 256 && Regex.IsMatch(key, @"\A[^\p{C}/]{1,200} / [a-z][a-z_0-9]{0,63}\z");
+    // "<vehicle name> / <mount label>" as published. A carrier (0.28.0 Guard Dog drones) is named by its backpack, which may itself contain
+    // a slash ("AX/AR-23 Guard Dog"); only the last " / " separates the mount label.
+    public static bool ValidKey(string key) => key.Length <= 256 && Regex.IsMatch(key, @"\A(?:(?! / )[^\p{C}]){1,200} / [a-z][a-z_0-9]{0,63}\z");
     public static (string Vehicle, string Mount) Split(string key) { var i = key.LastIndexOf(" / ", StringComparison.Ordinal); return (key[..i], key[(i + 3)..]); }
 
     public const string NoApiConstantReason = "Runtime publishes no typed API field constant for this status slot, so it cannot be written.";
@@ -86,8 +126,10 @@ public static class VehicleWeaponReader
             {
                 // Vehicles are the published vehicle catalog's own entries; nothing is matched by display text.
                 // Carriers (0.28.0 Guard Dog drones) are named by their published backpack instead.
+                // A carrier's published accessor must be exactly the one ModBuilder writes (hd2.backpack(name):drone():weapon()), with one weapon.
                 Check((v.Carrier == null ? vehicles.Find(v.Vehicle) != null
-                        : v.Carrier is { Kind: VehicleWeaponCarrier.BackpackDrone } k && k.Backpack == v.Vehicle && backpacks?.Find(k.Backpack)?.Linked(BackpackLinkedEntity.Drone) != null)
+                        : v.Carrier is { Kind: VehicleWeaponCarrier.BackpackDrone } k && k.Backpack == v.Vehicle && backpacks?.Find(k.Backpack)?.Linked(BackpackLinkedEntity.Drone) != null
+                            && k.Api == CarrierAccessor(k.Backpack) && v.Mounts.Count(m => m.Weapon != null) == 1)
                     && v.Mounts.Select(m => m.Slot).Distinct().Count() == v.Mounts.Length);
                 foreach (var m in v.Mounts)
                 {
@@ -126,7 +168,12 @@ public static class VehicleWeaponReader
                 && s.SharedFields == all.Count(f => f.Scope != "weapon_local")
                 && s.GameplayProvenFields == all.Count(f => f.GameplayEvidence != null) && s.UnverifiedEffectFields == all.Count(f => f.Acknowledgement != null));
             var carried = c.Vehicles.Where(v => v.Carrier != null).Select(v => v.Vehicle).ToHashSet(StringComparer.Ordinal);
-            return new() { Vehicles = c.Vehicles, Scopes = c.Scopes, Published = published, FieldInstances = all.Select(f => Adapt(f, carried.Contains(Split(f.Weapon).Vehicle))).ToArray() };
+            // Consumers name other mounts as "<vehicle> (slot N)": the weapon key of that mount, so one settings row gets one identity
+            // whichever mount reaches it.
+            var mountKeys = c.Vehicles.SelectMany(v => v.Mounts.Where(m => m.Weapon != null).Select(m => (Name: v.Vehicle + " (slot " + m.Slot.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")", m.Weapon!.Key)))
+                .ToDictionary(x => x.Name, x => x.Key, StringComparer.Ordinal);
+            return new() { Vehicles = c.Vehicles, Scopes = c.Scopes, Published = published,
+                FieldInstances = all.Select(f => Adapt(f, carried.Contains(Split(f.Weapon).Vehicle), SharedRow(f, mountKeys))).ToArray() };
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException)
         { throw new InvalidDataException("Malformed vehicle weapon capability metadata.", e); }
@@ -139,10 +186,19 @@ public static class VehicleWeaponReader
         : "vehicle-weapon-owner:" + f.Scope + "|" + f.BackingComponent + "|" + (f.Target.Attack ?? "") + "|"
             + string.Join("|", f.OtherConsumers.Append(f.Weapon).Distinct().Order(StringComparer.Ordinal));
 
-    private static EntityField Adapt(VehicleWeaponFieldInstance f, bool carried)
+    // 0.28.0 Guard Dog drones: the weapon a backpack's drone carries is reached through the backpack, never through hd2.vehicle.
+    public static string CarrierAccessor(string backpack) => "hd2.backpack(" + Generation.LuaGenerator.Quote(backpack) + "):drone():weapon()";
+    // A shared settings row identified by every weapon that fires it (scope, component, attack role and the canonical consumer set). Only
+    // used to find one row edited through two targets; OwnerKey (and so every saved evidence hash) is unchanged.
+    private static string? SharedRow(VehicleWeaponFieldInstance f, IReadOnlyDictionary<string, string> mountKeys) => f.Scope is "weapon_local" or "shared_mounted_weapon" ? null
+        : "vehicle-weapon-row:" + f.Scope + "|" + f.BackingComponent + "|" + (f.Target.Attack ?? "") + "|"
+            + string.Join("|", f.OtherConsumers.Select(o => mountKeys.GetValueOrDefault(o) ?? o).Append(f.Weapon).Distinct().Order(StringComparer.Ordinal));
+
+    private static EntityField Adapt(VehicleWeaponFieldInstance f, bool carried, string? sharedRow)
     {
         var owner = OwnerKey(f); var (vehicle, _) = Split(f.Weapon);
-        var target = new EntityTarget("vehicle_weapon", f.Target.Path, Weapon: f.Weapon, Attack: f.Target.Attack);
+        // A drone weapon's target names the drone (Linked), which only a carried weapon has: vehicle-mounted targets (and their evidence) are unchanged.
+        var target = new EntityTarget("vehicle_weapon", f.Target.Path, Weapon: f.Weapon, Attack: f.Target.Attack, Linked: carried ? BackpackLinkedEntity.Drone : null);
         // One transaction per target and native component; all of a vehicle's operations form one plan.
         var operation = "vehicle-weapon-op:" + f.Weapon + "|" + f.Target.Path + "|" + (f.Target.Attack ?? "") + "|" + f.BackingComponent;
         var reason = !AuthoredTypes.VehicleWeapon(f, carried) ? AuthoredTypes.NotAuthoredReason : f.ApiFieldConstant == null ? NoApiConstantReason : null;
@@ -151,6 +207,7 @@ public static class VehicleWeaponReader
             ReviewedScopeComplete: f.Scope == "weapon_local", DynamicConsumersPossible: f.Scope is "shared_projectile" or "shared_damage" or "shared_explosion" or "shared_beam" or "shared_arc",
             BackingObjectKind: f.BackingComponent, Domain: f.SemanticFieldId.Split('.')[0], ApiFieldConstant: f.ApiFieldConstant ?? "", PlanPhase: 1, DependsOn: [],
             Evidence: new EntityEvidence(f.GameplayEvidence != null ? "gameplay_proven" : "structural_reference", ReferenceMod: f.GameplayEvidence),
-            Provenance: "VehicleWeaponCapabilities (" + f.Scope + ", " + f.BackingComponent + ")", Acknowledgement: f.Acknowledgement);
+            Provenance: "VehicleWeaponCapabilities (" + f.Scope + ", " + f.BackingComponent + ")", Acknowledgement: f.Acknowledgement,
+            LiveProvenValues: f.LiveProvenValues, SharedRow: sharedRow);
     }
 }

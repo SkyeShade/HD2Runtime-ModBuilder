@@ -111,8 +111,9 @@ public static class ModOptionsService
                         v => StratagemUses.CheckTransition(f, c.ExpectedValue, StratagemUses.Normalize(f, Json(v)))));
                     continue;
                 }
+                // 0.28.0 published bounds (sentry turret, targeting range, minefield counts) also bound the in-game setting.
                 result.Add(Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
-                    c.Enabled, c.EnsureEnabled, null, null, Scalar(f.Type), v => StratagemScalar.Normalize(f, Json(v))));
+                    c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), Scalar(f.Type), v => StratagemScalar.CheckRange(f, Json(v))));
             }
         return result;
     }

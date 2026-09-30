@@ -54,7 +54,8 @@
                     {
                         <div class="field-badges" data-pickup-badges="@chosen.SemanticId">
                             <span class="badge">@chosen.CategoryLabel</span>
-                            @* A pickup Runtime verified live in this slot shows that instead of the catalog's generic "unverified" (the write still carries allow_unverified_reference). *@
+                            @* A pickup Runtime verified live in this slot shows that instead of the catalog's generic "unverified" (from 0.28.0 its write in that slot
+                               needs no allow_unverified_reference; with 0.27.0 the write still carries it). *@
                             @switch (pods.LiveVerifiedPair(rack, s, chosen) ? LiveVerified : PodPayloadCatalog.CompatibilityIn(s, chosen))
                             {
                                 case "PROVEN_COMPATIBLE": <span class="badge green" data-pickup-badge="proven" title="@pods.CompatibilityStates["PROVEN_COMPATIBLE"]">@T["DropPod.Proven"]</span> break;
@@ -80,6 +81,11 @@
                             @* Slot/gameplay compatibility stays unverified even when the assets load automatically (allow_unverified_reference). *@
                             <AckPanel Title="@T["DropPod.Compatibility.Title"]" Kind="unverified" Description="@CompatibilityNote(T, pods, rack, s, chosen)"
                                 PanelAttributes='@(new() { ["data-pod-compatibility-warning"] = "true" })' />
+                        }
+                        else if (EntityScalar.LiveProven(f, saved.DesiredValue))
+                        {
+                            @* 0.28.0: a pickup a live test used in exactly this slot is written without allow_unverified_reference (allow_shared stays). *@
+                            <p class="subtle" data-pod-live-verified>@T["DropPod.Note.LiveVerifiedNoFlag"]</p>
                         }
                         @if (Workspace.EntityIssue(saved) is { } issue) { <p class="notice warning">@issue</p> }
                     }

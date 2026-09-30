@@ -78,7 +78,10 @@ public sealed record StratagemField(string InstanceKey, string SemanticFieldId, 
     // 0.26.0 mission uses (type stratagem_uses): current mode, Runtime's unlimited token, range, published transitions and opt-in.
     string? UsesMode = null, string? UnlimitedValue = null, long? NativeUnlimited = null, double? Min = null, double? Max = null,
     string[]? Transitions = null, string? Acknowledgement = null, string? AcknowledgementReason = null, JsonElement[]? GameplayProvenValues = null,
-    string? Caveat = null)
+    string? Caveat = null,
+    // 0.28.0: the live test family that removed allow_unverified_effect from this field (sentry turn speeds, targeting range, minefield
+    // salvos, the Resupply cooldown); not part of the capability evidence hash.
+    FieldLiveEvidence? LiveEvidence = null)
 {
     // Schema 1 publishes its reviewed scope on the backing identity; schema 2 publishes a separate scope key.
     [JsonIgnore] public string ScopeKey => SharedScopeKey ?? BackingObjectId;

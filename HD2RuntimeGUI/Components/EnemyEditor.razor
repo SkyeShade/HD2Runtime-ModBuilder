@@ -140,10 +140,10 @@
             </section>
         }
     }
-    var unverified = fields.Where(f => IsSaved(f) && f.Acknowledgement == "allow_unverified_effect").ToArray();
-    @if (unverified.Length > 0)
+    @* One warning per published reason: structure health, wiki-correlated members and mount-chain attack rows each say why they need the opt-in. *@
+    @foreach (var unverified in fields.Where(f => IsSaved(f) && f.Acknowledgement == "allow_unverified_effect").GroupBy(f => f.AcknowledgementReason ?? T["OptIn.UnverifiedEffect.Reason"]))
     {
-        <AckPanel Title="@T["Enemy.Unverified.Title"]" Kind="unverified" Description="@unverified[0].AcknowledgementReason"
+        <AckPanel Title="@T["Enemy.Unverified.Title"]" Kind="unverified" Description="@unverified.Key"
             Items="@unverified.Select(f => catalog.Describe(f.Target) + " · " + f.DisplayName).ToArray()" ItemsLabel="@T["EntityPanel.Edited"]"
             PanelAttributes='@(new() { ["data-enemy-unverified"] = c.SemanticId })' />
     }
