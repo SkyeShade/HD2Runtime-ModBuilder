@@ -316,6 +316,18 @@ public sealed class Runtime028IntegrationTests
         Assert.Contains("field=hd2.fields.damage.player_standard_damage,", w.LuaPreview);
     }
 
+    // The published 0.27.0 SDK already publishes the branch-qualified constants; with them the Halt's feed edits also work on Runtime
+    // 0.27.0, where the generic name failed ("field is not exposed for SG-20 Halt", HD2Runtime user report 2026-09-29).
+    [Fact] public async Task Halt_projects_on_the_published_0_27_sdk_use_the_branch_qualified_field()
+    {
+        using var e = new TestEnvironment(); var sdk = await SdkFixtures.Install(e, "0.27.0"); var w = e.Workspace();
+        await w.CreateAsync(new("Halt", "Tests", "mods/tests/halt027", "0.1.0"), sdk);
+        await w.SetObjectScalarAsync("SG-20 Halt", "feed_primary", "projectile", null, "damage.primary.standard_damage", "40", true);
+        Assert.Null(w.BuildError);
+        Assert.Contains("field=hd2.fields.damage.primary_standard_damage,", w.LuaPreview);
+        Assert.DoesNotContain("hd2.fields.damage.player_standard_damage", w.LuaPreview);
+    }
+
     [Fact] public async Task Every_generated_operation_is_emitted_once()
     {
         using var e = new TestEnvironment(); var (w, sdk) = await EnemyAuthoringTests.Fresh(e);

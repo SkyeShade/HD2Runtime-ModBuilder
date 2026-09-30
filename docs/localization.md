@@ -8,7 +8,7 @@ update one.
 | Id | Language | Resources | Notes |
 | --- | --- | --- | --- |
 | `en` | English | `Strings.resx` (neutral) | Every key exists here. Anything missing elsewhere falls back to it. |
-| `zh-Hans` | Simplified Chinese · 简体中文 | `Strings.zh-Hans.resx` | Originated from the translation contributed by **@CChusky** in [GitHub issue #1](https://github.com/SkyeShade/HD2Runtime-ModBuilder/issues/1). |
+| `zh-Hans` | Simplified Chinese · 简体中文 | `Strings.zh-Hans.resx` | Built on the translation baseline from [@CChusky](https://github.com/CChusky) ([issue #1](https://github.com/SkyeShade/HD2Runtime-ModBuilder/issues/1)); see [Credits](#credits). |
 
 **Settings & SDK → Language** offers:
 
@@ -113,9 +113,29 @@ A new English key makes `Every_supported_language_has_every_key_with_the_same_pl
 
 `Strings.zh-Hans.resx` records where each translation came from in its `<comment>`:
 
-- `issue #1`: the contributor's translation (@CChusky, GitHub issue #1, extracted from v1.3.0), used verbatim.
+- `issue #1`: the contributor's translation ([@CChusky](https://github.com/CChusky), issue #1, from the v1.3.0 interface), used verbatim.
 - `issue #1 (adapted)`: the contributor's translation, adjusted minimally where the English was reworded, split or merged since v1.3.0.
 - `new: needs native review`: text added after v1.3.0 (Runtime 0.28 work, enemies, custom Lua and others), translated with the contributor's terminology, awaiting review by a native speaker.
 
 The contributor's bundle keys were derived from the English text. ModBuilder uses stable semantic keys instead. The Chinese values
 were matched by their English source text, not by the old keys.
+
+## Credits
+
+Special thanks to [@CChusky](https://github.com/CChusky) for proposing ModBuilder's localization support and providing the original UI
+string inventory and Simplified Chinese translation baseline. In [issue #1](https://github.com/SkyeShade/HD2Runtime-ModBuilder/issues/1)
+they:
+
+- requested first-class i18n support, and described the approach (resource files, a Language setting, English fallback, html lang/dir) that ModBuilder follows;
+- provided the original v1.3.0 UI string inventory: 576 strings with the screen each came from;
+- provided the initial zh-Hans translation resource set (`Strings.resx` / `Strings.zh-Hans.resx` for v1.3.0);
+- provided the English/Chinese review table used as the translation baseline and as the terminology reference for new text.
+
+**What that baseline covers today.** The current interface has 1,896 keys: many more than v1.3.0 had, because of the enemy, custom Lua,
+Runtime 0.28 and Core message work. The comments in `Strings.zh-Hans.resx` show where each value came from:
+
+- 508 values are the contributor's translations, used verbatim (`issue #1`);
+- 201 are the contributor's translations, adapted where the English was reworded, split or merged (`issue #1 (adapted)`);
+- 1,187 were translated during implementation, following the contributor's terminology (`new: needs native review`).
+
+Corrections and reviews by native speakers are welcome; see [Adding a language](#adding-a-language) for the workflow, which is the same for improving an existing one.

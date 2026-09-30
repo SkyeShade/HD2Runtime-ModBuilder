@@ -225,7 +225,9 @@ The reticle icon (`HD2RuntimeGUI/Resources/AppIcon/appicon.svg`, identical to `w
 
 ## Languages
 
-The interface is available in English and Simplified Chinese (简体中文); choose it in **Settings & SDK → Language** (System default follows Windows). Switching is immediate and never changes what ModBuilder generates: Lua, project files and exported mods are identical in every language. Translations are standard `.resx` resources in `HD2RuntimeGUI.Core/Resources/Strings/`; adding a language is a data file plus one registry line. See [docs/localization.md](docs/localization.md). The Chinese translation originated from [@CChusky](https://github.com/CChusky)'s contribution in [issue #1](https://github.com/SkyeShade/HD2Runtime-ModBuilder/issues/1).
+The interface is available in English and Simplified Chinese (简体中文); choose it in **Settings & SDK → Language** (System default follows Windows). Switching is immediate and never changes what ModBuilder generates: Lua, project files and exported mods are identical in every language. Translations are standard `.resx` resources in `HD2RuntimeGUI.Core/Resources/Strings/`; adding a language is a data file plus one registry line. See [docs/localization.md](docs/localization.md).
+
+Special thanks to [@CChusky](https://github.com/CChusky) for proposing ModBuilder's localization support and providing the original UI string inventory and Simplified Chinese translation baseline ([issue #1](https://github.com/SkyeShade/HD2Runtime-ModBuilder/issues/1)). That baseline covered the v1.3.0 interface; text added or reworded since then was translated or adapted during implementation and awaits native review.
 
 ## Architecture
 
