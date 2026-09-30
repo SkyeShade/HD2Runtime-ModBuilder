@@ -17,7 +17,8 @@ public enum CapabilityClass
 public sealed record AuditEntry(string Area, string Capability, string Type, CapabilityClass Class, int Instances, int WritableInstances, int ReadOnlyInstances,
     string? Surface, string? Reason);
 public sealed record AuditFile(string Name, CapabilityClass Class, string Use);
-public sealed record CapabilityAuditReport(string SdkVersion, string? ContentFingerprint, bool? PinnedBuild, IReadOnlyList<AuditEntry> Entries, IReadOnlyList<AuditFile> Files)
+public sealed record CapabilityAuditReport(string SdkVersion, string? ContentFingerprint, bool? PinnedBuild, IReadOnlyList<AuditEntry> Entries, IReadOnlyList<AuditFile> Files,
+    IReadOnlyDictionary<string, int>? Catalogs = null, IReadOnlyDictionary<string, int>? Projectile = null)
 {
     public static readonly CapabilityClass[] Missing = [CapabilityClass.MISSING_UI, CapabilityClass.MISSING_CODEGEN, CapabilityClass.MISSING_PROJECT_MODEL];
     public IReadOnlyDictionary<CapabilityClass, int> Totals => Enum.GetValues<CapabilityClass>().ToDictionary(c => c, c => Entries.Count(e => e.Class == c));
@@ -25,6 +26,10 @@ public sealed record CapabilityAuditReport(string SdkVersion, string? ContentFin
     // Missing capabilities no exemption accounts for. A release requires zero.
     public IReadOnlyList<AuditEntry> UnexpectedMissing => Entries.Where(e => Missing.Contains(e.Class)).ToArray();
 }
+
+// What the COVERAGE report states besides the audit itself: the SDK's identity, localization counts and the regression guards.
+public sealed record CoverageContext(string Title, string RuntimeCommit, string SdkCommit, string SdkArchiveSha256, int NeutralKeys,
+    IReadOnlyDictionary<string, (int Keys, int Missing, int NeedsNativeReview)> Locales, IReadOnlyList<(string Guard, string Evidence)> Regressions);
 
 /// <summary>Where an authored capability is edited in the UI. A capability the gates keep writable but no surface lists is MISSING_UI.</summary>
 public static class CapabilitySurfaces
@@ -204,7 +209,46 @@ public static class CapabilityAudit
             files.Add(IsRead(name) ? new(name, CapabilityClass.SUPPORTED_UI, "read, validated and cross-checked by SdkCache")
                 : new(name, CapabilityClass.MISSING_UI, "not read and not classified"));
         }
-        return new(sdk.Version, sdk.ContentFingerprint, sdk.IsPinnedBuild, entries, files);
+        return new(sdk.Version, sdk.ContentFingerprint, sdk.IsPinnedBuild, entries, files, Catalogs(sdk), ProjectileSummary(sdk));
+    }
+    // Published catalog sizes (what the SDK contains, independent of ModBuilder).
+    private static Dictionary<string, int> Catalogs(SdkMetadata sdk)
+    {
+        var c = new Dictionary<string, int>(StringComparer.Ordinal);
+        void Add(string key, int? n) { if (n is { } v) c[key] = v; }
+        Add("player weapons", sdk.PlayerWeapons?.Weapons.Count); Add("player weapon field instances", sdk.PlayerWeapons?.Weapons.Sum(w => w.Fields.Count));
+        Add("underbarrels / subweapons", sdk.PlayerWeapons?.Subweapons?.Count); Add("subweapon field instances", sdk.PlayerWeapons?.Subweapons?.Sum(s => s.Fields.Count));
+        Add("support weapons", sdk.SupportAuthoring?.Weapons.Length); Add("support weapon field instances", sdk.SupportAuthoring?.FieldInstances.Length);
+        Add("stratagems", sdk.Stratagems?.Stratagems.Length); Add("stratagem field instances", sdk.Stratagems?.FieldInstances.Length);
+        Add("vehicles", sdk.Entities?.Vehicles.Vehicles.Length); Add("backpacks", sdk.Entities?.Backpacks.Backpacks.Length);
+        Add("mounted / carried weapons", sdk.Entities?.VehicleWeapons?.Vehicles.Sum(v => v.Mounts.Count(m => m.Weapon != null)));
+        Add("boosters", sdk.Entities?.Boosters?.Boosters.Length); Add("throwables", sdk.Entities?.Throwables?.Throwables.Count());
+        Add("magazine attachments", sdk.Entities?.Attachments?.Attachments.Count()); Add("drop-pod racks", sdk.Entities?.Pods?.Racks.Length);
+        Add("enemy and structure classes", sdk.Entities?.Enemies?.Classes.Length); Add("entity field instances (all)", sdk.Entities?.AllFields.Count());
+        Add("attack outputs", sdk.AttackOutputs?.Outputs.Length); Add("projectile sources", sdk.AttackOutputs?.ProjectileSources.Length);
+        Add("events", sdk.Events?.Events.Length); Add("status effects", sdk.StatusEffects?.Statuses.Count); Add("armory traits", sdk.Presentation?.Traits.Count);
+        Add("weapons with feeds", sdk.Feeds?.Weapons.Count); Add("live evidence families", sdk.LiveEvidence?.Families.Count);
+        return c;
+    }
+    // The unified projectile system in numbers: hosts by kind and state, donors by family, builder rows, programmable ammo, underbarrels.
+    private static Dictionary<string, int> ProjectileSummary(SdkMetadata sdk)
+    {
+        var p = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (sdk.AttackOutputs is not { } ao) return p;
+        foreach (var g in ao.ProjectileSources.GroupBy(s => s.HostKind + " hosts, " + (s.DirectWritable ? "writable (component)" : s.Status == AttackProjectileSource.Indirect && ao.Ammunition(s.Weapon) != null ? "writable (ammunition)" : "read-only (" + s.Status + ")")).OrderBy(g => g.Key, StringComparer.Ordinal))
+            p[g.Key] = g.Count();
+        p["component hosts (host model)"] = ao.HostModel.ComponentHosts.Length; p["ammunition hosts (host model)"] = ao.HostModel.AmmunitionHosts.Length;
+        foreach (var g in ao.Outputs.GroupBy(o => "donor outputs, " + o.Family + (o.SelectableAsProjectileReference ? " selectable" : " not selectable")).OrderBy(g => g.Key, StringComparer.Ordinal)) p[g.Key] = g.Count();
+        foreach (var g in ao.Outputs.Where(o => o.SelectableAsProjectileReference).GroupBy(o => "selectable donors owned by " + o.Owner.Kind).OrderBy(g => g.Key, StringComparer.Ordinal)) p[g.Key] = g.Count();
+        p["builder rows (3 slots each)"] = ao.Outputs.Count(o => o.Slots != null);
+        p["builder slot live-proven values"] = ao.Outputs.Where(o => o.Slots != null).Sum(o => AttackOutputSlots.Keys.Sum(k => o.Slots![k].LiveProvenValues.Length));
+        p["mode presentation rows"] = ao.Outputs.Count(o => o.Presentation != null); p["function-ammo-only rows (reference scope)"] = ao.Outputs.Count(o => !o.AttackReferenceAllowed);
+        p["proven compositions"] = ao.ProvenCompositions.Length;
+        p["programmable ammo fields (player)"] = sdk.PlayerWeapons?.Weapons.Sum(w => w.Fields.Count(f => f.Type == WeaponCapability.FunctionProjectileReference)) ?? 0;
+        p["programmable ammo fields (support)"] = sdk.SupportAuthoring?.FieldInstances.Count(f => f.IsFunctionProjectile) ?? 0;
+        p["mounted projectile hosts (vehicle fields)"] = sdk.Entities?.VehicleWeapons?.Published.Values.Count(f => f.Type == "projectile_reference") ?? 0;
+        p["underbarrels"] = sdk.PlayerWeapons?.Subweapons?.Count ?? 0;
+        return p;
     }
     // Files SdkCache reads (the consumed set of the SDK pin).
     private static bool IsRead(string name) => name is "metadata.json" || name == PlayerWeaponCatalogReader.FileName || name == PlayerWeaponAmmoCatalogReader.FileName
@@ -221,11 +265,55 @@ public static class CapabilityAudit
         files = r.Files.Select(f => new { f.Name, Class = f.Class.ToString(), f.Use }),
     }, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
-    public static string Markdown(CapabilityAuditReport r, string title)
+    public static string Markdown(CapabilityAuditReport r, string title) => Markdown(r, new CoverageContext(title, SdkPin.RuntimeCommit, SdkPin.SdkCommit, SdkPin.ArchiveSha256, 0,
+        new Dictionary<string, (int, int, int)>(), []));
+    public static string Markdown(CapabilityAuditReport r, CoverageContext ctx)
     {
         var s = new StringBuilder();
         string N(int n) => n.ToString("N0", CultureInfo.InvariantCulture);
-        s.Append("# ").Append(title).Append("\n\n");
+        s.Append("# ").Append(ctx.Title).Append("\n\n");
+        s.Append("## Runtime 0.28 SDK\n\n");
+        s.Append("- HD2Runtime ").Append(r.SdkVersion).Append(", release commit `").Append(ctx.RuntimeCommit).Append("`, SDK generated at `").Append(ctx.SdkCommit).Append("`\n");
+        s.Append("- SDK archive SHA-256 `").Append(ctx.SdkArchiveSha256).Append("`\n");
+        s.Append("- Capabilities audited: **").Append(N(r.Entries.Count)).Append("** (").Append(N(r.Entries.Sum(e => e.Instances))).Append(" published instances); SDK files: ").Append(N(r.Files.Count)).Append("\n\n");
+        if (r.Catalogs is { Count: > 0 } catalogs)
+        {
+            s.Append("| Catalog | Count |\n| --- | ---: |\n");
+            foreach (var (k, v) in catalogs) s.Append("| ").Append(k).Append(" | ").Append(N(v)).Append(" |\n");
+            s.Append('\n');
+        }
+        s.Append("## ModBuilder\n\n| | Capabilities | Instances |\n| --- | ---: | ---: |\n");
+        foreach (var (label, cls) in new[] { ("Supported in UI", CapabilityClass.SUPPORTED_UI), ("Custom Lua only", CapabilityClass.SUPPORTED_CUSTOM_LUA_ONLY),
+            ("Runtime read-only (shown with the reason)", CapabilityClass.RUNTIME_READ_ONLY), ("Intentionally omitted", CapabilityClass.INTENTIONALLY_NOT_EXPOSED),
+            ("Not applicable", CapabilityClass.NOT_APPLICABLE), ("Missing UI", CapabilityClass.MISSING_UI), ("Missing codegen", CapabilityClass.MISSING_CODEGEN),
+            ("Missing project model", CapabilityClass.MISSING_PROJECT_MODEL) })
+            s.Append("| ").Append(label).Append(" | ").Append(N(r.Totals[cls])).Append(" | ").Append(N(r.InstanceTotals[cls])).Append(" |\n");
+        s.Append("\n**Unexpected missing: ").Append(r.UnexpectedMissing.Count).Append("** (expected 0)\n\n");
+        if (r.Projectile is { Count: > 0 } projectile)
+        {
+            s.Append("## Projectile\n\n| | Count |\n| --- | ---: |\n");
+            foreach (var (k, v) in projectile) s.Append("| ").Append(k).Append(" | ").Append(N(v)).Append(" |\n");
+            s.Append('\n');
+        }
+        s.Append("## Supported capabilities by area\n\n| Area | Supported in UI | Custom Lua only | Read-only | Surfaces |\n| --- | ---: | ---: | ---: | --- |\n");
+        foreach (var area in r.Entries.GroupBy(e => e.Area))
+            s.Append("| ").Append(area.Key).Append(" | ").Append(N(area.Count(e => e.Class == CapabilityClass.SUPPORTED_UI))).Append(" | ").Append(N(area.Count(e => e.Class == CapabilityClass.SUPPORTED_CUSTOM_LUA_ONLY)))
+                .Append(" | ").Append(N(area.Count(e => e.Class == CapabilityClass.RUNTIME_READ_ONLY))).Append(" | ")
+                .Append(string.Join("; ", area.Select(e => e.Surface).OfType<string>().Distinct())).Append(" |\n");
+        s.Append('\n');
+        if (ctx.NeutralKeys > 0)
+        {
+            s.Append("## Localization\n\n| Language | Keys | Missing translations | Needs native review |\n| --- | ---: | ---: | ---: |\n| en (neutral) | ").Append(N(ctx.NeutralKeys)).Append(" | 0 | 0 |\n");
+            foreach (var (locale, (keys, missing, review)) in ctx.Locales) s.Append("| ").Append(locale).Append(" | ").Append(N(keys)).Append(" | ").Append(N(missing)).Append(" | ").Append(N(review)).Append(" |\n");
+            s.Append('\n');
+        }
+        if (ctx.Regressions.Count > 0)
+        {
+            s.Append("## Regressions\n\n| Guard | Evidence |\n| --- | --- |\n");
+            foreach (var (guard, evidence) in ctx.Regressions) s.Append("| ").Append(guard).Append(" | ").Append(evidence.Replace("|", "\\|")).Append(" |\n");
+            s.Append('\n');
+        }
+        s.Append("# Audit detail\n\n");
         s.Append("Generated from the loaded SDK by `CapabilityAudit` (HD2RuntimeGUI.Core/Audit). SDK **").Append(r.SdkVersion).Append("**, content fingerprint `")
             .Append(r.ContentFingerprint).Append("`").Append(r.PinnedBuild == true ? " (the pinned build)" : r.PinnedBuild == false ? " (**not** the pinned build)" : "").Append(".\n\n");
         s.Append("## Totals\n\n| Class | Capabilities | Instances |\n| --- | ---: | ---: |\n");

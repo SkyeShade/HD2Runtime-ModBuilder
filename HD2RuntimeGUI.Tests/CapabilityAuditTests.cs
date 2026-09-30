@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Xml.Linq;
 using HD2RuntimeGUI.Core.Audit;
 using HD2RuntimeGUI.Core.Metadata;
 using Xunit;
@@ -25,10 +27,33 @@ public sealed class CapabilityAuditTests(ITestOutputHelper output)
         return CapabilityAudit.Run(sdk, Files(SdkPin.Version));
     }
 
+    // Localization counts from the resource files: keys, keys a language lacks or leaves empty, and entries marked for native review.
+    public static CoverageContext Context(CapabilityAuditReport report)
+    {
+        var dir = Path.Combine(ModBuilderIaTests.Root(), "HD2RuntimeGUI.Core", "Resources", "Strings");
+        static Dictionary<string, (string Value, string? Comment)> Read(string file) => XDocument.Load(file).Root!.Elements("data")
+            .ToDictionary(d => (string)d.Attribute("name")!, d => ((string?)d.Element("value") ?? "", (string?)d.Element("comment")));
+        var neutral = Read(Path.Combine(dir, "Strings.resx"));
+        var locales = Directory.GetFiles(dir, "Strings.*.resx").OrderBy(f => f, StringComparer.Ordinal).ToDictionary(
+            f => Path.GetFileName(f)["Strings.".Length..^".resx".Length],
+            f => { var l = Read(f); return (l.Count, neutral.Keys.Count(k => !l.TryGetValue(k, out var v) || string.IsNullOrWhiteSpace(v.Value)),
+                l.Values.Count(v => v.Comment?.Contains("needs native review", StringComparison.OrdinalIgnoreCase) == true)); });
+        var sdkSha = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-" + SdkPin.Version + ".zip")))).ToLowerInvariant();
+        (string, string)[] regressions =
+        [
+            ("SG-20 Halt (ModBuilder#2)", "HaltRegressionTests: every Halt variant isolates each operation in pcall with unique ids and keeps the unrelated edits; the four Runtime issue variants export and validate against HD2Runtime 0.28.0 (tools/validate-exports.py, with isolation probes)."),
+            ("Old projects", "OldProjectCompatibilityTests: seven projects saved by ModBuilder 1.3.1 itself open on their own SDK in both languages with 1.3.1's operations, rebind to 0.28.0 keeping every edit, and export and validate against HD2Runtime 0.28.0."),
+            ("Language-independent exports", "LocalizationTests.A_project_generates_the_same_lua_json_and_zip_in_every_ui_language and An_older_project_opens_the_same_in_either_language; OldProjectCompatibilityTests compares generated Lua in both languages."),
+            ("SDK pin", "SdkPinTests: the bundled SDK is byte-identical to the HD2Runtime 0.28.0 release asset; a same-version build with other content is reported, never taken for the pin."),
+        ];
+        return new("ModBuilder " + Core.BuildInfo.Version + " capability coverage (HD2Runtime " + report.SdkVersion + ")", SdkPin.RuntimeCommit, SdkPin.SdkCommit, sdkSha,
+            neutral.Count, locales, regressions);
+    }
+
     [Fact] public async Task The_pinned_sdk_has_no_unexpected_missing_capability()
     {
         using var e = new TestEnvironment(); var report = await Report(e);
-        var json = CapabilityAudit.Json(report); var markdown = CapabilityAudit.Markdown(report, "ModBuilder " + Core.BuildInfo.Version + " capability coverage (HD2Runtime " + report.SdkVersion + ")");
+        var json = CapabilityAudit.Json(report); var markdown = CapabilityAudit.Markdown(report, Context(report));
         foreach (var dir in new[] { Path.Combine(AppContext.BaseDirectory, "audit"), Environment.GetEnvironmentVariable("HD2_AUDIT_OUT") }.OfType<string>())
         {
             Directory.CreateDirectory(dir);

@@ -3237,11 +3237,10 @@
   </data>
   <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
     <value>Choose a status effect, or none.</value>
-    <comment>new: needs native review</comment>
   </data>
   <data name="Messages.Build.Status.NotAllowed" xml:space="preserve">
     <value>'{0}' is not a status effect this slot can take.</value>
-    <comment>{0}: status key. new: needs native review</comment>
+    <comment>{0}: status key.</comment>
   </data>
   <data name="Messages.Build.Stratagem.AttackBranch" xml:space="preserve">
     <value>The public Runtime API resolves attack branches only under the primary mounted weapon.</value>
@@ -3619,11 +3618,11 @@
   </data>
   <data name="Messages.Sdk.LocalNotPinned" xml:space="preserve">
     <value>It is not the pinned HD2Runtime {0} release (Runtime {1}): its catalogs differ, so it is treated as a different build.</value>
-    <comment>{0}: pinned SDK version; {1}: short Runtime commit. new: needs native review</comment>
+    <comment>{0}: pinned SDK version; {1}: short Runtime commit.</comment>
   </data>
   <data name="Messages.Sdk.LocalPinned" xml:space="preserve">
     <value>It is byte-identical to the pinned HD2Runtime {0} release (Runtime {1}).</value>
-    <comment>{0}: pinned SDK version; {1}: short Runtime commit. new: needs native review</comment>
+    <comment>{0}: pinned SDK version; {1}: short Runtime commit.</comment>
   </data>
   <data name="Messages.Sdk.LocalSource" xml:space="preserve">
     <value>Local SDK {0} from {1}. GitHub release checks are skipped for this run; the SDK cache is not changed.</value>
@@ -4625,7 +4624,7 @@
   </data>
   <data name="Presentation.Group.Functions" xml:space="preserve">
     <value>Rate of fire &amp; functions</value>
-    <comment>Field group: rate-of-fire modes, weapon-function bindings, programmable ammunition. new: needs native review</comment>
+    <comment>Field group: rate-of-fire modes, weapon-function bindings, programmable ammunition.</comment>
   </data>
   <data name="Presentation.Group.Handling" xml:space="preserve">
     <value>Handling</value>
@@ -4633,7 +4632,7 @@
   </data>
   <data name="Presentation.Group.Presentation" xml:space="preserve">
     <value>Armory presentation</value>
-    <comment>Field group: armory trait and penetration labels (presentation only). new: needs native review</comment>
+    <comment>Field group: armory trait and penetration labels (presentation only).</comment>
   </data>
   <data name="Presentation.Group.Projectile" xml:space="preserve">
     <value>Projectile</value>
@@ -5524,7 +5523,7 @@
   </data>
   <data name="Stratagem.Group.Functions" xml:space="preserve">
     <value>Rate of fire &amp; functions</value>
-    <comment>Field group heading. new: needs native review</comment>
+    <comment>Field group heading.</comment>
   </data>
   <data name="Stratagem.Group.Handling" xml:space="preserve">
     <value>Handling</value>
@@ -5552,7 +5551,7 @@
   </data>
   <data name="Stratagem.Group.Presentation" xml:space="preserve">
     <value>Armory presentation</value>
-    <comment>Field group heading. new: needs native review</comment>
+    <comment>Field group heading.</comment>
   </data>
   <data name="Stratagem.Group.Projectile" xml:space="preserve">
     <value>Projectile</value>

@@ -11,7 +11,7 @@ namespace HD2RuntimeGUI.Tests;
 public sealed class ModBuilderIaTests
 {
     private static async Task<SdkMetadata> Current(TestEnvironment e) { File.Delete(e.Paths.CachePath("current.json")); return await e.Cache.GetCurrentAsync(); }
-    private static string Root()
+    public static string Root()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
             if (Directory.Exists(Path.Combine(dir.FullName, "HD2RuntimeGUI", "wwwroot"))) return dir.FullName;
