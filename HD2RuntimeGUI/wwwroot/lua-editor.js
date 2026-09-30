@@ -55,32 +55,51 @@ window.hd2LuaEditor = (() => {
     }
 
     // ---- completion -------------------------------------------------------------------------------------------------------------------
-    const firstType = t => (t || '').split('|').map(x => x.trim()).find(x => x && x !== 'nil') || '';
-    function paramAlias(member) {
-        const m = /\(\s*[A-Za-z_]\w*\s*:\s*([A-Za-z_]\w*)/.exec(member.s || ''); return m ? m[1] : null;
-    }
-    function variables(text, data) {
-        const vars = {};
-        for (const m of text.matchAll(/local\s+([A-Za-z_]\w*)\s*=\s*hd2\s*\.\s*mod\s*\(/g)) vars[m[1]] = 'HD2ModContext';
-        for (const m of text.matchAll(/local\s+([A-Za-z_]\w*)\s*=\s*hd2\s*\.\s*local_player\s*\(/g)) vars[m[1]] = 'HD2PlayerHandle';
-        for (const m of text.matchAll(/(?:\.|:)\s*(?:on|once)\s*\(\s*['"](\w+)['"]\s*,\s*function\s*\(\s*([A-Za-z_]\w*)/g)) {
-            const cls = 'HD2Event_' + m[1]; vars[m[2]] = data.classes[cls] ? cls : 'HD2Event';
+    const firstType = t => (t || '').split('|').map(x => x.trim().replace(/\?$/, '')).find(x => x && x !== 'nil') || '';
+    // A call chain: hd2.weapon('AR-23 Liberator'):programmable_ammo(), event.player, sub
+    const CHAIN = String.raw`[A-Za-z_]\w*(?:\s*(?:\.\s*[A-Za-z_]\w*|:\s*[A-Za-z_]\w*\s*\([^()\n]*\)|\([^()\n]*\)))*`;
+    // The strings a parameter type accepts: every alias it names ("HD2ExplosionName|HD2WeaponName") and its inline literals ("primary"|...).
+    function paramValues(type, data) {
+        if (!type) return [];
+        const values = [];
+        for (const part of type.split('|').map(x => x.trim())) {
+            if (data.aliases[part]) values.push(...data.aliases[part]);
+            else { const lit = /^["'](.*)["']$/.exec(part); if (lit) values.push(lit[1]); }
         }
-        return vars;
+        return [...new Set(values)];
     }
-    function chainType(chain, text, data) {
+    // The raw type of a chain's value ('HD2Weapon', 'HD2StatSource[]', 'HD2Explosion|nil'), or null.
+    function resolve(chain, vars, data) {
         const parts = chain.match(/[A-Za-z_]\w*|\([^()]*\)|[.:]/g) || [];
         let type = null;
         for (let i = 0; i < parts.length; i++) {
             const p = parts[i];
-            if (i === 0) { type = p === 'hd2' ? data.root : variables(text, data)[p] || null; if (!type) return null; continue; }
-            if (p === '.' || p === ':') continue;
-            if (p.startsWith('(')) continue;
-            const member = (data.classes[type] || []).find(m => m.n === p); if (!member) return null;
-            type = firstType(member.t);
-            if (!data.classes[type]) return null;
+            if (i === 0) { type = p === 'hd2' ? data.root : vars[p] || null; if (!type) return null; continue; }
+            if (p === '.' || p === ':' || p.startsWith('(')) continue;
+            const member = (data.classes[firstType(type)] || []).find(m => m.n === p); if (!member) return null;
+            type = member.t || '';
         }
         return type;
+    }
+    function chainType(chain, vars, data) { const t = firstType(resolve(chain, vars, data)); return t && data.classes[t] ? t : null; }
+    // Typed locals in the text before the caret: event handler parameters (the nearest handler wins), `local x = <chain>` and
+    // `for _, x in ipairs(<chain>)` over an array type (event.sources, hd2.players()).
+    function variables(text, data) {
+        const vars = {};
+        const found = [];
+        for (const m of text.matchAll(/(?:\.|:)\s*(?:on|once)\s*\(\s*['"](\w+)['"]\s*,\s*function\s*\(\s*([A-Za-z_]\w*)/g)) {
+            const cls = 'HD2Event_' + m[1]; found.push([m.index, () => { vars[m[2]] = data.classes[cls] ? cls : 'HD2Event'; }]);
+        }
+        for (const m of text.matchAll(new RegExp(String.raw`local\s+([A-Za-z_]\w*)(?:\s*,\s*[A-Za-z_]\w*)*\s*=\s*(` + CHAIN + String.raw`)(?=[ \t]*(?:\r?\n|;|--|$))`, 'g')))
+            found.push([m.index, () => { const t = chainType(m[2].replace(/\s+/g, ''), vars, data); if (t) vars[m[1]] = t; }]);
+        for (const m of text.matchAll(new RegExp(String.raw`for\s+[A-Za-z_]\w*\s*,\s*([A-Za-z_]\w*)\s+in\s+ipairs\s*\(\s*(` + CHAIN + String.raw`)\s*\)`, 'g')))
+            found.push([m.index, () => {
+                const raw = firstType(resolve(m[2].replace(/\s+/g, ''), vars, data));
+                const element = raw.endsWith('[]') ? raw.slice(0, -2) : null;
+                if (element && data.classes[element]) vars[m[1]] = element;
+            }]);
+        found.sort((a, b) => a[0] - b[0]).forEach(([, apply]) => apply());
+        return vars;
     }
     function context(text, caret, data) {
         const before = text.slice(0, caret);
@@ -92,15 +111,18 @@ window.hd2LuaEditor = (() => {
             [/status\s*\.\s*apply\s*\([^,()]*,\s*['"](\w*)$/, data.strings.statuses],
         ];
         for (const [re, list] of strings) { const m = re.exec(before); if (m) return { prefix: m[1], items: (list || []).map(v => ({ n: v, k: 'value' })) }; }
-        const call = /hd2\s*\.\s*([A-Za-z_]\w*)\s*\(\s*['"]([^'"\n]*)$/.exec(before);
+        const vars = variables(before, data);
+        // The first string argument of any stub function or method: its parameter's alias or literals (weapon names, attack outputs, feeds ...).
+        const call = new RegExp('(' + CHAIN + String.raw`)\s*([.:])\s*([A-Za-z_]\w*)\s*\(\s*['"]([^'"\n]*)$`).exec(before);
         if (call) {
-            const member = (data.classes[data.root] || []).find(m => m.n === call[1]);
-            const alias = member && paramAlias(member);
-            if (alias && data.aliases[alias]) return { prefix: call[2], items: data.aliases[alias].map(v => ({ n: v, k: 'value' })) };
+            const type = chainType(call[1].replace(/\s+/g, ''), vars, data);
+            const member = type && (data.classes[type] || []).find(m => m.n === call[3]);
+            const values = member ? paramValues(member.p, data) : [];
+            if (values.length) return { prefix: call[4], items: values.map(v => ({ n: v, k: 'value' })) };
         }
-        const m = /([A-Za-z_]\w*(?:\s*(?:\.\s*[A-Za-z_]\w*|:\s*[A-Za-z_]\w*\s*\([^()\n]*\)|\([^()\n]*\)))*)\s*([.:])\s*([A-Za-z_]\w*)?$/.exec(before);
+        const m = new RegExp('(' + CHAIN + String.raw`)\s*([.:])\s*([A-Za-z_]\w*)?$`).exec(before);
         if (!m) return null;
-        const type = chainType(m[1].replace(/\s+/g, ''), text, data); if (!type) return null;
+        const type = chainType(m[1].replace(/\s+/g, ''), vars, data); if (!type) return null;
         // ':' calls methods; '.' reaches fields and functions (and methods, which Lua also allows through '.').
         const members = (data.classes[type] || []).filter(x => m[2] !== ':' || x.k === 'method');
         return { prefix: m[3] || '', items: members };
@@ -206,6 +228,8 @@ window.hd2LuaEditor = (() => {
     }
     return {
         mount,
+        // What the popup would offer at a caret (prefix and items), without an editor: for tools/scripting-smoke.mjs and checks.
+        completions(text, caret, data) { return context(text, caret, data || { classes: {}, aliases: {}, strings: {}, root: '' }); },
         setText(host, text) { const ed = editors.get(host); if (!ed) return; const top = ed.textarea.scrollTop; ed.textarea.value = text; render(ed); ed.textarea.scrollTop = top; sync(ed); },
         getText(host) { return editors.get(host)?.textarea.value ?? ''; },
         setData(host, data) { const ed = editors.get(host); if (ed) ed.data = data; },

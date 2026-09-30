@@ -3,7 +3,8 @@
 @inject IJSRuntime JS
 @* Hand-written HD2Runtime Lua (src/addon.lua, format 11). The text is the user's: ModBuilder saves it only on Save, reloads it only on Reload,
    and never overwrites a working copy changed in an external editor without an explicit choice. The page watches the working copy while it
-   is open, checks syntax and SDK-enumerated names as you type, and offers the event API reference, action pickers and snippets. *@
+   is open, checks syntax and SDK-enumerated names as you type, and offers the event API reference, action pickers, snippets and the
+   diagnostics reference (write conflicts, telemetry, logs; telemetry is never turned on by ModBuilder). *@
 @{ var project = Workspace.Project; var lua = project?.CustomLua; var sdk = Workspace.Metadata; }
 <div class="page-heading"><div><div class="eyebrow">@T.Format(Workspace.SdkStatus?.LocalSource != null ? "CustomLua.EyebrowLocal" : "CustomLua.Eyebrow", sdk?.Version)</div><h1>@T["CustomLua.Title"]</h1>
     <p>@T.Markup("CustomLua.Intro.Html", CustomLuaSettings.RelativePath)</p></div></div>
@@ -60,10 +61,12 @@ else
         </section>
         <aside class="panel custom-lua-side">
             <div class="custom-lua-tabs" role="tablist">
-                @foreach (var (key, label) in new[] { ("snippets", T["CustomLua.Tab.Snippets"]), ("reference", T["CustomLua.Tab.Reference"]), ("actions", T["CustomLua.Tab.Actions"]) })
+                @foreach (var (key, label) in new[] { ("snippets", T["CustomLua.Tab.Snippets"]), ("reference", T["CustomLua.Tab.Reference"]), ("actions", T["CustomLua.Tab.Actions"]), ("diagnostics", T["CustomLua.Tab.Diagnostics"]) })
                 { <button role="tab" class="@(Tab == key ? "active" : "")" aria-selected="@(Tab == key)" data-custom-lua-tab="@key" @onclick="() => Tab = key">@label</button> }
             </div>
-            @if (sdk?.Events == null) { <p class="notice warning">@T.Format("CustomLua.NoCatalogSide", "sdk/EventCatalog.json")</p> }
+            @* The diagnostics reference reads the Lua stub, not the event catalog. *@
+            @if (Tab == "diagnostics") { <DiagnosticsReference Insert="Insert" /> }
+            else if (sdk?.Events == null) { <p class="notice warning">@T.Format("CustomLua.NoCatalogSide", "sdk/EventCatalog.json")</p> }
             else if (Tab == "snippets")
             {
                 @foreach (var s in LuaSnippets.For(sdk, project.ResourceId))
@@ -72,7 +75,7 @@ else
                         <p class="subtle">@s.Description</p><small class="subtle">@string.Join(" · ", s.Uses)</small></div>
                 }
             }
-            else if (Tab == "reference") { <EventReference /> }
+            else if (Tab == "reference") { <EventReference Insert="Insert" /> }
             else { <EventActionPicker Insert="Insert" /> }
         </aside>
     </div>

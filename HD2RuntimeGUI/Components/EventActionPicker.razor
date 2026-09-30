@@ -1,17 +1,32 @@
 @inject BuilderWorkspace Workspace
-@* Searchable pickers for what event scripts can make the game do, from the SDK's EventCatalog.json: explosions, projectiles, statuses and
-   healing. Each shows Runtime's limits (host only, in a mission, rate limits), whether it is live-proven, and what loads its assets.
-   Nothing here is implied to be proven when the catalog does not say so. Labels and limits are UI text; names, API calls and the catalog's
-   own descriptions are shown as published, and the inserted Lua never depends on the UI language. *@
-@{ var catalog = Workspace.Metadata?.Events; var assets = Workspace.Metadata?.Assets; }
+@* Searchable pickers for what event scripts can react to and make the game do, from the SDK's EventCatalog.json: every event (a
+   subscription skeleton; blocked events with Runtime's reason), explosions, projectiles, statuses, healing and the weapon in hand. Each
+   action shows Runtime's limits (host only, in a mission, rate limits), its options, whether it is live-proven (the catalog's own flags,
+   and the live-evidence families of LiveEvidenceCatalog.json), and what loads its assets. Nothing here is implied to be proven when the
+   SDK does not say so. Labels and limits are UI text; names, API calls and the SDK's own descriptions are shown as published, and the
+   inserted Lua never depends on the UI language. *@
+@{ var catalog = Workspace.Metadata?.Events; var evidence = Workspace.Metadata?.LiveEvidence; }
 @if (catalog != null)
 {
     var a = catalog.Actions;
+    var player = catalog.Handles.GetValueOrDefault("HD2PlayerHandle");
     <div class="event-actions" data-event-actions>
         <label class="reference-search">@T["Common.Search"]<input data-action-search @bind="Search" @bind:event="oninput" placeholder="Hellbomb, Eruptor, fire…" /></label>
+        <section class="action-group" data-action-group="events">
+            <h3 class="group-title">@T["EventActions.Events.Title"] <small class="subtle">hd2.events.on</small></h3>
+            <p class="subtle">@T.Markup("EventActions.Events.Summary.Html", "hd2.events.on")</p>
+            @foreach (var e in catalog.Events.Where(e => Match(e.Name, e.Source, e.Summary)))
+            {
+                <div class="action-row" data-action-event="@e.Name"><span><code>@e.Name</code>@if (!e.IsAvailable) { <small class="subtle action-doc" data-event-blocked>@e.Reason</small> }</span>
+                    <span>@if (e.IsAvailable) { <span class="badge" title="@catalog.Sources.GetValueOrDefault(e.Source ?? "")">@e.Source</span> } else { <span class="badge red">@e.Status</span> }
+                        @if (ScriptingReference.Evidence(evidence, e.Name).Any(x => x.LiveProven)) { <span class="badge green" data-live-proven>@T["EventActions.LiveProven"]</span> }</span>
+                    @if (LuaSnippets.Handler(catalog, e) is { } handler) { <button class="small" data-action-insert @onclick="() => Insert.InvokeAsync(handler)">@T["Common.Insert"]</button> } else { <span></span> }</div>
+            }
+        </section>
         <section class="action-group" data-action-group="explosions">
             <h3 class="group-title">@T["EventActions.Explosions.Title"] <small class="subtle">@a.Explosions.Api</small></h3>
             <p class="subtle">@T.Format("EventActions.Explosions.Summary", Limits(T, a.Explosions.HostOnly, a.Explosions.InMissionOnly, a.Explosions.RateLimit), a.Explosions.CreditedTo.Replace('_', ' '), a.Explosions.OtherPlayersSee, a.Explosions.Assets)</p>
+            <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, a.Explosions.Api)" />
             @foreach (var n in a.Explosions.Named.Where(n => Match(n.Name, string.Join(" ", n.Aliases))))
             {
                 var name = n.Aliases.FirstOrDefault() ?? n.Name;
@@ -29,6 +44,8 @@
         <section class="action-group" data-action-group="projectiles">
             <h3 class="group-title">@T["EventActions.Projectiles.Title"] <small class="subtle">@a.Projectiles.Api</small></h3>
             <p class="subtle">@T.Format("EventActions.Projectiles.Summary", Limits(T, a.Projectiles.HostOnly, a.Projectiles.InMissionOnly, a.Projectiles.RateLimit), string.Join(" · ", a.Projectiles.SideEffects), a.Projectiles.OtherPlayersSee, a.Projectiles.Assets)</p>
+            @Options(a.Projectiles.Options.Select(o => (o.Key, o.Value)))
+            <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, a.Projectiles.Api)" />
             @foreach (var w in a.Projectiles.Weapons.Where(w => Match(w)))
             {
                 <div class="action-row" data-action-projectile="@w"><span><strong>@w</strong></span><span>@Proof(a.Projectiles.LiveProven.Contains(w))@AssetBadge("player_weapon/" + w)</span>
@@ -38,6 +55,8 @@
         <section class="action-group" data-action-group="statuses">
             <h3 class="group-title">@T["EventActions.Statuses.Title"] <small class="subtle">@a.StatusEffects.Api</small></h3>
             <p class="subtle">@T.Format("EventActions.Statuses.Summary", Limits(T, a.StatusEffects.HostOnly, a.StatusEffects.InMissionOnly, a.StatusEffects.RateLimit), string.Join(" · ", a.StatusEffects.Unproven))</p>
+            @Options(JsonOptions(a.StatusEffects.Options))
+            <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, a.StatusEffects.Api)" />
             @foreach (var s in a.StatusEffects.Statuses.Where(s => Match(s.Id, s.Name, s.Family)))
             {
                 <div class="action-row" data-action-status="@s.Id"><span><code>@s.Id</code> <small class="subtle">@(s.Duration is { } d ? T.Format("EventActions.Status.FamilyDuration", s.Family, d.ToString(System.Globalization.CultureInfo.InvariantCulture)) : s.Family)</small></span><span>@Proof(s.LiveProven)</span>
@@ -46,23 +65,42 @@
         </section>
         <section class="action-group" data-action-group="healing">
             <h3 class="group-title">@T["EventActions.Healing.Title"] <small class="subtle">hd2.actions.heal</small></h3>
+            <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, HealApi)" />
             @if (catalog.Api.Classes.GetValueOrDefault("HD2Actions")?.Methods?.FirstOrDefault(m => m.Name == "heal") is { } heal)
             {
-                <div class="action-row" data-action-heal><span><code>@heal.Signature</code><small class="subtle"> @heal.Doc</small></span><span></span>
+                <div class="action-row" data-action-heal><span><code>@heal.Signature</code><small class="subtle action-doc">@heal.Doc</small></span><span></span>
                     <button class="small" data-action-insert @onclick="Heal">@T["Common.Insert"]</button></div>
+            }
+            @if (player?.Methods.FirstOrDefault(m => m.Name == "heal") is { } playerHeal)
+            {
+                <div class="action-row" data-action-player-heal><span><code>player:@playerHeal.Signature</code><small class="subtle action-doc">@playerHeal.Doc</small></span><span></span>
+                    <button class="small" data-action-insert @onclick="PlayerHeal">@T["Common.Insert"]</button></div>
             }
             <p class="subtle">@T.Format("EventActions.SpawnEntity", a.SpawnEntity.Status, a.SpawnEntity.Reason)</p>
         </section>
+        @if (player?.Methods.FirstOrDefault(m => m.Name == "equipped_weapon") is { } held)
+        {
+            <section class="action-group" data-action-group="weapon-in-hand">
+                <h3 class="group-title">@T["EventActions.WeaponInHand.Title"] <small class="subtle">player:equipped_weapon</small></h3>
+                <p class="subtle">@T.Markup("EventActions.WeaponInHand.Help.Html", "player_kill_credited", "player_damage_dealt", "sources")</p>
+                <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, ScriptingReference.HandleSubject(PlayerHandle, held.Name))" />
+                <div class="action-row" data-action-equipped-weapon><span><code>player:@held.Signature</code><small class="subtle action-doc">@held.Doc</small></span><span></span>
+                    <button class="small" data-action-insert @onclick="EquippedWeapon">@T["Common.Insert"]</button></div>
+            </section>
+        }
     </div>
 }
 @code {
     [Parameter] public EventCallback<string> Insert { get; set; }
+    private const string HealApi = "hd2.actions.heal", PlayerHandle = "HD2PlayerHandle";
     private string Search = "";
-    // Inserted calls use the catalogued name verbatim; positions and entities come from the event the user is handling.
-    private Task Explosion(string name) => Insert.InvokeAsync("hd2.explosions.spawn(" + LuaGenerator.Quote(name) + ", {position = event.position})\n");
-    private Task Projectile(string weapon) => Insert.InvokeAsync("hd2.projectiles.spawn(" + LuaGenerator.Quote(weapon) + ", {position = position, direction = {x = 1, y = 0, z = 0}})\n");
-    private Task Status(string id) => Insert.InvokeAsync("hd2.status.apply(event.entity, " + LuaGenerator.Quote(id) + ", {buildup = 100})\n");
-    private Task Heal() => Insert.InvokeAsync("local amount, why = hd2.actions.heal(25)\n");
+    // Inserted calls (LuaSnippets.Calls) use the catalogued name verbatim; positions and entities come from the event the user is handling.
+    private Task Explosion(string name) => Insert.InvokeAsync(LuaSnippets.Calls.Explosion(name));
+    private Task Projectile(string weapon) => Insert.InvokeAsync(LuaSnippets.Calls.Projectile(weapon));
+    private Task Status(string id) => Insert.InvokeAsync(LuaSnippets.Calls.Status(id));
+    private Task Heal() => Insert.InvokeAsync(LuaSnippets.Calls.Heal);
+    private Task PlayerHeal() => Insert.InvokeAsync(LuaSnippets.Calls.PlayerHeal);
+    private Task EquippedWeapon() => Insert.InvokeAsync(LuaSnippets.Calls.EquippedWeapon);
     private bool Match(params string?[] values) => Search.Trim().Length == 0 || values.Any(v => v?.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase) == true);
     // Runtime's limits for an action: where it may run (host only, in a mission), then its rate limit per mod and, where the catalog has
     // one, per target. Each combination is one template, so a translation can order it naturally.
@@ -71,6 +109,24 @@
         var rate = r.PerTargetBurst is { } target ? t.Format("EventActions.Limits.RatePerTarget", r.Burst, r.PerSecond, target) : t.Format("EventActions.Limits.Rate", r.Burst, r.PerSecond);
         return host && mission ? t.Format("EventActions.Limits.HostInMission", rate) : host ? t.Format("EventActions.Limits.Host", rate) : mission ? t.Format("EventActions.Limits.InMission", rate) : rate;
     }
+    // An action's options as the catalog publishes them: a text, or an object of named values (buildup: default, bounds, meaning).
+    private static IEnumerable<(string Key, string Value)> JsonOptions(System.Text.Json.JsonElement options) =>
+        options.ValueKind != System.Text.Json.JsonValueKind.Object ? [] : options.EnumerateObject().Select(o => (o.Name, o.Value.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.String => o.Value.GetString() ?? "",
+            System.Text.Json.JsonValueKind.Object => string.Join(" · ", o.Value.EnumerateObject().Select(p => p.Name + " " + (p.Value.ValueKind == System.Text.Json.JsonValueKind.String ? p.Value.GetString() : p.Value.GetRawText()))),
+            _ => o.Value.GetRawText(),
+        }));
+    private RenderFragment Options(IEnumerable<(string Key, string Value)> options) => __builder =>
+    {
+        var list = options.ToArray();
+        if (list.Length > 0)
+        {
+            <table class="reference-table" data-action-options><thead><tr><th colspan="2">@T["EventActions.Options"]</th></tr></thead><tbody>
+                @foreach (var (key, value) in list) { <tr><td><code>@key</code></td><td class="subtle">@value</td></tr> }
+            </tbody></table>
+        }
+    };
     private RenderFragment Proof(bool live) => __builder =>
     {
         if (live) { <span class="badge green" data-live-proven>@T["EventActions.LiveProven"]</span> }

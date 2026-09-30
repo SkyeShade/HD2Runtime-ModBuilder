@@ -995,6 +995,10 @@
     <value>Actions</value>
     <comment>Side panel tab (gameplay action pickers)</comment>
   </data>
+  <data name="CustomLua.Tab.Diagnostics" xml:space="preserve">
+    <value>Diagnostics</value>
+    <comment>Custom Lua side panel tab: the diagnostics reference (write conflicts, telemetry, logs). new: needs native review</comment>
+  </data>
   <data name="CustomLua.Tab.Reference" xml:space="preserve">
     <value>Reference</value>
     <comment>Side panel tab (event API reference)</comment>
@@ -1047,6 +1051,86 @@
   <data name="Desktop.Picker.WeaponMap" xml:space="preserve">
     <value>Link Runtime snapshot weapon-map report</value>
     <comment>File picker title</comment>
+  </data>
+  <data name="Diagnostics.InsertSnippet" xml:space="preserve">
+    <value>Insert: {0}</value>
+    <comment>Button. {0}: a snippet title (Snippets.*.Title). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Intro" xml:space="preserve">
+    <value>Two cheap Runtime diagnostics help tell whether HD2Runtime is involved when a large mod setup loses frames. They do not assume Runtime is the cause, and they do not prove it isn't.</value>
+    <comment>Diagnostics reference intro (paraphrases the SDK's docs/diagnostics.md). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.LogLines" xml:space="preserve">
+    <value>Runtime logs, for example:</value>
+    <comment>Label above example log lines (Runtime's own output, not translated). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Logs.Help.Html" xml:space="preserve">
+    <value>&lt;code&gt;{0}&lt;/code&gt; writes a line to &lt;code&gt;{1}&lt;/code&gt;, prefixed with the mod id. A failing callback (event, timer or keybind) is logged with the mod, the event and the error, never stops the other subscribers, and disables its subscription after &lt;code&gt;{2}&lt;/code&gt; consecutive failures.</value>
+    <comment>{0}: mod:log (API call); {1}: HD2Runtime.log (file name); {2}: max_failures (option name). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Logs.Skipped.Html" xml:space="preserve">
+    <value>A generated operation whose request fails to build (an unknown name, a missing field constant) is skipped with a &lt;code&gt;{0}&lt;/code&gt; line; the operations after it still register.</value>
+    <comment>{0}: the log prefix ModBuilder's generated code prints ([ModBuilder] operation skipped:). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Logs.Title" xml:space="preserve">
+    <value>Logs</value>
+    <comment>Diagnostics reference section heading. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.NoStub" xml:space="preserve">
+    <value>The bound SDK ({1}) has no Lua stub declaration for {0}. Runtime diagnostics are published from HD2Runtime 0.28.0.</value>
+    <comment>{0}: hd2.diagnostics (API name); {1}: SDK version. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Status.Help" xml:space="preserve">
+    <value>Read-only: log them from a keybind or when the mission ends to see what Runtime observes and why an event or action is unavailable.</value>
+    <comment>Diagnostics reference: the status queries section. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Status.Title" xml:space="preserve">
+    <value>Status queries</value>
+    <comment>Diagnostics reference section heading. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Never" xml:space="preserve">
+    <value>ModBuilder never turns telemetry on: no generated operation, snippet or insert button contains it. To produce a report, add the documented call to your custom Lua yourself:</value>
+    <comment>Diagnostics reference: shown above the documented opt-in call. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Query.Html" xml:space="preserve">
+    <value>&lt;code&gt;{0}&lt;/code&gt; without arguments returns the state and the running interval's sections.</value>
+    <comment>{0}: hd2.diagnostics.telemetry() (API call). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Report.Html" xml:space="preserve">
+    <value>To ask for a report, a user with a large setup adds a small mod that enables telemetry, plays one mission and sends &lt;code&gt;{0}&lt;/code&gt;. The checks below the editor warn while a script turns telemetry on, so it does not end up in a published mod by accident.</value>
+    <comment>{0}: HD2Runtime.log (file name). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Sections" xml:space="preserve">
+    <value>Every report interval, Runtime then logs the average, p95, p99 and maximum of its whole per-frame update, of one ensure byte-check and of event polling, with the active ensures and re-applications. Disabled, it costs one boolean test per timed section; timing needs the game's precise clock (in game).</value>
+    <comment>Diagnostics reference: what telemetry logs. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Title" xml:space="preserve">
+    <value>Telemetry (off by default)</value>
+    <comment>Diagnostics reference section heading. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.How.Html" xml:space="preserve">
+    <value>An &lt;code&gt;{0}&lt;/code&gt; keeps its target at the value it wrote and re-checks only the bytes it owns. When those bytes changed while their allocation is still the reviewed one, something else wrote them: Runtime re-applies its value and counts the change for that operation.</value>
+    <comment>{0}: hd2.ensure (API name). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.ModBuilder.Html" xml:space="preserve">
+    <value>Operation ids that start with &lt;code&gt;{0}&lt;/code&gt; are the edits ModBuilder generated.</value>
+    <comment>{0}: the generated operation id prefix (gui-). new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.NotCounted" xml:space="preserve">
+    <value>A game reallocation is not a write conflict: the game rebuilt its data, and Runtime re-resolves it the normal way. The counting runs only on a detected drift, never per frame.</value>
+    <comment>Diagnostics reference: what is not counted, and the cost. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.Reading" xml:space="preserve">
+    <value>Two mods writing the same bytes fight: each re-applies its own value, Runtime at most once per verification interval. If a report shows conflicts, remove one of the two mods (or one of the two edits); if it shows none, a frame-rate loss is not Runtime fighting another writer.</value>
+    <comment>Diagnostics reference: how to read a write-conflict report. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.Title" xml:space="preserve">
+    <value>Write conflicts (always on)</value>
+    <comment>Diagnostics reference section heading. new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.Warning" xml:space="preserve">
+    <value>After 3 external changes within the operation's window (five of its verification intervals, at least 10 s), Runtime logs one line naming the operation, its target and up to four fields, the count and the time span. The next warning for that operation waits a full window.</value>
+    <comment>Diagnostics reference: when the write-conflict warning is logged. new: needs native review</comment>
   </data>
   <data name="DropPod.Compatibility.Title" xml:space="preserve">
     <value>Gameplay compatibility unverified</value>
@@ -1824,6 +1908,14 @@
     <value>Assets unknown</value>
     <comment>Badge</comment>
   </data>
+  <data name="EventActions.Events.Summary.Html" xml:space="preserve">
+    <value>Insert an &lt;code&gt;{0}&lt;/code&gt; subscription that lists the event's payload fields. Blocked events stay listed with Runtime's reason.</value>
+    <comment>{0}: hd2.events.on (API name). new: needs native review</comment>
+  </data>
+  <data name="EventActions.Events.Title" xml:space="preserve">
+    <value>Events</value>
+    <comment>Action picker group heading. new: needs native review</comment>
+  </data>
   <data name="EventActions.Explosions.Summary" xml:space="preserve">
     <value>{0} · credited to {1} · other players see it: {2} · {3}</value>
     <comment>{0}: Runtime limits (EventActions.Limits.*); {1}: who kills are credited to, from the SDK (e.g. local player); {2}: SDK text on whether other players see it; {3}: SDK note on assets</comment>
@@ -1867,6 +1959,10 @@
   <data name="EventActions.NotLiveTested.Tooltip" xml:space="preserve">
     <value>Catalogued and guarded, but not tested in play</value>
   </data>
+  <data name="EventActions.Options" xml:space="preserve">
+    <value>Options</value>
+    <comment>Table heading: an action's options as the SDK publishes them. new: needs native review</comment>
+  </data>
   <data name="EventActions.Projectiles.Summary" xml:space="preserve">
     <value>{0} · {1} · other players see it: {2} · {3}</value>
     <comment>{0}: Runtime limits (EventActions.Limits.*); {1}: SDK side effects joined with ·; {2}: SDK text on whether other players see it; {3}: SDK note on assets</comment>
@@ -1902,6 +1998,14 @@
     <value>weapon explosion</value>
     <comment>After a weapon name in the explosion list</comment>
   </data>
+  <data name="EventActions.WeaponInHand.Help.Html" xml:space="preserve">
+    <value>What the local player holds now, re-read on every call. It is not kill attribution: the weapon in hand did not necessarily make a kill. Use the &lt;code&gt;{2}&lt;/code&gt; of &lt;code&gt;{0}&lt;/code&gt; or &lt;code&gt;{1}&lt;/code&gt; for that.</value>
+    <comment>{0}: player_kill_credited; {1}: player_damage_dealt (event names); {2}: sources (payload field). new: needs native review</comment>
+  </data>
+  <data name="EventActions.WeaponInHand.Title" xml:space="preserve">
+    <value>Weapon in hand</value>
+    <comment>Action picker group heading. new: needs native review</comment>
+  </data>
   <data name="EventReference.EveryTick.Label" xml:space="preserve">
     <value>every tick</value>
     <comment>Badge on events raised every game update</comment>
@@ -1920,6 +2024,14 @@
   <data name="EventReference.Handles.Note" xml:space="preserve">
     <value>Identity fields are snapshots and stay valid after the entity is gone. Live queries read the game now and return nil / false once the entity is destroyed, its id reused or the mission ended. Positions in payloads are read-only snapshots.</value>
     <comment>nil / false are Lua values (keep)</comment>
+  </data>
+  <data name="EventReference.InsertHandler.Label" xml:space="preserve">
+    <value>Insert handler</value>
+    <comment>Button in an event's reference entry. new: needs native review</comment>
+  </data>
+  <data name="EventReference.InsertHandler.Tooltip" xml:space="preserve">
+    <value>Insert an {0} subscription that lists this event's payload fields</value>
+    <comment>Tooltip. {0}: hd2.events.on (API name). new: needs native review</comment>
   </data>
   <data name="EventReference.Live" xml:space="preserve">
     <value>(live)</value>
@@ -2678,6 +2790,10 @@
   <data name="LuaCheck.Syntax.Vararg" xml:space="preserve">
     <value>cannot use '...' outside a vararg function near '{0}'</value>
     <comment>Lua syntax error. {0}: the token found</comment>
+  </data>
+  <data name="LuaCheck.TelemetryEnabled" xml:space="preserve">
+    <value>{0} turns Runtime telemetry on for everyone who runs this mod: timing reports are written to {1} at every interval. Telemetry is off by default; keep this call to a small diagnostic mod made for one report.</value>
+    <comment>Custom Lua warning. {0}: hd2.diagnostics.telemetry (API name); {1}: HD2Runtime.log (file name). new: needs native review</comment>
   </data>
   <data name="LuaCheck.UnknownEnemy" xml:space="preserve">
     <value>'{0}' is not a catalogued enemy or structure semantic id; comparisons with it never match.</value>
@@ -4896,6 +5012,22 @@
   <data name="Provenance.SchemaLabelled" xml:space="preserve">
     <value>Schema-labelled</value>
   </data>
+  <data name="ScriptEvidence.NotPromoted" xml:space="preserve">
+    <value>Not proven: {0}</value>
+    <comment>{0}: what the live test did not prove, SDK text joined with ·. new: needs native review</comment>
+  </data>
+  <data name="ScriptEvidence.Scope" xml:space="preserve">
+    <value>Proven: {0}</value>
+    <comment>{0}: the evidence family's scope, SDK text. new: needs native review</comment>
+  </data>
+  <data name="ScriptEvidence.Summary" xml:space="preserve">
+    <value>Live evidence</value>
+    <comment>Collapsible label for a live-evidence family (LiveEvidenceCatalog). new: needs native review</comment>
+  </data>
+  <data name="ScriptEvidence.Tests" xml:space="preserve">
+    <value>Tests: {0}</value>
+    <comment>{0}: live test project names, SDK text. new: needs native review</comment>
+  </data>
   <data name="Sdk.Capabilities.Ambiguous.One" xml:space="preserve">
     <value>{0} ambiguous identity fails closed. Shared settings are flagged with a warning.</value>
     <comment>{0}: number of weapons with an ambiguous identity</comment>
@@ -5181,6 +5313,14 @@
     <value>Snapshot Browser</value>
     <comment>Page heading</comment>
   </data>
+  <data name="Snippets.DamageDealtHeal.Description" xml:space="preserve">
+    <value>Heal 25 whenever the game records damage dealt by the {0} (player_damage_dealt names each source exactly). The knife attribution and this heal are live-proven; other throwables and a damage-proportional heal are not.</value>
+    <comment>Snippet description. {0}: throwable name (SDK name, K-2 Throwing Knife). new: needs native review</comment>
+  </data>
+  <data name="Snippets.DamageDealtHeal.Title" xml:space="preserve">
+    <value>Heal on throwable damage</value>
+    <comment>Snippet title (player_damage_dealt). new: needs native review</comment>
+  </data>
   <data name="Snippets.EnemyDeathCallback.Description" xml:space="preserve">
     <value>React to one enemy class dying: keep the snapshot position, then request an explosion there 1 to 10 seconds later (mission-scoped timer).</value>
   </data>
@@ -5227,6 +5367,14 @@
     <value>Player death explosion</value>
     <comment>Lua snippet title</comment>
   </data>
+  <data name="Snippets.PlayerHitAccuracy.Description" xml:space="preserve">
+    <value>Count the shots (player_fired) and projectile hits (player_hit) the game records per weapon, and log them when the mission ends. Thrown weapons are not projectiles: they appear only in player_damage_dealt.</value>
+    <comment>Snippet description. Event names stay as written. new: needs native review</comment>
+  </data>
+  <data name="Snippets.PlayerHitAccuracy.Title" xml:space="preserve">
+    <value>Hits per weapon</value>
+    <comment>Snippet title (player_hit). new: needs native review</comment>
+  </data>
   <data name="Snippets.ProjectileSpawn.Description" xml:space="preserve">
     <value>Fire a catalogued weapon projectile from above the local player (host only, in a mission). Live-proven for {0}.</value>
     <comment>{0}: weapon names joined with ', ' (SDK names)</comment>
@@ -5256,6 +5404,14 @@
   <data name="Snippets.WeaponChanged.Title" xml:space="preserve">
     <value>Weapon-changed event</value>
     <comment>Lua snippet title</comment>
+  </data>
+  <data name="Snippets.WriteConflicts.Description" xml:space="preserve">
+    <value>When the mission ends, log every operation something else kept overwriting (hd2.diagnostics.write_conflicts). It only reads the always-on report: telemetry stays off.</value>
+    <comment>Snippet description. new: needs native review</comment>
+  </data>
+  <data name="Snippets.WriteConflicts.Title" xml:space="preserve">
+    <value>Write-conflict report</value>
+    <comment>Snippet title (hd2.diagnostics.write_conflicts). new: needs native review</comment>
   </data>
   <data name="Stratagem.Acquisition.WorldPickup" xml:space="preserve">
     <value>World Pickup</value>

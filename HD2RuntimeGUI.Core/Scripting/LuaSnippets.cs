@@ -168,6 +168,115 @@ public static class LuaSnippets
                 end)
 
                 """, ["entity_killed", "mission_ended"]));
+        // player_hit (0.28.0): projectile hits per source next to player_fired's shots, logged when the mission ends (mod.mission is still
+        // readable in mission_ended).
+        if (Event("player_fired") && Event("player_hit") && Event("mission_ended"))
+            result.Add(new("player-hit-accuracy", CoreText.Get("Snippets.PlayerHitAccuracy.Title"), CoreText.Get("Snippets.PlayerHitAccuracy.Description"),
+                """
+                local accuracy_mod = hd2.mod()
+                local function tally(key, event, count)
+                    local totals = accuracy_mod.mission[key] or {}
+                    accuracy_mod.mission[key] = totals
+                    for _, source in ipairs(event.sources) do
+                        local name = source.name or ('unnamed ' .. source.type)
+                        totals[name] = (totals[name] or 0) + (source[count] or 0)
+                    end
+                end
+                hd2.events.on('player_fired', function(event) tally('shots', event, 'shots') end)
+                hd2.events.on('player_hit', function(event) tally('hits', event, 'hits') end)
+                hd2.events.on('mission_ended', function()
+                    local shots, hits = accuracy_mod.mission.shots or {}, accuracy_mod.mission.hits or {}
+                    for name, fired in pairs(shots) do
+                        accuracy_mod:log(('%s: %d hits from %d shots'):format(name, hits[name] or 0, fired))
+                    end
+                end)
+
+                """, ["player_fired", "player_hit", "mission_ended"]));
+        // player_damage_dealt (0.28.0): heal on the damage a throwable deals. The K-2 Throwing Knife is keyed by itself in the game's damage
+        // stats and never appears in player_hit (it is not a projectile-system projectile); the knife attribution and heal(25) from this
+        // handler are what the SDK's live evidence records (event_damage_source_attribution, event_action_heal).
+        if (Event("player_damage_dealt") && sdk.Entities?.Throwables?.Find("K-2 Throwing Knife")?.Name is { } knife)
+            result.Add(new("damage-dealt-heal", CoreText.Get("Snippets.DamageDealtHeal.Title"), CoreText.Format("Snippets.DamageDealtHeal.Description", knife),
+                $$"""
+                local KNIFE = {{Generation.LuaGenerator.Quote(knife)}}
+                hd2.events.on('player_damage_dealt', function(event)
+                    for _, source in ipairs(event.sources) do
+                        if source.name == KNIFE and (source.damage or 0) > 0 then
+                            local amount, why = hd2.actions.heal(25)
+                            if not amount then hd2.mod():log('heal refused: ' .. tostring(why)) end
+                            return
+                        end
+                    end
+                end)
+
+                """, ["player_damage_dealt", "hd2.actions.heal"]));
+        // Diagnostics (hd2.diagnostics, docs/diagnostics.md): read the always-on write-conflict report. Telemetry is never part of a snippet.
+        if (Event("mission_ended") && sdk.LuaApi?.Resolve(RuntimeDiagnostics.WriteConflicts) != null)
+            result.Add(new(RuntimeDiagnostics.WriteConflictsSnippet, CoreText.Get("Snippets.WriteConflicts.Title"), CoreText.Get("Snippets.WriteConflicts.Description"),
+                """
+                hd2.events.on('mission_ended', function()
+                    for _, conflict in ipairs(hd2.diagnostics.write_conflicts()) do
+                        hd2.mod():log(('write conflict: %s (%s) re-applied %d times'):format(conflict.operation, tostring(conflict.target), conflict.externalChanges))
+                    end
+                end)
+
+                """, ["mission_ended", RuntimeDiagnostics.WriteConflicts]));
         return result;
+    }
+
+    /// <summary>What the action pickers insert: one call each, with the catalogued name verbatim. Positions and entities come from the
+    /// event the user is handling (event.position, event.entity).</summary>
+    public static class Calls
+    {
+        public static string Explosion(string name) => "hd2.explosions.spawn(" + Generation.LuaGenerator.Quote(name) + ", {position = event.position})\n";
+        public static string Projectile(string weapon) => "hd2.projectiles.spawn(" + Generation.LuaGenerator.Quote(weapon) + ", {position = position, direction = {x = 1, y = 0, z = 0}})\n";
+        public static string Status(string id) => "hd2.status.apply(event.entity, " + Generation.LuaGenerator.Quote(id) + ", {buildup = 100})\n";
+        public const string Heal = "local amount, why = hd2.actions.heal(25)\n";
+        public const string PlayerHeal = """
+            local player = hd2.local_player()
+            if player then
+                local amount, why = player:heal(25)
+                if not amount then hd2.mod():log('heal refused: ' .. tostring(why)) end
+            end
+
+            """;
+        public const string EquippedWeapon = """
+            local player = hd2.local_player()
+            if player then
+                local weapon, why = player:equipped_weapon()
+                hd2.mod():log(weapon and (tostring(weapon.name) .. ' in the ' .. tostring(weapon.slot) .. ' slot') or ('nothing in hand: ' .. tostring(why)))
+            end
+
+            """;
+    }
+
+    /// <summary>A subscription to one catalogued event, listing its payload fields (and, for an array of plain records such as
+    /// event.sources, the record fields this event fills). Blocked events have none.</summary>
+    public static string? Handler(EventCatalog catalog, EventDefinition e)
+    {
+        if (!e.IsAvailable) return null;
+        var code = new System.Text.StringBuilder("hd2.events.on(" + Generation.LuaGenerator.Quote(e.Name) + ", function(event)\n");
+        Comment(code, "    ", (e.Payload ?? []).Select(f => "event." + f.Name));
+        foreach (var f in (e.Payload ?? []).Where(f => f.Type.EndsWith("[]", StringComparison.Ordinal)))
+        {
+            var detail = ScriptingReference.Detail(catalog, e, f);
+            if (detail.Length == 0) continue;
+            var item = f.Name.EndsWith('s') && f.Name.Length > 1 ? f.Name[..^1] : "item";
+            code.Append("    for _, ").Append(item).Append(" in ipairs(event.").Append(f.Name).Append(") do\n");
+            Comment(code, "        ", detail.Select(d => item + "." + d[0].TrimEnd('?')));
+            code.Append("    end\n");
+        }
+        return code.Append("end)\n").ToString();
+    }
+    // "-- a, b, c" comment lines of at most about 100 characters.
+    private static void Comment(System.Text.StringBuilder code, string indent, IEnumerable<string> names)
+    {
+        var line = "";
+        foreach (var name in names)
+        {
+            if (line.Length > 0 && indent.Length + line.Length + name.Length > 100) { code.Append(indent).Append("-- ").Append(line).Append(",\n"); line = ""; }
+            line = line.Length == 0 ? name : line + ", " + name;
+        }
+        if (line.Length > 0) code.Append(indent).Append("-- ").Append(line).Append('\n');
     }
 }

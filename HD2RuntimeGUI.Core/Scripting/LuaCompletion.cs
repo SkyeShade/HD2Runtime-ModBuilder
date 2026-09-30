@@ -2,10 +2,11 @@ using HD2RuntimeGUI.Core.Metadata;
 
 namespace HD2RuntimeGUI.Core.Scripting;
 
-// The editor's autocomplete data (serialized to lua-editor.js): the stub's classes and aliases (member name, kind, signature, type, doc)
-// and the literal lists the event catalog publishes for event names, explosions, projectiles and statuses. Without a stub, the event
-// catalog's API classes are used; without either, only the literal lists are offered.
-public sealed record LuaCompletionItem(string N, string K, string? S, string? T, string? D);
+// The editor's autocomplete data (serialized to lua-editor.js): the stub's classes and aliases (member name, kind, signature, type, doc
+// and the first parameter's type, whose alias or inline literals the editor offers inside a call's first string argument) and the literal
+// lists the event catalog publishes for event names, explosions, projectiles and statuses. Without a stub, the event catalog's API
+// classes are used; without either, only the literal lists are offered.
+public sealed record LuaCompletionItem(string N, string K, string? S, string? T, string? D, string? P = null);
 public sealed record LuaCompletionData(string Root, Dictionary<string, LuaCompletionItem[]> Classes, Dictionary<string, string[]> Aliases, Dictionary<string, string[]> Strings);
 
 public static class LuaCompletion
@@ -17,7 +18,7 @@ public static class LuaCompletion
         var root = "";
         if (sdk?.LuaApi is { } api)
         {
-            foreach (var (name, members) in api.Classes) classes[name] = members.Select(m => new LuaCompletionItem(m.Name, m.Kind, m.Signature, m.Type, Trim(m.Doc))).ToArray();
+            foreach (var (name, members) in api.Classes) classes[name] = members.Select(m => new LuaCompletionItem(m.Name, m.Kind, m.Signature, m.Type, Trim(m.Doc), m.Param)).ToArray();
             foreach (var (name, values) in api.Aliases) aliases[name] = values;
             root = api.RootClass;
         }
@@ -26,10 +27,13 @@ public static class LuaCompletion
             // No stub: the event catalog's own API classes and the hd2 table's scripting members.
             foreach (var (name, c) in events.Api.Classes)
                 classes[name] = (c.Fields ?? []).Select(f => new LuaCompletionItem(f[0].TrimEnd('?'), "field", null, f.Length > 1 ? f[1] : null, f.Length > 2 ? Trim(f[2]) : null))
-                    .Concat((c.Methods ?? []).Select(m => new LuaCompletionItem(m.Name, "method", m.Signature, m.Returns, Trim(m.Doc)))).ToArray();
+                    .Concat((c.Methods ?? []).Select(m => new LuaCompletionItem(m.Name, "method", m.Signature, m.Returns, Trim(m.Doc), FirstParam(m)))).ToArray();
+            foreach (var (name, h) in events.Handles)
+                classes[name] = h.Fields.Select(f => new LuaCompletionItem(f[0].TrimEnd('?'), "field", null, f.Length > 1 ? f[1] : null, f.Length > 2 ? Trim(f[2]) : null))
+                    .Concat(h.Methods.Select(m => new LuaCompletionItem(m.Name, "method", m.Signature, m.Returns, Trim(m.Doc), FirstParam(m)))).ToArray();
             root = "hd2";
             classes[root] = events.Api.Fields.Select(f => new LuaCompletionItem(f[0], "field", null, f[1], null))
-                .Concat(events.Api.Functions.Select(f => new LuaCompletionItem(f.Name, "function", f.Signature, f.Returns, Trim(f.Doc)))).ToArray();
+                .Concat(events.Api.Functions.Select(f => new LuaCompletionItem(f.Name, "function", f.Signature, f.Returns, Trim(f.Doc), FirstParam(f)))).ToArray();
         }
         var strings = new Dictionary<string, string[]>(StringComparer.Ordinal);
         if (sdk?.Events is { } catalog)
@@ -42,5 +46,6 @@ public static class LuaCompletion
         }
         return new(root, classes, aliases, strings);
     }
+    private static string? FirstParam(ApiMethod m) => m.Params.FirstOrDefault() is { Length: > 1 } p ? p[1] : null;
     private static string? Trim(string? doc) => doc is { Length: > 240 } ? doc[..240] + "…" : doc;
 }

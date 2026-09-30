@@ -40,9 +40,10 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
 
 | File | Contract | Use |
 | --- | --- | --- |
-| `EventCatalog.json` | `hd2runtime.events.v1` | Events with payloads (type, nil-ability, phase, source); the scripting API (functions, classes, methods); live/snapshot handles; the dispatch model; actions: explosions (named + weapons), projectiles, statuses (limits, host only, live proof, assets), spawn-entity status. Read when present, required from 0.28.0. |
+| `EventCatalog.json` | `hd2runtime.events.v1` | Frozen 0.28.0: 20 events (19 available, including the new `player_hit` and `player_damage_dealt`; `entity_damage_pre` blocked with its reason) with payloads (type, nil-ability, phase, source); the scripting API (6 functions, 28 classes including `HD2StatSource` with `hits` and `damage`); the `HD2EntityHandle` / `HD2PlayerHandle` live/snapshot handles; the dispatch model; actions: explosions (2 named + 13 weapons), 66 projectiles, 11 statuses (limits, host only, live proof, options, assets), spawn-entity blocked with its reason. Required from 0.28.0. |
 | `AttackOutputCapabilities.json` | `hd2runtime.attack_outputs.v1` schema 2 | Active projectile source per attack (ACTIVE_DIRECT / INDIRECT / AMBIGUOUS / BLOCKED), ammunition sources, proven compositions, host model, 105 outputs (66 selectable). Cross-checked against the player catalog. Read when present, required from 0.28.0. |
-| `stubs/mods/skyeshade/hd2runtime.lua` | LuaLS annotations | Autocomplete: classes, fields, methods, aliases, the `hd2` root class. Cached as `hd2runtime-stubs.lua` for every SDK that ships it; an unreadable stub only turns autocomplete off. |
+| `stubs/mods/skyeshade/hd2runtime.lua` | LuaLS annotations | Autocomplete and the diagnostics reference: all 195 classes of the frozen stub with their fields and functions (inherited members included, so an `HD2Event_*` payload has the common `event`, `time`, `frame`, `mission`, `cause`), the sub-tables declared on `hd2` (`hd2.diagnostics` through `---@type`, `hd2.compatibility.*`), every string alias (weapon, attack output, status, event names ...), and each function's first parameter type. Cached as `hd2runtime-stubs.lua` for every SDK that ships it; an unreadable stub only turns autocomplete off. |
+| `LiveEvidenceCatalog.json` | `hd2runtime.live_evidence.v1` | For scripting: the `events` / `event_actions` families (`event_action_heal`, `event_damage_source_attribution`, `event_weapon_in_hand`, `event_player_died_position`, `event_action_explosion_named`, `event_action_projectile`, `event_action_status`), shown next to the event, action or handle method they name. |
 | `BackpackAuthoringCapabilities.json` | (existing) | Now with `damageZones`, per-field `effect`, `rangeReason`. |
 | `PodPayloadCapabilities.json` | (existing) | Now with per-slot `liveVerifiedPickups` (Resupply: Grenade Box). |
 | `StratagemAuthoringCapabilities.json` | (existing) | Resupply (family `mission`), sentry turret/targeting and minefield salvo fields. |
@@ -74,22 +75,60 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
 - `LuaParser`: Lua 5.1 plus goto/labels, verified on every Runtime example addon. A syntax error blocks the build and export and reports its line.
 - `LuaScriptAnalyzer` rejects the addon header and `---@meta`, which the Runtime builder refuses in `addon.lua`.
 - It warns on literal names the catalog does not publish:
-  - events, and blocked events;
+  - events, and blocked events (with Runtime's reason);
   - explosions, projectiles and statuses;
   - keybind ids without a namespace;
   - unknown `enemy/v1/...` ids.
+- It warns when a script turns telemetry on (`hd2.diagnostics.telemetry({enabled = true, ...})`): that enables it for every player of the mod.
+- The generated file itself checks clean: the operations wrapped in `local function add(build) … pcall(build) … end`, then the custom Lua
+  (tested on a project with generated operations and every snippet inserted).
 
 **Editor** (`wwwroot/lua-editor.js`)
 
-- A plain textarea over a highlighted layer, with a gutter and error/warning markers.
-- Ctrl+Space completion from the stub and catalog strings (event, explosion, projectile and status names). Ctrl+S saves.
+- A plain textarea over a highlighted layer, with a gutter and error/warning markers. Ctrl+S saves.
+- Ctrl+Space completion from the frozen 0.28.0 stub:
+  - members after `.` / `:` along a call chain, including `hd2.diagnostics.`, `hd2.compatibility.`, `weapon:programmable_ammo():`,
+    `weapon:underbarrel():`, `weapon:feed(…):`, `backpack:drone():` / `:energy_shield():`, `attack:projectile_source():`,
+    `hd2.attack_output(…):`;
+  - the first string argument of any stub function or method, from its parameter's alias or literals (`hd2.weapon('`,
+    `hd2.attack_output('` with every output id and owner name, `:feed('primary'|'alternate'|'programmable')`, `:attack('`);
+  - typed locals: event handler parameters (the nearest `hd2.events.on('…', function(event)` wins, with the event's own and the common
+    fields), `local x = <call chain>` and `for _, x in ipairs(<array>)` (`event.sources` → `HD2StatSource`);
+  - catalog strings for event names (available only), explosions, projectiles and statuses.
 - Tab, Enter-indent, completion and snippet insertion go through `insertText`, so Ctrl+Z undoes them.
+- `hd2LuaEditor.completions(text, caret, data)` returns what the popup would offer, for smoke checks.
 
 **Side panel**
 
-- Snippets (`LuaSnippets`): 10, built from real signatures. The Liberator baseline, field constant and keybind prefix come from the SDK and project.
-- Reference (`EventReference`).
-- Action pickers (`EventActionPicker`): live proof is shown only where the catalog records it.
+- Snippets (`LuaSnippets`): 13, built from real signatures. The Liberator baseline, field constant, K-2 Throwing Knife name and keybind prefix
+  come from the SDK and project. New for 0.28.0: `player-hit-accuracy` (shots and projectile hits per weapon from `player_fired` /
+  `player_hit`), `damage-dealt-heal` (heal 25 on K-2 knife damage from `player_damage_dealt`, the live-proven pair) and
+  `write-conflicts-report` (logs `hd2.diagnostics.write_conflicts()` at mission end).
+- Reference (`EventReference`): every catalog event, available or blocked (with its reason), each payload field with its type and doc, and
+  the fields of plain records inside a payload (`sources[].hits` for `player_hit`, `sources[].damage` for `player_damage_dealt`,
+  `previous.name` for `weapon_changed`); live evidence per event and handle method; an **Insert handler** button that inserts an
+  `hd2.events.on` subscription listing the payload fields (and a `for _, source in ipairs(event.sources)` loop for stat events); every API
+  class, including the field-only ones (`HD2StatSource`, options, `HD2EquippedWeapon`).
+- Action pickers (`EventActionPicker`): an Events group (every event, blocked ones with their reason), explosions, projectiles and statuses
+  (limits, published options, per-item live proof and the family's scope / not-proven list), healing (`hd2.actions.heal`, `player:heal`,
+  live-proven heal(25)), the weapon in hand (`player:equipped_weapon()`, live-proven) and spawn entity (blocked, with its reason). Live proof is
+  shown only where the catalog or the live-evidence catalog records it; evidence is informational, never a checkbox.
+- Diagnostics (`DiagnosticsReference`, from `RuntimeDiagnostics` and the stub): see below.
+
+**Diagnostics reference** (the SDK's `docs/diagnostics.md`, calls from the stub)
+
+- Write conflicts (always on): how an ensure detects another writer, when Runtime logs `possible write conflict` (3 external changes in the
+  operation's window), what is not counted, how to read a report (remove one of the two mods or edits), and that `gui-` operation ids are
+  ModBuilder's; `hd2.diagnostics.write_conflicts()` with its stub doc and an insertable report snippet.
+- Telemetry (off by default): **ModBuilder never turns it on**. No generated operation, snippet, handler or picker insert contains it, and
+  there is no insert button: the documented opt-in `hd2.diagnostics.telemetry({enabled=true, report_seconds=60})` is shown as text for a
+  modder to add by hand, with what it logs and the report procedure (a small mod, one mission, `HD2Runtime.log`). A test scans the sources
+  for any other opt-in.
+- Logs: `mod:log`, callback failures and `max_failures`, and the `[ModBuilder] operation skipped:` line of a generated operation that failed
+  to build.
+- Status queries from the stub: `hd2.events.status()`, `hd2.actions.status()`, `hd2.metrics()`, `hd2.compatibility.status()` /
+  `incompatible()`, `sub:describe()`.
+- Sections whose calls the stub does not publish are left out; an SDK without `hd2.diagnostics` (0.27.0) says so.
 
 **Generated code**
 
@@ -140,9 +179,11 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
 ## Hardcoded assumptions that remain
 
 - The opt-in titles and default reasons (`OptInWarnings`), and the cross-class reason text in `AttackOutputSelector`.
-- The structural knowledge in the analyzer and completion of which API calls take names: `hd2.events.on/once`, `explosions.spawn/prepare/of`, `projectiles.spawn/prepare`, `status.apply`, `input.bind`.
+- The structural knowledge in the analyzer and completion of which API calls take catalog names: `hd2.events.on/once`, `explosions.spawn/prepare/of`, `projectiles.spawn/prepare`, `status.apply`, `input.bind`, and the telemetry opt-in `hd2.diagnostics.telemetry({enabled = true})`. Every other call completes its first string argument from the stub's declared parameter type.
 - Two sentences in the reference: the common payload fields, and the snapshot/live handle rule. Both are paraphrased from the catalog's model text.
-- Snippet choices: the Hellbomb alias, `soldier_mg`, R-36 Eruptor, AR-23 Liberator and `fire`. Tests check that the SDK publishes each.
+- Snippet choices: the Hellbomb alias, `soldier_mg`, R-36 Eruptor, AR-23 Liberator, `fire`, the K-2 Throwing Knife and heal(25). Tests check that the SDK publishes each.
+- The diagnostics reference: its four sections, the status calls it lists, and the example log lines, quoted from the SDK's `docs/diagnostics.md` and `docs/events.md` (the SDK docs are not part of the cached SDK). Its explanations paraphrase those docs as UI text.
+- Live evidence is matched to scripting subjects by each family's `fields` (an event name, `hd2.actions.heal`, `player:equipped_weapon`). A handle method's subject is derived from the handle name (`HD2PlayerHandle` → `player:`).
 - The planner's branch list for grouping shared rows (`primary|alternate|feed_*|impact|expiry`).
 - The classic-versus-output rule: same class and a player-owned donor stay a classic swap.
 - The Mission category's family key (`mission`) and colour.
@@ -157,6 +198,11 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
   - Resupply, the SH-20 zone, 1023 bounds, Halt branch constants, unique operation ids;
   - older projects, and the developer SDK setting.
 - Three existing tests were updated for the new nav item, the Mission category and the cached stub. The suite has 755 tests.
+- Event scripting against the frozen 0.28.0 SDK: `ScriptingReferenceTests` (10 tests) checks that every catalog event and action reaches the
+  reference and pickers with its availability, blocked reason, options and live evidence; the `player_hit` / `player_damage_dealt` payloads,
+  source records and snippets; that every snippet, handler and picker insert parses and checks clean; that completion covers every class,
+  field and function of the stub (and falls back to the catalog without one); the diagnostics reference built from the stub; that the
+  generated operation wrapper checks clean; and that no code path turns telemetry on.
 - Desktop smoke: `tools/scripting-smoke.mjs`, run with the app on the e15d5bf snapshot and CDP port 9241. Screenshots are in `docs/screenshots/`: `custom-lua-*`, `attack-output-liberator`, `backpack-sh20-shield-zone`, `resupply-drop-pod`, `settings-local-sdk`.
 
 ## Next: the weapon-composition pass

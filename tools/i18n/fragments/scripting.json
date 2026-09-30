@@ -1,0 +1,236 @@
+[
+  {
+    "key": "CustomLua.Tab.Diagnostics",
+    "en": "Diagnostics",
+    "zh": "诊断",
+    "comment": "Custom Lua side panel tab: the diagnostics reference (write conflicts, telemetry, logs). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Intro",
+    "en": "Two cheap Runtime diagnostics help tell whether HD2Runtime is involved when a large mod setup loses frames. They do not assume Runtime is the cause, and they do not prove it isn't.",
+    "zh": "两项开销很低的 Runtime 诊断可帮助判断大型模组组合掉帧时 HD2Runtime 是否牵涉其中。它们既不假定 Runtime 是原因，也不能证明它不是。",
+    "comment": "Diagnostics reference intro (paraphrases the SDK's docs/diagnostics.md). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.NoStub",
+    "en": "The bound SDK ({1}) has no Lua stub declaration for {0}. Runtime diagnostics are published from HD2Runtime 0.28.0.",
+    "zh": "当前绑定的 SDK（{1}）的 Lua 存根中没有 {0} 的声明。Runtime 诊断自 HD2Runtime 0.28.0 起发布。",
+    "comment": "{0}: hd2.diagnostics (API name); {1}: SDK version. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.WriteConflicts.Title",
+    "en": "Write conflicts (always on)",
+    "zh": "写入冲突（始终开启）",
+    "comment": "Diagnostics reference section heading. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.WriteConflicts.How.Html",
+    "en": "An <code>{0}</code> keeps its target at the value it wrote and re-checks only the bytes it owns. When those bytes changed while their allocation is still the reviewed one, something else wrote them: Runtime re-applies its value and counts the change for that operation.",
+    "zh": "<code>{0}</code> 会让目标保持为它写入的值，并且只复查它拥有的字节。如果这些字节在其内存分配仍是已审核的那一份时发生了变化，说明有其他东西写入了它们：Runtime 会重新应用自己的值，并为该操作记一次变化。",
+    "comment": "{0}: hd2.ensure (API name). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.WriteConflicts.Warning",
+    "en": "After 3 external changes within the operation's window (five of its verification intervals, at least 10 s), Runtime logs one line naming the operation, its target and up to four fields, the count and the time span. The next warning for that operation waits a full window.",
+    "zh": "在该操作的时间窗口内（其五个校验间隔，至少 10 秒）出现 3 次外部变化后，Runtime 会记录一行日志，写明操作、其目标和最多四个字段、次数以及时间跨度。该操作的下一次警告要等满一个完整窗口。",
+    "comment": "Diagnostics reference: when the write-conflict warning is logged. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.WriteConflicts.NotCounted",
+    "en": "A game reallocation is not a write conflict: the game rebuilt its data, and Runtime re-resolves it the normal way. The counting runs only on a detected drift, never per frame.",
+    "zh": "游戏重新分配内存不算写入冲突：那是游戏重建了自己的数据，Runtime 会按常规方式重新解析。计数只在检测到偏移时进行，从不逐帧运行。",
+    "comment": "Diagnostics reference: what is not counted, and the cost. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.WriteConflicts.Reading",
+    "en": "Two mods writing the same bytes fight: each re-applies its own value, Runtime at most once per verification interval. If a report shows conflicts, remove one of the two mods (or one of the two edits); if it shows none, a frame-rate loss is not Runtime fighting another writer.",
+    "zh": "两个模组写入同一批字节时会互相争夺：各自重新应用自己的值，Runtime 每个校验间隔最多一次。如果报告显示存在冲突，请移除两个模组之一（或两处修改之一）；如果没有冲突，掉帧就不是 Runtime 在与其他写入方争夺。",
+    "comment": "Diagnostics reference: how to read a write-conflict report. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.WriteConflicts.ModBuilder.Html",
+    "en": "Operation ids that start with <code>{0}</code> are the edits ModBuilder generated.",
+    "zh": "以 <code>{0}</code> 开头的操作 ID 是 ModBuilder 生成的修改。",
+    "comment": "{0}: the generated operation id prefix (gui-). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Telemetry.Title",
+    "en": "Telemetry (off by default)",
+    "zh": "遥测（默认关闭）",
+    "comment": "Diagnostics reference section heading. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Telemetry.Never",
+    "en": "ModBuilder never turns telemetry on: no generated operation, snippet or insert button contains it. To produce a report, add the documented call to your custom Lua yourself:",
+    "zh": "ModBuilder 从不开启遥测：任何生成的操作、代码片段或插入按钮都不包含它。如需生成报告，请自行在自定义 Lua 中加入文档所述的调用：",
+    "comment": "Diagnostics reference: shown above the documented opt-in call. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Telemetry.Sections",
+    "en": "Every report interval, Runtime then logs the average, p95, p99 and maximum of its whole per-frame update, of one ensure byte-check and of event polling, with the active ensures and re-applications. Disabled, it costs one boolean test per timed section; timing needs the game's precise clock (in game).",
+    "zh": "此后每个报告间隔，Runtime 会记录其每帧完整更新、一次 ensure 字节检查以及事件轮询的平均值、p95、p99 和最大值，并附上活动中的 ensure 数和重新应用次数。关闭时，每个计时区段只多一次布尔判断；计时需要游戏的精确时钟（在游戏中）。",
+    "comment": "Diagnostics reference: what telemetry logs. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Telemetry.Query.Html",
+    "en": "<code>{0}</code> without arguments returns the state and the running interval's sections.",
+    "zh": "不带参数调用 <code>{0}</code> 会返回当前状态和本次间隔的各区段。",
+    "comment": "{0}: hd2.diagnostics.telemetry() (API call). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Telemetry.Report.Html",
+    "en": "To ask for a report, a user with a large setup adds a small mod that enables telemetry, plays one mission and sends <code>{0}</code>. The checks below the editor warn while a script turns telemetry on, so it does not end up in a published mod by accident.",
+    "zh": "如需报告，使用大型模组组合的用户可以添加一个开启遥测的小模组，玩一局任务，然后发送 <code>{0}</code>。当脚本开启遥测时，编辑器下方的检查会给出警告，以免它被意外带进发布的模组。",
+    "comment": "{0}: HD2Runtime.log (file name). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Logs.Title",
+    "en": "Logs",
+    "zh": "日志",
+    "comment": "Diagnostics reference section heading. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Logs.Help.Html",
+    "en": "<code>{0}</code> writes a line to <code>{1}</code>, prefixed with the mod id. A failing callback (event, timer or keybind) is logged with the mod, the event and the error, never stops the other subscribers, and disables its subscription after <code>{2}</code> consecutive failures.",
+    "zh": "<code>{0}</code> 会向 <code>{1}</code> 写入一行，并以模组 ID 为前缀。出错的回调（事件、计时器或按键绑定）会连同模组、事件和错误一起记录，绝不会阻止其他订阅者，并在连续失败 <code>{2}</code> 次后禁用该订阅。",
+    "comment": "{0}: mod:log (API call); {1}: HD2Runtime.log (file name); {2}: max_failures (option name). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Logs.Skipped.Html",
+    "en": "A generated operation whose request fails to build (an unknown name, a missing field constant) is skipped with a <code>{0}</code> line; the operations after it still register.",
+    "zh": "生成的操作如果在构建请求时出错（名称未知、缺少字段常量），会以一行 <code>{0}</code> 跳过；其后的操作仍会注册。",
+    "comment": "{0}: the log prefix ModBuilder's generated code prints ([ModBuilder] operation skipped:). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Status.Title",
+    "en": "Status queries",
+    "zh": "状态查询",
+    "comment": "Diagnostics reference section heading. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.Status.Help",
+    "en": "Read-only: log them from a keybind or when the mission ends to see what Runtime observes and why an event or action is unavailable.",
+    "zh": "只读：可以在按键绑定中或任务结束时记录它们，以了解 Runtime 观测到了什么，以及某个事件或动作为何不可用。",
+    "comment": "Diagnostics reference: the status queries section. new: needs native review"
+  },
+  {
+    "key": "Diagnostics.LogLines",
+    "en": "Runtime logs, for example:",
+    "zh": "Runtime 日志示例：",
+    "comment": "Label above example log lines (Runtime's own output, not translated). new: needs native review"
+  },
+  {
+    "key": "Diagnostics.InsertSnippet",
+    "en": "Insert: {0}",
+    "zh": "插入：{0}",
+    "comment": "Button. {0}: a snippet title (Snippets.*.Title). new: needs native review"
+  },
+  {
+    "key": "EventReference.InsertHandler.Label",
+    "en": "Insert handler",
+    "zh": "插入处理函数",
+    "comment": "Button in an event's reference entry. new: needs native review"
+  },
+  {
+    "key": "EventReference.InsertHandler.Tooltip",
+    "en": "Insert an {0} subscription that lists this event's payload fields",
+    "zh": "插入一个列出该事件载荷字段的 {0} 订阅",
+    "comment": "Tooltip. {0}: hd2.events.on (API name). new: needs native review"
+  },
+  {
+    "key": "EventActions.Events.Title",
+    "en": "Events",
+    "zh": "事件",
+    "comment": "Action picker group heading. new: needs native review"
+  },
+  {
+    "key": "EventActions.Events.Summary.Html",
+    "en": "Insert an <code>{0}</code> subscription that lists the event's payload fields. Blocked events stay listed with Runtime's reason.",
+    "zh": "插入一个列出该事件载荷字段的 <code>{0}</code> 订阅。被阻止的事件仍会列出，并附上 Runtime 给出的原因。",
+    "comment": "{0}: hd2.events.on (API name). new: needs native review"
+  },
+  {
+    "key": "EventActions.Options",
+    "en": "Options",
+    "zh": "选项",
+    "comment": "Table heading: an action's options as the SDK publishes them. new: needs native review"
+  },
+  {
+    "key": "EventActions.WeaponInHand.Title",
+    "en": "Weapon in hand",
+    "zh": "手持武器",
+    "comment": "Action picker group heading. new: needs native review"
+  },
+  {
+    "key": "EventActions.WeaponInHand.Help.Html",
+    "en": "What the local player holds now, re-read on every call. It is not kill attribution: the weapon in hand did not necessarily make a kill. Use the <code>{2}</code> of <code>{0}</code> or <code>{1}</code> for that.",
+    "zh": "本地玩家当前手持的物品，每次调用都会重新读取。它不是击杀归属：手持的武器未必造成了击杀。如需归属，请使用 <code>{0}</code> 或 <code>{1}</code> 的 <code>{2}</code>。",
+    "comment": "{0}: player_kill_credited; {1}: player_damage_dealt (event names); {2}: sources (payload field). new: needs native review"
+  },
+  {
+    "key": "ScriptEvidence.Summary",
+    "en": "Live evidence",
+    "zh": "实机证据",
+    "comment": "Collapsible label for a live-evidence family (LiveEvidenceCatalog). new: needs native review"
+  },
+  {
+    "key": "ScriptEvidence.Scope",
+    "en": "Proven: {0}",
+    "zh": "已证明：{0}",
+    "comment": "{0}: the evidence family's scope, SDK text. new: needs native review"
+  },
+  {
+    "key": "ScriptEvidence.Tests",
+    "en": "Tests: {0}",
+    "zh": "测试：{0}",
+    "comment": "{0}: live test project names, SDK text. new: needs native review"
+  },
+  {
+    "key": "ScriptEvidence.NotPromoted",
+    "en": "Not proven: {0}",
+    "zh": "未证明：{0}",
+    "comment": "{0}: what the live test did not prove, SDK text joined with ·. new: needs native review"
+  },
+  {
+    "key": "LuaCheck.TelemetryEnabled",
+    "en": "{0} turns Runtime telemetry on for everyone who runs this mod: timing reports are written to {1} at every interval. Telemetry is off by default; keep this call to a small diagnostic mod made for one report.",
+    "zh": "{0} 会为运行此模组的每个人开启 Runtime 遥测：每个间隔都会向 {1} 写入计时报告。遥测默认关闭；请只在为一次报告而制作的小型诊断模组中使用此调用。",
+    "comment": "Custom Lua warning. {0}: hd2.diagnostics.telemetry (API name); {1}: HD2Runtime.log (file name). new: needs native review"
+  },
+  {
+    "key": "Snippets.PlayerHitAccuracy.Title",
+    "en": "Hits per weapon",
+    "zh": "各武器命中数",
+    "comment": "Snippet title (player_hit). new: needs native review"
+  },
+  {
+    "key": "Snippets.PlayerHitAccuracy.Description",
+    "en": "Count the shots (player_fired) and projectile hits (player_hit) the game records per weapon, and log them when the mission ends. Thrown weapons are not projectiles: they appear only in player_damage_dealt.",
+    "zh": "按武器统计游戏记录的射击数（player_fired）和弹体命中数（player_hit），并在任务结束时记录到日志。投掷武器不是弹体：它们只出现在 player_damage_dealt 中。",
+    "comment": "Snippet description. Event names stay as written. new: needs native review"
+  },
+  {
+    "key": "Snippets.DamageDealtHeal.Title",
+    "en": "Heal on throwable damage",
+    "zh": "投掷物伤害回血",
+    "comment": "Snippet title (player_damage_dealt). new: needs native review"
+  },
+  {
+    "key": "Snippets.DamageDealtHeal.Description",
+    "en": "Heal 25 whenever the game records damage dealt by the {0} (player_damage_dealt names each source exactly). The knife attribution and this heal are live-proven; other throwables and a damage-proportional heal are not.",
+    "zh": "每当游戏记录到 {0} 造成的伤害时治疗 25 点（player_damage_dealt 会准确给出每个来源）。飞刀归属和这次治疗已实机验证；其他投掷物以及按伤害比例治疗尚未验证。",
+    "comment": "Snippet description. {0}: throwable name (SDK name, K-2 Throwing Knife). new: needs native review"
+  },
+  {
+    "key": "Snippets.WriteConflicts.Title",
+    "en": "Write-conflict report",
+    "zh": "写入冲突报告",
+    "comment": "Snippet title (hd2.diagnostics.write_conflicts). new: needs native review"
+  },
+  {
+    "key": "Snippets.WriteConflicts.Description",
+    "en": "When the mission ends, log every operation something else kept overwriting (hd2.diagnostics.write_conflicts). It only reads the always-on report: telemetry stays off.",
+    "zh": "任务结束时，记录每个被其他东西反复覆盖的操作（hd2.diagnostics.write_conflicts）。它只读取始终开启的报告：遥测保持关闭。",
+    "comment": "Snippet description. new: needs native review"
+  }
+]

@@ -1470,6 +1470,15 @@ h2.native-name { font-size:21px }
 .action-group { margin-bottom:18px }
 .action-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid var(--border) }
 .action-row > span:nth-child(2) { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end }
+.action-row .action-doc { display:block; margin-top:2px }
+.reference-subfield td:first-child { padding-left:18px }
+.reference-item > button.small { margin-top:6px }
+.script-evidence { margin:4px 0; font-size:12.5px }
+.script-evidence summary { display:flex; flex-wrap:wrap; gap:6px; align-items:center; cursor:pointer }
+.script-evidence p { margin:3px 0 }
+.diagnostics-reference .group-title { margin:4px 0 6px }
+.diagnostics-code { margin:6px 0; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:#0d0f13; font-size:12px; white-space:pre-wrap; word-break:break-word }
+.diagnostics-code code { background:none }
 @media (max-width:1250px) { .custom-lua { grid-template-columns:minmax(0,1fr) } .custom-lua-side { position:static; max-height:none } }
 /* Projectile donors through the active projectile source (0.28.0 development SDKs). */
 .projectile-source { margin:8px 0; font-size:13px }
