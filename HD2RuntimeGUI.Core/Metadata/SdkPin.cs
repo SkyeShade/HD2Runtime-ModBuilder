@@ -19,7 +19,7 @@ public static class SdkPin
     public const string ArchiveName = "HD2Runtime-0.28.0-sdk.zip";
     public const string ArchiveSha256 = "42b9cac4e0d3328a638b766d70bf04e03e064a357f897bc1f89e0066f188851e";
     // Fingerprint (below) of every SDK file ModBuilder reads, as bundled.
-    public const string ContentFingerprint = "869c63bea73b604a86c6e0f50a27499b39f2f9ff6195c8fd7e423a1b268a97e4";
+    public const string ContentFingerprint = "5fb31e05970c2b3fa68fee582ce0a0886dd852e81f8cd6a977cd987c1cbabc55";
 
     /// <summary>SHA-256 over "name:sha256" lines of the consumed files, sorted by name (independent of archive layout and timestamps).</summary>
     public static string Fingerprint(IReadOnlyDictionary<string, byte[]> files)

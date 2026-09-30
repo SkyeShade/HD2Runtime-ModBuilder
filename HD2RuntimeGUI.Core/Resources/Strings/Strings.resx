@@ -3235,6 +3235,14 @@
   <data name="Messages.Build.Projectile.SourceNotApproved" xml:space="preserve">
     <value>The SDK does not approve this projectile source for this selector.</value>
   </data>
+  <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
+    <value>Choose a status effect, or none.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Status.NotAllowed" xml:space="preserve">
+    <value>'{0}' is not a status effect this slot can take.</value>
+    <comment>{0}: status key. new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Stratagem.AttackBranch" xml:space="preserve">
     <value>The public Runtime API resolves attack branches only under the primary mounted weapon.</value>
   </data>

@@ -51,7 +51,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         : this(paths, reader, github, catalogReader, ammoReader, compositionReader, advancedReader, heatReader, planReader, supportReader) => this.stratagemReader = stratagemReader;
     private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName)
         .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName).Append(AssetDependencyReader.FileName).Append(ThrowableAuthoringReader.FileName).Append(EnemyAuthoringReader.FileName)
-        .Append(EventCatalogReader.FileName).Append(AttackOutputReader.FileName).Append(Scripting.LuaApiIndex.CacheName);
+        .Append(EventCatalogReader.FileName).Append(AttackOutputReader.FileName).Concat(SupplementalCatalogReader.FileNames).Append(Scripting.LuaApiIndex.CacheName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -176,6 +176,21 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             if (payload.Composition.GetValueOrDefault(AttackOutputReader.FileName) is { } outputs) sdk = sdk with { AttackOutputs = AttackOutputReader.Read(outputs, sdk.Version, sdk.PlayerWeapons!) };
             else if (sdk.Has028) throw MissingFile(AttackOutputReader.FileName, "SDK is missing attack output capabilities.");
             if (sdk.AttackOutputs is { } hosts && sdk.Has028) LinkProjectileHosts(hosts, sdk.SupportAuthoring!, sdk.Entities!.VehicleWeapons!);
+            // 0.28.0 reference catalogs: every weapon feed is a published player or support weapon.
+            if (sdk.Has028)
+            {
+                byte[] Supplemental(string file) => payload.Composition!.GetValueOrDefault(file) ?? throw MissingFile(file, "SDK is missing " + file + ".");
+                var feeds = SupplementalCatalogReader.Feeds(Supplemental(SupplementalCatalogReader.FeedFile), sdk.Version);
+                if (!feeds.Weapons.All(w => w.Kind == "player" ? sdk.PlayerWeapons!.Weapons.Any(p => p.Name == w.Weapon) : sdk.SupportAuthoring!.Weapons.Any(s => s.Name == w.Weapon)))
+                    throw new InvalidDataException("Inconsistent weapon feed link.");
+                sdk = sdk with { StatusEffects = SupplementalCatalogReader.Statuses(Supplemental(SupplementalCatalogReader.StatusFile), sdk.Version),
+                    Presentation = SupplementalCatalogReader.Presentation(Supplemental(SupplementalCatalogReader.PresentationFile), sdk.Version), Feeds = feeds,
+                    LiveEvidence = SupplementalCatalogReader.LiveEvidence(Supplemental(SupplementalCatalogReader.LiveEvidenceFile), sdk.Version) };
+                // Every status a status reference may take is a published status effect.
+                if (!sdk.PlayerWeapons!.Weapons.SelectMany(w => w.Fields).Concat(sdk.PlayerWeapons.Subweapons?.SelectMany(s => s.Fields) ?? [])
+                        .Where(f => f.Type == WeaponCapability.StatusReference).SelectMany(f => f.AllowedReferences ?? []).All(k => sdk.StatusEffects.Find(k) != null))
+                    throw new InvalidDataException("Inconsistent status reference link.");
+            }
         }
         // The LuaLS stub only drives custom Lua autocomplete, for any SDK that ships one: an unreadable stub leaves autocomplete off
         // instead of refusing the SDK (nothing is written from it).
@@ -447,6 +462,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         EnemyAuthoringReader.FileName => EnemyAuthoringReader.MaxBytes,
         EventCatalogReader.FileName => EventCatalogReader.MaxBytes,
         AttackOutputReader.FileName => AttackOutputReader.MaxBytes,
+        SupplementalCatalogReader.StatusFile or SupplementalCatalogReader.PresentationFile or SupplementalCatalogReader.FeedFile or SupplementalCatalogReader.LiveEvidenceFile => SupplementalCatalogReader.MaxBytes,
         Scripting.LuaApiIndex.CacheName => Scripting.LuaApiIndex.MaxBytes,
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };

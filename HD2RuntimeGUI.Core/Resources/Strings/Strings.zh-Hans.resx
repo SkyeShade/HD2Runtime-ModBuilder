@@ -3573,6 +3573,14 @@
     <value>SDK 未批准此选择器使用该弹体来源。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
+    <value>请选择一个状态效果，或选择无。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Status.NotAllowed" xml:space="preserve">
+    <value>“{0}”不是此槽位可使用的状态效果。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Stratagem.AttackBranch" xml:space="preserve">
     <value>公开的 Runtime API 只能在主挂载武器下解析攻击分支。</value>
     <comment>new: needs native review</comment>
