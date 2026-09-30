@@ -71,8 +71,12 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
     # 3. Export validation against the frozen HD2Runtime release tree (extracted read-only with git archive).
     if (-not (Test-Path (Join-Path $RuntimeTree 'VERSION'))) {
         New-Item -ItemType Directory -Path $RuntimeTree -Force | Out-Null
-        & git -C $RuntimeRepo archive $RuntimeCommit | tar -x -C $RuntimeTree
-        if ($LASTEXITCODE -ne 0) { throw 'Could not extract the HD2Runtime release tree.' }
+        # Through a file: Windows PowerShell pipes native output as text, which corrupts a tar stream.
+        $tar = Join-Path ([IO.Path]::GetTempPath()) ('hd2runtime-' + [Guid]::NewGuid().ToString('N') + '.tar')
+        & git -C $RuntimeRepo archive --format=tar -o $tar $RuntimeCommit
+        if ($LASTEXITCODE -ne 0) { throw 'Could not archive the HD2Runtime release tree.' }
+        & tar -x -f $tar -C $RuntimeTree; $extracted = $LASTEXITCODE; Remove-Item -LiteralPath $tar -Force
+        if ($extracted -ne 0) { Remove-Item -LiteralPath $RuntimeTree -Recurse -Force; throw 'Could not extract the HD2Runtime release tree.' }
     }
     & py -3 -B (Join-Path $repoRoot 'tools\validate-exports.py') --isolation --runtime $RuntimeTree --output (Join-Path $rc 'export-validation.json') (Join-Path $rc 'export-fixtures\*.zip')
     $exportExit = $LASTEXITCODE
