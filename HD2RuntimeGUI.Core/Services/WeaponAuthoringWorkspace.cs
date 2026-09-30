@@ -27,7 +27,7 @@ public sealed partial class BuilderWorkspace
         var modified = groups.Count(g => g.Conflict != null || FieldPresentationRules.Modified(g)) + composition.Length
             + Project.ProjectileChanges.Count(c => c.Weapon == weapon);
         // Attack outputs (0.28.0 development SDKs); one written through shared ammunition counts as shared.
-        var outputs = Project.AttackOutputChanges?.Where(c => c.Weapon == weapon).ToArray() ?? [];
+        var outputs = Project.AttackOutputChanges?.Where(c => c.IsPlayer && c.Weapon == weapon).ToArray() ?? [];
         modified += outputs.Length;
         var shared = groups.Count(g => g.Field?.AffectsMultipleWeapons == true) + composition.Count(c =>
         { try { return CompositionChangeService.Capability(Metadata, c).AffectsMultipleWeapons; } catch (InvalidDataException) { return false; } })

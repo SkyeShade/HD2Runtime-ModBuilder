@@ -16,7 +16,7 @@
     </div>
 }
 @* Attack outputs (0.28.0 development SDKs): the donor output an attack fires through its active projectile source. *@
-@foreach (var output in (Workspace.Project!.AttackOutputChanges ?? []).Where(c => c.Weapon == Weapon).OrderBy(c => c.AttackRole))
+@foreach (var output in (Workspace.Project!.AttackOutputChanges ?? []).Where(c => c.IsPlayer && c.Weapon == Weapon).OrderBy(c => c.AttackRole))
 {
     <div class="weapon-change modified" data-attack-output-change="@output.AttackRole">
         <div class="change-row"><div class="change-name"><strong>@T.Format("Projectile.Title", output.AttackRole.Replace('_', ' '))</strong><span class="badge modified-badge">@T["Common.Modified"]</span><small>@output.Group · @(output.Mechanism == AttackOutputHost.AmmunitionMechanism ? T["AttackOutput.Via.Ammunition"] : T["AttackOutput.Via.Output"]) · @(output.EnsureEnabled ? T["Composition.Ensure"] : T["Composition.ApplyOnce"])</small></div>

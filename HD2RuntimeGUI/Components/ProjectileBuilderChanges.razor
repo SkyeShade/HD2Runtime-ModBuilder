@@ -1,0 +1,44 @@
+@inject BuilderWorkspace Workspace
+@* Changes page: support and mounted projectile swaps (player swaps are listed with their weapon) and projectile-builder row writes, each with
+   its toggle, reset and, when the SDK changed, an in-place review. The opt-ins each write carries are listed; nothing needs ticking. *@
+@{ var hosts = Workspace.Project?.AttackOutputChanges?.Where(c => !c.IsPlayer).OrderBy(c => c.Weapon, StringComparer.Ordinal).ToArray() ?? [];
+   var rows = Workspace.Project?.OutputRowChanges?.OrderBy(c => c.OutputName, StringComparer.Ordinal).ThenBy(c => Array.IndexOf(OutputRowChangeService.Fields, c.Field)).ToArray() ?? []; }
+@if (hosts.Length + rows.Length > 0)
+{
+    <section class="panel" data-projectile-builder-changes><div class="panel-heading"><h2>@T["ProjectileBuilder.Changes.Title"]</h2><span class="badge">@(hosts.Length + rows.Length)</span></div>
+        @foreach (var c in hosts)
+        {
+            <div class="change-row @(c.Enabled ? "" : "disabled-row")" data-host-change="@c.Weapon">
+                <label class="switch-label"><input type="checkbox" role="switch" checked="@c.Enabled" @onchange="() => Run(() => Workspace.ToggleAttackOutputAsync(c.Id))" aria-label="@T["Changes.Other.Enable"]" /></label>
+                <div class="change-name"><strong>@c.Weapon</strong><small>@ProjectileDonorList.OwnerKind(T, c.Kind) · @T.Format("Projectile.Title", c.AttackRole.Replace('_', ' '))</small></div>
+                <div class="change-value modified-value">@T.Markup("AttackOutput.FiresChange.Html", c.OutputName)</div>
+                <button class="reset-action" @onclick="() => Run(() => Workspace.SetHostOutputAsync(c.Kind, c.Weapon, c.AttackRole, null))">@T["Projectile.Reset"]</button>
+            </div>
+            @if (Workspace.AttackOutputIssue(c) is { } issue)
+            { <div class="notice warning"><span>@issue</span><button @onclick="() => Run(() => Workspace.SetHostOutputAsync(c.Kind, c.Weapon, c.AttackRole, c.Output))">@T["AttackOutput.AcceptCurrent"]</button></div> }
+            @if (c.Acknowledgements.Length > 0) { <p class="subtle" data-host-change-flags>@T.Format("AttackOutput.WrittenWith", string.Join(", ", c.Acknowledgements.Select(a => a + "=true")))</p> }
+        }
+        @foreach (var c in rows)
+        {
+            <div class="change-row @(c.Enabled ? "" : "disabled-row")" data-row-change="@c.Output" data-row-field="@c.Field">
+                <label class="switch-label"><input type="checkbox" role="switch" checked="@c.Enabled" @onchange="() => Run(() => Workspace.ToggleRowAsync(c.Id))" aria-label="@T["Changes.Other.Enable"]" /></label>
+                <div class="change-name"><strong>@c.OutputName</strong><small>@OutputRowChangeService.Label(c.Field) · <code>@c.Field</code></small></div>
+                <div class="change-value modified-value">@Value(c.Expect) <span>→</span> <strong>@(c.ValueName is { } donor ? T.Format("ProjectileBuilder.Slot.Handle", donor, Slot(c.Value)) : Value(c.Value))</strong></div>
+                <button class="reset-action" @onclick="() => Run(() => Workspace.ResetRowAsync(c.Output, c.Field))">@T["ProjectileBuilder.Row.ResetField"]</button>
+            </div>
+            @if (Workspace.RowIssue(c) is { } issue)
+            { <div class="notice warning"><span>@issue</span><button @onclick="() => Run(() => Workspace.AcceptRowAsync(c.Id))">@T["AttackOutput.AcceptCurrent"]</button></div> }
+            @if (c.Acknowledgements.Length > 0) { <p class="subtle" data-row-change-flags>@T.Format("AttackOutput.WrittenWith", string.Join(", ", c.Acknowledgements.Select(a => a + "=true")))</p> }
+        }
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </section>
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    // A slot handle names its row and slot (shown as the row's own value); labels, icons and "none" are shown as written.
+    private string Value(string v) => OutputRowChangeService.ParseHandle(v) is { } h ? T.Format("ProjectileBuilder.Slot.Handle", Workspace.Metadata?.AttackOutputs?.Output(h.Output)?.Label ?? h.Output, Slot(v))
+        : v == OutputRowChangeService.None ? T["ProjectileBuilder.Slot.None"] : v;
+    private string Slot(string v) => OutputRowChangeService.ParseHandle(v) is { } h ? OutputRowChangeService.Label(OutputRowChangeService.SlotFields.Single(f => OutputRowChangeService.SlotKey(f) == h.Slot)) : v;
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

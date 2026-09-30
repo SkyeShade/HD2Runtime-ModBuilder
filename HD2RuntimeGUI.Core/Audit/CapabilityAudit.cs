@@ -61,9 +61,18 @@ public static class CapabilitySurfaces
     public static readonly IReadOnlyDictionary<string, string> ProjectileHosts = new Dictionary<string, string>
     {
         [AttackProjectileSource.PlayerKind] = "Player Weapons › projectile output",
+        [AttackProjectileSource.SupportKind] = "Stratagems › Support › weapon › projectile host swap",
+        [AttackProjectileSource.VehicleKind] = "Stratagems › Support › vehicle / Guard Dog › mount › projectile host swap",
     };
-    public static string? BuilderSlots => null;
-    public static string? ModePresentation => null;
+    // A published field whose value is edited through another surface: the attack projectile of support and mounted weapons is the
+    // unified projectile host swap (AttackOutputChange), not a field row.
+    public static readonly IReadOnlyDictionary<(string Area, string Type), string> EditedAsHost = new Dictionary<(string, string), string>
+    {
+        [("support_weapon", "reference/projectile_reference")] = AttackProjectileSource.SupportKind,
+        [("vehicle_weapon", "projectile_reference")] = AttackProjectileSource.VehicleKind,
+    };
+    public static string? BuilderSlots => "Projectiles › projectile builder (row slots)";
+    public static string? ModePresentation => "Projectiles › mode label and icon";
     // Custom Lua (src/addon.lua) with the event reference, pickers, snippets and autocomplete.
     public const string CustomLua = "Custom Lua › event reference, pickers and snippets";
 }
@@ -114,6 +123,8 @@ public static class CapabilityAudit
                 CapabilityClass c; string? why = null;
                 if (exemption is { } x) { c = x.Class; why = x.Reason; }
                 else if (writable > 0) { c = surface != null ? CapabilityClass.SUPPORTED_UI : CapabilityClass.MISSING_UI; why = surface == null ? "no editor lists this authored type" : null; }
+                else if (gated > 0 && CapabilitySurfaces.EditedAsHost.TryGetValue((area, g.Key.Type), out var host) && CapabilitySurfaces.ProjectileHosts.TryGetValue(host, out var hostSurface))
+                { c = CapabilityClass.SUPPORTED_UI; surface = hostSurface; writable = gated; gated = 0; }
                 else if (gated > 0) { c = CapabilityClass.MISSING_UI; why = AuthoredTypes.NotAuthoredReason; }
                 else { c = CapabilityClass.RUNTIME_READ_ONLY; why = all.Select(reason).FirstOrDefault(r => !string.IsNullOrWhiteSpace(r)) ?? "read-only in the SDK"; }
                 entries.Add(new(area, g.Key.Id, g.Key.Type, c, all.Length, writable, readOnly + gated, c == CapabilityClass.SUPPORTED_UI ? surface : null, why));

@@ -79,6 +79,9 @@ public static class Navigation
             items.Add(new("enemies", CoreText.Get("Nav.Enemies"), Workspace, enemies.Of(EnemyAuthoringReader.Enemy).Count(), StratagemCategories.EnemyCssClass));
             items.Add(new("structures", CoreText.Get("Nav.Structures"), Workspace, enemies.Of(EnemyAuthoringReader.Structure).Count(), StratagemCategories.StructureCssClass));
         }
+        // 0.28.0 projectile builder: every projectile host (player, support, mounted) and every catalogued output row, when the SDK publishes them.
+        if (sdk?.AttackOutputs?.Builder != null)
+            items.Add(new("projectiles", CoreText.Get("Nav.ProjectileBuilder"), Workspace, sdk.AttackOutputs.Outputs.Count(o => o.Slots != null)));
         items.Add(new("changes", CoreText.Get("Nav.Changes"), Workspace, project == null ? null : modifications));
         // Hand-written Runtime Lua (src/addon.lua): events, timers, keybinds and gameplay actions. Works with every SDK; the event reference
         // and snippets need an SDK that publishes EventCatalog.json.

@@ -1505,6 +1505,25 @@ h2.native-name { font-size:21px }
 .donor-name { min-width:0 }
 .donor-badges { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end }
 .donor-refusal { grid-column:1 / -1; color:var(--muted) }
+/* 0.28.0 projectile builder: unified hosts, row slots, flight values and mode presentation. */
+.unavailable-outputs { margin:8px 0; font-size:13px }
+.unavailable-output { margin:3px 0; display:flex; flex-wrap:wrap; gap:6px; align-items:baseline }
+.row-links { margin:10px 0 0; padding-top:8px; border-top:1px dashed var(--border) }
+.row-links .actions { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 }
+.row-editor { margin:10px 0; padding:10px 12px; border:1px solid var(--border); border-radius:10px }
+.row-editor.modified { border-color:var(--accent-border) }
+.row-editor .panel-heading { flex-wrap:wrap; gap:6px }
+.row-consumers { margin:6px 0; font-size:13px }
+.slot-grid { display:flex; flex-direction:column; gap:6px; margin:10px 0 }
+.slot-row { display:grid; grid-template-columns:160px minmax(0,1fr); gap:6px 12px; align-items:start; padding:6px 8px; border-radius:8px; border:1px solid transparent }
+.slot-row.modified { border-color:var(--accent-border); background:color-mix(in srgb, var(--accent) 5%, transparent) }
+.slot-name { color:var(--muted); font-size:13px; padding-top:6px }
+.slot-value { display:flex; flex-direction:column; gap:4px; min-width:0 }
+.slot-value select { max-width:100% }
+.mode-presentation { margin:12px 0 0 }
+.mode-fields { display:flex; flex-wrap:wrap; gap:12px }
+.mode-fields label { min-width:220px }
+.projectile-hosts { margin:10px 0 }
 /* Localization: CJK text uses the Windows UI fonts for its script. Set on the root only, so elements with their own font (brand wordmark,
    code, the Lua editor) keep it and fall back per glyph. */
 html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei UI','Microsoft YaHei',sans-serif }

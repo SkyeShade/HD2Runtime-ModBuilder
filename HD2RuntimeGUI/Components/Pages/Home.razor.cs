@@ -73,12 +73,12 @@ public partial class Home : IDisposable
         "throwables" => T["Nav.Throwables"], "enemies" => T["Nav.Enemies"], "structures" => T["Nav.Structures"], "scripting" => T["Nav.CustomLua"],
         "support" => T["Nav.SupportEquipment"], "player-weapons" => T["Nav.PlayerWeapons"], "lua" => T["Nav.LuaPreview"], "research" => T["Nav.SnapshotResearch"],
         "library" => T["Home.PageTitle.Projects"], "overview" => T["Nav.Overview"], "changes" => T["Nav.Changes"], "export" => T["Home.PageTitle.Export"],
-        "settings" => T["Home.PageTitle.Settings"], _ => Workspace.Metadata?.CategoryName(Page) ?? Page
+        "settings" => T["Home.PageTitle.Settings"], "projectiles" => T["Nav.ProjectileBuilder"], _ => Workspace.Metadata?.CategoryName(Page) ?? Page
     };
     private IEnumerable<SdkResource> VisibleResources => Workspace.Metadata!.Resources.Values.Where(r => r.Kind == Page && r.Label.Contains(Search, StringComparison.OrdinalIgnoreCase));
     private SdkResource? SelectedResource => Workspace.Metadata?.Resources.GetValueOrDefault(TargetKey);
     private SdkField? SelectedField => SelectedResource?.Fields.GetValueOrDefault(FieldKey);
-    private int ModificationCount => (Workspace.Project?.EntityChanges.Count ?? 0) + (Workspace.Project?.StratagemChanges.Count ?? 0) + (Workspace.Project?.SupportChanges.Count ?? 0) + (Workspace.Project?.CompositionChanges.Count ?? 0) + (Workspace.Project?.ProjectileChanges.Count ?? 0) + (Workspace.Project?.Changes.Count ?? 0) + (Workspace.Project?.AttackOutputChanges?.Count ?? 0) + (Workspace.Project?.CustomLua != null ? 1 : 0) + Workspace.WeaponGroups.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
+    private int ModificationCount => (Workspace.Project?.EntityChanges.Count ?? 0) + (Workspace.Project?.StratagemChanges.Count ?? 0) + (Workspace.Project?.SupportChanges.Count ?? 0) + (Workspace.Project?.CompositionChanges.Count ?? 0) + (Workspace.Project?.ProjectileChanges.Count ?? 0) + (Workspace.Project?.Changes.Count ?? 0) + (Workspace.Project?.AttackOutputChanges?.Count ?? 0) + (Workspace.Project?.OutputRowChanges?.Count ?? 0) + (Workspace.Project?.CustomLua != null ? 1 : 0) + Workspace.WeaponGroups.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     // Legacy mapped-resource confidence is saved with each change (English); only its display follows the UI language.
     private string ConfidenceLabel(string confidence) => confidence switch
     {

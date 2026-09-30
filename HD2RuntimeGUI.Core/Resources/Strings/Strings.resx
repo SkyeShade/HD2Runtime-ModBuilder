@@ -3417,6 +3417,10 @@
   <data name="Messages.Build.Output.OnePerAttack" xml:space="preserve">
     <value>An attack can fire only one output.</value>
   </data>
+  <data name="Messages.Build.Output.SameEntity" xml:space="preserve">
+    <value>These mounts are one weapon entity and can take only one projectile swap: {0}. Keep one of them.</value>
+    <comment>{0}: comma-separated mount names</comment>
+  </data>
   <data name="Messages.Build.Output.SdkMissing" xml:space="preserve">
     <value>Attack outputs need an SDK that publishes {0} (a local HD2Runtime development SDK until 0.28.0).</value>
     <comment>{0}: SDK metadata file name (not translated)</comment>
@@ -3478,6 +3482,61 @@
   </data>
   <data name="Messages.Build.Projectile.SourceNotApproved" xml:space="preserve">
     <value>The SDK does not approve this projectile source for this selector.</value>
+  </data>
+  <data name="Messages.Build.Row.Baseline" xml:space="preserve">
+    <value>This is already the row's reviewed value; there is nothing to write.</value>
+  </data>
+  <data name="Messages.Build.Row.Changed" xml:space="preserve">
+    <value>{0} · {1}: its baseline, sharing, live proof or opt-ins changed in this SDK. Review it where it is edited, or reset it.</value>
+    <comment>{0}: row name; {1}: field name</comment>
+  </data>
+  <data name="Messages.Build.Row.DamageSlotType" xml:space="preserve">
+    <value>A direct-hit slot takes only another row's direct_damage() handle.</value>
+  </data>
+  <data name="Messages.Build.Row.DonorHasNoSlot" xml:space="preserve">
+    <value>{0} has no {1}() to reference.</value>
+    <comment>{0}: donor output id; {1}: slot handle method</comment>
+  </data>
+  <data name="Messages.Build.Row.DonorRefused" xml:space="preserve">
+    <value>{0} is not a value Runtime accepts for {1}.</value>
+    <comment>{0}: slot value; {1}: row name</comment>
+  </data>
+  <data name="Messages.Build.Row.ExplosionSlotType" xml:space="preserve">
+    <value>An explosion slot takes only an impact_explosion() or expiry_explosion() handle.</value>
+  </data>
+  <data name="Messages.Build.Row.IconRefused" xml:space="preserve">
+    <value>{0} cannot be written: use a native weapon-function icon or auto. The empty placeholder comes back by removing the edit.</value>
+    <comment>{0}: icon value</comment>
+  </data>
+  <data name="Messages.Build.Row.LabelRefused" xml:space="preserve">
+    <value>{0} is not a native mode label. Only the published labels can be written; custom text is not supported.</value>
+    <comment>{0}: label value</comment>
+  </data>
+  <data name="Messages.Build.Row.NoneRefused" xml:space="preserve">
+    <value>The direct-hit damage cannot be removed: a projectile always has a direct hit.</value>
+  </data>
+  <data name="Messages.Build.Row.NotSelectable" xml:space="preserve">
+    <value>{0} is not a selectable projectile row: {1}</value>
+    <comment>{0}: output name; {1}: Runtime reason</comment>
+  </data>
+  <data name="Messages.Build.Row.OnePerField" xml:space="preserve">
+    <value>Each field of a projectile row can be written only once.</value>
+  </data>
+  <data name="Messages.Build.Row.PresentationReadOnly" xml:space="preserve">
+    <value>The mode label and icon of {0} are not writable.</value>
+    <comment>{0}: output name</comment>
+  </data>
+  <data name="Messages.Build.Row.TerminalConflict" xml:space="preserve">
+    <value>{0} · {1} is also replaced by a terminal explosion edit on {2}: both write the same member of this row. Keep one of them.</value>
+    <comment>{0}: row name; {1}: field name; {2}: player weapon</comment>
+  </data>
+  <data name="Messages.Build.Row.Unknown" xml:space="preserve">
+    <value>This SDK does not catalogue the output {0}.</value>
+    <comment>{0}: output semantic id</comment>
+  </data>
+  <data name="Messages.Build.Row.UnknownField" xml:space="preserve">
+    <value>{0} is not a projectile-builder field.</value>
+    <comment>{0}: Runtime field id</comment>
   </data>
   <data name="Messages.Build.Status.CatalogMissing" xml:space="preserve">
     <value>This SDK publishes no status effect catalog, so status slots cannot be written.</value>
@@ -3763,6 +3822,10 @@
     <value>Mod Options Menu shows at most {0} options per mod, including the master toggle.</value>
     <comment>{0}: maximum number of options. Mod Options Menu is a product name.</comment>
   </data>
+  <data name="Messages.Output.AmbiguousRoot" xml:space="preserve">
+    <value>{0} has no uniquely resolved runtime identity ({1}), so its projectile cannot be written.</value>
+    <comment>{0}: support weapon; {1}: identity status as published</comment>
+  </data>
   <data name="Messages.Output.EditsBlockSwitch.One" xml:space="preserve">
     <value>{1} has {0} projectile or explosion edit that cannot follow an attack output. Discard them to switch.</value>
     <comment>{0}: number of edits, {1}: weapon name (SDK text).</comment>
@@ -3774,8 +3837,24 @@
   <data name="Messages.Output.NoActiveSource" xml:space="preserve">
     <value>Runtime publishes no active projectile source for this attack.</value>
   </data>
+  <data name="Messages.Output.NoHostField" xml:space="preserve">
+    <value>{0} publishes no projectile field for this attack.</value>
+    <comment>{0}: weapon or mount name</comment>
+  </data>
+  <data name="Messages.Output.NoPackage" xml:space="preserve">
+    <value>{0} publishes no catalogued package, so Runtime cannot load its assets before the reference is written.</value>
+    <comment>{0}: output name (as published)</comment>
+  </data>
   <data name="Messages.Output.NoSources" xml:space="preserve">
     <value>This SDK publishes no active projectile sources.</value>
+  </data>
+  <data name="Messages.Output.NotSelectable" xml:space="preserve">
+    <value>Its owner is not established to fire this row, so it is never offered as a projectile.</value>
+    <comment>Fallback reason for a projectile row that is not selectable</comment>
+  </data>
+  <data name="Messages.Output.ScopeOnly" xml:space="preserve">
+    <value>Catalogued only as {0}: never an attack's projectile.</value>
+    <comment>{0}: Runtime field id such as function_ammo.projectile</comment>
   </data>
   <data name="Messages.Project.AlreadyStored" xml:space="preserve">
     <value>This project is already stored locally. Open it from the library to avoid overwriting changes.</value>
@@ -3819,6 +3898,9 @@
   <data name="Messages.Project.InvalidProjectileOverrides" xml:space="preserve">
     <value>Invalid semantic projectile overrides.</value>
   </data>
+  <data name="Messages.Project.InvalidRowChanges" xml:space="preserve">
+    <value>The project contains invalid projectile row edits.</value>
+  </data>
   <data name="Messages.Project.InvalidStratagemApproval" xml:space="preserve">
     <value>Invalid stratagem approval.</value>
   </data>
@@ -3855,6 +3937,30 @@
   </data>
   <data name="Messages.Project.VersionFormat" xml:space="preserve">
     <value>Mod version must be major.minor.patch.</value>
+  </data>
+  <data name="Messages.Row.Field.DirectDamage" xml:space="preserve">
+    <value>Direct hit</value>
+    <comment>hd2.fields.projectile.direct_damage</comment>
+  </data>
+  <data name="Messages.Row.Field.ExpiryExplosion" xml:space="preserve">
+    <value>Expiry explosion</value>
+    <comment>hd2.fields.projectile.expiry_explosion</comment>
+  </data>
+  <data name="Messages.Row.Field.ImpactExplosion" xml:space="preserve">
+    <value>Impact explosion</value>
+    <comment>hd2.fields.projectile.impact_explosion</comment>
+  </data>
+  <data name="Messages.Row.Field.ModeIcon" xml:space="preserve">
+    <value>Mode icon</value>
+    <comment>hd2.fields.presentation.mode_icon</comment>
+  </data>
+  <data name="Messages.Row.Field.ModeLabel" xml:space="preserve">
+    <value>Mode label</value>
+    <comment>hd2.fields.presentation.mode_label</comment>
+  </data>
+  <data name="Messages.Row.Scalar.OwnerFiresAnother" xml:space="preserve">
+    <value>{0} fires another projectile in this project, so its own row's flight values are shown read-only. Restore its projectile to edit them on the weapon.</value>
+    <comment>{0}: player weapon</comment>
   </data>
   <data name="Messages.Sdk.Checked" xml:space="preserve">
     <value>GitHub release and schema/API compatibility checked.</value>
@@ -4153,6 +4259,51 @@
   <data name="Messages.Workspace.ProjectChangedBeforeResolve" xml:space="preserve">
     <value>The active project changed before the conflict could be resolved.</value>
   </data>
+  <data name="ModePresentation.Auto.Exact" xml:space="preserve">
+    <value>Auto → {0} (this label's native icon)</value>
+    <comment>{0}: icon id that auto writes</comment>
+  </data>
+  <data name="ModePresentation.Auto.Fallback" xml:space="preserve">
+    <value>Auto → {0} (generic fallback: this label has no native icon)</value>
+    <comment>{0}: icon id that auto writes</comment>
+  </data>
+  <data name="ModePresentation.Help" xml:space="preserve">
+    <value>What a weapon-function mode shows when it fires this projectile. Native labels and icons only; custom text is not supported. ✓ marks a value a live test showed on this row.</value>
+  </data>
+  <data name="ModePresentation.Icon" xml:space="preserve">
+    <value>HUD icon</value>
+  </data>
+  <data name="ModePresentation.Label" xml:space="preserve">
+    <value>Mode label</value>
+  </data>
+  <data name="ModePresentation.NoLabel" xml:space="preserve">
+    <value>No label</value>
+  </data>
+  <data name="ModePresentation.Proven" xml:space="preserve">
+    <value>Live-proven here: {0}.</value>
+    <comment>{0}: labels and icons</comment>
+  </data>
+  <data name="ModePresentation.ReadOnly" xml:space="preserve">
+    <value>Runtime publishes this row's mode label and icon as read-only.</value>
+  </data>
+  <data name="ModePresentation.Reason.Effect" xml:space="preserve">
+    <value>No live test showed this label or icon on this row, and the menu reader is not traced.</value>
+  </data>
+  <data name="ModePresentation.Reason.Shared" xml:space="preserve">
+    <value>The label is on this projectile row, fired by {0} entities ({1}): every one of them shows it.</value>
+    <comment>{0}: entity count; {1}: native entity names</comment>
+  </data>
+  <data name="ModePresentation.Shared.Tooltip" xml:space="preserve">
+    <value>The label is on a shared row: every weapon firing it shows it.</value>
+  </data>
+  <data name="ModePresentation.Title" xml:space="preserve">
+    <value>Mode label and icon</value>
+    <comment>Default heading of the mode presentation editor</comment>
+  </data>
+  <data name="ModePresentation.Vanilla" xml:space="preserve">
+    <value>Vanilla: {0}</value>
+    <comment>{0}: the row's current label or icon</comment>
+  </data>
   <data name="ModOptions.Available.Expose" xml:space="preserve">
     <value>Expose</value>
     <comment>Button: make this edited field an in-game option</comment>
@@ -4433,6 +4584,10 @@
   <data name="Nav.PlayerWeapons" xml:space="preserve">
     <value>Player Weapons</value>
     <comment>Sidebar destination and page title</comment>
+  </data>
+  <data name="Nav.ProjectileBuilder" xml:space="preserve">
+    <value>Projectile builder</value>
+    <comment>Sidebar destination (0.28.0 SDKs)</comment>
   </data>
   <data name="Nav.ProjectLibrary" xml:space="preserve">
     <value>Project library</value>
@@ -5021,6 +5176,225 @@
   <data name="Projectile.Unavailable" xml:space="preserve">
     <value>Unavailable · {0}</value>
     <comment>Option for a saved projectile the SDK no longer offers; {0}: projectile label</comment>
+  </data>
+  <data name="ProjectileBuilder.Changes.Title" xml:space="preserve">
+    <value>Projectile hosts and rows</value>
+  </data>
+  <data name="ProjectileBuilder.Classes.Help" xml:space="preserve">
+    <value>A row write edits this row in place. Runtime's composition classes for this build:</value>
+  </data>
+  <data name="ProjectileBuilder.Classes.Interim" xml:space="preserve">
+    <value>Interim</value>
+  </data>
+  <data name="ProjectileBuilder.Classes.NotSupported" xml:space="preserve">
+    <value>Not available</value>
+  </data>
+  <data name="ProjectileBuilder.Classes.Supported" xml:space="preserve">
+    <value>Supported</value>
+  </data>
+  <data name="ProjectileBuilder.Classes.Title" xml:space="preserve">
+    <value>Why not a private copy of this row?</value>
+  </data>
+  <data name="ProjectileBuilder.Classes.Unproven" xml:space="preserve">
+    <value>Unproven members stay read-only: {0}.</value>
+    <comment>{0}: Runtime descriptions</comment>
+  </data>
+  <data name="ProjectileBuilder.Empty.Help" xml:space="preserve">
+    <value>Choose a host to swap the projectile it fires, or a row to compose its direct hit, explosions and mode label.</value>
+  </data>
+  <data name="ProjectileBuilder.Empty.Title" xml:space="preserve">
+    <value>Nothing selected</value>
+  </data>
+  <data name="ProjectileBuilder.Filter.Kind" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="ProjectileBuilder.Filter.Writable" xml:space="preserve">
+    <value>Writable hosts only</value>
+  </data>
+  <data name="ProjectileBuilder.Flight.Help" xml:space="preserve">
+    <value>Velocity, drag and penetration slowdown are this row's own values, published on its owner and edited where they are authored. They are not builder slots, and they change every entity firing the row.</value>
+  </data>
+  <data name="ProjectileBuilder.Flight.None" xml:space="preserve">
+    <value>This row's owner publishes no flight values.</value>
+  </data>
+  <data name="ProjectileBuilder.Flight.Title" xml:space="preserve">
+    <value>Flight</value>
+  </data>
+  <data name="ProjectileBuilder.Host.Carrier" xml:space="preserve">
+    <value>Carried by the {0} drone (hd2.backpack(name):drone():weapon()).</value>
+    <comment>{0}: backpack name</comment>
+  </data>
+  <data name="ProjectileBuilder.Host.OtherFamily" xml:space="preserve">
+    <value>{0} fires a {1} output, never a projectile:</value>
+    <comment>{0}: weapon or mount; {1}: output family</comment>
+  </data>
+  <data name="ProjectileBuilder.Host.SameEntity" xml:space="preserve">
+    <value>One weapon entity with {0}: a swap here changes it too, so the write carries allow_shared.</value>
+    <comment>{0}: mount keys</comment>
+  </data>
+  <data name="ProjectileBuilder.Host.SetThrough" xml:space="preserve">
+    <value>Set through {0}, the same weapon entity; choosing here replaces that swap.</value>
+    <comment>{0}: mount key</comment>
+  </data>
+  <data name="ProjectileBuilder.Intro.Effect" xml:space="preserve">
+    <value>To give a swapped host an effect, write the donor's row: the donor weapon and every other weapon firing that row change too. A row of one host's own exists only where the SDK publishes one (a spare twin).</value>
+  </data>
+  <data name="ProjectileBuilder.Intro.Row" xml:space="preserve">
+    <value>A row write changes a row's direct hit, explosions or mode label for every entity that fires it. It is a separate operation and never follows a swap.</value>
+  </data>
+  <data name="ProjectileBuilder.Intro.Swap" xml:space="preserve">
+    <value>A host swap changes which projectile row a weapon fires (its own projectile member, or its default ammunition), one host at a time.</value>
+  </data>
+  <data name="ProjectileBuilder.Links.EditDonorRow" xml:space="preserve">
+    <value>Edit the donor row: {0}</value>
+    <comment>{0}: donor row</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.EditOwnRow" xml:space="preserve">
+    <value>Edit its row: {0}</value>
+    <comment>{0}: row</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.EditOwnRowSwapped" xml:space="preserve">
+    <value>Edit its own row: {0} (not fired while swapped)</value>
+    <comment>{0}: row</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.Own" xml:space="preserve">
+    <value>Effects on what {0} fires (direct hit, explosions, mode label) are written on its row, for every entity that fires that row.</value>
+    <comment>{0}: host</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.OwnRowReadOnly" xml:space="preserve">
+    <value>Its row {0} cannot be composed: {1}</value>
+    <comment>{0}: row; {1}: Runtime reason</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.Swapped" xml:space="preserve">
+    <value>{0} fires {1} because of its swap. A row write does not follow the swap: to change what it fires now, write the {1} row (every weapon firing that row changes too). Its own row keeps any edit, for the entities that still fire it.</value>
+    <comment>{0}: host; {1}: donor row</comment>
+  </data>
+  <data name="ProjectileBuilder.Other.Emitter" xml:space="preserve">
+    <value>Emitter: {0} · owner fire resources: {1}</value>
+    <comment>{0}: native component; {1}: component list</comment>
+  </data>
+  <data name="ProjectileBuilder.Owner.Mounted" xml:space="preserve">
+    <value>Mounted weapon</value>
+  </data>
+  <data name="ProjectileBuilder.Owner.Player" xml:space="preserve">
+    <value>Player weapon</value>
+  </data>
+  <data name="ProjectileBuilder.Owner.SpareRow" xml:space="preserve">
+    <value>Spare row</value>
+  </data>
+  <data name="ProjectileBuilder.Owner.Stratagem" xml:space="preserve">
+    <value>Stratagem</value>
+  </data>
+  <data name="ProjectileBuilder.Owner.Support" xml:space="preserve">
+    <value>Support weapon</value>
+  </data>
+  <data name="ProjectileBuilder.Reason.Effect" xml:space="preserve">
+    <value>No live test proved this exact value on this row. Live-proven here: {0}.</value>
+    <comment>{0}: proven values or None</comment>
+  </data>
+  <data name="ProjectileBuilder.Reason.Shared" xml:space="preserve">
+    <value>This row is fired by {0} entities ({1}): changing it changes all of them.</value>
+    <comment>{0}: entity count; {1}: entity names and swapped hosts</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.DonorContext" xml:space="preserve">
+    <value>{0} fires this row because of its swap. Writing here changes {1} for every entity that fires it: the donor weapon, {0} and any other host swapped onto it.</value>
+    <comment>{0}: host; {1}: row</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FieldEffect" xml:space="preserve">
+    <value>Leaves a lingering field: {0}, {1} s, radius {2} m ({3} explosion).</value>
+    <comment>{0}: volume; {1}: seconds; {2}: radius; {3}: explosion phase</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredBy.One" xml:space="preserve">
+    <value>Fired by {0} entity ({1} typed reference):</value>
+    <comment>{0}: entity count; {1}: reference count</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredBy.Other" xml:space="preserve">
+    <value>Fired by {0} entities ({1} typed references):</value>
+    <comment>{0}: entity count; {1}: reference count</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredByShort.One" xml:space="preserve">
+    <value>fired by {0} entity</value>
+    <comment>{0}: entity count</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredByShort.Other" xml:space="preserve">
+    <value>fired by {0} entities</value>
+    <comment>{0}: entity count</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.Help" xml:space="preserve">
+    <value>A row write changes this projectile for every entity that fires it. It is not a host swap and does not follow one.</value>
+  </data>
+  <data name="ProjectileBuilder.Row.Reset" xml:space="preserve">
+    <value>Reset row</value>
+  </data>
+  <data name="ProjectileBuilder.Row.ResetField" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="ProjectileBuilder.Row.SpareTwin" xml:space="preserve">
+    <value>Spare twin of {0}: an interim, borrowed vanilla row, proven unreferenced on game build {1} only; Runtime refuses it on any other build.</value>
+    <comment>{0}: twin name; {1}: game build</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.SwappedHosts" xml:space="preserve">
+    <value>In this project also fired by: {0} (hosts swapped onto it; Runtime's shared count covers native consumers only).</value>
+    <comment>{0}: host list</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.Title" xml:space="preserve">
+    <value>Projectile row · {0}</value>
+    <comment>{0}: row (output) name</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.Base" xml:space="preserve">
+    <value>Base projectile</value>
+  </data>
+  <data name="ProjectileBuilder.Slot.DirectDamage.Help" xml:space="preserve">
+    <value>The direct hit brings the donor row's damage, armor penetration and status slots together.</value>
+  </data>
+  <data name="ProjectileBuilder.Slot.Handle" xml:space="preserve">
+    <value>{0} · {1}</value>
+    <comment>{0}: donor row; {1}: slot name</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.LiveProven" xml:space="preserve">
+    <value>Live-proven here</value>
+  </data>
+  <data name="ProjectileBuilder.Slot.None" xml:space="preserve">
+    <value>None</value>
+    <comment>A slot with no reference (Runtime value none)</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.Vanilla" xml:space="preserve">
+    <value>Vanilla: {0}</value>
+    <comment>{0}: the slot's current value</comment>
+  </data>
+  <data name="ProjectileBuilder.Summary.Hosts" xml:space="preserve">
+    <value>{0} of {1} hosts writable</value>
+    <comment>{0}: writable hosts; {1}: published sources</comment>
+  </data>
+  <data name="ProjectileBuilder.Summary.Rows" xml:space="preserve">
+    <value>{0} composable rows of {1} outputs</value>
+    <comment>{0}: rows with slots; {1}: catalogued outputs</comment>
+  </data>
+  <data name="ProjectileBuilder.Tab.Hosts" xml:space="preserve">
+    <value>Hosts</value>
+  </data>
+  <data name="ProjectileBuilder.Tab.Other" xml:space="preserve">
+    <value>Not a projectile</value>
+  </data>
+  <data name="ProjectileBuilder.Tab.Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="ProjectileBuilder.Tabs.Label" xml:space="preserve">
+    <value>Projectile builder views</value>
+  </data>
+  <data name="ProjectileBuilder.Title" xml:space="preserve">
+    <value>Projectile builder</value>
+  </data>
+  <data name="ProjectileBuilder.Unavailable.Count.One" xml:space="preserve">
+    <value>{0} output is never an attack's projectile</value>
+    <comment>{0}: count</comment>
+  </data>
+  <data name="ProjectileBuilder.Unavailable.Count.Other" xml:space="preserve">
+    <value>{0} outputs are never an attack's projectile</value>
+    <comment>{0}: count</comment>
+  </data>
+  <data name="ProjectileBuilder.Unavailable.Help" xml:space="preserve">
+    <value>Listed with Runtime's reason: other output families (beam, arc, spray, melee), rows another selector owns, and rows catalogued only for a programmable-ammunition mode.</value>
   </data>
   <data name="ProjectLibrary.Card.Actions" xml:space="preserve">
     <value>Project actions</value>

@@ -82,16 +82,26 @@ public sealed record ModePresentation(Dictionary<string, string> Fields, string 
 public sealed record AttackOutputSafety(bool RuntimeAddresses, bool NativeIdentifiers, int WritesDuringGeneration);
 public sealed record AttackOutputCatalogJson(string Contract, int SchemaVersion, string Hd2RuntimeVersion, AttackProjectileSource[] ProjectileSources,
     AmmunitionSource[] AmmunitionSources, ProvenComposition[] ProvenCompositions, AttackOutputHostModel HostModel, AttackOutputSummary Summary, AttackOutput[] Outputs,
-    AttackOutputSafety Safety, Dictionary<string, string>? ActiveSourceStatuses = null, ProjectileBuilder? ProjectileBuilder = null, ModePresentation? ModePresentation = null);
+    AttackOutputSafety Safety, Dictionary<string, string>? ActiveSourceStatuses = null, ProjectileBuilder? ProjectileBuilder = null, ModePresentation? ModePresentation = null,
+    string? Build = null);
 
-/// <summary>How a host attack's fired projectile is written: the attack's own reference ("component") or its default ammunition's projectile.</summary>
+/// <summary>How a host attack's fired projectile is written: the attack's own reference ("component") or its default ammunition's projectile.
+/// 0.28.0 unified hosts: HostKind says which accessor owns the attack (player, support or mounted weapon; Weapon is then the support weapon or
+/// the published mount key "&lt;vehicle&gt; / &lt;mount&gt;"). BaseAcknowledgements are the host field's own opt-ins (a support or mounted swap is
+/// not live-proven in general: allow_unverified_effect; one weapon entity in several mounts: allow_shared). LiveProvenValues are the exact donor
+/// outputs a live test proved on this host (they drop allow_unverified_effect, never allow_shared). SharedEntity names the other mounts that are
+/// the same weapon entity (a write changes them too).</summary>
 public sealed record AttackOutputHost(string Weapon, string Role, string Mechanism, string CompatibilityClass, string[] BaseAcknowledgements, AmmunitionSource? Ammunition,
-    bool CrossClassHost)
+    bool CrossClassHost, string HostKind = AttackProjectileSource.PlayerKind, string[]? LiveProvenValues = null, string? EffectReason = null, string[]? SharedEntity = null)
 {
     public const string Component = "component", AmmunitionMechanism = "ammunition", ProgrammableAmmo = "programmable_ammo";
 }
 /// <summary>One donor output for a host: whether it may be chosen (with Runtime's refusal otherwise) and the opt-ins the write needs.</summary>
 public sealed record AttackOutputDonor(AttackOutput Output, bool CrossClass, bool Allowed, string? Refusal, string[] Acknowledgements, bool ProvenOnHost);
+/// <summary>A catalogued output that can never be an attack's projectile, with Runtime's reason: another output family (beam, arc, spray, melee:
+/// INCOMPATIBLE_OUTPUT_FAMILY), a projectile row its owner does not fire (another selector owns the shot), or a row catalogued only for a
+/// programmable-ammunition projectile (OUTPUT_SCOPE: the EMS Mortar shell, the Speargun spare twin).</summary>
+public sealed record UnavailableOutput(AttackOutput Output, string Code, string Reason);
 
 public sealed class AttackOutputCatalog
 {
@@ -104,8 +114,13 @@ public sealed class AttackOutputCatalog
     // 0.28.0; null on older SDKs.
     public ProjectileBuilder? Builder { get; init; }
     public ModePresentation? ModePresentation { get; init; }
+    // The game build the catalog was researched on (a spare twin is proven unreferenced there only).
+    public string? Build { get; init; }
     public AttackOutput? Output(string semanticId) => Outputs.FirstOrDefault(o => o.SemanticId == semanticId);
     public AttackProjectileSource? Source(string weapon, string role) => ProjectileSources.FirstOrDefault(s => s.Weapon == weapon && s.Attack == role);
+    public AttackProjectileSource? Source(string kind, string weapon, string role) => ProjectileSources.FirstOrDefault(s => s.HostKind == kind && s.Weapon == weapon && s.Attack == role);
+    // The row an owner's own attack fires (a player, support or mounted weapon: owner names are unique across kinds in the catalog).
+    public AttackOutput? OwnedBy(string owner) => Outputs.FirstOrDefault(o => o.Owner.Name == owner);
     public AmmunitionSource? Ammunition(string weapon) => AmmunitionSources.FirstOrDefault(a => a.Weapon == weapon);
     // The output a player weapon's own attack fires (its own row, the baseline of a swap).
     public AttackOutput? Own(string weapon) => Outputs.FirstOrDefault(o => o.Owner.Name == weapon && o.Family == "projectile");
@@ -126,21 +141,37 @@ public sealed class AttackOutputCatalog
             return new(weapon, role, AttackOutputHost.AmmunitionMechanism, ammunition.CompatibilityClass, ammunition.Acknowledgements, ammunition, HostModel.AmmunitionHosts.Contains(weapon));
         return null;
     }
-    // Every selectable projectile output for a host, with Runtime's rules: the same compatibility class is always allowed; another class
-    // only for a published cross-class host, and then with allow_unverified_reference + allow_unverified_effect unless the exact
-    // composition was proven in play. Ammunition hosts add their ammunition row's own opt-ins (allow_shared, allow_unverified_effect).
+    // Every selectable projectile output for a host (one donor pool: player, support, mounted and stratagem owners alike), with Runtime's rules:
+    // the same compatibility class is always allowed; another class only for a published cross-class host, and then with
+    // allow_unverified_reference + allow_unverified_effect unless the exact composition was proven in play. Ammunition hosts add their
+    // ammunition row's own opt-ins (allow_shared, allow_unverified_effect); support and mounted hosts their field's (allow_unverified_effect, and
+    // allow_shared for one weapon entity in several mounts), where a live-proven donor drops allow_unverified_effect but never allow_shared.
+    // A donor owned by neither a player nor a support weapon needs a catalogued package (the Guard Dog gun has none: ASSET_UNAVAILABLE).
+    // The host's own row, and a mount that is the same weapon entity, are its baseline, not donors.
     public IReadOnlyList<AttackOutputDonor> Donors(AttackOutputHost host) => Outputs
-        .Where(o => o.Family == "projectile" && o.SelectableAsProjectileReference && o.AttackReferenceAllowed && o.Owner.Name != host.Weapon)
+        .Where(o => o.Family == "projectile" && o.SelectableAsProjectileReference && o.AttackReferenceAllowed && o.Owner.Name != host.Weapon && host.SharedEntity?.Contains(o.Owner.Name) != true)
         .Select(o =>
         {
             var cross = o.CompatibilityClass != host.CompatibilityClass;
             var proven = ProvenCompositions.Any(p => p.Host == host.Weapon && p.Output == o.SemanticId && p.Mechanism == host.Mechanism);
+            var live = host.LiveProvenValues?.Contains(o.SemanticId) == true;
             string? refusal = cross && !host.CrossClassHost ? "CROSS_CLASS_HOST_REJECTED: " + host.Weapon + " is not a published cross-class projectile host; it can take only "
-                + host.CompatibilityClass.Replace('_', ' ') + " outputs." : null;
+                + host.CompatibilityClass.Replace('_', ' ') + " outputs."
+                : !o.Package.AutoLoad && o.Owner.Kind is not (AttackProjectileSource.PlayerKind or AttackProjectileSource.SupportKind) ? DonorAssetRefusal(o) : null;
             var extra = !cross ? o.Acknowledgements!.SameClass : proven ? [] : host.Ammunition?.CrossClassAcknowledgements ?? o.Acknowledgements!.CrossClass;
-            return new AttackOutputDonor(o, cross, refusal == null, refusal, [.. host.BaseAcknowledgements.Concat(extra).Distinct().Order(StringComparer.Ordinal)], proven);
+            var baseline = live ? host.BaseAcknowledgements.Where(a => a != "allow_unverified_effect") : host.BaseAcknowledgements;
+            return new AttackOutputDonor(o, cross, refusal == null, refusal, [.. baseline.Concat(extra).Distinct().Order(StringComparer.Ordinal)], proven || live);
         })
         .OrderBy(d => d.Allowed ? 0 : 1).ThenBy(d => d.CrossClass ? 1 : 0).ThenBy(d => d.Output.Label, StringComparer.OrdinalIgnoreCase).ToArray();
+    // Runtime refuses a reference to assets it cannot load first (asset-loading.md): the output publishes no catalogued package.
+    public static string DonorAssetRefusal(AttackOutput o) => "ASSET_UNAVAILABLE: " + CoreText.Format("Messages.Output.NoPackage", o.Label);
+    // Outputs no attack can fire as its projectile, with the published reason (never offered as donors; listed so nothing is hidden).
+    public IReadOnlyList<UnavailableOutput> Unavailable() => Outputs.Select(o =>
+            o.Family != "projectile" ? new UnavailableOutput(o, "INCOMPATIBLE_OUTPUT_FAMILY", o.BlockedReason ?? o.Family)
+            : !o.SelectableAsProjectileReference ? new UnavailableOutput(o, "NOT_SELECTABLE", o.BlockedReason ?? CoreText.Get("Messages.Output.NotSelectable"))
+            : !o.AttackReferenceAllowed ? new UnavailableOutput(o, "OUTPUT_SCOPE", CoreText.Format("Messages.Output.ScopeOnly", string.Join(", ", o.ReferenceScope!)))
+            : null)
+        .OfType<UnavailableOutput>().OrderBy(u => u.Output.Family, StringComparer.Ordinal).ThenBy(u => u.Output.Label, StringComparer.OrdinalIgnoreCase).ToArray();
 }
 
 public static class AttackOutputReader
@@ -199,7 +230,7 @@ public static class AttackOutputReader
                 && s0.ComponentHosts == c.HostModel.ComponentHosts.Length && s0.AmmunitionHosts == c.HostModel.AmmunitionHosts.Length
                 && s0.DirectWritableAttackFields == c.ProjectileSources.Count(p => p.DirectWritable));
             return new() { Outputs = c.Outputs, ProjectileSources = c.ProjectileSources, AmmunitionSources = c.AmmunitionSources, ProvenCompositions = c.ProvenCompositions,
-                HostModel = c.HostModel, Summary = c.Summary, Builder = c.ProjectileBuilder, ModePresentation = c.ModePresentation };
+                HostModel = c.HostModel, Summary = c.Summary, Builder = c.ProjectileBuilder, ModePresentation = c.ModePresentation, Build = c.Build };
         }
         catch (Exception e) when (e is System.Text.Json.JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException or FormatException)
         { throw new InvalidDataException("Malformed attack output metadata.", e); }

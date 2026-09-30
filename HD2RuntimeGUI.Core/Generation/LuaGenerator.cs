@@ -80,6 +80,8 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
         }
         // Attack outputs (0.28.0 development SDKs): each a patch through the attack's active projectile source.
         if (project.AttackOutputChanges is { Count: > 0 }) operations.AddRange(AttackOutputChangeService.Operations(project, sdk));
+        // Projectile-builder row writes (slots, mode label and icon) on hd2.attack_output(row): independent of any host swap.
+        if (project.OutputRowChanges is { Count: > 0 }) operations.AddRange(OutputRowChangeService.Operations(project, sdk));
         operations.AddRange(supportLua.Operations(project, sdk, options));
         operations.AddRange(stratagemLua.Operations(project, sdk, options));
         operations.AddRange(entityLua.Operations(project, sdk, options));

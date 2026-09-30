@@ -54,6 +54,7 @@
         else if (Page == "scripting") { <CustomLuaPage Changed="RefreshWeaponUI" /> }
         else if (Page == "enemies") { <Enemies Kind="@EnemyAuthoringReader.Enemy" Changed="RefreshWeaponUI" /> }
         else if (Page == "structures") { <Enemies Kind="@EnemyAuthoringReader.Structure" Changed="RefreshWeaponUI" /> }
+        else if (Page == "projectiles") { <ProjectileOutputs Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
@@ -167,6 +168,7 @@
             {
                 <WeaponChanges Edit="EditWeapon" Changed="RefreshWeaponUI" />
                 <SupportChanges Changed="RefreshWeaponUI" />
+                <ProjectileBuilderChanges Changed="RefreshWeaponUI" />
                 <StratagemChanges Changed="RefreshWeaponUI" />
                 <EntityChanges Changed="RefreshWeaponUI" />
                 @if (Workspace.Project?.CustomLua is { } customLua)

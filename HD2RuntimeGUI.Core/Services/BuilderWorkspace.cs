@@ -391,7 +391,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             var oldOutputs = Project.AttackOutputChanges?.ToList();
             if (field == null) Project.CompositionChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
             if (field == null) Project.ProjectileChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
-            if (field == null && Project.AttackOutputChanges != null) { Project.AttackOutputChanges.RemoveAll(c => weapon == null || c.Weapon == weapon); if (Project.AttackOutputChanges.Count == 0) Project.AttackOutputChanges = null; }
+            if (field == null && Project.AttackOutputChanges != null) { Project.AttackOutputChanges.RemoveAll(c => c.IsPlayer && (weapon == null || c.Weapon == weapon)); if (Project.AttackOutputChanges.Count == 0) Project.AttackOutputChanges = null; }
             try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; Project.CompositionChanges = oldObjects; Project.AttackOutputChanges = oldOutputs; throw; }
         }
         finally { weaponEditGate.Release(); }
