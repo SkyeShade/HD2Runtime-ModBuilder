@@ -24,6 +24,11 @@ public sealed record EntityChange
     // classes that share the edited row when it was saved. Kept with the change so the project records who else a shared edit affects.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string[]? SharedConsumers { get; init; }
+    // 1.4.0 (Runtime 0.28.0): the entity a backpack deploys or projects ("drone" for Guard Dogs, "energy_shield" for the SH-51), for a
+    // backpack field reached through it (hd2.backpack(name):drone()), and "drone" for a Guard Dog drone weapon (Resource "vehicle_weapon",
+    // hd2.backpack(name):drone():weapon()). Omitted when absent, so older changes serialize exactly as before.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Linked { get; init; }
     public string InstanceKey { get; init; } = "";
     public string SemanticFieldId { get; init; } = "";
     public string FieldType { get; init; } = "";

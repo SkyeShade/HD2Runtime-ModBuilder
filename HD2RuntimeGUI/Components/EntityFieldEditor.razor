@@ -10,6 +10,15 @@
             else if (Field.Effect is { ActiveSourceProven: false }) { <span class="badge amber" data-field-effect-unproven title="@T["EntityField.EffectUnproven.Tooltip"]">@T["EntityField.EffectUnproven"]</span> }</span></div>
     <div class="field-value">
         @if (!Field.Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
+        else if (Field.IsStatusReference)
+        {
+            @* 0.28.0 status slot: an attachable status from Runtime's status catalog or the slot's own one; 'none' only where the slot may be cleared. *@
+            var choices = MountedStatusSlots.For(Sdk!, Field);
+            <select data-status-select disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)">
+                @if (choices.AllowNone) { <option value="@StatusReference.None" selected="@(Value == StatusReference.None)">@T["EntityField.Status.None"]</option> }
+                @foreach (var key in choices.Statuses) { <option value="@key" selected="@(Value == key)">@StatusLabel(key)@(key == Field.CurrentDefault.GetString() ? " " + T["EntityField.Status.CurrentSuffix"] : "")</option> }
+            </select>
+        }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.EffectiveRange?.Min)" max="@Bound(Field.EffectiveRange?.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
     @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("EntityField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
@@ -27,9 +36,15 @@
             @if (Field.Effect is { } effect)
             {
                 <p data-field-effect>@Effect(effect)</p>
+                @if (effect.AppliesTo != null) { <p data-field-applies-to>@T.Format("EntityField.AppliesTo", effect.AppliesTo)</p> }
+                @if (effect.Lifecycle != null) { <p data-field-lifecycle>@effect.Lifecycle</p> }
                 @if (effect.DamageRule != null) { <p>@T.Markup("EntityField.DamageRule.Html", effect.DamageRule)</p> }
                 @if (effect.Reason != null) { <p>@effect.Reason</p> }
             }
+            @* 0.28.0 native_correlated evidence: the native value next to the published one it was matched against. *@
+            @if (Field.Correlations is { Length: > 0 } correlations)
+            { <p data-field-correlations>@T.Format("EntityField.Correlations", string.Join("; ", correlations.Select(c => T.Format("EntityField.Correlation", c.Entity ?? Field.Target.Entity, c.Native.GetRawText(), c.Published.GetRawText()))))</p> }
+            @if (Field.Acknowledgement == "allow_unverified_effect" && Field.AcknowledgementReason != null) { <p data-field-unverified-reason>@T.Format("EntityField.UnverifiedReason", Field.AcknowledgementReason)</p> }
             <p>@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? T.Markup("EntityField.EvidenceTier.Html", EvidenceBadge.Label(Field.Evidence.Tier), tier) : T.Markup("EntityField.Evidence.Html", EvidenceBadge.Label(Field.Evidence.Tier)))</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
     @* A dormant member (0.28.0 development SDKs): the game reads another field, so point at the one that takes effect. *@
@@ -50,10 +65,14 @@
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     private EntityChange? Saved => EntityChangeService.Saved(Workspace.Project, Field);
+    private SdkMetadata? Sdk => Workspace.Metadata ?? Workspace.SdkStatus?.Installed;
     private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
-    private string Value => Format(Saved?.DesiredValue ?? Field.CurrentDefault);
+    private string Value => Text(Saved?.DesiredValue ?? Field.CurrentDefault);
     private static string? Bound(double? v) => v is double d && double.IsFinite(d) ? d.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
-    private string Format(System.Text.Json.JsonElement v) { try { return EntityScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    private string Text(System.Text.Json.JsonElement v) { try { return EntityScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    // Shown values: a status key reads as its published status name ("none" as ModBuilder's "None").
+    private string Format(System.Text.Json.JsonElement v) => Field.IsStatusReference ? StatusLabel(Text(v)) : Text(v);
+    private string StatusLabel(string key) => key == StatusReference.None ? T["EntityField.Status.None"] : Sdk?.StatusEffects?.Label(key) ?? key;
     // "Takes effect: <source> (proven) · <when>". The active source and the when-token are Runtime's, shown as published; the words around them are ModBuilder's.
     private MarkupString Effect(FieldEffect e)
     {

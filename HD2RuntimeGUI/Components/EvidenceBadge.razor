@@ -38,6 +38,9 @@
         "gameplay_proven_member" => t["Evidence.Tier.GameplayProvenMember"],
         "schema_wiki_correlated" => t["Evidence.Tier.SchemaWikiCorrelated"],
         "mount_chain_structural" => t["Evidence.Tier.MountChainStructural"],
+        // 0.28.0 backpack settings and linked entities: the native member's meaning is proven offline (exact published value, differential,
+        // hidden-name length); not yet shown in game, so every write carries allow_unverified_effect.
+        "native_correlated" => t["Evidence.Tier.NativeCorrelated"],
         _ => tier.Replace('_', ' '),
     };
     public static string Short(IUiText t, string tier) => tier switch
@@ -58,6 +61,7 @@
         "gameplay_proven_member" => t["Evidence.Short.GameplayProvenMember"],
         "schema_wiki_correlated" => t["Evidence.Short.SchemaWikiCorrelated"],
         "mount_chain_structural" => t["Evidence.Short.MountChainStructural"],
+        "native_correlated" => t["Evidence.Short.NativeCorrelated"],
         _ => tier.Replace('_', ' '),
     };
     private string Tooltip => string.Join("\n", new[] { Label(T, Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : T.Format("Evidence.ReferenceMod", Evidence.ReferenceMod),

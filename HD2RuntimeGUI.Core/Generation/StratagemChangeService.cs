@@ -20,6 +20,18 @@ public static class StratagemScalar
         throw new InvalidDataException(CoreText.Get("Messages.Build.Value.CompleteFinitePublishedType"));
     }
     public static bool Equal(StratagemField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
+    // 0.28.0 published bounds on scalar fields (sentry turn speeds and aim limits, targeting range, reduce-only minefield counts): Runtime
+    // rejects a value outside them, so it is refused where the edit is made. Mission uses keep their own range check.
+    public static void CheckRange(StratagemField f, JsonElement value)
+    {
+        var normalized = Normalize(f, value);
+        if (f.Type is not ("number" or "integer") || f.Min == null && f.Max == null) return;
+        var v = normalized.GetDouble();
+        double Bound(double b) => f.Type == "number" ? (float)b : b;
+        if (f.Min is double min && v < Bound(min) || f.Max is double max && v > Bound(max))
+            throw new InvalidDataException(CoreText.Format("Messages.Build.Entity.OutOfRange", f.DisplayName,
+                (f.Min ?? double.NegativeInfinity).ToString(CultureInfo.InvariantCulture), (f.Max ?? double.PositiveInfinity).ToString(CultureInfo.InvariantCulture)));
+    }
     // Lua literal. Mission uses are Runtime's 'unlimited' token or an integer.
     public static string Text(StratagemField f, JsonElement v) => v.ValueKind == JsonValueKind.Null ? "Unknown" : f.Type switch
     {
@@ -55,6 +67,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
             using var doc = JsonDocument.Parse(value);
             var desired = StratagemScalar.Normalize(f, doc.RootElement);
             if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, f.CurrentDefault, desired);
+            StratagemScalar.CheckRange(f, desired);
             return new() { InstanceKey = instance, TargetKind = TargetKind(f), Stratagem = f.Target.Stratagem, Path = f.Target.Path,
                 Entity = f.Target.Entity, Weapon = f.Target.Weapon, Zone = f.Target.Zone, Attack = f.Target.Attack,
                 SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(), DesiredValue = desired,
@@ -75,6 +88,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
         if (!StratagemScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException(CoreText.Get("Messages.Build.Stratagem.BaselineChanged"));
         _ = StratagemScalar.Normalize(f, c.DesiredValue);
         if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, c.ExpectedValue, c.DesiredValue);
+        StratagemScalar.CheckRange(f, c.DesiredValue);
         // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
     }
     // 0.26.0: Runtime requires allow_unverified_effect for this change (mission uses except gameplay-proven targets).

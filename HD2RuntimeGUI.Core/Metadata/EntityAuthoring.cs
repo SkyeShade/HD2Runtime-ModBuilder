@@ -33,7 +33,10 @@ public sealed record EntityTarget(string Resource, string Path, string? Vehicle 
 // Whether a write takes effect (unreleased Runtime 0.28.0 development SDKs): the active source status, when it applies, and for a dormant
 // member the field that is active instead.
 public sealed record FieldEffect(string? ActiveSource = null, bool? ActiveSourceProven = null, string? AppliesWhen = null, bool? InstantiationOnly = null,
-    string? ActiveField = null, string? DamageRule = null, string? Reason = null)
+    string? ActiveField = null, string? DamageRule = null, string? Reason = null,
+    // 0.28.0 backpack settings: when an edit reaches an entity (for example "apply before the backpack is called in") and which part of a
+    // backpack a field binds (the SH-51 "backpack body", not its energy barrier). Shown as published.
+    string? Lifecycle = null, string? AppliesTo = null)
 {
     public const string Dormant = "DORMANT_OR_METADATA";
 }
@@ -56,7 +59,11 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     // zone lists, and whether/when a write takes effect (effect.activeSource, appliesWhen, the field that is active instead).
     string? RangeReason = null, string[]? ZoneActors = null, FieldEffect? Effect = null,
     // 0.28.0: the native value each published value was matched against (entity, native, published).
-    EntityCorrelation[]? Correlations = null)
+    EntityCorrelation[]? Correlations = null,
+    // 1.4.0, not part of any evidence hash: values a live test proved for exactly this field (their writes need no unverified opt-in; for a
+    // drop-pod slot, the pickups a test used in that slot), and for a mounted-weapon field the settings row it edits identified by every
+    // weapon that fires it (the same row reached through a vehicle mount and a Guard Dog drone gets the same identity).
+    string[]? LiveProvenValues = null, string? SharedRow = null)
 {
     public const string ReferenceType = "mounted_weapon_reference";
     // 0.26.0 drop-pod slot payload: a reviewed pickup semantic ID or 'empty'.
@@ -110,9 +117,14 @@ public sealed record VehicleCatalog(string Contract, int SchemaVersion, string H
 public sealed record BackpackSettingGroup(string Group, string[] FieldInstanceKeys, string? Linked = null);
 // 0.28.0: an entity the backpack deploys or projects (a Guard Dog drone, the SH-51 energy shield), with its own fields and damage zones.
 // A Guard Dog's weapon is a vehicle weapon whose carrier is this backpack (VehicleWeaponCapabilities).
-public sealed record BackpackLinkedEntity(string Linked, string Relationship, string[] Chain, string? WeaponFamily, BackpackZone[]? DamageZones, string[] FieldInstanceKeys)
+public sealed record BackpackLinkedEntity(string Linked, string Relationship, string[] Chain, string? WeaponFamily, BackpackZone[]? DamageZones, string[] FieldInstanceKeys,
+    // What Runtime's research established about the link (the SH-51 body and barrier are separate entities, ...), shown as published.
+    string[]? Findings = null)
 {
     public const string Drone = "drone", EnergyShield = "energy_shield";
+    public static readonly string[] Kinds = [Drone, EnergyShield];
+    // hd2.backpack(name):drone() / :energy_shield(): the accessor is the published linked-entity name.
+    public static string Accessor(string linked) => linked is Drone or EnergyShield ? ":" + linked + "()" : throw new InvalidDataException("Unknown backpack-linked entity.");
 }
 // 0.26.0 backpack-fed support weapons: the weapon this backpack's deposit supplies (support weapon -> ammoBackpack, reverse link).
 public sealed record BackpackFeeds(string SupportWeapon, string SupportWeaponSemanticId, string Relationship, int AmmoMode, string InventorySlot,

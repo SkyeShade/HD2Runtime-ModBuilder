@@ -497,12 +497,96 @@
     <value>DELIVERED BACKPACK</value>
     <comment>Eyebrow of a backpack shown under its stratagem</comment>
   </data>
+  <data name="Backpack.Group.Ammo" xml:space="preserve">
+    <value>Ammunition</value>
+    <comment>Backpack setting group (published id backpack_ammo: weapon-fed backpack ammunition); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Charges" xml:space="preserve">
+    <value>Charges</value>
+    <comment>Backpack setting group (published id charges); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.DroneMagazines" xml:space="preserve">
+    <value>Drone magazines</value>
+    <comment>Backpack setting group (published id drone_magazines: the Guard Dog magazines the backpack holds); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Durability" xml:space="preserve">
+    <value>Durability</value>
+    <comment>Backpack setting group (published id durability: health and armor of the backpack itself); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Hover" xml:space="preserve">
+    <value>Hover</value>
+    <comment>Backpack setting group (published id hover, LIFT-860 Hover Pack); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Movement" xml:space="preserve">
+    <value>Movement</value>
+    <comment>Backpack setting group (published id movement); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Recharge" xml:space="preserve">
+    <value>Recharge</value>
+    <comment>Backpack setting group (published id recharge); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Shield" xml:space="preserve">
+    <value>Shield</value>
+    <comment>Backpack setting group (published id shield, SH-32 Shield Generator Pack); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.ShieldPlate" xml:space="preserve">
+    <value>Shield plate</value>
+    <comment>Backpack setting group (published id shield_plate, SH-20 Ballistic Shield); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Group.Warp" xml:space="preserve">
+    <value>Warp</value>
+    <comment>Backpack setting group (published id warp, LIFT-182 Warp Pack); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Chain" xml:space="preserve">
+    <value>Ownership chain and findings</value>
+    <comment>Summary of the collapsible list of the published ownership chain and research findings of a linked entity; new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Drone" xml:space="preserve">
+    <value>Guard Dog drone</value>
+    <comment>Heading of the drone a Guard Dog backpack deploys (hd2.backpack(name):drone()); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.EnergyShield" xml:space="preserve">
+    <value>Energy shield</value>
+    <comment>Heading of the energy barrier the SH-51 Directional Shield projects (hd2.backpack(name):energy_shield()); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Help.Html" xml:space="preserve">
+    <value>Written through &lt;code&gt;{0}&lt;/code&gt;. Runtime re-proves the backpack's link to this entity before every write, and an edit reaches the entities spawned after it.</value>
+    <comment>{0}: Lua accessor such as hd2.backpack('SH-51 Directional Shield'):energy_shield(); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Relationship.DeployedDrone" xml:space="preserve">
+    <value>Deployed by the backpack</value>
+    <comment>Relationship badge (published relationship deployed_drone); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Relationship.SpawnedShield" xml:space="preserve">
+    <value>Projected by the backpack</value>
+    <comment>Relationship badge (published relationship spawned_shield); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Relationship.Tooltip" xml:space="preserve">
+    <value>How the backpack reaches this entity. Runtime re-proves the link before every write.</value>
+    <comment>Tooltip of a linked entity's relationship badge; new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.WeaponFamily" xml:space="preserve">
+    <value>Weapon: {0}</value>
+    <comment>{0}: the drone weapon's attack family as published (projectile, beam, spray, arc); new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.Zone" xml:space="preserve">
+    <value>{0} damage zone ({1})</value>
+    <comment>{0}: native zone name, title-cased (not translated); {1}: zone id such as zone_0; new: needs native review</comment>
+  </data>
+  <data name="Backpack.Linked.ZoneUnnamed" xml:space="preserve">
+    <value>Damage zone {0} ({1})</value>
+    <comment>{0}: zone index; {1}: zone id such as zone_0; new: needs native review</comment>
+  </data>
   <data name="Backpack.OtherGroup" xml:space="preserve">
     <value>Other</value>
     <comment>Heading of the group of backpack fields outside the published setting groups</comment>
   </data>
   <data name="Backpack.Reset" xml:space="preserve">
     <value>Reset backpack</value>
+  </data>
+  <data name="Backpack.Unverified.Title" xml:space="preserve">
+    <value>Backpack effect not gameplay-confirmed</value>
+    <comment>Warning title for edited backpack fields written with allow_unverified_effect; new: needs native review</comment>
   </data>
   <data name="Backpack.ZoneField" xml:space="preserve">
     <value>{0} zone · {1}</value>
@@ -1081,6 +1165,10 @@
   <data name="DropPod.Note.LiveVerified" xml:space="preserve">
     <value>This pickup was verified live in this rack slot. HD2Runtime still writes pod replacements with allow_unverified_reference.</value>
   </data>
+  <data name="DropPod.Note.LiveVerifiedNoFlag" xml:space="preserve">
+    <value>A live test used this pickup in exactly this slot, so the write needs no allow_unverified_reference. A shared rack still carries allow_shared.</value>
+    <comment>Note on a drop-pod slot holding a pickup Runtime verified live in that slot (0.28.0); new: needs native review</comment>
+  </data>
   <data name="DropPod.Note.NotVanilla" xml:space="preserve">
     <value>Not this slot's vanilla occupant (allow_unverified_reference).</value>
   </data>
@@ -1608,9 +1696,17 @@
     <value>Deployed entity</value>
     <comment>Summary item</comment>
   </data>
+  <data name="EntityChanges.Part.DroneWeapon" xml:space="preserve">
+    <value>Drone weapon</value>
+    <comment>Changes summary part: edits to a Guard Dog drone's weapon; new: needs native review</comment>
+  </data>
   <data name="EntityChanges.Part.Durability" xml:space="preserve">
     <value>Durability</value>
     <comment>Summary item: vehicle main health/armor changes</comment>
+  </data>
+  <data name="EntityChanges.Part.LinkedEntity" xml:space="preserve">
+    <value>Drone or energy shield</value>
+    <comment>Changes summary part: edits to an entity a backpack deploys or projects; new: needs native review</comment>
   </data>
   <data name="EntityChanges.Part.MagazineValues" xml:space="preserve">
     <value>Magazine values</value>
@@ -1659,6 +1755,10 @@
     <value>The game does not use this value; &lt;strong&gt;{0}&lt;/strong&gt; is the one that takes effect.</value>
     <comment>{0}: the field that is active instead (as published by the SDK)</comment>
   </data>
+  <data name="EntityField.AppliesTo" xml:space="preserve">
+    <value>Applies to: {0}</value>
+    <comment>{0}: the part of the entity a field binds, as published by Runtime (for example "backpack body"); new: needs native review</comment>
+  </data>
   <data name="EntityField.Base" xml:space="preserve">
     <value>Base {0}</value>
     <comment>{0}: SDK baseline value</comment>
@@ -1666,6 +1766,14 @@
   <data name="EntityField.BaseToDesired.Html" xml:space="preserve">
     <value>Base {0} → &lt;strong&gt;{1}&lt;/strong&gt;</value>
     <comment>{0}: SDK baseline value; {1}: the saved new value</comment>
+  </data>
+  <data name="EntityField.Correlation" xml:space="preserve">
+    <value>{0}: native {1} = published {2}</value>
+    <comment>{0}: entity name; {1}: native value; {2}: published (wiki) value it equals; new: needs native review</comment>
+  </data>
+  <data name="EntityField.Correlations" xml:space="preserve">
+    <value>Native values matched: {0}</value>
+    <comment>{0}: list of EntityField.Correlation entries separated by semicolons; new: needs native review</comment>
   </data>
   <data name="EntityField.DamageRule.Html" xml:space="preserve">
     <value>&lt;strong&gt;Damage rule:&lt;/strong&gt; {0}</value>
@@ -1740,6 +1848,18 @@
   </data>
   <data name="EntityField.Reset" xml:space="preserve">
     <value>Reset field</value>
+  </data>
+  <data name="EntityField.Status.CurrentSuffix" xml:space="preserve">
+    <value>(current)</value>
+    <comment>Suffix after the status a slot applies today in the status list; new: needs native review</comment>
+  </data>
+  <data name="EntityField.Status.None" xml:space="preserve">
+    <value>None</value>
+    <comment>Status slot value 'none' (no status; clears the slot); new: needs native review</comment>
+  </data>
+  <data name="EntityField.UnverifiedReason" xml:space="preserve">
+    <value>Written with allow_unverified_effect: {0}</value>
+    <comment>{0}: Runtime's published reason why the field is not yet gameplay-confirmed; new: needs native review</comment>
   </data>
   <data name="EntityPanel.AlsoUsedBy" xml:space="preserve">
     <value>Also used by:</value>
@@ -2001,6 +2121,10 @@
   <data name="Evidence.Short.NativeConsumer" xml:space="preserve">
     <value>Native consumer</value>
   </data>
+  <data name="Evidence.Short.NativeCorrelated" xml:space="preserve">
+    <value>Correlated</value>
+    <comment>Short evidence badge for the native_correlated tier; new: needs native review</comment>
+  </data>
   <data name="Evidence.Short.NativeMember" xml:space="preserve">
     <value>Native member</value>
   </data>
@@ -2040,6 +2164,10 @@
   </data>
   <data name="Evidence.Tier.MountChainStructural" xml:space="preserve">
     <value>Mount chain · effect unproven</value>
+  </data>
+  <data name="Evidence.Tier.NativeCorrelated" xml:space="preserve">
+    <value>Native-correlated · effect unproven</value>
+    <comment>Evidence tier label (Runtime tier native_correlated): the native member's meaning is proven offline by exact published values, not yet shown in game; new: needs native review</comment>
   </data>
   <data name="Evidence.Tier.NativeMember" xml:space="preserve">
     <value>Native member · effect unproven</value>
@@ -3235,9 +3363,21 @@
   <data name="Messages.Build.Projectile.SourceNotApproved" xml:space="preserve">
     <value>The SDK does not approve this projectile source for this selector.</value>
   </data>
+  <data name="Messages.Build.Status.CatalogMissing" xml:space="preserve">
+    <value>This SDK publishes no status effect catalog, so status slots cannot be written.</value>
+    <comment>Build error; new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
     <value>Choose a status effect, or none.</value>
     <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Status.ClearLastOnly" xml:space="preserve">
+    <value>Status slot {0} can only be cleared while every later slot is empty: status slots stay packed from slot 1.</value>
+    <comment>{0}: status slot number; new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Status.Gap" xml:space="preserve">
+    <value>Status slot {1} cannot apply a status while slot {0} is empty: status slots stay packed from slot 1. Give slot {0} a status, or leave slot {1} empty.</value>
+    <comment>{0}: the empty slot; {1}: the slot that would apply a status after it; new: needs native review</comment>
   </data>
   <data name="Messages.Build.Status.NotAllowed" xml:space="preserve">
     <value>'{0}' is not a status effect this slot can take.</value>
@@ -5859,6 +5999,10 @@
   <data name="StratagemField.Info.Tooltip" xml:space="preserve">
     <value>Why? / provenance</value>
   </data>
+  <data name="StratagemField.LiveEvidence.Tooltip" xml:space="preserve">
+    <value>Live-proven by {0} ({1}): written without allow_unverified_effect.</value>
+    <comment>{0}: live test names; {1}: test date as published; new: needs native review</comment>
+  </data>
   <data name="StratagemField.NotWritable" xml:space="preserve">
     <value>Not writable:</value>
     <comment>Label before the SDK reason</comment>
@@ -6453,6 +6597,14 @@
   <data name="VehicleWeapon.AlsoMountedAt.Tooltip" xml:space="preserve">
     <value>The same weapon entity sits in these mounts</value>
   </data>
+  <data name="VehicleWeapon.Carrier.Html" xml:space="preserve">
+    <value>Written through &lt;code&gt;{0}&lt;/code&gt;: Runtime re-proves the backpack → drone → weapon chain before every write. The drone reloads from the backpack's drone magazines, so the weapon's own spare magazines are not exposed.</value>
+    <comment>{0}: the Lua accessor of the drone weapon, e.g. hd2.backpack('AX/AR-23 Guard Dog'):drone():weapon(); new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.DroneWeapon" xml:space="preserve">
+    <value>Drone weapon</value>
+    <comment>Heading of a Guard Dog drone's weapon inside its backpack; new: needs native review</comment>
+  </data>
   <data name="VehicleWeapon.Mount.CoaxialMachineGun" xml:space="preserve">
     <value>Coaxial machine gun</value>
     <comment>Mount title (tank)</comment>
@@ -6493,6 +6645,14 @@
   <data name="VehicleWeapon.Scope.SharedMounts" xml:space="preserve">
     <value>shared with other mounts</value>
   </data>
+  <data name="VehicleWeapon.Shared.Arc" xml:space="preserve">
+    <value>Shared arc definition</value>
+    <comment>Warning title for a shared ArcSettings row (Runtime scope shared_arc, allow_shared); new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.Shared.Beam" xml:space="preserve">
+    <value>Shared beam definition</value>
+    <comment>Warning title for a shared BeamSettings row (Runtime scope shared_beam, allow_shared); new: needs native review</comment>
+  </data>
   <data name="VehicleWeapon.Shared.Damage" xml:space="preserve">
     <value>Shared damage definition</value>
   </data>
@@ -6514,6 +6674,22 @@
   <data name="VehicleWeapon.Slot" xml:space="preserve">
     <value>slot {0} · {1}</value>
     <comment>{0}: slot number; {1}: mount label (SDK token)</comment>
+  </data>
+  <data name="VehicleWeapon.Status.Help" xml:space="preserve">
+    <value>Status slots: a used slot can take another attachable status, and the first empty slot can gain one (set its strength too). Only the last used slot can be cleared, so the slots stay packed from slot 1.</value>
+    <comment>Help under a mounted weapon's status slot fields; new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.Status.StrengthHint" xml:space="preserve">
+    <value>Status slot {0} gains a status while its strength is still 0. Set the slot's strength as well; the status catalog lists the strengths existing attacks use.</value>
+    <comment>{0}: status slot number (1-4); new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.StatusSlot" xml:space="preserve">
+    <value>Status {0}</value>
+    <comment>Label of a status slot field; {0}: slot number 1-4; new: needs native review</comment>
+  </data>
+  <data name="VehicleWeapon.StatusStrengthSlot" xml:space="preserve">
+    <value>Status {0} strength</value>
+    <comment>Label of a status slot's strength field; {0}: slot number 1-4; new: needs native review</comment>
   </data>
   <data name="VehicleWeapon.Swap" xml:space="preserve">
     <value>Swap mounted weapon…</value>

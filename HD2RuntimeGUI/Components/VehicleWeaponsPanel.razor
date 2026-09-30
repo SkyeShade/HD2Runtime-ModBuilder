@@ -14,24 +14,30 @@
         var swap = entities.Vehicles.Find(Vehicle)?.Mounts.FirstOrDefault(x => x.SlotIndex == m.Slot);
         var keys = m.Weapon?.FieldGroups.Values.SelectMany(k => k).ToArray() ?? [];
         var edited = keys.Any(k => EntityChangeService.Saved(Workspace.Project, byKey[k]) != null);
-        <section class="panel vehicle-weapon @(edited ? "modified" : "")" data-vehicle-weapon="@(m.Weapon?.Key ?? Vehicle + " / " + m.Label)" data-mount-slot="@m.Slot">
-            <div class="panel-heading"><h2>@MountTitle(m)</h2><span class="badge" title="@T["VehicleWeapon.MountLabel.Tooltip"]">@T.Format("VehicleWeapon.Slot", m.Slot, m.Label)</span>
+        <section class="panel vehicle-weapon @(edited ? "modified" : "")" data-vehicle-weapon="@(m.Weapon?.Key ?? Vehicle + " / " + m.Label)" data-mount-slot="@m.Slot" data-carrier="@vehicle.Carrier?.Kind">
+            <div class="panel-heading">@if (vehicle.Carrier != null) { <h3>@T["VehicleWeapon.DroneWeapon"]</h3> } else { <h2>@MountTitle(m)</h2> }<span class="badge" title="@T["VehicleWeapon.MountLabel.Tooltip"]">@T.Format("VehicleWeapon.Slot", m.Slot, m.Label)</span>
                 @if (swap?.Current is { } current) { <span class="badge" data-mounted-weapon>@current.DisplayName</span> }
                 @if (m.Weapon?.Ownership.AlsoMountedAt is { Length: > 0 } also) { <span class="badge amber" title="@T["VehicleWeapon.AlsoMountedAt.Tooltip"]">@T.Format("VehicleWeapon.AlsoMountedAt", string.Join(", ", also))</span> }
                 @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
                 @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => ResetMount(keys))'>@T["VehicleWeapon.ResetMount"]</button> }</div>
+            @* 0.28.0 Guard Dog drones: the weapon is written through its backpack (the published carrier accessor), never through hd2.vehicle. *@
+            @if (vehicle.Carrier is { } carrier && !ModifiedOnly)
+            { <p class="subtle" data-carrier-api>@T.Markup("VehicleWeapon.Carrier.Html", carrier.Api)</p> }
             @if (m.Weapon == null) { <p class="subtle" data-mount-no-weapon>@m.Reason</p> }
             else
             {
                 @if (swap is { Swappable: true } && !ModifiedOnly) { <details class="mount-swap"><summary>@T["VehicleWeapon.Swap"]</summary><MountEditor Mount="swap" Vehicle="@Vehicle" Changed="Refresh" /></details> }
-                @foreach (var group in Groups)
+                @foreach (var group in Groups.Where(m.Weapon.FieldGroups.ContainsKey).Concat(m.Weapon.FieldGroups.Keys.Where(g => !Groups.Contains(g)).Order(StringComparer.Ordinal)))
                 {
                     var fields = (m.Weapon.FieldGroups.GetValueOrDefault(group) ?? []).Select(k => byKey[k]).Where(Show).ToArray();
                     if (fields.Length == 0) continue;
                     var published = fields.Select(f => weapons.Published[f.InstanceKey]).ToArray();
                     <div class="vehicle-weapon-group" data-vehicle-weapon-group="@group">
                         <h3 class="group-title">@GroupTitle(group) <span class="subtle scope-line" data-scope-line>@ScopeLine(published)</span></h3>
-                        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="VehicleWeaponCatalog.Tiers" Changed="Refresh" /> }</div>
+                        <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@FieldLabel(f)" Tiers="VehicleWeaponCatalog.Tiers" Changed="Refresh" /> }</div>
+                        @if (!ModifiedOnly && fields.Any(f => f.IsStatusReference && f.Editable)) { <p class="subtle" data-status-help>@T["VehicleWeapon.Status.Help"]</p> }
+                        @foreach (var slot in StrengthlessStatuses(fields))
+                        { <p class="notice" data-status-strength-hint="@slot">@T.Format("VehicleWeapon.Status.StrengthHint", slot)</p> }
                         @foreach (var scope in fields.Where(f => f.AllowSharedRequired && EntityChangeService.Saved(Workspace.Project, f) != null).GroupBy(f => f.SharedScopeKey))
                         {
                             var p = weapons.Published[scope.First().InstanceKey];
@@ -45,7 +51,7 @@
                 @if (unverified.Length > 0)
                 {
                     <AckPanel Title="@T["VehicleWeapon.Unverified.Title"]" Kind="unverified"
-                        Items="@unverified.Select(k => byKey[k].DisplayName).Distinct().ToArray()" ItemsLabel="@T["VehicleWeapon.Unverified.ItemsLabel"]"
+                        Items="@unverified.Select(k => FieldLabel(byKey[k]) ?? byKey[k].DisplayName).Distinct().ToArray()" ItemsLabel="@T["VehicleWeapon.Unverified.ItemsLabel"]"
                         Description="@T["VehicleWeapon.Unverified.Description"]" />
                 }
                 @if (!ModifiedOnly && m.Weapon.Blocked.Length > 0)
@@ -66,12 +72,23 @@
         "left_gun" => T["VehicleWeapon.Mount.LeftArm"], "right_gun" => T["VehicleWeapon.Mount.RightArm"], "attach_tank_gun" => T["VehicleWeapon.Mount.MainCannon"],
         "attach_tank_gun_mg" => T["VehicleWeapon.Mount.CoaxialMachineGun"], _ => m.Title,
     };
-    // Published field groups in display order; data-vehicle-weapon-group keeps the group id, only the title is translated.
-    private static readonly string[] Groups = ["local", "projectile", "damage", "explosion"];
+    // Published field groups in display order (0.28.0 adds beam and arc settings); any other published group follows, so no field is hidden.
+    // data-vehicle-weapon-group keeps the group id, only the title is translated.
+    private static readonly string[] Groups = ["local", "projectile", "beam", "arc", "damage", "explosion"];
     private string GroupTitle(string group) => group switch
     {
-        "local" => T["Stratagem.Group.Weapon"], "projectile" => T["Stratagem.Group.Projectile"], "damage" => T["Stratagem.Group.Damage"], "explosion" => T["Stratagem.Group.Explosion"], _ => group,
+        "local" => T["Stratagem.Group.Weapon"], "projectile" => T["Stratagem.Group.Projectile"], "damage" => T["Stratagem.Group.Damage"], "explosion" => T["Stratagem.Group.Explosion"],
+        "beam" => T["Stratagem.Group.Beam"], "arc" => T["Stratagem.Group.Arc"], _ => group,
     };
+    // Status slots all publish the name "Status applied" / "Status strength": number them (slot 1-4 of the damage row).
+    private string? FieldLabel(EntityField f) => MountedStatusSlots.Slot(f) is not int k ? null
+        : MountedStatusSlots.IsStrength(f) ? T.Format("VehicleWeapon.StatusStrengthSlot", k) : T.Format("VehicleWeapon.StatusSlot", k);
+    // A status newly attached to an empty slot whose strength is still 0 (the slot's strength field is published next to it).
+    private IEnumerable<int> StrengthlessStatuses(IReadOnlyList<EntityField> fields) => fields
+        .Where(f => f.IsStatusReference && f.CurrentDefault.GetString() == StatusReference.None && EntityChangeService.Saved(Workspace.Project, f) is { } c && c.DesiredValue.GetString() != StatusReference.None)
+        .Select(f => MountedStatusSlots.Slot(f)!.Value)
+        .Where(k => fields.FirstOrDefault(s => MountedStatusSlots.IsStrength(s) && MountedStatusSlots.Slot(s) == k) is { } strength
+            && (EntityChangeService.Saved(Workspace.Project, strength)?.DesiredValue ?? strength.CurrentDefault) is { ValueKind: System.Text.Json.JsonValueKind.Number } v && v.GetDouble() == 0);
     // Distinguishes mount-local values, one weapon shared by several mounts, and shared projectile/damage/explosion definitions.
     private string ScopeLine(IReadOnlyList<VehicleWeaponFieldInstance> fields)
     {
@@ -87,6 +104,8 @@
         "shared_projectile" => t["VehicleWeapon.Shared.Projectile"],
         "shared_damage" => t["VehicleWeapon.Shared.Damage"],
         "shared_explosion" => t["VehicleWeapon.Shared.Explosion"],
+        "shared_beam" => t["VehicleWeapon.Shared.Beam"],
+        "shared_arc" => t["VehicleWeapon.Shared.Arc"],
         _ => t["VehicleWeapon.Shared.Object"],
     };
     private async Task ResetMount(IEnumerable<string> keys) { foreach (var k in keys) await Workspace.ResetEntityAsync(instance: k); }

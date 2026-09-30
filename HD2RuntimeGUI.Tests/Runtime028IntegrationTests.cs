@@ -267,7 +267,8 @@ public sealed class Runtime028IntegrationTests
         await w.SetEntityAsync(PodPayloadReader.SlotKey(rack, 1), grenades.SemanticId);
         Assert.Null(w.BuildError); var lua = w.LuaPreview;
         Assert.Contains("hd2.stratagem('Resupply')", lua); Assert.Contains("hd2.pod_rack(", lua);
-        Assert.Contains("allow_shared=true", lua); Assert.Contains("allow_unverified_reference=true", lua);
+        // The Grenade Box is live-verified in this very slot: the shared rack keeps allow_shared, the reference needs no acknowledgement.
+        Assert.Contains("allow_shared=true", lua); Assert.DoesNotContain("allow_unverified_reference", lua);
         await w.OpenAsync(w.Project!.Id); Assert.Null(w.BuildError); Assert.Equal(lua, w.LuaPreview);
     }
 

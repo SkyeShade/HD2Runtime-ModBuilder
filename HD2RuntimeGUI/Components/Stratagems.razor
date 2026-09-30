@@ -151,7 +151,9 @@ else
                 }
                 @if (link != null) { <DeliveryGraph Link="link" /> }
                 <div data-blocked-capabilities><h3 class="group-title">@T["Stratagem.Blocked.Title"]</h3>
-                    <p><strong>@T["Stratagem.Blocked.CallInTime"]</strong> @stratagem.CallInTime.Reason</p><p><strong>@T["Stratagem.Blocked.MaxUses"]</strong> @stratagem.MaxUses.Reason</p>
+                    @* Only what is actually read-only: a writable call-in time or mission use count (0.26.0+, e.g. Resupply) has no reason to show. *@
+                    @if (!stratagem.CallInTime.Writable) { <p><strong>@T["Stratagem.Blocked.CallInTime"]</strong> @stratagem.CallInTime.Reason</p> }
+                    @if (!stratagem.MaxUses.Writable) { <p><strong>@T["Stratagem.Blocked.MaxUses"]</strong> @stratagem.MaxUses.Reason</p> }
                     @if (stratagem.BarrageScheduling != null) { <p><strong>@T["Stratagem.Blocked.Barrage"]</strong> @stratagem.BarrageScheduling.Reason</p> }
                     @foreach (var blocked in graph.Blocked) { <p data-blocked-field="@blocked.Field"><strong>@T.Format("Stratagem.Blocked.Field", BlockedLabel(T, blocked.Field))</strong> @blocked.Reason</p> }</div>
                 <p class="subtle">@T.Markup("Stratagem.RootIdentity.Line.Html", stratagem.RootResolution, stratagem.SemanticId)</p>

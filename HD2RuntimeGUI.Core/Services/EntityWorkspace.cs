@@ -49,11 +49,17 @@ public sealed partial class BuilderWorkspace
         // One native row reached through two targets (an enemy attack row shared by two mounts or classes, a settings row shared by two
         // throwables) is one value. The second edit is refused right here, naming where the value is already edited, instead of at build time.
         var catalog = EntityChangeService.Catalog(Metadata!);
-        if (p.EntityChanges.FirstOrDefault(c => c.InstanceKey != f.InstanceKey && catalog.Field(c.InstanceKey) is { } other && other.BackingObjectId == f.BackingObjectId
-                && other.ApiFieldConstant == f.ApiFieldConstant && other.Target != f.Target) is { } clash)
+        if (p.EntityChanges.FirstOrDefault(c => c.InstanceKey != f.InstanceKey && catalog.Field(c.InstanceKey) is { } other && SameValue(other, f)) is { } clash)
             throw new InvalidDataException(CoreText.Format("Messages.Entity.SharedValueEditedElsewhere", f.DisplayName, EntityLua.Describe(catalog, catalog.Field(clash.InstanceKey)!.Target)));
         p.EntityChanges.Add(next);
+        // Mounted-weapon status slots (0.28.0) stay packed from slot 1: an edit that would leave a status after an empty slot is refused here,
+        // naming both slots, instead of at build time.
+        if (f.IsStatusReference) EntityChangeService.CheckPacking(p, Metadata!, f);
     });
+    // One native value reached through two targets: the same backing row, or (0.28.0) a settings row a Guard Dog drone weapon and a vehicle
+    // mount both fire.
+    private static bool SameValue(EntityField other, EntityField f) => other.ApiFieldConstant == f.ApiFieldConstant && other.Target != f.Target
+        && (other.BackingObjectId == f.BackingObjectId || (other.Target.Linked != null || f.Target.Linked != null) && other.SharedRow != null && other.SharedRow == f.SharedRow);
     public Task SetEntityReferenceAcknowledgedAsync(string instance, bool acknowledged) => EditEntityAsync(p =>
     {
         var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.VehicleCapabilityMissing"));
