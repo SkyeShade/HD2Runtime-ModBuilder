@@ -1,0 +1,71 @@
+@inject BuilderWorkspace Workspace
+@* The label and HUD icon a weapon-function mode shows when it fires one projectile row (hd2.fields.presentation.mode_label / mode_icon on
+   hd2.attack_output(Output)). Native labels and icons only (AttackOutputCapabilities modePresentation; custom text is not supported). "auto"
+   writes the label's exact native icon, else the generic fallback; the empty placeholder ("default") comes back by removing the edit. The
+   label is on the shared row: every weapon firing it shows it. Opt-ins are implicit and shown only as warnings.
+   Reusable: a programmable-ammunition editor embeds one per projectile (Title "Primary label" / "Alternate label", Output = that base). *@
+@{ var sdk = Workspace.Metadata; var row = sdk?.AttackOutputs?.Output(Output); var modes = sdk?.AttackOutputs?.ModePresentation; }
+@if (row?.Presentation is { } p && modes != null && sdk != null)
+{
+    var label = Workspace.RowChange(Output, OutputRowChangeService.ModeLabel); var icon = Workspace.RowChange(Output, OutputRowChangeService.ModeIcon);
+    var auto = OutputRowChangeService.AutoIcon(modes, row, label is { Enabled: true } ? label.Value : null);
+    var acks = new[] { label, icon }.OfType<OutputRowChange>().Where(c => c.Enabled).SelectMany(c => c.Acknowledgements).Distinct().ToArray();
+    var editable = p.Writable && Workspace.Project != null && !Busy;
+    <div class="mode-presentation @(label != null || icon != null ? "modified" : "")" data-mode-presentation="@Output">
+        <h4 class="group-title">@(Title ?? T["ModePresentation.Title"]) @if (Title != null) { <small class="subtle">@row.Label</small> }
+            @if (label != null || icon != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (p.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["ModePresentation.Shared.Tooltip"]">@T["Common.Shared"]</span> }</h4>
+        @if (!p.Writable) { <p class="notice">@T["ModePresentation.ReadOnly"]</p> }
+        <div class="mode-fields">
+            <label>@T["ModePresentation.Label"]
+                <select data-mode-label disabled="@(!editable)" @onchange="e => Set(OutputRowChangeService.ModeLabel, (string)e.Value!)">
+                    <option value="@p.Label" selected="@(label == null)">@T.Format("ModePresentation.Vanilla", LabelText(modes, p.Label))</option>
+                    @foreach (var l in modes.Labels.Where(l => l.Value != p.Label))
+                    { <option value="@l.Value" selected="@(label?.Value == l.Value)">@LabelText(modes, l.Value)@(p.LiveProven.Labels.Contains(l.Value) ? " ✓" : "")</option> }
+                </select></label>
+            <label>@T["ModePresentation.Icon"]
+                <select data-mode-icon disabled="@(!editable)" @onchange="e => Set(OutputRowChangeService.ModeIcon, (string)e.Value!)">
+                    <option value="@p.Icon" selected="@(icon == null)">@T.Format("ModePresentation.Vanilla", p.Icon)</option>
+                    <option value="@ModePresentation.Auto" selected="@(icon?.Value == ModePresentation.Auto)">@T.Format(auto.Source == "exact_native" ? "ModePresentation.Auto.Exact" : "ModePresentation.Auto.Fallback", auto.Icon)@(p.LiveProven.Icons.Contains(auto.Icon) ? " ✓" : "")</option>
+                    @foreach (var i in OutputRowChangeService.Icons(sdk).Where(i => i.Value != ModePresentation.Auto && i.Value != p.Icon))
+                    { <option value="@i.Value" selected="@(icon?.Value == i.Value)">@i.Value@(i.Description != null ? " · " + i.Description : "")@(p.LiveProven.Icons.Contains(i.Value) ? " ✓" : "")</option> }
+                </select></label>
+        </div>
+        <p class="subtle">@T["ModePresentation.Help"] @if (p.LiveProven.Labels.Length + p.LiveProven.Icons.Length > 0) { <span data-mode-proven>@(" " + T.Format("ModePresentation.Proven", string.Join(", ", p.LiveProven.Labels.Concat(p.LiveProven.Icons))))</span> }</p>
+        @foreach (var c in new[] { label, icon }.OfType<OutputRowChange>())
+        {
+            <div class="field-tools" data-mode-change="@c.Field">
+                <label class="field-toggle"><input type="checkbox" checked="@c.Enabled" disabled="@Busy" @onchange="() => Run(() => Workspace.ToggleRowAsync(c.Id))" /> @OutputRowChangeService.Label(c.Field): @c.Value</label>
+                @if (Workspace.RowIssue(c) is { } issue)
+                { <p class="notice warning" role="alert">@issue <button data-accept-row @onclick="() => Run(() => Workspace.AcceptRowAsync(c.Id))">@T["AttackOutput.AcceptCurrent"]</button></p> }
+            </div>
+        }
+        @if (acks.Length > 0)
+        {
+            <OptInWarnings Acknowledgements="acks" Reasons="@(new Dictionary<string, string> {
+                ["allow_shared"] = T.Format("ModePresentation.Reason.Shared", row.Slots?.DirectDamage.SharedConsumerCount ?? 0, string.Join(", ", row.Slots?.DirectDamage.NamedSharedConsumers ?? [])),
+                ["allow_unverified_effect"] = T["ModePresentation.Reason.Effect"] })" />
+        }
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </div>
+}
+@code {
+    // The row whose mode label and icon are written (hd2.attack_output(Output)): a weapon's own output for its normal mode, a donor's for a
+    // programmable mode.
+    [Parameter, EditorRequired] public string Output { get; set; } = "";
+    // Heading, for example "Primary label" / "Alternate label" when embedded next to a programmable-ammunition mode.
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error; private bool Busy;
+    // The native label text as published (FLAK, STUN, …); no label reads as ModBuilder's "No label"; a current-only native label shows its id.
+    private string LabelText(ModePresentation modes, string value) => modes.Labels.FirstOrDefault(l => l.Value == value)?.Label
+        ?? (value == ModePresentation.NoLabel ? T["ModePresentation.NoLabel"] : value);
+    private Task Set(string field, string value) => Run(() => Workspace.SetRowAsync(Output, field, value));
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

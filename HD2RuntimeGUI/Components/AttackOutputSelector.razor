@@ -32,12 +32,6 @@
     @if (host == null) { <p class="notice" data-attack-output-readonly>@reason</p> }
     else
     {
-        var donors = catalog.Donors(host);
-        var shown = donors.Where(d => (ShowCross || !d.CrossClass || d.ProvenOnHost) && (Search.Length == 0 || $"{d.Output.Label} {d.Output.KindLabel} {d.Output.SemanticId}".Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase))).ToArray();
-        <div class="donor-filters">
-            <label>@T["AttackOutput.Search.Label"]<input data-donor-search @bind="Search" @bind:event="oninput" placeholder="EAT-700, Talon, arc…" /></label>
-            <label class="switch-label"><input type="checkbox" data-donor-cross @bind="ShowCross" /> @T["AttackOutput.ShowCrossClass"]</label>
-        </div>
         @if (Pending is { } pending)
         {
             <div class="swap-prompt" role="group" data-output-prompt>
@@ -46,26 +40,7 @@
                     <button class="link-button" data-output-cancel @onclick="() => Pending = null">@T["Common.Cancel"]</button></div>
             </div>
         }
-        <div class="donor-list" role="listbox" aria-label="@T["AttackOutput.Donors.Label"]" data-donor-list>
-            @foreach (var d in shown)
-            {
-                var selected = output?.Output == d.Output.SemanticId || classic != null && classic.ReplacementProjectile.Weapon == d.Output.Owner.Name;
-                <button class="donor @(selected ? "active" : "") @(d.Allowed ? "" : "refused")" role="option" aria-selected="@selected" disabled="@(!d.Allowed || Busy)" data-donor="@d.Output.SemanticId"
-                        title="@(d.Refusal ?? d.Output.SemanticId)" @onclick="() => Choose(d, false)">
-                    <span class="donor-name"><strong>@d.Output.Label</strong> <small class="subtle">@d.Output.KindLabel · @(d.Output.CompatibilityClass?.Replace('_', ' '))</small></span>
-                    <span class="donor-badges">
-                        @if (d.CrossClass) { <span class="badge amber" data-donor-cross>@T["AttackOutput.Badge.CrossClass"]</span> }
-                        @if (d.ProvenOnHost) { <span class="badge green" data-donor-proven title="@T["AttackOutput.Badge.ProvenOnHost.Tooltip"]">@T.Format("AttackOutput.Badge.ProvenOnHost", Weapon)</span> }
-                        else if (d.Output.LiveProof?.DonorOutput == "live_proven") { <span class="badge green" title="@string.Join(", ", d.Output.LiveProof.Tests)">@T["AttackOutput.Badge.DonorLiveProven"]</span> }
-                        @if (!d.Output.Package.Known) { <span class="badge amber" title="@T["AttackOutput.Badge.AssetsUnknown.Tooltip"]">@T["Asset.Label.Unknown"]</span> }
-                        else if (d.Output.Package.AutoLoad) { <span class="badge" title="@T.Format("AttackOutput.Badge.AutoLoad.Tooltip", d.Output.Package.Name)">@T["AttackOutput.Badge.AutoLoad"]</span> }
-                        @foreach (var a in d.Acknowledgements) { <span class="badge amber" data-flag="@a">@Flag(a)</span> }
-                    </span>
-                    @if (!d.Allowed) { <small class="donor-refusal">@d.Refusal</small> }
-                </button>
-            }
-            @if (shown.Length == 0) { <p class="subtle">@T["AttackOutput.Donors.Empty"]</p> }
-        </div>
+        <ProjectileDonorList Host="host" Selected="@(output?.Output ?? (classic != null ? catalog.OwnedBy(classic.ReplacementProjectile.Weapon)?.SemanticId : null))" Busy="Busy" Choose="d => Choose(d, false)" />
         @if (output != null || classic != null) { <button class="reset-action" data-attack-output-reset @onclick="Reset">@T["Projectile.Reset"]</button> }
         @if (output != null)
         {
@@ -74,6 +49,11 @@
         }
         @if (classic != null && Workspace.ProjectileIssue(classic) is { } classicIssue) { <p class="notice warning" role="alert">@classicIssue</p> }
     }
+    @* 0.28.0 projectile builder: the host's own row, and the donor row it fires after a swap (row writes never follow a swap). *@
+    @{ // A weapon's catalogued output is its only attack's row; a weapon with several fed attacks (the SG-20 Halt) has no per-feed row.
+       var ownRow = catalog.ProjectileSources.Count(s => s.HostKind == AttackProjectileSource.PlayerKind && s.Weapon == Weapon) == 1 ? own?.SemanticId : null;
+       var firedRow = output != null || classic != null ? Workspace.FiredRow(AttackOutputChange.PlayerHost, Weapon, Attack.Role)?.SemanticId : ownRow; }
+    <ProjectileRowLinks Host="@Weapon" Own="@ownRow" Fired="@firedRow" Changed="Changed" />
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 </div>
 @code {
@@ -81,9 +61,7 @@
     [Parameter, EditorRequired] public ProjectileAttack Attack { get; set; } = default!;
     [Parameter] public EventCallback Changed { get; set; }
     private sealed record PendingOutput(AttackOutputDonor Donor, int Edits);
-    private PendingOutput? Pending; private string Search = ""; private string? Error; private bool ShowCross, Busy;
-    // Opt-in flag names are Runtime identifiers (kept as written); the badge labels are ModBuilder's text.
-    private string Flag(string a) => a switch { "allow_shared" => T["Common.Shared"], "allow_unverified_effect" => T["AttackOutput.Flag.EffectUnverified"], "allow_unverified_reference" => T["AttackOutput.Flag.ReferenceUnverified"], _ => a };
+    private PendingOutput? Pending; private string? Error; private bool Busy;
     // Why each opt-in applies to this pair, from the published catalog (ammunition sharing and effect, the cross-class rule).
     private IReadOnlyDictionary<string, string> Reasons(AttackOutputHost host, AttackOutput? output) => new Dictionary<string, string>
     {

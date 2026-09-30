@@ -1,0 +1,138 @@
+@inject BuilderWorkspace Workspace
+@* The projectile builder view of one catalogued row (hd2.attack_output(Output)): the base projectile, its three reference slots (direct hit,
+   impact and expiry explosion: REFERENCE_COMPOSITION, values are other rows' handles or "none"), its flight values (the owner's published
+   projectile fields, edited with their existing editors) and its mode label and icon. A row write changes the row for every entity that
+   fires it and never follows a host swap. Sharing and unverified effects are warnings; the Lua always carries the opt-ins Runtime requires. *@
+@{ var sdk = Workspace.Metadata; var catalog = sdk?.AttackOutputs; var row = catalog?.Output(Output); }
+@if (sdk != null && catalog?.Builder is { } builder && row != null)
+{
+    @if (row.Slots is not { } slots)
+    {
+        <section class="row-editor readonly" data-row-editor="@Output"><h3>@T.Format("ProjectileBuilder.Row.Title", row.Label)</h3>
+            <p class="notice" data-row-readonly>@T.Format("Messages.Build.Row.NotSelectable", row.Label, row.BlockedReason ?? row.Family)</p></section>
+    }
+    else
+    {
+        var changes = Workspace.RowChanges(Output);
+        var sharing = slots.DirectDamage;
+        var swapped = Workspace.HostsSwappedOnto(Output);
+        var slotChanges = changes.Where(c => c.Enabled && OutputRowChangeService.IsSlot(c.Field)).ToArray();
+        <section class="row-editor @(changes.Count > 0 ? "modified" : "")" data-row-editor="@Output">
+            <div class="panel-heading"><h3>@T.Format("ProjectileBuilder.Row.Title", row.Label)</h3>
+                <span class="badge">@ProjectileDonorList.OwnerKind(T, row.Owner.Kind)</span><span class="badge">@row.KindLabel</span>
+                @if (row.CompatibilityClass != null) { <span class="badge">@row.CompatibilityClass.Replace('_', ' ')</span> }
+                @if (sharing.Shared) { <span class="badge amber" data-flag="allow_shared">@T["Common.Shared"]</span> }
+                @if (changes.Count > 0) { <span class="badge modified-badge">@T["Common.Modified"]</span><button class="reset-action small" data-row-reset @onclick="() => Run(() => Workspace.ResetRowAsync(Output))">@T["ProjectileBuilder.Row.Reset"]</button> }</div>
+            <p class="subtle">@T["ProjectileBuilder.Row.Help"]</p>
+            @if (SwappedHost != null) { <p class="notice" data-donor-row-context>@T.Format("ProjectileBuilder.Row.DonorContext", SwappedHost, row.Label)</p> }
+            <div class="row-consumers" data-row-consumers="@sharing.SharedConsumerCount">
+                <strong>@T.Plural("ProjectileBuilder.Row.FiredBy", sharing.SharedConsumerCount, sharing.ConsumerReferences)</strong>
+                @if (sharing.NamedSharedConsumers.Length > 0) { <span class="subtle">@(" " + string.Join(" · ", sharing.NamedSharedConsumers))</span> }
+                @if (swapped.Count > 0) { <p class="subtle" data-row-swapped-hosts>@T.Format("ProjectileBuilder.Row.SwappedHosts", string.Join(", ", swapped))</p> }
+            </div>
+            @if (row.SpareTwin is { } twin) { <p class="notice" data-spare-twin>@T.Format("ProjectileBuilder.Row.SpareTwin", twin.TwinName, catalog.Build ?? "") <small class="subtle">@twin.Reason</small></p> }
+            @if (row.ReferenceScope is { Length: > 0 } scope) { <p class="subtle" data-row-scope>@T.Format("Messages.Output.ScopeOnly", string.Join(", ", scope))</p> }
+            @if (FieldEffect(row) is { } effect) { <p class="subtle" data-row-field-effect>@effect</p> }
+            <div class="slot-grid">
+                <div class="slot-row" data-row-base><span class="slot-name">@T["ProjectileBuilder.Slot.Base"]</span><span><strong>@row.Label</strong> <small class="subtle">@row.SemanticId</small></span></div>
+                @foreach (var field in OutputRowChangeService.SlotFields) { @Slot(sdk, row, field) }
+            </div>
+            @if (slotChanges.Length > 0)
+            {
+                <OptInWarnings Acknowledgements="@slotChanges.SelectMany(c => c.Acknowledgements).Distinct().ToArray()" Reasons="@(new Dictionary<string, string> {
+                    ["allow_shared"] = T.Format("ProjectileBuilder.Reason.Shared", sharing.SharedConsumerCount, string.Join(", ", sharing.NamedSharedConsumers.Concat(swapped))),
+                    ["allow_unverified_effect"] = T.Format("ProjectileBuilder.Reason.Effect", Proven(row)) })" />
+            }
+            <h4 class="group-title">@T["ProjectileBuilder.Flight.Title"]</h4>
+            <p class="subtle">@T["ProjectileBuilder.Flight.Help"]</p>
+            @{ var scalars = Workspace.RowScalars(Output); }
+            @if (scalars.Count == 0) { <p class="subtle" data-row-flight-none>@T["ProjectileBuilder.Flight.None"]</p> }
+            <div class="stat-grid" data-row-flight>
+                @foreach (var s in scalars)
+                {
+                    @if (s.Player != null) { <ObjectFieldEditor @key="(Output, s.Key)" Weapon="@row.Owner.Name" Role="@(s.PlayerRole ?? "primary")" Kind="projectile" Field="s.Player" Changed="Changed" /> }
+                    else if (s.Support != null) { <SupportFieldEditor @key="(Output, s.Key)" Field="s.Support" Changed="Changed" /> }
+                    else if (s.Mount != null) { <EntityFieldEditor @key="(Output, s.Key)" Field="s.Mount" Tiers="VehicleWeaponCatalog.Tiers" Changed="Changed" /> }
+                    else if (s.Stratagem != null) { <StratagemFieldEditor @key="(Output, s.Key)" Field="s.Stratagem" Changed="Changed" /> }
+                    else
+                    {
+                        <div class="field-row readonly" data-row-flight-readonly="@s.Key"><div class="field-name"><span>@s.Label</span> <span class="badge">@T["Common.ReadOnly"]</span></div>
+                            <div class="field-value"><span class="readonly-value">@s.Baseline.GetRawText()</span></div>
+                            @if (s.Note != null) { <div class="field-wide subtle">@s.Note</div> }</div>
+                    }
+                }
+            </div>
+            <ModePresentationEditor Output="@Output" Changed="Changed" />
+            <details class="row-classes" data-row-classes><summary>@T["ProjectileBuilder.Classes.Title"]</summary>
+                <p class="subtle">@T["ProjectileBuilder.Classes.Help"]</p>
+                @foreach (var (name, c) in builder.Classes) { <p data-builder-class="@name"><strong>@name</strong> <span class="badge @(c.Supported.ValueKind == System.Text.Json.JsonValueKind.True ? "green" : "")">@Supported(c.Supported)</span>@if (c.Interim) { <span class="badge amber">@T["ProjectileBuilder.Classes.Interim"]</span> } <small class="subtle">@c.Reason</small></p> }
+                @if (builder.Guards.GetValueOrDefault("recursion") is { } recursion) { <p class="subtle" data-builder-recursion>@recursion</p> }
+                @if (builder.UnprovenMembers.Length > 0) { <p class="subtle">@T.Format("ProjectileBuilder.Classes.Unproven", string.Join("; ", builder.UnprovenMembers))</p> }
+            </details>
+            @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+        </section>
+    }
+}
+@code {
+    [Parameter, EditorRequired] public string Output { get; set; } = "";
+    // Set when this row is opened as the donor row of a swapped host: the host fires it because of its swap.
+    [Parameter] public string? SwappedHost { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error; private bool Busy;
+    private RenderFragment Slot(SdkMetadata sdk, AttackOutput row, string field) => __builder =>
+    {
+        var key = OutputRowChangeService.SlotKey(field); var change = Workspace.RowChange(Output, field);
+        var baseline = OutputRowChangeService.Baseline(row, field);
+        var donors = OutputRowChangeService.SlotDonors(sdk, Output, field);
+        var chosen = change == null ? null : donors.FirstOrDefault(d => d.Value == change.Value);
+        <div class="slot-row @(change != null ? "modified" : "")" data-slot="@key">
+            <span class="slot-name">@OutputRowChangeService.Label(field)</span>
+            <span class="slot-value">
+                <select aria-label="@OutputRowChangeService.Label(field)" data-slot-select="@key" disabled="@(Workspace.Project == null || Busy)" @onchange="e => Run(() => Workspace.SetRowAsync(Output, field, (string)e.Value!))">
+                    <option value="@baseline" selected="@(change == null)">@T.Format("ProjectileBuilder.Slot.Vanilla", ValueText(sdk, baseline))</option>
+                    @if (change != null && chosen == null) { <option value="@change.Value" selected>@ValueText(sdk, change.Value)</option> }
+                    @foreach (var d in donors)
+                    { <option value="@d.Value" disabled="@(!d.Allowed)" selected="@(change?.Value == d.Value)">@ValueText(sdk, d.Value)@(d.LiveProven ? " ✓" : "")@(d.Allowed ? "" : " · " + d.Refusal)</option> }
+                </select>
+                @if (field == OutputRowChangeService.DirectDamage) { <small class="subtle">@T["ProjectileBuilder.Slot.DirectDamage.Help"]</small> }
+                else if (!row.Slots![key].AllowNone) { <small class="subtle">@T["Messages.Build.Row.NoneRefused"]</small> }
+                @if (change != null)
+                {
+                    <span class="field-badges">
+                        @if (chosen?.LiveProven == true) { <span class="badge green" data-slot-proven>@T["ProjectileBuilder.Slot.LiveProven"]</span> }
+                        @foreach (var a in change.Acknowledgements) { <span class="badge amber" data-flag="@a">@ProjectileDonorList.Flag(T, a)</span> }
+                        <label class="field-toggle"><input type="checkbox" checked="@change.Enabled" disabled="@Busy" @onchange="() => Run(() => Workspace.ToggleRowAsync(change.Id))" /> @T["Common.On"]</label>
+                    </span>
+                    @if (Workspace.RowIssue(change) is { } issue)
+                    { <span class="notice warning" role="alert" data-row-issue>@issue <button data-accept-row @onclick="() => Run(() => Workspace.AcceptRowAsync(change.Id))">@T["AttackOutput.AcceptCurrent"]</button></span> }
+                }
+            </span>
+        </div>
+    };
+    // "none", or "<donor> · <slot>" for a handle; the row's own handle reads as its own slot.
+    private string ValueText(SdkMetadata sdk, string value) => OutputRowChangeService.ParseHandle(value) is not { } h ? T["ProjectileBuilder.Slot.None"]
+        : T.Format("ProjectileBuilder.Slot.Handle", sdk.AttackOutputs!.Output(h.Output)?.Label ?? h.Output, OutputRowChangeService.Label(OutputRowChangeService.SlotFields.Single(f => OutputRowChangeService.SlotKey(f) == h.Slot)));
+    // The values a live test proved on this row (any slot), for the effect warning.
+    private string Proven(AttackOutput row) => AttackOutputSlots.Keys.SelectMany(k => row.Slots![k].LiveProvenValues) is var values && values.Any()
+        ? string.Join(", ", values.Select(v => ValueText(Workspace.Metadata!, v)).Distinct()) : T["Common.None"];
+    // A composition class's published support: supported, not available, or a restricted form as published (spare_twins_only).
+    private string Supported(System.Text.Json.JsonElement value) => value.ValueKind switch
+    {
+        System.Text.Json.JsonValueKind.True => T["ProjectileBuilder.Classes.Supported"], System.Text.Json.JsonValueKind.False => T["ProjectileBuilder.Classes.NotSupported"],
+        System.Text.Json.JsonValueKind.String => value.GetString()!.Replace('_', ' '), _ => value.GetRawText(),
+    };
+    // A donor's lingering field (EMS Mortar: StaticField, 7 s, radius 10), as published.
+    private string? FieldEffect(AttackOutput row)
+    {
+        if (row.FieldEffect is not { ValueKind: System.Text.Json.JsonValueKind.Object } e) return null;
+        string Prop(string name) => e.TryGetProperty(name, out var v) ? v.ToString() : "";
+        return T.Format("ProjectileBuilder.Row.FieldEffect", Prop("volume"), Prop("seconds"), Prop("radius"), Prop("explosion"));
+    }
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

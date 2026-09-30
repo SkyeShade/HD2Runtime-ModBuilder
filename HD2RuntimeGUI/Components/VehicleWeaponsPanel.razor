@@ -24,9 +24,11 @@
             else
             {
                 @if (swap is { Swappable: true } && !ModifiedOnly) { <details class="mount-swap"><summary>@T["VehicleWeapon.Swap"]</summary><MountEditor Mount="swap" Vehicle="@Vehicle" Changed="Refresh" /></details> }
+                @* 0.28.0: the projectile this mount fires (a unified projectile host) is swapped here, not edited as a field row. *@
+                <ProjectileHostSwaps Kind="@AttackOutputChange.VehicleHost" Owner="@m.Weapon.Key" Exact="true" ModifiedOnly="ModifiedOnly" Changed="Refresh" />
                 @foreach (var group in Groups)
                 {
-                    var fields = (m.Weapon.FieldGroups.GetValueOrDefault(group) ?? []).Select(k => byKey[k]).Where(Show).ToArray();
+                    var fields = (m.Weapon.FieldGroups.GetValueOrDefault(group) ?? []).Select(k => byKey[k]).Where(Show).Where(f => !(sdk?.AttackOutputs != null && f.Type == "projectile_reference")).ToArray();
                     if (fields.Length == 0) continue;
                     var published = fields.Select(f => weapons.Published[f.InstanceKey]).ToArray();
                     <div class="vehicle-weapon-group" data-vehicle-weapon-group="@group">

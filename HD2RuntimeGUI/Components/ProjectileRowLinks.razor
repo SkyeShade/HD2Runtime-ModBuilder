@@ -1,0 +1,32 @@
+@inject BuilderWorkspace Workspace
+@* From a host to the rows it touches: its own row and, when swapped, the donor row it fires now. A host swap changes which row the host
+   fires; a row write changes a row for every entity that fires it and never follows a swap, so an effect on a swapped host is written on
+   the donor's row (the donor weapon and every other weapon firing that row change too). Opened in place, one row at a time. *@
+@if (Workspace.Metadata?.AttackOutputs?.Builder != null && (Own != null || Fired != null))
+{
+    var catalog = Workspace.Metadata.AttackOutputs;
+    var swapped = Fired != null && Fired != Own;
+    <div class="row-links" data-row-links="@Host">
+        <p class="subtle">@(swapped ? T.Format("ProjectileBuilder.Links.Swapped", Host, catalog.Output(Fired!)?.Label ?? Fired) : T.Format("ProjectileBuilder.Links.Own", Host))</p>
+        <div class="actions">
+            @if (swapped && catalog.Output(Fired!) is { Slots: not null } donor)
+            { <button class="@(Open == donor.SemanticId ? "primary" : "")" data-open-donor-row="@donor.SemanticId" @onclick="() => Toggle(donor.SemanticId)">@T.Format("ProjectileBuilder.Links.EditDonorRow", donor.Label)</button> }
+            @if (Own != null && catalog.Output(Own) is { Slots: not null } own)
+            { <button class="@(Open == own.SemanticId ? "primary" : "")" data-open-own-row="@own.SemanticId" @onclick="() => Toggle(own.SemanticId)">@T.Format(swapped ? "ProjectileBuilder.Links.EditOwnRowSwapped" : "ProjectileBuilder.Links.EditOwnRow", own.Label)</button> }
+            else if (Own != null && catalog.Output(Own) is { } unselectable) { <span class="subtle" data-own-row-readonly>@T.Format("ProjectileBuilder.Links.OwnRowReadOnly", unselectable.Label, unselectable.BlockedReason ?? unselectable.Family)</span> }
+        </div>
+        @if (Open != null)
+        {
+            <ProjectileRowEditor @key="Open" Output="@Open" SwappedHost="@(Open == Fired && swapped ? Host : null)" Changed="Changed" />
+        }
+    </div>
+}
+@code {
+    [Parameter, EditorRequired] public string Host { get; set; } = "";
+    // The host's own row and the row it fires in this project (the donor's row after a swap).
+    [Parameter] public string? Own { get; set; }
+    [Parameter] public string? Fired { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Open;
+    private void Toggle(string output) => Open = Open == output ? null : output;
+}

@@ -1,0 +1,68 @@
+@inject BuilderWorkspace Workspace
+@* What one support or mounted attack (a Guard Dog drone gun included) fires, through Runtime's active projectile source: the same host rule and
+   donor pool as player weapons (attack-outputs.md: support hosts, mounted hosts). Read-only sources show Runtime's reason (another selector
+   owns the projectile, a weapon function switches it, not magazine-fed, …). A player attack uses the player selector (classic swaps included). *@
+@{ var sdk = Workspace.Metadata; var entry = sdk == null ? null : ProjectileHosts.Entry(sdk, Kind, Weapon, Role); }
+@if (sdk != null && entry != null)
+{
+    @if (Kind == AttackOutputChange.PlayerHost && sdk.Composition?.Projectiles.Weapons.FirstOrDefault(w => w.Weapon == Weapon)?.Attacks.FirstOrDefault(a => a.Role == Role) is { } attack)
+    { <AttackOutputSelector @key="(Weapon, Role)" Weapon="@Weapon" Attack="attack" Changed="Changed" /> }
+    else
+    {
+        var host = entry.Host; var change = Workspace.HostOutput(Kind, Weapon, Role);
+        var fired = Workspace.FiredRow(Kind, Weapon, Role); var same = Workspace.SameEntity(Kind, Weapon, Role);
+        <div class="composition-control @(change != null ? "modified" : "")" data-projectile-host="@Weapon" data-host-kind="@Kind">
+            <div class="panel-heading"><h3>@T.Format("Projectile.Title", Role.Replace('_', ' '))</h3>
+                <span class="badge @(change != null ? "modified-badge" : "")">@(change != null ? T["Common.Modified"] : host != null ? T["Composition.Guarded"] : T["Common.ReadOnly"])</span></div>
+            <p class="@(change != null ? "modified-value" : "subtle")" data-attack-fires>@T.Markup("AttackOutput.Fires.Html", fired?.Label ?? entry.Own?.Label ?? Weapon)
+                @if (change == null) { <span class="subtle">@(" " + T["AttackOutput.OwnProjectile"])</span> }</p>
+            @if (entry.Carrier is { } backpack) { <p class="subtle" data-host-carrier>@T.Format("ProjectileBuilder.Host.Carrier", backpack)</p> }
+            @if (change != null && change.Weapon != Weapon) { <p class="notice" data-same-entity-swap>@T.Format("ProjectileBuilder.Host.SetThrough", change.Weapon)</p> }
+            else if (same.Count > 0) { <p class="subtle" data-same-entity>@T.Format("ProjectileBuilder.Host.SameEntity", string.Join(", ", same))</p> }
+            <details class="projectile-source" data-projectile-source="@entry.Source.Status"><summary>@T["AttackOutput.ActiveSource"] <span class="badge @(host != null ? "green" : "")">@entry.Source.Status.Replace('_', ' ').ToLowerInvariant()</span>
+                @if (entry.Source.Mechanism != null) { <span class="badge">@entry.Source.Mechanism</span> }</summary>
+                <p class="subtle">@entry.Source.Reason</p>
+                @if (entry.Source.Member != null) { <p class="subtle">@(entry.Source.Write != null ? T.Markup("AttackOutput.MemberWrittenAs.Html", entry.Source.Member, entry.Source.Write) : T.Markup("AttackOutput.Member.Html", entry.Source.Member))</p> }
+            </details>
+            @if (host == null) { <p class="notice" data-host-readonly>@entry.Reason</p> }
+            else
+            {
+                <ProjectileDonorList Host="host" Selected="@change?.Output" Busy="Busy" Choose="Choose" />
+                @if (change != null)
+                {
+                    <button class="reset-action" data-host-reset @onclick="() => Run(() => Workspace.SetHostOutputAsync(Kind, change.Weapon, Role, null))">@T["Projectile.Reset"]</button>
+                    <label class="field-toggle"><input type="checkbox" checked="@change.Enabled" disabled="@Busy" @onchange="() => Run(() => Workspace.ToggleAttackOutputAsync(change.Id))" /> @T["Common.On"]</label>
+                    @if (Workspace.AttackOutputIssue(change) is { } issue)
+                    { <p class="notice warning" role="alert">@issue <button data-accept-host @onclick="() => Run(() => Workspace.SetHostOutputAsync(Kind, change.Weapon, Role, change.Output))">@T["AttackOutput.AcceptCurrent"]</button></p> }
+                    <OptInWarnings Acknowledgements="change.Acknowledgements" Reasons="Reasons(host, sdk.AttackOutputs!.Output(change.Output), same)" />
+                }
+            }
+            <ProjectileRowLinks Host="@Weapon" Own="@entry.Own?.SemanticId" Fired="@fired?.SemanticId" Changed="Changed" />
+            @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+        </div>
+    }
+}
+@code {
+    // AttackOutputChange host kinds: support_weapon (Weapon = the support weapon), vehicle_weapon (Weapon = "<vehicle> / <mount>"), player_weapon.
+    [Parameter, EditorRequired] public string Kind { get; set; } = "";
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public string Role { get; set; } = "primary";
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error; private bool Busy;
+    private Task Choose(AttackOutputDonor donor) => Run(() => Workspace.SetHostOutputAsync(Kind, Weapon, Role, donor.Output.SemanticId));
+    // Why each opt-in applies to this pair: the host field's effect reason, one weapon entity in several mounts, the cross-class rule.
+    private IReadOnlyDictionary<string, string> Reasons(AttackOutputHost host, AttackOutput? output, IReadOnlyList<string> same) => new Dictionary<string, string>
+    {
+        ["allow_shared"] = same.Count > 0 ? T.Format("ProjectileBuilder.Host.SameEntity", string.Join(", ", same)) : T["AttackOutput.Reason.Shared"],
+        ["allow_unverified_effect"] = host.EffectReason ?? T["AttackOutput.Reason.Effect"],
+        ["allow_unverified_reference"] = T.Format("AttackOutput.Reason.CrossClass", host.Weapon, host.CompatibilityClass.Replace('_', ' '), output?.Label ?? T["AttackOutput.Reason.CrossClass.Donor"],
+            output?.CompatibilityClass?.Replace('_', ' ') ?? T["AttackOutput.Reason.CrossClass.Different"]),
+    };
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

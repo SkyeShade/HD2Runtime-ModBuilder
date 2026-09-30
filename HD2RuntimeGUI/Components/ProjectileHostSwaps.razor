@@ -1,0 +1,32 @@
+@inject BuilderWorkspace Workspace
+@* Every published projectile source of one support weapon, one vehicle mount, or every mount of a vehicle or drone carrier (Owner "<vehicle>",
+   the Guard Dog backpack name included), each with its host swap. A mount that fires another output family (beam, arc, spray) is listed with
+   Runtime's reason instead of being hidden. Self-contained, so a support, vehicle or backpack editor embeds it with one line. *@
+@{ var sdk = Workspace.Metadata; var catalog = sdk?.AttackOutputs; }
+@if (sdk != null && catalog != null)
+{
+    var sources = catalog.ProjectileSources.Where(s => s.HostKind == Kind && Owns(s.Weapon)).OrderBy(s => s.Weapon, StringComparer.Ordinal).ThenBy(s => s.Attack, StringComparer.Ordinal).ToArray();
+    var shown = sources.Where(s => !ModifiedOnly || Workspace.HostOutput(Kind, s.Weapon, s.Attack) != null).ToArray();
+    var families = ModifiedOnly ? [] : catalog.Outputs.Where(o => o.Family != "projectile" && o.Owner.Kind == Kind && Owns(o.Owner.Name) && sources.All(s => s.Weapon != o.Owner.Name)).ToArray();
+    @if (shown.Length > 0 || families.Length > 0)
+    {
+        <div class="projectile-hosts" data-projectile-hosts="@Owner">
+            @foreach (var s in shown)
+            {
+                @if (!Exact && sources.Length > 1 || !Exact && Kind == AttackOutputChange.VehicleHost) { <h4 class="group-title">@s.Weapon</h4> }
+                <ProjectileHostSwap @key="(s.Weapon, s.Attack)" Kind="@Kind" Weapon="@s.Weapon" Role="@s.Attack" Changed="Changed" />
+            }
+            @foreach (var o in families)
+            { <p class="subtle" data-output-family="@o.Family" data-output-owner="@o.Owner.Name">@T.Format("ProjectileBuilder.Host.OtherFamily", o.Owner.Name, o.Family) <small>@o.BlockedReason</small></p> }
+        </div>
+    }
+}
+@code {
+    [Parameter, EditorRequired] public string Kind { get; set; } = "";
+    // A support weapon name, a mount key ("<vehicle> / <mount>", with Exact) or a vehicle / drone carrier name (every mount of it).
+    [Parameter, EditorRequired] public string Owner { get; set; } = "";
+    [Parameter] public bool Exact { get; set; }
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private bool Owns(string weapon) => Exact || Kind != AttackOutputChange.VehicleHost ? weapon == Owner : weapon.StartsWith(Owner + " / ", StringComparison.Ordinal);
+}

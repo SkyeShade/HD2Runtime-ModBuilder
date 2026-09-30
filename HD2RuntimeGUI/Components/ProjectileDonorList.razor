@@ -1,0 +1,56 @@
+@inject BuilderWorkspace Workspace
+@* The one donor pool for a projectile host (player, support or mounted weapon): every catalogued projectile output with its class, proof,
+   asset loading and the opt-ins the write carries; refused donors stay listed, disabled, with Runtime's reason. Outputs no attack can fire
+   (beam, arc, spray and melee families, rows another selector owns, programmable-ammunition-only rows) are listed below with their reason. *@
+@{ var catalog = Workspace.Metadata!.AttackOutputs!; var donors = catalog.Donors(Host);
+   var shown = donors.Where(d => (ShowCross || !d.CrossClass || d.ProvenOnHost || d.Output.SemanticId == Selected) && Matches(d.Output)).ToArray(); }
+<div class="donor-filters">
+    <label>@T["AttackOutput.Search.Label"]<input data-donor-search @bind="Search" @bind:event="oninput" placeholder="EAT-700, Talon, arc…" /></label>
+    <label class="switch-label"><input type="checkbox" data-donor-cross @bind="ShowCross" /> @T["AttackOutput.ShowCrossClass"]</label>
+</div>
+<div class="donor-list" role="listbox" aria-label="@T["AttackOutput.Donors.Label"]" data-donor-list>
+    @foreach (var d in shown)
+    {
+        var selected = Selected == d.Output.SemanticId;
+        <button class="donor @(selected ? "active" : "") @(d.Allowed ? "" : "refused")" role="option" aria-selected="@selected" disabled="@(!d.Allowed || Busy)" data-donor="@d.Output.SemanticId"
+                title="@(d.Refusal ?? d.Output.SemanticId)" @onclick="() => Choose.InvokeAsync(d)">
+            <span class="donor-name"><strong>@d.Output.Label</strong> <small class="subtle">@OwnerKind(T, d.Output.Owner.Kind) · @d.Output.KindLabel · @(d.Output.CompatibilityClass?.Replace('_', ' '))</small></span>
+            <span class="donor-badges">
+                @if (d.CrossClass) { <span class="badge amber" data-donor-cross>@T["AttackOutput.Badge.CrossClass"]</span> }
+                @if (d.ProvenOnHost) { <span class="badge green" data-donor-proven title="@T["AttackOutput.Badge.ProvenOnHost.Tooltip"]">@T.Format("AttackOutput.Badge.ProvenOnHost", Host.Weapon)</span> }
+                else if (d.Output.LiveProof?.DonorOutput == "live_proven") { <span class="badge green" title="@string.Join(", ", d.Output.LiveProof.Tests)">@T["AttackOutput.Badge.DonorLiveProven"]</span> }
+                @if (!d.Output.Package.Known) { <span class="badge amber" title="@T["AttackOutput.Badge.AssetsUnknown.Tooltip"]">@T["Asset.Label.Unknown"]</span> }
+                else if (d.Output.Package.AutoLoad) { <span class="badge" title="@T.Format("AttackOutput.Badge.AutoLoad.Tooltip", d.Output.Package.Name)">@T["AttackOutput.Badge.AutoLoad"]</span> }
+                @foreach (var a in d.Acknowledgements) { <span class="badge amber" data-flag="@a">@Flag(T, a)</span> }
+            </span>
+            @if (!d.Allowed) { <small class="donor-refusal">@d.Refusal</small> }
+        </button>
+    }
+    @if (shown.Length == 0) { <p class="subtle">@T["AttackOutput.Donors.Empty"]</p> }
+</div>
+@{ var unavailable = catalog.Unavailable().Where(u => Matches(u.Output)).ToArray(); }
+@if (unavailable.Length > 0)
+{
+    <details class="unavailable-outputs" data-unavailable-outputs="@unavailable.Length"><summary>@T.Plural("ProjectileBuilder.Unavailable.Count", unavailable.Length)</summary>
+        <p class="subtle">@T["ProjectileBuilder.Unavailable.Help"]</p>
+        @foreach (var u in unavailable)
+        { <p class="unavailable-output" data-unavailable="@u.Output.SemanticId"><strong>@u.Output.Label</strong> <span class="badge">@u.Output.Family</span> <span class="badge">@u.Code</span> <small class="subtle">@u.Reason</small></p> }
+    </details>
+}
+@code {
+    [Parameter, EditorRequired] public AttackOutputHost Host { get; set; } = default!;
+    // The output the host fires in this project (highlighted; shown even when its class is filtered out).
+    [Parameter] public string? Selected { get; set; }
+    [Parameter] public EventCallback<AttackOutputDonor> Choose { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    private string Search = ""; private bool ShowCross;
+    private bool Matches(AttackOutput o) => Search.Length == 0 || $"{o.Label} {o.KindLabel} {o.SemanticId} {o.Family}".Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase);
+    // Opt-in flag names are Runtime identifiers (kept as written); the badge labels are ModBuilder's text.
+    public static string Flag(IUiText t, string a) => a switch { "allow_shared" => t["Common.Shared"], "allow_unverified_effect" => t["AttackOutput.Flag.EffectUnverified"], "allow_unverified_reference" => t["AttackOutput.Flag.ReferenceUnverified"], _ => a };
+    public static string OwnerKind(IUiText t, string kind) => kind switch
+    {
+        AttackProjectileSource.PlayerKind => t["ProjectileBuilder.Owner.Player"], AttackProjectileSource.SupportKind => t["ProjectileBuilder.Owner.Support"],
+        AttackProjectileSource.VehicleKind => t["ProjectileBuilder.Owner.Mounted"], "stratagem" => t["ProjectileBuilder.Owner.Stratagem"], "spare_row" => t["ProjectileBuilder.Owner.SpareRow"],
+        _ => kind.Replace('_', ' '),
+    };
+}

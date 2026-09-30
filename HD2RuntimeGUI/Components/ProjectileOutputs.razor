@@ -1,0 +1,91 @@
+@inject BuilderWorkspace Workspace
+@* Projectile builder (0.28.0): every projectile source Runtime publishes (player, support and mounted weapons, the Guard Dog drone gun), writable
+   or read-only with its reason, and every catalogued output row: selectable projectile rows with their slots, flight values and mode
+   presentation, and the outputs no attack can fire (beam, arc, spray, melee, rows another selector owns) with Runtime's reason. *@
+@{ var sdk = Workspace.Metadata; var catalog = sdk?.AttackOutputs; }
+@if (sdk != null && catalog?.Builder != null)
+{
+    var hosts = ProjectileHosts.All(sdk);
+    var rows = catalog.Outputs.Where(o => o.Slots != null).ToArray();
+    var unavailable = catalog.Unavailable();
+    <section class="panel projectile-builder-intro" data-projectile-builder>
+        <div class="panel-heading"><h2>@T["ProjectileBuilder.Title"]</h2>
+            <span class="badge">@T.Format("ProjectileBuilder.Summary.Hosts", hosts.Count(h => h.Writable), hosts.Count)</span>
+            <span class="badge">@T.Format("ProjectileBuilder.Summary.Rows", rows.Length, catalog.Outputs.Length)</span></div>
+        <p>@T["ProjectileBuilder.Intro.Swap"]</p>
+        <p>@T["ProjectileBuilder.Intro.Row"]</p>
+        <p class="subtle">@T["ProjectileBuilder.Intro.Effect"]</p>
+    </section>
+    <div class="family-tabs" role="tablist" aria-label="@T["ProjectileBuilder.Tabs.Label"]">
+        <button role="tab" class="family-tab @(Tab == "hosts" ? "active" : "")" aria-selected="@(Tab == "hosts")" data-builder-tab="hosts" @onclick='() => Select("hosts")'>@T["ProjectileBuilder.Tab.Hosts"] <small>@hosts.Count</small></button>
+        <button role="tab" class="family-tab @(Tab == "rows" ? "active" : "")" aria-selected="@(Tab == "rows")" data-builder-tab="rows" @onclick='() => Select("rows")'>@T["ProjectileBuilder.Tab.Rows"] <small>@rows.Length</small></button>
+        <button role="tab" class="family-tab @(Tab == "other" ? "active" : "")" aria-selected="@(Tab == "other")" data-builder-tab="other" @onclick='() => Select("other")'>@T["ProjectileBuilder.Tab.Other"] <small>@unavailable.Count</small></button>
+    </div>
+    <div class="weapon-editor">
+        <section class="panel weapon-browser">
+            <label>@T["Common.Search"]<input data-builder-search @bind="Search" @bind:event="oninput" /></label>
+            <label>@T["ProjectileBuilder.Filter.Kind"]<select data-builder-kind @bind="KindFilter"><option value="">@T["Common.All"]</option>
+                <option value="@AttackProjectileSource.PlayerKind">@T["ProjectileBuilder.Owner.Player"]</option><option value="@AttackProjectileSource.SupportKind">@T["ProjectileBuilder.Owner.Support"]</option>
+                <option value="@AttackProjectileSource.VehicleKind">@T["ProjectileBuilder.Owner.Mounted"]</option>
+                @if (Tab != "hosts") { <option value="stratagem">@T["ProjectileBuilder.Owner.Stratagem"]</option><option value="spare_row">@T["ProjectileBuilder.Owner.SpareRow"]</option> }</select></label>
+            @if (Tab == "hosts") { <label class="switch-label"><input type="checkbox" data-builder-writable @bind="WritableOnly" />@T["ProjectileBuilder.Filter.Writable"]</label> }
+            <div class="weapon-list">
+                @if (Tab == "hosts")
+                {
+                    @foreach (var h in hosts.Where(h => Match(h.Source.Weapon, h.Source.HostKind) && (!WritableOnly || h.Writable)))
+                    {
+                        var key = h.Source.HostKind + "|" + h.Source.Weapon + "|" + h.Source.Attack;
+                        var modified = Workspace.HostOutput(h.Source.HostKind, h.Source.Weapon, h.Source.Attack) != null
+                            || h.Source.HostKind == AttackProjectileSource.PlayerKind && Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == h.Source.Weapon && c.AttackRole == h.Source.Attack);
+                        <button class="resource-item @(Selected == key ? "active" : "")" data-builder-host="@h.Source.Weapon" data-host-status="@h.Source.Status" @onclick="() => Selected = key">
+                            <strong>@h.Source.Weapon@if (modified) { <span class="badge modified-badge">@T["Common.Modified"]</span> }</strong>
+                            <small>@ProjectileDonorList.OwnerKind(T, h.Source.HostKind) · @h.Source.Attack.Replace('_', ' ') · @(h.Writable ? h.Host!.Mechanism : h.Source.Status.Replace('_', ' ').ToLowerInvariant())</small></button>
+                    }
+                }
+                else if (Tab == "rows")
+                {
+                    @foreach (var o in rows.Where(o => Match(o.Label + " " + o.SemanticId, o.Owner.Kind)))
+                    {
+                        var edited = Workspace.RowChanges(o.SemanticId).Count > 0;
+                        <button class="resource-item @(Selected == o.SemanticId ? "active" : "")" data-builder-row="@o.SemanticId" @onclick="() => Selected = o.SemanticId">
+                            <strong>@o.Label@if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }</strong>
+                            <small>@ProjectileDonorList.OwnerKind(T, o.Owner.Kind) · @o.KindLabel · @T.Plural("ProjectileBuilder.Row.FiredByShort", o.Slots!.DirectDamage.SharedConsumerCount)</small></button>
+                    }
+                }
+                else
+                {
+                    @foreach (var u in unavailable.Where(u => Match(u.Output.Label + " " + u.Output.Family, u.Output.Owner.Kind)))
+                    {
+                        <button class="resource-item @(Selected == u.Output.SemanticId ? "active" : "")" data-builder-unavailable="@u.Output.SemanticId" @onclick="() => Selected = u.Output.SemanticId">
+                            <strong>@u.Output.Label</strong><small>@u.Output.Family · @u.Code</small></button>
+                    }
+                }
+            </div>
+        </section>
+        <div class="weapon-detail">
+            @if (Tab == "hosts" && hosts.FirstOrDefault(h => h.Source.HostKind + "|" + h.Source.Weapon + "|" + h.Source.Attack == Selected) is { } host)
+            {
+                <section class="panel" data-builder-host-detail="@host.Source.Weapon"><h2>@host.Source.Weapon</h2>
+                    <ProjectileHostSwap @key="Selected" Kind="@host.Source.HostKind" Weapon="@host.Source.Weapon" Role="@host.Source.Attack" Changed="Changed" /></section>
+            }
+            else if (Tab == "rows" && rows.FirstOrDefault(o => o.SemanticId == Selected) is { } row)
+            { <section class="panel" data-builder-row-detail="@row.SemanticId"><ProjectileRowEditor @key="Selected" Output="@row.SemanticId" Changed="Changed" /></section> }
+            else if (Tab == "other" && unavailable.FirstOrDefault(u => u.Output.SemanticId == Selected) is { } other)
+            {
+                <section class="panel" data-builder-unavailable-detail="@other.Output.SemanticId"><h2>@other.Output.Label</h2>
+                    <div class="field-badges"><span class="badge">@ProjectileDonorList.OwnerKind(T, other.Output.Owner.Kind)</span><span class="badge">@other.Output.Family</span><span class="badge">@other.Output.KindLabel</span><span class="badge amber">@other.Code</span></div>
+                    <p class="notice">@other.Reason</p>
+                    <p class="subtle">@T.Format("ProjectileBuilder.Other.Emitter", other.Output.Emitter, string.Join(", ", other.Output.OwnerFireResource))</p>
+                    @if (other.Output.Slots != null) { <ProjectileRowEditor Output="@other.Output.SemanticId" Changed="Changed" /> }</section>
+            }
+            else { <section class="panel empty-state"><h2>@T["ProjectileBuilder.Empty.Title"]</h2><p>@T["ProjectileBuilder.Empty.Help"]</p></section> }
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    private string Tab = "hosts", Search = "", KindFilter = "", Selected = "";
+    private bool WritableOnly;
+    private void Select(string tab) { Tab = tab; Selected = ""; if (tab == "hosts" && KindFilter is "stratagem" or "spare_row") KindFilter = ""; }
+    private bool Match(string text, string kind) => (KindFilter == "" || kind == KindFilter) && (Search.Length == 0 || text.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase));
+}

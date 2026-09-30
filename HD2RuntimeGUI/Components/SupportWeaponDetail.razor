@@ -24,6 +24,8 @@
         @if (weapon.BackpackDependent) { <p class="notice warning">@T["Support.Detail.BackpackDependent"]</p> }
     </section>
     <SupportAuthoringEditor Weapon="@weapon.CatalogIdentity" Changed="Changed" />
+    @* 0.28.0: the projectile this support weapon fires (a unified projectile host), or Runtime's reason it is read-only. *@
+    <ProjectileHostSwaps Kind="@AttackOutputChange.SupportHost" Owner="@weapon.CatalogIdentity" Changed="Changed" />
     <details class="ia-section advanced" data-support-inspection="@weapon.CatalogIdentity" open="@(!writableIdentity && !Embedded)"><summary>@T["Support.Detail.Inspection"] <small>@T["Support.Detail.Inspection.Hint"]</small></summary><div class="ia-body">
         @if (descriptor != null && descriptor.BlockedFields.Length > 0)
         { <h3 class="group-title">@T["Support.Detail.Blocked"]</h3>@foreach (var block in descriptor.BlockedFields) { <p class="subtle" data-blocked-field="@block.Field">@block.Field: @block.Reason</p> } }

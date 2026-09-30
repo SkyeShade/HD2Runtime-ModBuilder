@@ -20,6 +20,8 @@
 ### Projectile donors through the active projectile source
 - The projectile picker follows the member each shot actually reads. The AR-23 Liberator, JAR-5 Dominator, R-63 Diligence, SG-225 Breaker, P-2 Peacemaker and P-19 Redeemer write their ammunition's projectile.
 - Runtime's proven pairs are marked, such as Liberator × EAT-700 and Liberator × GL-52. Cross-class donors show the opt-ins they carry, and refused donors show Runtime's reason.
+- Support weapons, vehicle mounts and the Guard Dog drone gun swap their projectile from the same donor pool, on their own pages. Read-only hosts show why (another selector, a weapon function, not magazine-fed, …).
+- **Projectile builder:** a projectile row's direct hit, impact and expiry explosion take another row's, and its weapon-function mode label and icon take a native value. A row write changes every weapon that fires the row and never follows a swap; after a swap, the donor's row is one click away, with who else fires it.
 
 ### Stratagems, backpacks and weapons
 - **Resupply** is under the new **Mission** category, with cooldown, uses and its shared drop pod. Grenade Box is marked as live-verified in its slots.

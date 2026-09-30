@@ -116,6 +116,29 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
 - A dormant reference is never offered: the SG-20 Halt's rounds ammunition is read-only with Runtime's reason.
 - Changes lists outputs (toggle, reset, "accept current SDK"). The weapon header counts them, and counts an ammunition write as shared.
 
+## Unified projectile hosts and the projectile builder (frozen 0.28.0 SDK)
+
+- **Hosts.** Support weapons, vehicle mounts and the Guard Dog drone gun are projectile hosts by the same active-source rule as player
+  weapons (`ProjectileHosts`). Their opt-ins come from their own `attack.projectile` field: `allow_unverified_effect` (dropped for the
+  field's exact live-proven donors), `allow_shared` for one weapon entity in several mounts (the two FRV guns: one swap per entity).
+  Cross-class donors add the output's cross-class opt-ins unless `provenCompositions` names the pair.
+- **One donor pool.** Every selectable projectile output (player, support, mounted, stratagem). Rows catalogued only for
+  `function_ammo.projectile` are never offered; a donor owned by neither a player nor a support weapon needs a catalogued package (the
+  Guard Dog gun: `ASSET_UNAVAILABLE`). Beam, arc, spray and melee outputs and rows another selector owns are listed with their reason.
+- **Saved as** `AttackOutputChange` with `hostKind` (`support_weapon` / `vehicle_weapon`; absent for player weapons, so their JSON, ids
+  and evidence are unchanged). Lua:
+  - support: `target=hd2.support_weapon(S):attack(role)`, `expect=<target>:projectile()`;
+  - mounted: `target=<mount>:attack(role):projectile_source().target`, `expect=<mount>:attack(role)`, where `<mount>` is
+    `hd2.vehicle(V):weapon(M)` or `hd2.backpack(B):drone():weapon()`.
+- **Row writes** (`OutputRowChange`, `outputRowChanges`): the three builder slots and the mode label / icon of a row,
+  `hd2.attack_output(row)`. One transaction per row for its slots and one for its label and icon (so `auto` resolves with the label).
+  Opt-ins: the slot's or presentation's own; exact live-proven values drop `allow_unverified_effect`, never `allow_shared`; row writes never
+  carry `allow_unverified_reference` (Runtime refuses it there). A player terminal-explosion edit on the same row member is a conflict.
+- **UI.** `ProjectileHostSwap(s)` on support weapon pages, vehicle mounts and Guard Dog backpacks; the player selector shares
+  `ProjectileDonorList`; `ProjectileRowLinks` opens the host's own row or, after a swap, the donor's row (`ProjectileRowEditor`, with the
+  owner's flight fields in their existing editors and `ModePresentationEditor`); **Projectile builder** page lists every host, row and
+  non-projectile output. Smoke: `tools/projectile-builder-smoke.mjs`.
+
 ## Other items
 
 - **SG-20 Halt:** fields stay per feed (feed_primary → `damage.primary.*`, feed_alternate → `damage.alternate.*`), grouped under each feed. The planner now emits the branch-qualified constant the target publishes (`hd2.fields.damage.primary_standard_damage`, `…alternate_*`) instead of the generic name. The Runtime's user report (2026-09-29) found the generic name fails on 0.27.0. The change applies only to projectile-object fields whose published id is branch-qualified; only the Halt has those, so no other weapon's output changes.

@@ -28,6 +28,8 @@
             <div class="stat-grid">@foreach (var f in group.Fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@Label(backpack, f)" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
         </section>
     }
+    @* 0.28.0: the projectile a Guard Dog drone's gun fires (hd2.backpack(name):drone():weapon()), or why its output is no projectile. *@
+    <ProjectileHostSwaps Kind="@AttackOutputChange.VehicleHost" Owner="@Name" ModifiedOnly="ModifiedOnly" Changed="Changed" />
     @if (!ModifiedOnly && backpack.BlockedFields.Length > 0)
     {
         <details class="panel" data-blocked-capabilities open="@(fields.Values.All(f => !f.Editable))"><summary>@T["EntityPanel.Blocked.Title"]</summary>@foreach (var b in backpack.BlockedFields) { <p data-blocked-field="@b.Field">@T.Markup("EntityPanel.Blocked.Field.Html", b.Field, b.Reason)</p> }</details>

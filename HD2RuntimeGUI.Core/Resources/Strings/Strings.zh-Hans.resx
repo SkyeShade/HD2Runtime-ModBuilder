@@ -4481,6 +4481,58 @@
     <value>在解决此冲突之前，当前项目已切换。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="ModePresentation.Auto.Exact" xml:space="preserve">
+    <value>自动 → {0}（该标签的原生图标）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Auto.Fallback" xml:space="preserve">
+    <value>自动 → {0}（通用后备图标：该标签没有原生图标）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Help" xml:space="preserve">
+    <value>武器功能模式发射此弹体时显示的内容。仅限原生标签和图标，不支持自定义文本。✓ 表示实机测试在此行上显示过的值。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Icon" xml:space="preserve">
+    <value>HUD 图标</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Label" xml:space="preserve">
+    <value>模式标签</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.NoLabel" xml:space="preserve">
+    <value>无标签</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Proven" xml:space="preserve">
+    <value>此处已实机验证：{0}。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.ReadOnly" xml:space="preserve">
+    <value>Runtime 将此行的模式标签和图标发布为只读。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Reason.Effect" xml:space="preserve">
+    <value>尚无实机测试在此行上显示过该标签或图标，菜单读取逻辑也尚未追踪。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Reason.Shared" xml:space="preserve">
+    <value>标签位于此弹体行上，该行由 {0} 个实体发射（{1}）：它们都会显示该标签。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Shared.Tooltip" xml:space="preserve">
+    <value>标签位于共享行上：发射该行的每把武器都会显示它。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Title" xml:space="preserve">
+    <value>模式标签与图标</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ModePresentation.Vanilla" xml:space="preserve">
+    <value>原版：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="ModOptions.Available.Expose" xml:space="preserve">
     <value>暴露</value>
     <comment>new: needs native review</comment>
@@ -4784,6 +4836,10 @@
   <data name="Nav.PlayerWeapons" xml:space="preserve">
     <value>玩家武器</value>
     <comment>issue #1</comment>
+  </data>
+  <data name="Nav.ProjectileBuilder" xml:space="preserve">
+    <value>弹体构建器</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="Nav.ProjectLibrary" xml:space="preserve">
     <value>项目库</value>
@@ -5431,6 +5487,258 @@
   </data>
   <data name="Projectile.Unavailable" xml:space="preserve">
     <value>不可用 · {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Changes.Title" xml:space="preserve">
+    <value>弹体宿主与弹体行</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Classes.Help" xml:space="preserve">
+    <value>弹体行写入会在原处编辑此行。Runtime 针对此版本的组合类别：</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Classes.Interim" xml:space="preserve">
+    <value>临时方案</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Classes.NotSupported" xml:space="preserve">
+    <value>不可用</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Classes.Supported" xml:space="preserve">
+    <value>支持</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Classes.Title" xml:space="preserve">
+    <value>为何不能为此行创建独立副本？</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Classes.Unproven" xml:space="preserve">
+    <value>未经证实的成员保持只读：{0}。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Empty.Help" xml:space="preserve">
+    <value>选择一个宿主来替换其发射的弹体，或选择一个弹体行来组合其直击、爆炸和模式标签。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Empty.Title" xml:space="preserve">
+    <value>未选择</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Filter.Kind" xml:space="preserve">
+    <value>所属</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Filter.Writable" xml:space="preserve">
+    <value>仅显示可写宿主</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Flight.Help" xml:space="preserve">
+    <value>速度、阻力和穿透减速是此行自身的数值，由其所属对象发布并在其所在处编辑。它们不是构建器槽位，并会改变发射该行的每个实体。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Flight.None" xml:space="preserve">
+    <value>此行的所属对象未发布飞行数值。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Flight.Title" xml:space="preserve">
+    <value>飞行</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Host.Carrier" xml:space="preserve">
+    <value>由 {0} 无人机携带（hd2.backpack(name):drone():weapon()）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Host.OtherFamily" xml:space="preserve">
+    <value>{0} 发射的是 {1} 输出，绝不是弹体：</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Host.SameEntity" xml:space="preserve">
+    <value>与 {0} 是同一个武器实体：此处的替换也会改变它，因此写入带有 allow_shared。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Host.SetThrough" xml:space="preserve">
+    <value>通过同一武器实体 {0} 设置；在此处选择会取代该替换。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Intro.Effect" xml:space="preserve">
+    <value>要让替换后的宿主获得效果，请写入供体的弹体行：供体武器以及发射该行的其他所有武器也会随之改变。仅在 SDK 发布了专用行（备用孪生行）时，才存在单个宿主专属的弹体行。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Intro.Row" xml:space="preserve">
+    <value>弹体行写入会为发射该行的每个实体改变其直击、爆炸或模式标签。它是独立的操作，绝不会跟随替换。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Intro.Swap" xml:space="preserve">
+    <value>宿主替换会改变武器发射的弹体行（其自身的弹体成员或默认弹药），每次只影响一个宿主。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.EditDonorRow" xml:space="preserve">
+    <value>编辑供体行：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.EditOwnRow" xml:space="preserve">
+    <value>编辑其弹体行：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.EditOwnRowSwapped" xml:space="preserve">
+    <value>编辑其自身弹体行：{0}（替换期间不会发射）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.Own" xml:space="preserve">
+    <value>{0} 所发射内容的效果（直击、爆炸、模式标签）写在其弹体行上，并作用于发射该行的每个实体。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.OwnRowReadOnly" xml:space="preserve">
+    <value>其弹体行 {0} 无法组合：{1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Links.Swapped" xml:space="preserve">
+    <value>{0} 因替换而发射 {1}。弹体行写入不会跟随替换：要改变它现在发射的内容，请写入 {1} 的弹体行（发射该行的每把武器都会随之改变）。其自身弹体行上的改动会保留，作用于仍发射该行的实体。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Other.Emitter" xml:space="preserve">
+    <value>发射组件：{0} · 所属对象的开火资源：{1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Owner.Mounted" xml:space="preserve">
+    <value>挂载武器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Owner.Player" xml:space="preserve">
+    <value>玩家武器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Owner.SpareRow" xml:space="preserve">
+    <value>备用行</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Owner.Stratagem" xml:space="preserve">
+    <value>战略配备</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Owner.Support" xml:space="preserve">
+    <value>支援武器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Reason.Effect" xml:space="preserve">
+    <value>尚无实机测试证明此行上的这一确切值。此处已实机验证：{0}。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Reason.Shared" xml:space="preserve">
+    <value>此行由 {0} 个实体发射（{1}）：修改它会改变所有这些实体。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.DonorContext" xml:space="preserve">
+    <value>{0} 因替换而发射此行。在此写入会为发射 {1} 的每个实体改变它：供体武器、{0} 以及替换到此行的其他宿主。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FieldEffect" xml:space="preserve">
+    <value>留下持续区域：{0}，{1} 秒，半径 {2} 米（{3} 爆炸）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredBy.One" xml:space="preserve">
+    <value>由 {0} 个实体发射（{1} 个类型化引用）：</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredBy.Other" xml:space="preserve">
+    <value>由 {0} 个实体发射（{1} 个类型化引用）：</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredByShort.One" xml:space="preserve">
+    <value>由 {0} 个实体发射</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.FiredByShort.Other" xml:space="preserve">
+    <value>由 {0} 个实体发射</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.Help" xml:space="preserve">
+    <value>弹体行写入会为发射它的每个实体改变此弹体。它不是宿主替换，也不会跟随替换。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.Reset" xml:space="preserve">
+    <value>重置此行</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.ResetField" xml:space="preserve">
+    <value>重置</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.SpareTwin" xml:space="preserve">
+    <value>{0} 的备用孪生行：临时借用的原版行，仅在游戏版本 {1} 上证实未被引用；在其他任何版本上 Runtime 都会拒绝它。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.SwappedHosts" xml:space="preserve">
+    <value>在此项目中还由以下宿主发射：{0}（替换到此行的宿主；Runtime 的共享计数只包含原生使用者）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Row.Title" xml:space="preserve">
+    <value>弹体行 · {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.Base" xml:space="preserve">
+    <value>基础弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.DirectDamage.Help" xml:space="preserve">
+    <value>直击会一并带来供体行的伤害、穿甲和状态槽。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.Handle" xml:space="preserve">
+    <value>{0} · {1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.LiveProven" xml:space="preserve">
+    <value>此处已实机验证</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.None" xml:space="preserve">
+    <value>无</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Slot.Vanilla" xml:space="preserve">
+    <value>原版：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Summary.Hosts" xml:space="preserve">
+    <value>{1} 个宿主中有 {0} 个可写</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Summary.Rows" xml:space="preserve">
+    <value>{1} 个输出中有 {0} 个可组合的弹体行</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Tab.Hosts" xml:space="preserve">
+    <value>宿主</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Tab.Other" xml:space="preserve">
+    <value>非弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Tab.Rows" xml:space="preserve">
+    <value>弹体行</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Tabs.Label" xml:space="preserve">
+    <value>弹体构建器视图</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Title" xml:space="preserve">
+    <value>弹体构建器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Unavailable.Count.One" xml:space="preserve">
+    <value>{0} 个输出绝不能作为攻击的弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Unavailable.Count.Other" xml:space="preserve">
+    <value>{0} 个输出绝不能作为攻击的弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ProjectileBuilder.Unavailable.Help" xml:space="preserve">
+    <value>均附有 Runtime 的原因：其他输出类型（光束、电弧、喷射、近战）、由其他选择器控制的行，以及仅登记用于可编程弹药模式的行。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="ProjectLibrary.Card.Actions" xml:space="preserve">
