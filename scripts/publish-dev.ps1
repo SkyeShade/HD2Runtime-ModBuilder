@@ -93,7 +93,7 @@ Settings > Developer panel).
 What is new here: custom Lua / event scripting (src/addon.lua), projectile donors through the active projectile source (attack
 outputs), Resupply, the SH-20 shield zone, the SG-20 Halt's branch-qualified fields and the Settings > Developer local SDK choice,
 on top of Enemies and Structures authoring. See docs/runtime028-integration.md and docs/enemy-authoring.md in the repository.
-The in-app version still reads 1.3.1; this build is identified by its commit.
+The in-app version is the one in Directory.Build.props; this build is identified by its commit.
 "@
 Set-Content -LiteralPath (Join-Path $stage 'DEV-BUILD.txt') -Value $readme -Encoding utf8
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
