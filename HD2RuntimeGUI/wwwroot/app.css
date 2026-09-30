@@ -1489,3 +1489,20 @@ h2.native-name { font-size:21px }
 /* Localization: CJK text uses the Windows UI fonts for its script. Set on the root only, so elements with their own font (brand wordmark,
    code, the Lua editor) keep it and fall back per glyph. */
 html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei UI','Microsoft YaHei',sans-serif }
+/* 1.4.0 weapon composition: weapon functions (rate slots, inputs, programmable ammunition), feeds, armory labels, underbarrels. */
+.function-inputs { display:flex; flex-wrap:wrap; gap:6px }
+.rate-modes, .programmable-ammo { display:grid; gap:8px; padding-top:8px; border-top:1px solid var(--border) }
+.fire-mode-slots.rate-slots { grid-template-columns:repeat(3, minmax(0, 1fr)); max-width:720px }
+.rate-slots input { max-width:160px }
+.fire-mode-slot.default, .fire-mode-slot.modified { border-color:var(--accent-border) }
+.feed-pair { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px }
+.mode-label-slot:empty { display:none }
+.binding-choice select { min-width:140px }
+.feeds-panel { display:grid; gap:8px; margin:0 0 10px }
+.feed-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:8px }
+.feed-card .stat-grid { margin-top:6px }
+.presentation-row { display:grid; gap:6px; max-width:1100px }
+.presentation-row > select, .trait-add select { max-width:420px }
+.fire-mode-slots.trait-slots { grid-template-columns:repeat(5, minmax(0, 1fr)) }
+.subweapon-section { border-left:3px solid var(--accent-border); padding-left:12px }
+@media (max-width:760px) { .feed-pair, .fire-mode-slots.rate-slots, .fire-mode-slots.trait-slots { grid-template-columns:1fr } }

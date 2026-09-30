@@ -1,0 +1,111 @@
+@inject BuilderWorkspace Workspace
+@* HD2Runtime 0.28.0 armory presentation of one player or support weapon: the trait labels the armory shows (presentation.traits, an ordered
+   list of published trait IDs) and its single penetration label (presentation.armor_penetration). Presentation only: gameplay penetration
+   is the projectile's damage.ap_* and neither ever changes the other. Both are the same five native slots, so an edit to one while the other
+   is edited is folded into the trait list. Labels are the game's own strings as the SDK publishes them. *@
+@if (Workspace.Presentation(Kind, Weapon) is { } view)
+{
+    var traits = view.Traits; var penetration = view.Penetration; var catalog = Workspace.Metadata?.Presentation;
+    var modified = traits?.Modified == true || penetration?.Modified == true;
+    <div class="fire-mode-editor weapon-presentation @(modified ? "modified" : "")" data-weapon-presentation="@Weapon" data-weapon-kind="@Kind">
+        <div class="fire-mode-head">
+            <strong>@T["WeaponPresentation.Title"]</strong>
+            <span class="badge blue" data-presentation-only>@T["WeaponPresentation.PresentationOnly"]</span>
+            @if (modified) { <span class="badge modified-badge">@T["Common.Modified"]</span>
+                <button class="reset-action small" data-presentation-reset disabled="@Busy" @onclick="() => Run(() => Workspace.SetPresentationAsync(Kind, Weapon, null, null))">@T["WeaponPresentation.Reset"]</button> }
+        </div>
+        @* The SDK's own statement of the separation and of when menus pick the labels up. *@
+        @if (view.GameplaySeparation != null) { <p class="subtle" data-gameplay-separation>@view.GameplaySeparation</p> }
+        @if (view.Refresh != null) { <p class="subtle" data-presentation-refresh>@view.Refresh</p> }
+
+        @if (penetration != null)
+        {
+            <div class="presentation-row" data-presentation-penetration="@penetration.Current">
+                <span class="slot-label">@T["WeaponPresentation.Penetration"]</span>
+                @if (penetration.Writable)
+                {
+                    <select aria-label="@T["WeaponPresentation.Penetration"]" disabled="@Busy" @onchange="e => Run(() => Workspace.SetPresentationAsync(Kind, Weapon, null, e.Value?.ToString()))">
+                        @foreach (var choice in penetration.Choices) { <option value="@choice" selected="@(choice == penetration.Current)">@PenetrationLabel(choice)</option> }
+                    </select>
+                    @if (penetration.LiveValues?.Contains(penetration.Current) == true && penetration.Modified) { <span class="badge green" data-live-proven>@T["WeaponFunctions.LiveProven"]</span> }
+                }
+                else
+                {
+                    <strong>@PenetrationLabel(penetration.Current)</strong> <span class="badge" title="@penetration.Reason">@T["Common.ReadOnly"]</span>
+                    <small class="subtle" data-presentation-blocked>@(penetration.Reason ?? T["Messages.Build.Traits.ReadOnly"])</small>
+                }
+                @if (penetration.Modified) { <small class="modified-value">@T.Format("WeaponPresentation.BaselineToCurrent", PenetrationLabel(penetration.Baseline), PenetrationLabel(penetration.Current))</small> }
+            </div>
+        }
+
+        @if (traits != null)
+        {
+            <div class="presentation-row" data-presentation-traits="@string.Join(",", traits.Current)">
+                <span class="slot-label">@T.Plural("WeaponPresentation.Traits", traits.MaxTraits)</span>
+                @if (traits.Writable)
+                {
+                    <ol class="fire-mode-slots trait-slots" data-trait-slots>
+                        @for (var i = 0; i < traits.MaxTraits; i++)
+                        {
+                            var index = i; var trait = i < traits.Current.Count ? traits.Current[i] : null;
+                            <li class="fire-mode-slot @(trait == null ? "empty" : "")" data-trait-slot="@(i + 1)" data-trait="@(trait ?? "")">
+                                @if (trait != null)
+                                {
+                                    <strong>@Label(trait)</strong>
+                                    <span class="slot-actions">
+                                        <button class="small" title="@T["FireMode.MoveEarlier"]" aria-label="@T.Format("WeaponPresentation.MoveEarlier.Aria", Label(trait))" disabled="@(index == 0 || Busy)" @onclick="() => SetTraits(Move(traits.Current, index, -1))">↑</button>
+                                        <button class="small" title="@T["FireMode.MoveLater"]" aria-label="@T.Format("WeaponPresentation.MoveLater.Aria", Label(trait))" disabled="@(index == traits.Current.Count - 1 || Busy)" @onclick="() => SetTraits(Move(traits.Current, index, 1))">↓</button>
+                                        <button class="small reset-action" title="@T["WeaponPresentation.Remove"]" aria-label="@T.Format("WeaponPresentation.Remove.Aria", Label(trait))" disabled="@Busy" data-trait-remove="@trait" @onclick="() => SetTraits(traits.Current.Where((_, j) => j != index).ToArray())">✕</button>
+                                    </span>
+                                }
+                                else { <span class="subtle">@T["Common.Empty"]</span> }
+                            </li>
+                        }
+                    </ol>
+                    @if (traits.Current.Count < traits.MaxTraits)
+                    {
+                        <label class="trait-add">@T["WeaponPresentation.AddTrait"]
+                            <select data-trait-add disabled="@Busy" @onchange="e => Add(traits, e.Value?.ToString())">
+                                <option value="" selected>@T["WeaponPresentation.AddTrait.Choose"]</option>
+                                @foreach (var choice in traits.Choices.Where(c => !traits.Current.Contains(c))) { <option value="@choice">@Label(choice)</option> }
+                            </select></label>
+                    }
+                }
+                else
+                {
+                    <strong>@string.Join(" · ", traits.Current.Select(Label))</strong> <span class="badge" title="@traits.Reason">@T["Common.ReadOnly"]</span>
+                    <small class="subtle" data-presentation-blocked>@(traits.Reason ?? T["Messages.Build.Traits.ReadOnly"])</small>
+                }
+                @if (traits.Modified) { <small class="modified-value">@T.Format("WeaponPresentation.BaselineToCurrent", string.Join(" · ", traits.Baseline.Select(Label)), string.Join(" · ", traits.Current.Select(Label)))</small> }
+            </div>
+        }
+        @{ var reasons = new[] { traits is { NeedsEffect: true } ? traits.AcknowledgementReason : null, penetration is { NeedsEffect: true } ? penetration.AcknowledgementReason : null }
+               .Where(r => r != null).Select(r => r!).Distinct().ToArray(); }
+        @if (reasons.Length > 0)
+        {
+            <OptInWarnings Acknowledgements="@(new[] { CompositionOptIns.Effect })" Reasons="@(new Dictionary<string, string> { [CompositionOptIns.Effect] = string.Join(" ", reasons) })" />
+        }
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </div>
+}
+@code {
+    [Parameter, EditorRequired] public string Kind { get; set; } = CompositionKind.Player;
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error; private bool Busy;
+    // Trait and penetration labels are the game's own strings as the SDK publishes them; an unnamed label shows its ID.
+    private string Label(string trait) => Workspace.Metadata?.Presentation?.TraitLabel(trait) ?? trait;
+    private string PenetrationLabel(string choice) => choice == StatusReference.None ? T["WeaponPresentation.Penetration.None"]
+        : Workspace.Metadata?.Presentation?.PenetrationLabel(choice) ?? choice.Replace('_', ' ');
+    private static string[] Move(IReadOnlyList<string> list, int index, int by)
+    { var copy = list.ToList(); var item = copy[index]; copy.RemoveAt(index); copy.Insert(index + by, item); return [.. copy]; }
+    private Task SetTraits(IReadOnlyList<string> traits) => Run(() => Workspace.SetPresentationAsync(Kind, Weapon, traits, null));
+    private Task Add(PresentationTraits traits, string? trait) => string.IsNullOrEmpty(trait) ? Task.CompletedTask : SetTraits([.. traits.Current, trait]);
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

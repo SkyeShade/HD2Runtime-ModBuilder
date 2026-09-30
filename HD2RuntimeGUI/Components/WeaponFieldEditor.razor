@@ -15,14 +15,19 @@
         {
             @if (Field.Type == "boolean")
             { <label class="boolean-control"><input id="@InputId" type="checkbox" role="switch" checked='@(Value == "true")' disabled="@Busy" @onchange='async e => { Value = (bool)e.Value! ? "true" : "false"; await Commit(); }' aria-label="@Field.DisplayName" /><span>@(Value == "true" ? T["Common.On"] : T["FieldValue.Off"])</span></label> }
+            else if (Field.Type == WeaponCapability.StatusReference)
+            {
+                var (allowed, none) = Workspace.StatusChoices(Field);
+                <StatusReferenceSelect Allowed="allowed" AllowNone="none" Value="@Value" Label="@Field.DisplayName" Disabled="@Busy" Changed="async v => { Value = v; await Commit(); }" />
+            }
             else if (Field.Type == "enum")
             { <select id="@InputId" @bind="Value" @bind:after="Commit" disabled="@Busy" aria-label="@Field.DisplayName">@foreach (var option in Field.EnumValues!.Where(p => Field.AllowedValues == null || Field.AllowedValues.Contains(p.Value.GetInt32()))) { <option value="@option.Value.GetRawText()">@FieldPresentation.EnumLabel(option.Key)</option> }</select> }
             else
             { <input id="@InputId" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" aria-label="@Field.DisplayName" /> }
         }
-        else { <span class="readonly-value">@FieldPresentation.DisplayValue(T, Field, CurrentValue)</span> }
+        else { <span class="readonly-value">@Display(CurrentValue)</span> }
     </div>
-    <div class="field-baseline @(Modified ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("WeaponField.Base", FieldPresentation.DisplayValue(T, Field, Field.CurrentDefault))@if (Modified) { <span> → <strong>@FieldPresentation.DisplayValue(T, Field, CurrentValue)</strong></span> }</div>
+    <div class="field-baseline @(Modified ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("WeaponField.Base", Display(Field.CurrentDefault))@if (Modified) { <span> → <strong>@Display(CurrentValue)</strong></span> }</div>
     <div class="field-tools">
         @if (SavedGroup != null) { <OptionToggle Key="@ModOptionsService.WeaponKey(Weapon.Name, Field.SemanticFieldId)" Changed="Changed" /> }
         @if (Busy) { <small role="status">@T["WeaponField.Saving"]</small> }
@@ -43,7 +48,7 @@
     </div>
     @if (SavedGroup?.Conflict != null) { <div class="field-wide"><WeaponAliasConflict Group="SavedGroup" Changed="AliasResolved" /></div> }
     @* 0.26.0: Runtime's allow_unverified_effect opt-in (reticle, burst length) is warned about next to the edit it covers. *@
-    @if (Change != null && Field.Acknowledgement == "allow_unverified_effect" && FieldPresentation.Modified(Field, Change))
+    @if (Change != null && CompositionOptIns.EffectFor(Field, Change.DesiredValue) && FieldPresentation.Modified(Field, Change))
     {
         <div class="field-wide"><AckPanel Title="@T.Format("WeaponField.UnverifiedEffect.Title", Field.DisplayName)" Kind="unverified" Description="@Field.AcknowledgementReason" /></div>
     }
@@ -69,6 +74,9 @@
     private WeaponChange? LoadedChange;
     private string LoadedField = "";
     private async Task AliasResolved() => await Changed.InvokeAsync();
+    // Status references show the status name the SDK publishes; every other value as FieldPresentation spells it.
+    private string Display(System.Text.Json.JsonElement value) => Field.Type == WeaponCapability.StatusReference && value.ValueKind == System.Text.Json.JsonValueKind.String
+        ? Workspace.StatusLabel(value.GetString()!) : FieldPresentation.DisplayValue(T, Field, value);
     protected override void OnParametersSet()
     {
         var key = Weapon.Name + Field.SemanticFieldId;
@@ -79,7 +87,8 @@
     }
     private Task Commit()
     {
-        var value = Value; var group = Group; var notes = Notes;
+        // A status reference is a status key: saved as a JSON string.
+        var value = Field.Type == WeaponCapability.StatusReference ? System.Text.Json.JsonSerializer.Serialize(Value) : Value; var group = Group; var notes = Notes;
         return Run(async () =>
         {
             await Workspace.SetWeaponChangeAsync(Weapon.Name, Field.SemanticFieldId, value, acknowledge: true, group, notes);

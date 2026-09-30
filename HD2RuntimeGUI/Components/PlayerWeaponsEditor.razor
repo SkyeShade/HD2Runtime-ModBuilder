@@ -22,7 +22,11 @@
             var magazines = Workspace.Metadata.Entities?.Attachments?.Weapon(weapon.Name) != null;
             var explosions = attacks.SelectMany(a => Phases.Select(p => (Attack: a, Phase: p, Explosion: Workspace.EffectiveExplosion(weapon.Name, a.Role, p))))
                 .Where(e => !e.Explosion.IsNone || Workspace.Project!.CompositionChanges.Any(c => c.Weapon == weapon.Name && c.AttackRole == e.Attack.Role && c.Phase == e.Phase)).ToArray();
+            // 1.4.0: rate-of-fire slots, weapon functions, programmable ammunition and feeds; armory labels (each its own panel).
+            var functions = weapon.Fields.Any(f => FieldPresentation.Section(f) == FieldPresentation.Functions) || Workspace.Metadata.Feeds?.Of(CompositionKind.Player, weapon.Name) != null;
+            var presentation = weapon.Fields.Any(f => FieldPresentation.Section(f) == FieldPresentation.Presentation);
             var sections = rows.Select(r => r.Section).Append("Weapon").Concat(magazines ? ["Ammo / Magazine"] : []).Concat(attacks.Length > 0 ? ["Projectile"] : [])
+                .Concat(functions ? [FieldPresentation.Functions] : []).Concat(presentation ? [FieldPresentation.Presentation] : [])
                 .Concat(explosions.Length > 0 ? ["Explosion"] : []).Append(HeatSection)
                 .Where(s => s is not (FieldPresentation.Advanced or "Heat" or "Heatsinks")).Distinct().OrderBy(Order).ToArray();
             var damageSection = sections.FirstOrDefault(s => s is "Damage" or "Status Effects");
@@ -44,6 +48,12 @@
                 <section class="semantic-section" data-section="@key"><h2>@FieldPresentation.SectionLabel(T, key)</h2>
                     @if (key == "Ammo / Magazine" && magazines) { <MagazineAttachments Weapon="@weapon.Name" Changed="FieldChanged" /> }
                     @if (key == FieldPresentation.FireMode) { <PlayerFireModes Weapon="weapon" Changed="FieldChanged" /> }
+                    @if (key == FieldPresentation.Functions)
+                    {
+                        <WeaponFeedsPanel @key="(weapon.Name, CompositionKind.Player)" Kind="@CompositionKind.Player" Weapon="@weapon.Name" Changed="FieldChanged" />
+                        <WeaponFunctionsPanel @key="(weapon.Name, CompositionKind.Player, 1)" Kind="@CompositionKind.Player" Weapon="@weapon.Name" Changed="FieldChanged" ModeLabels="ModeLabels" />
+                    }
+                    @if (key == FieldPresentation.Presentation) { <WeaponPresentationPanel @key="(weapon.Name, CompositionKind.Player)" Kind="@CompositionKind.Player" Weapon="@weapon.Name" Changed="FieldChanged" /> }
                     @if (key == "Projectile")
                     {
                         @foreach (var attack in attacks)
@@ -88,13 +98,16 @@
                         }
                     }
                     <WeaponSharedAcks Weapon="@weapon.Name" FieldIds="@sectionRows.Where(r => r.Role == null).Select(r => r.Field.SemanticFieldId).ToArray()" />
-                    @if (Workspace.Metadata.Advanced != null)
+                    @if (Workspace.Metadata!.Advanced != null)
                     {
                         var domains = key switch { "Projectile" => new[] { "projectile", "terminal" }, "Explosion" => ["explosion"], _ when key == damageSection => ["damage"], _ => null };
                         @if (domains != null) { <CompositionApprovals Weapon="@weapon.Name" Changes="Workspace.Project!.CompositionChanges" Domains="domains" /> }
                     }
                 </section>
             }
+            @* 1.4.0: nested sub-targets (the underbarrel a weapon's default underbarrel item names), each its own target, never flattened. *@
+            @foreach (var (info, target) in Workspace.Subweapons(weapon.Name))
+            { <SubweaponSection @key="info.Name" Info="info" Target="target" EditableOnly="EditableOnly" Changed="FieldChanged" /> }
             @if (Workspace.Metadata.Advanced == null) { <WeaponComposition Weapon="@weapon.Name" Changed="FieldChanged" /> }
             <AttachmentBrowser Weapon="@weapon.Name" />
             @if (!EditableOnly && advanced.Length > 0)
@@ -121,6 +134,8 @@
     [Parameter] public EventCallback Changed { get; set; }
     [Parameter] public EventCallback Review { get; set; }
     [Parameter] public string? InitialWeapon { get; set; }
+    // The mode-label editor embedded in each weapon's programmable-ammunition panel (primary / alternate labels); none until it exists.
+    [Parameter] public RenderFragment<WeaponFunctionsPanel.ModeLabelSlot>? ModeLabels { get; set; }
     private const string HeatSection = "Heat / Heatsink";
     private static readonly string[] Phases = ["impact", "expiry"];
     private string Search = "", Slot = "", Category = "", Family = "", Selected = "";
@@ -139,7 +154,10 @@
     {
         var composition = Workspace.Metadata!.Advanced != null;
         // Weapon-level fields; with composition, projectile-owned scalars and explosions are edited on their objects instead.
+        // 1.4.0: weapon functions and armory labels have their own panels, and a feed's capacity is edited on its feed.
+        var feedCapacities = Workspace.Metadata.Feeds?.Of(CompositionKind.Player, weapon.Name)?.Feeds.Select(f => f.CapacityField).Where(c => c != null).ToHashSet() ?? [];
         var rows = weapon.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")
+                && !FieldPresentation.Composition(f) && !feedCapacities.Contains(f.SemanticFieldId)
                 && (!composition || f.Domain != "explosion" && !(CompositionChangeService.ProjectileOwned(f) && attacks.Length > 0)))
             .Where(f => !LegacyDefaultHidden(weapon, f)).Select(f => new Row(LegacyDefaultMode(weapon, f) ? FieldPresentation.FireMode : FieldPresentation.Section(f), f))
             .Where(r => r.Section is not ("Heat" or "Heatsinks")).ToList();
@@ -162,7 +180,7 @@
     private static bool LegacyDefaultMode(PlayerWeapon w, WeaponCapability f) => f.SemanticFieldId == "weapon.default_fire_mode" && f.Editable && HasModeList(w);
     private bool LegacyDefaultHidden(PlayerWeapon w, WeaponCapability f) => LegacyDefaultMode(w, f)
         && w.Fields.Any(x => x.SemanticFieldId == FireModes.ModesField && x.Editable) && !Workspace.WeaponGroups.Any(g => g.Weapon == w.Name && g.FieldId == f.SemanticFieldId);
-    private static int Order(string section) => section == HeatSection ? 4 : FieldPresentation.SectionOrder(section);
+    private static int Order(string section) => section == HeatSection ? FieldPresentation.SectionOrder("Heat") : FieldPresentation.SectionOrder(section);
     // The heading of one of Phases' explosions, with the attack role (an SDK token) when the weapon has several attacks.
     private string ExplosionLabel(string phase, string? role) => (phase, role) switch
     {

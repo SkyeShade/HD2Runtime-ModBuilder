@@ -305,6 +305,8 @@ public sealed partial class BuilderWorkspace
             view.BoundInput(WeaponFunctions.ProgrammableAmmo)));
         return true;
     }
+    /// <summary>Enables or disables a weapon's whole saved selector group.</summary>
+    public Task<bool> ToggleSelectorGroupAsync(string kind, string weapon) => ToggleSelectorAsync(kind, weapon, FireRateModes.Field);
     // Enables or disables a weapon's whole selector group (Runtime writes it as one transaction).
     private async Task<bool> ToggleSelectorAsync(string kind, string weapon, string field)
     {
@@ -423,7 +425,13 @@ public sealed partial class BuilderWorkspace
     /// the status catalog on support weapons).</summary>
     public (IReadOnlyList<string> Allowed, bool AllowNone) StatusChoices(WeaponCapability f) => (f.AllowedReferences ?? [], f.AllowNone == true);
     public (IReadOnlyList<string> Allowed, bool AllowNone) StatusChoices(SupportField f) => Metadata == null ? ([], false) : StatusReferences.Support(Metadata, f);
-    public string StatusLabel(string key) => key == StatusReference.None ? CoreText.Get("Common.None") : Metadata?.StatusEffects?.Label(key) ?? key;
+    // The published status name; statuses that share a name (gas / gas_2, the three hotshot levels) also show their key.
+    public string StatusLabel(string key)
+    {
+        if (key == StatusReference.None) return CoreText.Get("Common.None");
+        if (Metadata?.StatusEffects is not { } catalog || catalog.Find(key) is not { } status) return key;
+        return catalog.Statuses.Values.Count(s => s.Name == status.Name) > 1 ? catalog.Label(key) + " · " + key : catalog.Label(key);
+    }
 
     // ---- Sub-targets ---------------------------------------------------------------------------------------------------------------------
     /// <summary>The sub-targets (underbarrels) a weapon names, as authoring targets with their own fields.</summary>

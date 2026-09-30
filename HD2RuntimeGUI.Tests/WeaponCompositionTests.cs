@@ -183,6 +183,25 @@ public sealed class WeaponCompositionTests
         Assert.All(w.Project!.SupportChanges.Where(c => c.Weapon == Apw), c => Assert.True(c.Enabled)); Assert.Contains("APW-1", w.LuaPreview);
     }
 
+    [Fact] public async Task A_player_selector_group_is_toggled_and_reset_together()
+    {
+        using var e = new TestEnvironment(); var (w, _) = await EnemyAuthoringTests.Fresh(e);
+        await w.SetSelectorAsync(CompositionKind.Player, Evictor, new([200, 300, 400], "right", null, null));
+        Assert.Contains("{field=hd2.fields.weapon_function.right,expect='none',value='rate_of_fire'}", Operation(w.LuaPreview, "fire_rate.modes"));
+        // Disabling one field of the group disables the whole transaction (never a binding without its rates).
+        var binding = w.Project!.WeaponChanges.Single(c => c.SemanticFieldId == "weapon_function.right");
+        await w.ToggleWeaponChangeAsync(binding.Id);
+        Assert.All(w.Project.WeaponChanges.Where(c => c.Weapon == Evictor), c => Assert.False(c.Enabled)); Assert.Null(w.BuildError);
+        Assert.False(w.Selector(CompositionKind.Player, Evictor)!.Enabled);
+        await w.ToggleSelectorGroupAsync(CompositionKind.Player, Evictor);
+        Assert.All(w.Project.WeaponChanges.Where(c => c.Weapon == Evictor), c => Assert.True(c.Enabled));
+        // Resetting the binding resets the rates it selects.
+        await w.ResetWeaponsAsync(Evictor, "weapon_function.right");
+        Assert.DoesNotContain(w.Project.WeaponChanges, c => c.Weapon == Evictor); Assert.Null(w.BuildError);
+        // Statuses that share a published name are told apart by their key.
+        Assert.NotEqual(w.StatusLabel("gas"), w.StatusLabel("gas_2")); Assert.Equal("Fire", w.StatusLabel("fire"));
+    }
+
     [Fact] public async Task A_saved_selector_that_Runtime_would_refuse_blocks_the_build_with_its_reason()
     {
         using var e = new TestEnvironment(); var (w, sdk) = await EnemyAuthoringTests.Fresh(e);

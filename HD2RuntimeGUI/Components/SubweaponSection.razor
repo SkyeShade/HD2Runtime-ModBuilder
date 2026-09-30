@@ -1,0 +1,35 @@
+@* One nested sub-target of a player weapon (HD2Runtime 0.28.0: the underbarrel a weapon's default underbarrel item names, such as the
+   AR/GL-21 One-Two grenade launcher). It is a separate weapon entity with its own records, written on its own target
+   (hd2.weapon(parent):underbarrel()) with the ordinary field constants, so it is edited here, inside its parent's page, never mixed into the
+   parent's fields. Every published field is listed; read-only ones keep Runtime's reason, and what Runtime does not expose is named. *@
+<section class="semantic-section subweapon-section" data-subweapon="@Info.Name" data-subweapon-kind="@Info.Kind" data-subweapon-of="@Info.SubweaponOf">
+    <h2>@KindLabel(Info.Kind) <span class="subtle">· @Info.Name</span></h2>
+    @if (Info.LinkItem != null) { <p class="subtle" data-subweapon-link-item>@T.Format("Subweapon.LinkItem", Info.LinkItem)</p> }
+    @if (Info.Link != null) { <p class="subtle" data-subweapon-link>@Info.Link</p> }
+    @if (Target.OrdinaryWritesBlocked) { <div class="notice warning"><div><strong>@T["WeaponEditor.WritesUnavailable"]</strong><p>@Target.BlockReason</p></div></div> }
+    @{ var fields = Target.Fields.Where(f => f.IsPreferred && (!EditableOnly || f.Editable)).ToArray(); }
+    @foreach (var section in fields.GroupBy(f => f.Editable && !f.DerivedReadOnly ? FieldPresentation.Section(f) : FieldPresentation.Advanced).OrderBy(g => FieldPresentation.SectionOrder(g.Key)))
+    {
+        <h3 class="group-title">@FieldPresentation.SectionLabel(T, section.Key)</h3>
+        <div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(Target.Name, field.SemanticFieldId)" Weapon="Target" Field="field" Changed="Changed" /> }</div>
+    }
+    <WeaponSharedAcks Weapon="@Target.Name" FieldIds="@fields.Select(f => f.SemanticFieldId).ToArray()" />
+    @if (Info.SharedDefinitions is { ValueKind: System.Text.Json.JsonValueKind.Object } shared)
+    {
+        <details class="subtle" data-subweapon-shared><summary>@T["Subweapon.SharedDefinitions"]</summary>
+            @foreach (var entry in shared.EnumerateObject().Where(p => p.Value.ValueKind == System.Text.Json.JsonValueKind.String)) { <p>@entry.Value.GetString()</p> }</details>
+    }
+    @if (Info.NotExposed is { Count: > 0 } notExposed)
+    {
+        <details class="subtle" data-subweapon-not-exposed><summary>@T.Plural("Subweapon.NotExposed", notExposed.Count)</summary>
+            <ul>@foreach (var item in notExposed) { <li>@item</li> }</ul></details>
+    }
+</section>
+@code {
+    [Parameter, EditorRequired] public Subweapon Info { get; set; } = default!;
+    [Parameter, EditorRequired] public PlayerWeapon Target { get; set; } = default!;
+    [Parameter] public bool EditableOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    // The sub-target kind is a Runtime identifier; a kind this build has no label for shows as published.
+    private string KindLabel(string kind) => kind == Subweapon.Underbarrel ? T["Subweapon.Kind.Underbarrel"] : T.Format("Subweapon.Kind.Other", kind.Replace('_', ' '));
+}

@@ -10,8 +10,16 @@
             @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
         </span></div>
     <div class="field-value">
-        @* Status references (0.28.0 development SDKs) are shown with Runtime's baseline but not authored by this build. *@
-        @if (!Field.Writable) { <span class="readonly-value">@(Field.Value.Baseline.ValueKind == System.Text.Json.JsonValueKind.String ? Field.Value.Baseline.GetString() : Format(Field.Value.Baseline))</span> <span class="badge" title="@Field.BlockedReason">@T["Common.ReadOnly"]</span> }
+        @* A published field this build cannot write shows Runtime's baseline and reason. 1.4.0 status references are a choice of statuses;
+           the other composition values (rates, weapon functions, programmable ammunition, armory labels) are edited in their panels. *@
+        @if (!Field.Writable) { <span class="readonly-value">@Display(Field.Value.Baseline)</span> <span class="badge" title="@Field.BlockedReason">@T["Common.ReadOnly"]</span> }
+        else if (Field.IsStatusReference)
+        {
+            var (allowed, none) = Workspace.StatusChoices(Field);
+            <StatusReferenceSelect Allowed="allowed" AllowNone="none" Value="@StatusValue" Label="@Field.Display.Name" Disabled="@(Workspace.Project == null)"
+                Changed="v => Commit(System.Text.Json.JsonSerializer.Serialize(v))" />
+        }
+        else if (AuthoredTypes.Composition.Contains(Field.Value.Type)) { <span class="readonly-value" data-support-composition-value>@Display(saved?.DesiredValue ?? Field.Value.Baseline)</span> }
         else if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Field.Display.Name" /> }
         else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@Field.Display.Name" /> }
     </div>
@@ -25,6 +33,7 @@
             <button class="reset-action small" @onclick="Reset">@T["SupportField.Reset"]</button>
         }
         <details class="field-info"><summary title="@T["SupportField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+            @if (!Field.Writable && Field.BlockedReason != null) { <p data-support-blocked>@T.Markup("WeaponField.NotWritable.Html", Field.BlockedReason)</p> }
             @if (UnverifiedEffect) { <p><strong>@T["SupportField.EffectUnproven.Label"]</strong> @Field.Operation.AcknowledgementReason</p> }
             <p>@Field.Provenance.Baseline · @Field.Provenance.Ownership</p><p>@Field.Backing.SemanticType · @Field.Target.AttackRole</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
@@ -41,10 +50,19 @@
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     // 0.24.0+: Runtime requires allow_unverified_effect=true for this field.
-    private bool UnverifiedEffect => Field.Operation.Acknowledgement == "allow_unverified_effect";
+    // 1.4.0: an exact value a live test proved on this weapon (liveEvidence.values) is written without the opt-in.
+    private bool UnverifiedEffect => Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey) is { } c
+        ? CompositionOptIns.EffectFor(Field, c.DesiredValue) : Field.Operation.Acknowledgement == "allow_unverified_effect";
     private string Value => Format(Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline);
+    private string StatusValue => (Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline) is { ValueKind: System.Text.Json.JsonValueKind.String } v
+        ? v.GetString()! : StatusReference.None;
     private string Display(System.Text.Json.JsonElement value) => Field.Value.Type == "boolean" && value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False
-        ? (value.GetBoolean() ? T["Common.On"] : T["SupportField.Off"]) : Field.Value.Type == WeaponCapability.FireModeSet && value.ValueKind == System.Text.Json.JsonValueKind.Array ? FireModes.DisplayText(value) : Format(value);
+        ? (value.GetBoolean() ? T["Common.On"] : T["SupportField.Off"]) : Field.Value.Type == WeaponCapability.FireModeSet && value.ValueKind == System.Text.Json.JsonValueKind.Array ? FireModes.DisplayText(value)
+        : Field.IsStatusReference && value.ValueKind == System.Text.Json.JsonValueKind.String ? Workspace.StatusLabel(value.GetString()!)
+        // Rates, trait lists and names in their language-neutral spelling (the Lua literal would quote them).
+        : value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString()!
+        : value.ValueKind == System.Text.Json.JsonValueKind.Array ? string.Join(" · ", value.EnumerateArray().Select(x => x.ValueKind == System.Text.Json.JsonValueKind.String ? x.GetString() : x.GetRawText()))
+        : Format(value);
     private string Format(System.Text.Json.JsonElement value)
     {
         try { return SupportScalar.Text(Field, value); }
@@ -56,5 +74,7 @@
     private Task Commit(string value) => Run(() => Workspace.SetSupportAsync(Field.InstanceKey, value));
     private Task BooleanChanged(ChangeEventArgs e) => Commit((bool)e.Value! ? "true" : "false");
     private Task Reset() => Run(() => Workspace.ResetSupportAsync(instance: Field.InstanceKey));
-    private Task Review() => Run(() => Workspace.SetSupportAsync(Field.InstanceKey, Value, true));
+    // Re-saves the desired value (as saved JSON: lists and names are not their Lua spelling) against today's baseline.
+    private Task Review() => Run(() => Workspace.SetSupportAsync(Field.InstanceKey,
+        Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue.GetRawText() ?? Value, true));
 }

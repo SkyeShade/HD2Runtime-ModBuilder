@@ -5,7 +5,8 @@
 @foreach (var weaponName in Workspace.WeaponGroups.Select(g => g.Weapon).Concat(Workspace.Project!.ProjectileChanges.Select(c => c.Weapon)).Concat(Workspace.Project.CompositionChanges.Select(c => c.Weapon)).Concat(Workspace.Project.AttackOutputChanges?.Select(c => c.Weapon) ?? []).Distinct().Order(StringComparer.Ordinal))
 {
     var group = Workspace.WeaponGroups.Where(g => g.Weapon == weaponName).ToArray();
-    var weapon = Workspace.Metadata?.PlayerWeapons?.Weapons.FirstOrDefault(w => w.Name == weaponName);
+    // A sub-target (underbarrel) is listed by its own name and edited on its parent weapon's page.
+    var weapon = Workspace.Metadata?.PlayerWeapons?.Find(weaponName); var editTarget = Workspace.Metadata?.PlayerWeapons?.FindSubweapon(weaponName)?.SubweaponOf ?? weaponName;
     var count = Workspace.Project!.CompositionChanges.Count(c => c.Weapon == weaponName) + Workspace.Project!.ProjectileChanges.Count(c => c.Weapon == weaponName) + (Workspace.Project!.AttackOutputChanges?.Count(c => c.Weapon == weaponName) ?? 0) + group.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     var showAll = AllFields.Contains(weaponName);
     var rows = (weapon?.Fields.Where(f => f.IsPreferred && f.Type is not ("projectile_reference" or "explosion_reference")).Select(f => new Row(f, group.SingleOrDefault(g => g.FieldId == f.SemanticFieldId))) ?? [])
@@ -15,7 +16,7 @@
         <summary><strong>@weaponName</strong><span class="badge @(count > 0 ? "modified-badge" : "")">@T.Plural("WeaponChanges.Count", count)</span></summary>
         <div class="weapon-group-content"><div class="panel-heading">
             <label class="switch-label"><input type="checkbox" checked="@showAll" @onchange="e => ShowAll(weaponName, (bool)e.Value!)" />@T["WeaponChanges.ShowAllFields"]</label>
-            <div class="actions"><button @onclick="() => Edit.InvokeAsync(weaponName)">@T["WeaponChanges.EditWeapon"]</button>@if (count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(weaponName))">@T["WeaponEditor.ResetWeapon"]</button> }</div>
+            <div class="actions"><button @onclick="() => Edit.InvokeAsync(editTarget)">@T["WeaponChanges.EditWeapon"]</button>@if (count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetWeaponsAsync(weaponName))">@T["WeaponEditor.ResetWeapon"]</button> }</div>
         </div>
         @* The same acknowledgement panels as the editor, so a blocked build can be resolved here. *@
         <WeaponSharedAcks Weapon="@weaponName" />

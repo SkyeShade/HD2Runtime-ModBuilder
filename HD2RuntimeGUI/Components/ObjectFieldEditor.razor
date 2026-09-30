@@ -9,10 +9,15 @@
             @if (!Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
         </span></div>
     <div class="field-value">
-        @if (Editable) { <input aria-label="@Field.DisplayName" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" /> }
-        else { <span class="readonly-value">@FieldPresentation.DisplayValue(T, Field, Current)</span> }
+        @if (Editable && Field.Type == WeaponCapability.StatusReference)
+        {
+            var (allowed, none) = Workspace.StatusChoices(Field);
+            <StatusReferenceSelect Allowed="allowed" AllowNone="none" Value="@Value" Label="@Field.DisplayName" Disabled="@Busy" Changed="async v => { Value = v; await Commit(); }" />
+        }
+        else if (Editable) { <input aria-label="@Field.DisplayName" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" /> }
+        else { <span class="readonly-value">@Display(Current)</span> }
     </div>
-    <div class="field-baseline @(Saved != null ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("ObjectField.Base", FieldPresentation.DisplayValue(T, Field, Field.CurrentDefault))@if (Saved != null) { <span> → <strong>@FieldPresentation.DisplayValue(T, Field, Current)</strong></span> }</div>
+    <div class="field-baseline @(Saved != null ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("ObjectField.Base", Display(Field.CurrentDefault))@if (Saved != null) { <span> → <strong>@Display(Current)</strong></span> }</div>
     <div class="field-tools">
         @if (Saved?.Scalar != null) { <OptionToggle Key="@ModOptionsService.ObjectKey(Saved)" Changed="Changed" /> }
         @if (Saved != null) { <button class="reset-action small" @onclick="Reset">@T["ObjectField.Reset"]</button> }
@@ -26,6 +31,11 @@
     @if (Editable && Field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
     {
         <div class="field-wide"><AckPanel Title="@OptInWarnings.Title(T, "allow_shared")" Description="@T["ObjectField.Shared.Description"]" Items="@Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct().ToArray()" /></div>
+    }
+    @* Runtime's allow_unverified_effect for this object field (every value but a live-proven one) is always written; this only warns. *@
+    @if (Saved?.Scalar is { } scalar && CompositionOptIns.EffectFor(Field, scalar.DesiredValue))
+    {
+        <div class="field-wide"><AckPanel Title="@T.Format("WeaponField.UnverifiedEffect.Title", Field.DisplayName)" Kind="unverified" Description="@Field.AcknowledgementReason" /></div>
     }
     @if (Saved != null && Workspace.CompositionIssue(Saved) is { } issue) { <p class="field-wide notice warning">@issue</p> }
     @if (Error != null) { <p class="field-wide dialog-error" role="alert">@Error</p> }
@@ -42,7 +52,11 @@
     private System.Text.Json.JsonElement Current => Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault;
     private string Value = "", Loaded = ""; private CompositionChange? Previous; private bool Busy; private string? Error;
     protected override void OnParametersSet() { var key = Weapon + Role + Kind + Phase + Field.SemanticFieldId; if (Loaded == key && Previous == Saved) return; Loaded = key; Previous = Saved; Value = Field.Format(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault); }
-    private Task Commit() => Run(() => Workspace.SetObjectScalarAsync(Weapon, Role, Kind, Phase, Field.SemanticFieldId, Value, acknowledge: true));
+    // A status reference is a status key: saved as a JSON string.
+    private Task Commit() => Run(() => Workspace.SetObjectScalarAsync(Weapon, Role, Kind, Phase, Field.SemanticFieldId,
+        Field.Type == WeaponCapability.StatusReference ? System.Text.Json.JsonSerializer.Serialize(Value) : Value, acknowledge: true));
+    private string Display(System.Text.Json.JsonElement value) => Field.Type == WeaponCapability.StatusReference && value.ValueKind == System.Text.Json.JsonValueKind.String
+        ? Workspace.StatusLabel(value.GetString()!) : FieldPresentation.DisplayValue(T, Field, value);
     private Task Reset() => Run(() => Workspace.RemoveCompositionAsync(Saved!.Id));
     private async Task Run(Func<Task> action) { if (Busy) return; Busy = true; Error = null; try { await action(); await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } finally { Busy = false; } }
 }

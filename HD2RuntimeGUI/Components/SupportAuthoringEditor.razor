@@ -23,9 +23,17 @@
                 <h3 class="group-title">@GroupLabel(T, domain.Key)</h3>
                 @* 0.26.0 fire modes: the native mode list has its own editor (and its own acknowledgement); burst length stays a row. *@
                 @if (domain.Any(f => f.SemanticFieldId == FireModes.ModesField) && !ModifiedOnly) { <SupportFireModes Weapon="@Weapon" Changed="Refresh" /> }
-                <div class="stat-grid">@foreach (var f in domain.Where(f => f.SemanticFieldId != FireModes.ModesField || ModifiedOnly)) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+                @* 1.4.0: rate-of-fire slots, weapon functions, programmable ammunition and feeds; armory labels. Each is one panel (its fields are
+                   written together); the review view lists the saved fields as rows. *@
+                @if (domain.Key == "Functions" && branch.Key.Path == "weapon" && !ModifiedOnly)
+                {
+                    <WeaponFeedsPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" />
+                    <WeaponFunctionsPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" ModeLabels="ModeLabels" />
+                }
+                @if (domain.Key == "Presentation" && branch.Key.Path == "weapon" && !ModifiedOnly) { <WeaponPresentationPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" /> }
+                <div class="stat-grid">@foreach (var f in domain.Where(f => ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f))) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
             }
-            @{ var unverified = branch.Where(f => f.Operation.Acknowledgement == "allow_unverified_effect" && Saved(f) != null && (f.SemanticFieldId != FireModes.ModesField || ModifiedOnly)).ToArray(); }
+            @{ var unverified = branch.Where(f => Saved(f) is { } s && CompositionOptIns.EffectFor(f, s.DesiredValue) && (ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f))).ToArray(); }
             @if (unverified.Length > 0)
             {
                 <AckPanel Title="@T["Support.Unverified.Title"]" Kind="unverified" Items="@unverified.Select(f => f.Display.Name).ToArray()" ItemsLabel="@T["Support.Unverified.ItemsLabel"]"
@@ -49,7 +57,13 @@
     [Parameter] public bool ModifiedOnly { get; set; }
     [Parameter] public string Weapon { get; set; } = "";
     [Parameter] public EventCallback Changed { get; set; }
+    // The mode-label editor embedded in the programmable-ammunition panel (primary / alternate labels); none until it exists.
+    [Parameter] public RenderFragment<WeaponFunctionsPanel.ModeLabelSlot>? ModeLabels { get; set; }
     private string? Error;
+    // Weapon-level fields a 1.4.0 panel edits (rate slots, weapon functions, programmable ammunition, armory labels, a feed's capacity).
+    private bool Paneled(SupportField f) => f.Target.Path == "weapon" && (WeaponSelectorRules.IsSelectorField(f.SemanticFieldId) || f.Display.Domain == "presentation"
+        || FieldGroups.Of(f.SemanticFieldId, f.Display.Domain) is "Functions" or "Presentation"
+        || Workspace.Metadata?.Feeds?.Of(CompositionKind.Support, f.SupportWeapon)?.Feeds.Any(x => x.CapacityField == f.SemanticFieldId) == true);
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     // Display labels only: published domains stay the filter values and FieldGroups names stay the group keys. Unknown SDK domains show as published.
     public static string Label(IUiText t, string domain) => domain switch

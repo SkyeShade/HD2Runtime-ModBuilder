@@ -1,0 +1,282 @@
+@inject BuilderWorkspace Workspace
+@* HD2Runtime 0.28.0 weapon functions for one player or support weapon: its rate-of-fire slots (fire_rate.modes), its two weapon-function
+   inputs (weapon_function.left / right) and its programmable-ammunition projectile (function_ammo.projectile). Runtime writes them as one
+   transaction (operation group weapon_selector): a selector is bound on a free input exactly when what it selects is added, and two
+   selectors competing for one input are resolved here, where the edit happens. Everything offered comes from the SDK; read-only parts show
+   Runtime's reason. The opt-ins the saved group carries are warnings only. *@
+@if (Workspace.Selector(Kind, Weapon) is { } view)
+{
+    var rates = view.Rates; var ammo = view.Projectile;
+    <div class="fire-mode-editor weapon-functions @(view.Modified ? "modified" : "")" data-weapon-functions="@Weapon" data-weapon-kind="@Kind">
+        <div class="fire-mode-head">
+            <strong>@T["WeaponFunctions.Title"]</strong>
+            @if (view.Modified) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (view.Saved && !view.Enabled) { <span class="badge" data-functions-disabled>@T["WeaponField.Disabled"]</span> }
+            @if (view.Saved)
+            {
+                <label class="field-toggle" title="@T["WeaponFunctions.Include.Tooltip"]"><input type="checkbox" data-functions-enabled checked="@view.Enabled" disabled="@Busy" @onchange="Toggle" /> @T["Common.On"]</label>
+                <button class="reset-action small" data-functions-reset disabled="@Busy" @onclick="ResetAll">@T["WeaponFunctions.ResetAll"]</button>
+            }
+            <details class="field-info"><summary title="@T["WeaponFunctions.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+                <p>@T["WeaponFunctions.Info.Transaction"]</p>
+                @if (rates?.EffectReason is { } rateEffect) { <p>@rateEffect</p> }
+                @if (ammo?.EffectReason is { } ammoEffect && ammoEffect != rates?.EffectReason) { <p>@ammoEffect</p> }
+            </div></details>
+        </div>
+        <div class="function-inputs" data-function-inputs>
+            @foreach (var input in view.Inputs)
+            {
+                <span class="badge @(input.Modified ? "modified-badge" : "")" data-function-input="@input.Input" data-function="@input.Current"
+                      title="@(input.Editable ? T["WeaponFunctions.Input.Free.Tooltip"] : input.Reason ?? T["Common.ReadOnly"])">@T.Format("WeaponFunctions.Input", InputLabel(input.Input), FunctionLabel(input.Current))</span>
+            }
+        </div>
+
+        @if (rates != null)
+        {
+            var draft = Draft ?? Initial(rates);
+            <section class="rate-modes" data-rate-modes data-rate-state="@rates.State">
+                <div class="fire-mode-head"><strong>@T["WeaponFunctions.Rates.Title"]</strong>
+                    <span class="badge" data-rate-state-label>@RateState(rates.State)</span>
+                    @if (rates.SelectorBound) { <span class="badge">@T.Format("WeaponFunctions.Rates.BoundOn", InputLabel(rates.SelectorInput ?? ""))</span> }
+                    @if (rates.LiveEvidence is { Status: "live_proven" } live) { <span class="badge green" data-live-proven title="@string.Join(", ", live.Tests)">@T["WeaponFunctions.LiveProven"]</span> }
+                    else if (rates.AcknowledgementReason != null && rates.Writable) { <span class="badge amber" data-flag="allow_unverified_effect" title="@rates.AcknowledgementReason">@T["FireMode.EffectUnverified"]</span> }
+                    @if (rates.Modified && rates.Writable) { <button class="reset-action small" data-rate-reset disabled="@Busy" @onclick="() => ResetRates(view)">@T["WeaponFunctions.Rates.Reset"]</button> }
+                </div>
+                @if (!rates.Writable)
+                {
+                    <p class="fire-mode-blocked" data-rate-blocked><span>@Rates(rates.Current)</span><span class="subtle"> · </span><span class="subtle">@(rates.Reason ?? T["Messages.Build.FireRate.ReadOnly"])</span></p>
+                }
+                else
+                {
+                    var menu = FireRateModes.MenuOrder(draft).ToList();
+                    <ol class="fire-mode-slots rate-slots" data-rate-slots>
+                        @for (var i = 0; i < 3; i++)
+                        {
+                            var index = i; var slot = rates.SlotNames[i]; var usable = slot == rates.DefaultSlot || rates.MaxModes > 1;
+                            <li class="fire-mode-slot @(draft[i] == 0 ? "empty" : "") @(slot == rates.DefaultSlot ? "default" : "") @(usable ? "" : "unavailable")" data-rate-slot="@slot" data-rate="@FireRateModes.Number(draft[i])">
+                                <span class="slot-label">@(slot == rates.DefaultSlot ? T.Format("WeaponFunctions.Rates.DefaultSlot", slot.ToUpperInvariant()) : T.Format("WeaponFunctions.Rates.Slot", slot.ToUpperInvariant()))</span>
+                                <input type="number" min="0" max="@rates.Max" step="any" value="@FireRateModes.Number(draft[i])" disabled="@(!usable || Busy)"
+                                       aria-label="@T.Format("WeaponFunctions.Rates.Slot.Aria", slot.ToUpperInvariant())" @onchange="e => SetRate(view, index, e.Value?.ToString())" />
+                                <small class="subtle">@(draft[i] == 0 ? T["WeaponFunctions.Rates.EmptySlot"] : T.Format("WeaponFunctions.Rates.MenuPosition", menu.IndexOf(slot) + 1))</small>
+                            </li>
+                        }
+                    </ol>
+                    <p class="subtle" data-rate-order>@T.Format("WeaponFunctions.Rates.Order", Order(menu), Order(FireRateModes.SelectorOrder(draft)))</p>
+                    <p class="subtle">@T.Format("WeaponFunctions.Rates.Range", Number(rates.Min), Number(rates.Max))</p>
+                    @if (!rates.SelectorBound && draft.Count(r => r != 0) > 1)
+                    {
+                        var held = AmmoHolds(view); var free = view.Candidates(WeaponFunctions.RateOfFire).Where(i => i != held).ToArray();
+                        var bound = view.BoundInput(WeaponFunctions.RateOfFire) ?? free.FirstOrDefault();
+                        <div class="binding-choice" data-rate-binding="@bound">
+                            @if (free.Length > 1)
+                            {
+                                <label>@T["WeaponFunctions.Rates.InputChoice"]
+                                    <select data-rate-input disabled="@Busy" @onchange="e => ChooseRatesInput(view, e.Value?.ToString())">
+                                        @foreach (var input in free) { <option value="@input" selected="@(input == bound)">@InputLabel(input)</option> }
+                                    </select></label>
+                            }
+                            else if (bound != null) { <p class="subtle">@T.Format("WeaponFunctions.Rates.Binds", InputLabel(bound))</p> }
+                        </div>
+                    }
+                    else if (!rates.SelectorBound && rates.MaxModes > 1) { <p class="subtle">@T["WeaponFunctions.Rates.AddHint"]</p> }
+                    @if (rates.LegacyRate is { } legacy) { <p class="notice" data-rate-legacy>@T.Format("WeaponFunctions.Rates.Legacy", FireRateModes.Number(legacy))</p> }
+                    @if (rates.OverriddenWhenEquipped.Count > 0) { <p class="notice warning" data-rate-overridden>@T.Format("WeaponFunctions.Rates.Overridden", string.Join(", ", rates.OverriddenWhenEquipped))</p> }
+                    <p class="field-baseline @(rates.Modified ? "modified-value" : "subtle")" data-rate-baseline>@(rates.Modified
+                        ? T.Format("WeaponFunctions.Rates.BaselineToCurrent", Rates(rates.Baseline), Rates(rates.Current)) : T.Format("WeaponFunctions.Rates.Baseline", Rates(rates.Baseline)))</p>
+                }
+            </section>
+        }
+
+        @if (ammo != null)
+        {
+            var alternate = FunctionProjectile.IsOutput(ammo.Current) ? ammo.Current : null;
+            <section class="programmable-ammo" data-programmable-ammo data-function-ammo-state="@ammo.State">
+                <div class="fire-mode-head"><strong>@T["WeaponFunctions.Ammo.Title"]</strong>
+                    <span class="badge" data-function-ammo-state-label>@AmmoState(ammo.State)</span>
+                    @if (ammo.SelectorBound) { <span class="badge">@T.Format("WeaponFunctions.Ammo.BoundOn", InputLabel(ammo.SelectorInput ?? ""))</span> }
+                    @if (ammo.Modified && ammo.Writable) { <button class="reset-action small" data-function-ammo-reset disabled="@Busy" @onclick="() => ChooseProjectile(view, ammo.Baseline)">@T["WeaponFunctions.Ammo.Reset"]</button> }
+                </div>
+                <div class="feed-pair">
+                    <div class="fire-mode-slot" data-feed-base="@ammo.Base?.SemanticId"><span class="slot-label">@T["WeaponFunctions.Ammo.Base"]</span>
+                        <strong>@(ammo.Base?.Label ?? Weapon)</strong><small class="subtle">@T["WeaponFunctions.Ammo.Base.Help"]</small></div>
+                    <div class="fire-mode-slot @(ammo.Current == FunctionProjectile.None ? "empty" : "") @(ammo.Modified ? "modified" : "")" data-feed-alternate="@ammo.Current"><span class="slot-label">@T["WeaponFunctions.Ammo.Alternate"]</span>
+                        <strong>@Token(ammo, ammo.Current)</strong><small class="subtle">@T["WeaponFunctions.Ammo.Alternate.Help"]</small></div>
+                </div>
+                @* Mode labels / icons (hd2.fields.presentation.mode_label / mode_icon on the base and alternate outputs) are edited by the
+                   mode-label component, embedded here through ModeLabels: "primary label" for the base output, "alternate label" for the
+                   function projectile. This panel never writes them. *@
+                <div class="mode-label-slot" data-mode-labels-slot data-mode-label-primary="@ammo.Base?.SemanticId" data-mode-label-alternate="@alternate">
+                    @if (ModeLabels != null) { @ModeLabels(new ModeLabelSlot(Kind, Weapon, ammo.Base?.SemanticId, alternate)) }
+                </div>
+                @if (!ammo.Writable)
+                {
+                    <p class="fire-mode-blocked" data-function-ammo-blocked>@(ammo.Reason ?? T["Messages.Build.FunctionAmmo.ReadOnly"])</p>
+                }
+                else
+                {
+                    var proven = ammo.Donors.Where(d => d.LiveProven).ToArray();
+                    @if (proven.Length > 0) { <p class="subtle" data-proven-pairs>@T.Format("WeaponFunctions.Ammo.Proven", Weapon, string.Join(", ", proven.Select(d => d.Output.Label)))</p> }
+                    <div class="donor-filters">
+                        @if (ammo.Baseline == FunctionProjectile.None && ammo.Current != FunctionProjectile.None)
+                        { <button class="reset-action small" data-function-ammo-none disabled="@Busy" @onclick="() => ChooseProjectile(view, FunctionProjectile.None)">@T["WeaponFunctions.Ammo.Remove"]</button> }
+                        @if (ammo.Baseline == FunctionProjectile.Native && ammo.Current != FunctionProjectile.Native)
+                        { <button class="small" data-function-ammo-native disabled="@Busy" @onclick="() => ChooseProjectile(view, FunctionProjectile.Native)">@T["WeaponFunctions.Ammo.Restore"]</button> }
+                        @if (!ammo.SelectorBound && view.Candidates(WeaponFunctions.ProgrammableAmmo).Where(i => i != RatesHold(view)).ToArray() is { Length: > 1 } inputs)
+                        {
+                            var bound = view.BoundInput(WeaponFunctions.ProgrammableAmmo) ?? AmmoInput ?? inputs[0];
+                            <label>@T["WeaponFunctions.Ammo.InputChoice"]
+                                <select data-function-ammo-input disabled="@Busy" @onchange="e => ChooseAmmoInput(view, e.Value?.ToString())">
+                                    @foreach (var input in inputs) { <option value="@input" selected="@(input == bound)">@InputLabel(input)</option> }
+                                </select></label>
+                        }
+                        <label>@T["AttackOutput.Search.Label"]<input data-function-ammo-search @bind="Search" @bind:event="oninput" placeholder="@T["WeaponFunctions.Ammo.Search.Placeholder"]" /></label>
+                    </div>
+                    var shown = ammo.Donors.Where(d => Search.Length == 0 || $"{d.Output.Label} {d.Output.KindLabel} {d.Output.SemanticId}".Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+                    <div class="donor-list" role="listbox" aria-label="@T["WeaponFunctions.Ammo.Donors.Label"]" data-function-ammo-donors>
+                        @foreach (var d in shown)
+                        {
+                            var selected = ammo.Current == d.Output.SemanticId;
+                            <button class="donor @(selected ? "active" : "")" role="option" aria-selected="@selected" disabled="@Busy" data-function-donor="@d.Output.SemanticId"
+                                    title="@(d.Output.SpareTwin?.Reason ?? d.Output.SemanticId)" @onclick="() => ChooseProjectile(view, d.Output.SemanticId)">
+                                <span class="donor-name"><strong>@d.Output.Label</strong> <small class="subtle">@d.Output.KindLabel · @(d.Output.CompatibilityClass?.Replace('_', ' '))</small></span>
+                                <span class="donor-badges">
+                                    @if (d.LiveProven) { <span class="badge green" data-donor-proven>@T.Format("AttackOutput.Badge.ProvenOnHost", Weapon)</span> }
+                                    @if (d.Output.ReferenceScope != null) { <span class="badge blue" title="@T["WeaponFunctions.Ammo.Scoped.Tooltip"]">@T["WeaponFunctions.Ammo.Scoped"]</span> }
+                                    @if (d.Output.SpareTwin != null) { <span class="badge">@T["WeaponFunctions.Ammo.SpareTwin"]</span> }
+                                    @if (d.CrossClass) { <span class="badge amber" data-donor-cross title="@T["WeaponFunctions.Ammo.OtherClass.Tooltip"]">@T["WeaponFunctions.Ammo.OtherClass"]</span> }
+                                    @if (!d.Output.Package.Known) { <span class="badge amber" title="@T["AttackOutput.Badge.AssetsUnknown.Tooltip"]">@T["Asset.Label.Unknown"]</span> }
+                                    else if (d.Output.Package.AutoLoad) { <span class="badge" title="@T.Format("AttackOutput.Badge.AutoLoad.Tooltip", d.Output.Package.Name)">@T["AttackOutput.Badge.AutoLoad"]</span> }
+                                    @if (!d.LiveProven)
+                                    {
+                                        <span class="badge amber" data-flag="allow_unverified_effect">@T["AttackOutput.Flag.EffectUnverified"]</span>
+                                        <span class="badge amber" data-flag="allow_unverified_reference">@T["AttackOutput.Flag.ReferenceUnverified"]</span>
+                                    }
+                                </span>
+                                @if (FieldEffect(d.Output) is { } field) { <small class="subtle">@field</small> }
+                            </button>
+                        }
+                        @if (shown.Length == 0) { <p class="subtle">@T["AttackOutput.Donors.Empty"]</p> }
+                    </div>
+                }
+            </section>
+        }
+
+        @if (Pending is { } pending)
+        {
+            <div class="swap-prompt" role="group" data-selector-conflict>
+                <p><strong>@pending.Message</strong></p>
+                <div class="swap-actions">
+                    @foreach (var (label, edit) in pending.Options) { <button class="primary" data-selector-resolve disabled="@Busy" @onclick="() => Apply(edit)">@label</button> }
+                    <button class="link-button" data-selector-cancel @onclick="() => Pending = null">@T["Common.Cancel"]</button>
+                </div>
+            </div>
+        }
+        @if (view.OptIns.Count > 0) { <OptInWarnings Acknowledgements="view.OptIns" Reasons="view.OptInReasons" /> }
+        @if (view.Issue != null) { <p class="notice warning" data-functions-issue role="alert">@view.Issue</p> }
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </div>
+}
+@code {
+    // Where the mode-label editor is embedded: the base output ("primary label") and the function projectile ("alternate label").
+    public sealed record ModeLabelSlot(string Kind, string Weapon, string? PrimaryOutput, string? AlternateOutput);
+    [Parameter, EditorRequired] public string Kind { get; set; } = CompositionKind.Player;
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public RenderFragment<ModeLabelSlot>? ModeLabels { get; set; }
+    private sealed record Conflict(string Message, IReadOnlyList<(string Label, SelectorEdit Edit)> Options);
+    private float[]? Draft; private Conflict? Pending; private string Search = ""; private string? Error, RatesInput, AmmoInput; private bool Busy;
+
+    // A weapon.fire_rate edit is the default slot until rate modes are saved.
+    private static float[] Initial(SelectorRates rates)
+    {
+        var current = rates.Current.ToArray();
+        if (!rates.Modified && rates.LegacyRate is { } legacy) current[1] = legacy;
+        return current;
+    }
+    private static string Number(double value) => FireRateModes.Number((float)value);
+    private string Rates(IReadOnlyList<float> rates) => string.Join(" · ", rates.Select((r, i) => r == 0 ? "—" : FireRateModes.Number(r)));
+    private static string Order(IReadOnlyList<string> slots) => string.Join(" → ", slots.Select(s => s.ToUpperInvariant()));
+    private string InputLabel(string input) => FieldPresentation.InputLabel(T, input);
+    private string FunctionLabel(string function) => FieldPresentation.FunctionLabel(T, function);
+    private string RateState(string state) => state switch
+    {
+        "selectable" => T["WeaponFunctions.Rates.State.Selectable"], "addable" => T["WeaponFunctions.Rates.State.Addable"], "single_rate" => T["WeaponFunctions.Rates.State.SingleRate"],
+        "absent" => T["WeaponFunctions.Rates.State.Absent"], _ => T["Common.ReadOnly"],
+    };
+    private string AmmoState(string state) => state switch
+    {
+        "native" => T["WeaponFunctions.Ammo.State.Native"], "addable" => T["WeaponFunctions.Ammo.State.Addable"], _ => T["Common.ReadOnly"],
+    };
+    private string Token(SelectorProjectile ammo, string token) => token switch
+    {
+        FunctionProjectile.None => T["WeaponFunctions.Ammo.None"],
+        FunctionProjectile.Native => ammo.Feed?.Presentation?.DisplayName is { } name ? T.Format("WeaponFunctions.Ammo.NativeNamed", name) : T["WeaponFunctions.Ammo.Native"],
+        _ => Workspace.Metadata?.AttackOutputs?.Output(token)?.Label ?? token,
+    };
+    // A donor's lingering field (the EMS Mortar shell's StaticField), as the catalog publishes it.
+    private string? FieldEffect(AttackOutput output) => output.FieldEffect is { ValueKind: System.Text.Json.JsonValueKind.Object } f && f.TryGetProperty("volume", out var volume)
+        ? T.Format("WeaponFunctions.Ammo.FieldEffect", volume.GetString(), f.TryGetProperty("seconds", out var s) ? s.GetRawText() : "?", f.TryGetProperty("radius", out var r) ? r.GetRawText() : "?") : null;
+    // The input the other selector holds in the saved group (null when it holds none).
+    private static string? AmmoHolds(WeaponSelector view) => view.Projectile is { SelectorBound: false } a && FunctionProjectile.IsOutput(a.Current) ? view.BoundInput(WeaponFunctions.ProgrammableAmmo) : null;
+    private static string? RatesHold(WeaponSelector view) => view.Rates is { SelectorBound: false } r && r.Filled > 1 ? view.BoundInput(WeaponFunctions.RateOfFire) : null;
+    private static IReadOnlyList<float>? SavedRates(WeaponSelector view) => view.Rates is { Modified: true } r ? r.Current : null;
+    private static string? SavedProjectile(WeaponSelector view) => view.Projectile is { Modified: true } a ? a.Current : null;
+
+    private async Task SetRate(WeaponSelector view, int index, string? text)
+    {
+        var draft = (Draft ?? Initial(view.Rates!)).ToArray();
+        draft[index] = float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : 0;
+        Draft = draft;
+        await CommitRates(view, draft, RatesInput);
+    }
+    private Task ChooseRatesInput(WeaponSelector view, string? input) { RatesInput = input; return CommitRates(view, Draft ?? view.Rates!.Current.ToArray(), input); }
+    // Rates beyond the default need the rate-of-fire selector on a free input; when the only one holds programmable ammunition, ask here.
+    private async Task CommitRates(WeaponSelector view, float[] rates, string? input)
+    {
+        var projectile = SavedProjectile(view); var held = AmmoHolds(view);
+        if (rates.Count(r => r != 0) > 1 && !view.Rates!.SelectorBound)
+        {
+            var candidates = view.Candidates(WeaponFunctions.RateOfFire); var free = candidates.Where(i => i != held).ToArray();
+            if (free.Length == 0 && held != null && candidates.Contains(held))
+            {
+                var options = new List<(string, SelectorEdit)> { (T["WeaponFunctions.Conflict.DropAmmo"], new(rates, held, null, null)) };
+                if (view.Candidates(WeaponFunctions.ProgrammableAmmo).FirstOrDefault(i => i != held) is { } other)
+                    options.Add((T.Format("WeaponFunctions.Conflict.MoveAmmo", InputLabel(other)), new(rates, held, projectile, other)));
+                Pending = new(T.Format("WeaponFunctions.Conflict.RatesNeedInput", InputLabel(held)), options); return;
+            }
+            input = input != null && free.Contains(input) ? input : view.BoundInput(WeaponFunctions.RateOfFire) is { } current && free.Contains(current) ? current : free.FirstOrDefault();
+        }
+        await Apply(new(rates, input, projectile, held));
+    }
+    private Task ChooseAmmoInput(WeaponSelector view, string? input) { AmmoInput = input; return SavedProjectile(view) is { } p ? ChooseProjectile(view, p) : Task.CompletedTask; }
+    // A donor needs the ProgrammableAmmo function on a free input; when the only one holds the rate-of-fire selector, ask here.
+    private async Task ChooseProjectile(WeaponSelector view, string token)
+    {
+        var rates = SavedRates(view); var held = RatesHold(view); string? input = null;
+        if (FunctionProjectile.IsOutput(token) && view.Projectile!.SelectorBound == false)
+        {
+            var candidates = view.Candidates(WeaponFunctions.ProgrammableAmmo); var free = candidates.Where(i => i != held).ToArray();
+            if (free.Length == 0 && held != null && candidates.Contains(held))
+            {
+                var single = rates is { } r ? new float[] { 0, r[1], 0 } : null;
+                var options = new List<(string, SelectorEdit)> { (T["WeaponFunctions.Conflict.DropRates"], new(single, null, token, held)) };
+                if (view.Candidates(WeaponFunctions.RateOfFire).FirstOrDefault(i => i != held) is { } other)
+                    options.Add((T.Format("WeaponFunctions.Conflict.MoveRates", InputLabel(other)), new(rates, other, token, held)));
+                Pending = new(T.Format("WeaponFunctions.Conflict.AmmoNeedsInput", InputLabel(held)), options); return;
+            }
+            input = AmmoInput != null && free.Contains(AmmoInput) ? AmmoInput : view.BoundInput(WeaponFunctions.ProgrammableAmmo) is { } current && free.Contains(current) ? current : free.FirstOrDefault();
+        }
+        await Apply(new(rates, held, token, input));
+    }
+    private Task ResetRates(WeaponSelector view) => Apply(new(null, null, SavedProjectile(view), view.BoundInput(WeaponFunctions.ProgrammableAmmo)));
+    private Task ResetAll() => Run(() => Workspace.ResetSelectorAsync(Kind, Weapon));
+    private Task Toggle() => Run(() => Workspace.ToggleSelectorGroupAsync(Kind, Weapon));
+    private Task Apply(SelectorEdit edit) => Run(() => Workspace.SetSelectorAsync(Kind, Weapon, edit));
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); Draft = null; Pending = null; await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

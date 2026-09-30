@@ -5713,6 +5713,10 @@
     <value>射击模式</value>
     <comment>issue #1 (adapted)</comment>
   </data>
+  <data name="Section.Functions" xml:space="preserve">
+    <value>射速与功能</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Section.Handling" xml:space="preserve">
     <value>操控</value>
     <comment>new: needs native review</comment>
@@ -5727,6 +5731,10 @@
   </data>
   <data name="Section.Heatsinks" xml:space="preserve">
     <value>散热器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Section.Presentation" xml:space="preserve">
+    <value>军械库展示</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Section.Projectile" xml:space="preserve">
@@ -6676,6 +6684,30 @@
   <data name="StratagemField.Uses.Unverified" xml:space="preserve">
     <value>任务次数 · 效果未经实机确认</value>
     <comment>issue #1 (adapted)</comment>
+  </data>
+  <data name="Subweapon.Kind.Other" xml:space="preserve">
+    <value>嵌套武器（{0}）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Subweapon.Kind.Underbarrel" xml:space="preserve">
+    <value>下挂武器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Subweapon.LinkItem" xml:space="preserve">
+    <value>由默认下挂物品 {0} 指定；是拥有独立数据记录的单独武器。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Subweapon.NotExposed.One" xml:space="preserve">
+    <value>Runtime 未开放的 {0} 个值</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Subweapon.NotExposed.Other" xml:space="preserve">
+    <value>Runtime 未开放的 {0} 个值</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Subweapon.SharedDefinitions" xml:space="preserve">
+    <value>共享定义</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="Support.BackpackAmmo.AmmoBox" xml:space="preserve">
     <value>弹药箱：{0}</value>
@@ -7697,6 +7729,62 @@
     <value>常规写入不可用</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="WeaponFeeds.Added" xml:space="preserve">
+    <value>可添加</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Capacity" xml:space="preserve">
+    <value>容量 {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Count.One" xml:space="preserve">
+    <value>{0} 个供弹</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Count.Other" xml:space="preserve">
+    <value>{0} 个供弹</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Fields" xml:space="preserve">
+    <value>其弹体与伤害在“弹体 · {0}”下编辑。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.Programmable" xml:space="preserve">
+    <value>可编程弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.Projectile" xml:space="preserve">
+    <value>常规弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.RoundsMagazine" xml:space="preserve">
+    <value>弹匣</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.NotBound" xml:space="preserve">
+    <value>绑定后通过{0}功能选择</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.OwnedBy" xml:space="preserve">
+    <value>由默认改装 {0} 设置</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Programmable" xml:space="preserve">
+    <value>在武器功能（可编程弹药）下编辑。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Selectable" xml:space="preserve">
+    <value>可在游戏中切换</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.SelectedBy" xml:space="preserve">
+    <value>通过{1}输入上的{0}功能选择</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Title" xml:space="preserve">
+    <value>供弹</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="WeaponField.AtomicGroup" xml:space="preserve">
     <value>原子组</value>
     <comment>issue #1</comment>
@@ -7787,6 +7875,342 @@
   </data>
   <data name="WeaponField.UnverifiedEffect.Title" xml:space="preserve">
     <value>{0} · 效果未经实机确认</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Alternate" xml:space="preserve">
+    <value>备用</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Alternate.Help" xml:space="preserve">
+    <value>可编程弹药功能开启时发射</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Base" xml:space="preserve">
+    <value>基础</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Base.Help" xml:space="preserve">
+    <value>正常发射（功能关闭）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.BoundOn" xml:space="preserve">
+    <value>原生位于{0}输入</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Donors.Label" xml:space="preserve">
+    <value>此武器可作为可编程弹药发射的弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.FieldEffect" xml:space="preserve">
+    <value>留下 {0} 场，持续 {1} 秒，半径 {2}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.InputChoice" xml:space="preserve">
+    <value>可编程弹药输入</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Native" xml:space="preserve">
+    <value>原生可编程弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.NativeNamed" xml:space="preserve">
+    <value>原生 · {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.None" xml:space="preserve">
+    <value>无</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.OtherClass" xml:space="preserve">
+    <value>不同类别</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.OtherClass.Tooltip" xml:space="preserve">
+    <value>与基础弹体的兼容类别不同</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Proven" xml:space="preserve">
+    <value>已在 {0} 上实机验证：{1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Remove" xml:space="preserve">
+    <value>移除备用弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Reset" xml:space="preserve">
+    <value>重置弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Restore" xml:space="preserve">
+    <value>恢复原生弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Scoped" xml:space="preserve">
+    <value>仅限可编程</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Scoped.Tooltip" xml:space="preserve">
+    <value>目录仅允许此输出作为可编程弹体，不能作为攻击的弹体</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Search.Placeholder" xml:space="preserve">
+    <value>Hyena、Pacifier、EMS…</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.SpareTwin" xml:space="preserve">
+    <value>备用孪生行</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.State.Addable" xml:space="preserve">
+    <value>可添加</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.State.Native" xml:space="preserve">
+    <value>原生</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Title" xml:space="preserve">
+    <value>可编程弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.AmmoNeedsInput" xml:space="preserve">
+    <value>{0}输入已用于射速选择器，而它是唯一可以绑定可编程弹药的输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.DropAmmo" xml:space="preserve">
+    <value>将其用于射速（移除可编程弹药）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.DropRates" xml:space="preserve">
+    <value>将其用于弹药（仅保留默认射速）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.MoveAmmo" xml:space="preserve">
+    <value>将可编程弹药移至{0}输入</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.MoveRates" xml:space="preserve">
+    <value>将射速选择器移至{0}输入</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.RatesNeedInput" xml:space="preserve">
+    <value>{0}输入已用于可编程弹药，而它是唯一可以绑定射速选择器的输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.FireMode" xml:space="preserve">
+    <value>射击模式</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.LaserGuide" xml:space="preserve">
+    <value>激光引导</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.LightMode" xml:space="preserve">
+    <value>手电</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.Magazine" xml:space="preserve">
+    <value>弹匣</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.MuzzleVelocity" xml:space="preserve">
+    <value>枪口初速</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.None" xml:space="preserve">
+    <value>未绑定</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.ProgrammableAmmo" xml:space="preserve">
+    <value>可编程弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.RateOfFire" xml:space="preserve">
+    <value>射速</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.Zeroing" xml:space="preserve">
+    <value>归零</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Include.Tooltip" xml:space="preserve">
+    <value>在构建中包含这些射速与可编程弹药修改（它们会一起写入）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Info.Tooltip" xml:space="preserve">
+    <value>武器功能的写入方式</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Info.Transaction" xml:space="preserve">
+    <value>射速槽位、两个武器功能输入与可编程弹体在一次 Runtime 事务中写入。只有在添加其所选内容时，才会在空闲输入上绑定选择器，并随之一起移除。已生成的武器会保留原有副本，直到重新生成（呼叫新武器、重新部署或增援）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input" xml:space="preserve">
+    <value>{0}输入：{1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Free.Tooltip" xml:space="preserve">
+    <value>空闲输入：射速或可编程弹药修改可以在此绑定选择器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Left" xml:space="preserve">
+    <value>左</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Right" xml:space="preserve">
+    <value>右</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.LiveProven" xml:space="preserve">
+    <value>已实机验证</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.AddHint" xml:space="preserve">
+    <value>填入槽位 X 或 Z，即可为此武器提供可切换的射速；射速选择器会随之绑定到一个空闲输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Baseline" xml:space="preserve">
+    <value>基础：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.BaselineToCurrent" xml:space="preserve">
+    <value>基础：{0} → {1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Binds" xml:space="preserve">
+    <value>在{0}输入上添加游戏自带的射速选择器。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.BoundOn" xml:space="preserve">
+    <value>选择器位于{0}输入</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.DefaultSlot" xml:space="preserve">
+    <value>槽位 {0} · 默认</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.EmptySlot" xml:space="preserve">
+    <value>无模式</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.InputChoice" xml:space="preserve">
+    <value>射速选择器输入</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Legacy" xml:space="preserve">
+    <value>射速已修改为 {0} RPM：即默认槽位（Y）。保存射速模式后将由其接管。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.MenuPosition" xml:space="preserve">
+    <value>菜单第 {0} 项</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Order" xml:space="preserve">
+    <value>武器菜单列出 {0}；每次按下选择器依次切换 {1}。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Overridden" xml:space="preserve">
+    <value>装备 {0} 时，武器生成时会覆盖全部三个射速。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Range" xml:space="preserve">
+    <value>每个射速：0（无模式）或 {0} 至 {1} RPM。默认槽位不能为空。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Reset" xml:space="preserve">
+    <value>重置射速</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Slot" xml:space="preserve">
+    <value>槽位 {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Slot.Aria" xml:space="preserve">
+    <value>槽位 {0} 的射速（每分钟发数，0 = 空）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Absent" xml:space="preserve">
+    <value>无射速</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Addable" xml:space="preserve">
+    <value>可添加选择器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Selectable" xml:space="preserve">
+    <value>原生选择器</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.SingleRate" xml:space="preserve">
+    <value>单一射速</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Title" xml:space="preserve">
+    <value>射速模式</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.ResetAll" xml:space="preserve">
+    <value>重置功能</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Title" xml:space="preserve">
+    <value>武器功能</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.AddTrait" xml:space="preserve">
+    <value>添加特性</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.AddTrait.Choose" xml:space="preserve">
+    <value>选择…</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.BaselineToCurrent" xml:space="preserve">
+    <value>基础：{0} → {1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.MoveEarlier.Aria" xml:space="preserve">
+    <value>将 {0} 前移</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.MoveLater.Aria" xml:space="preserve">
+    <value>将 {0} 后移</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Penetration" xml:space="preserve">
+    <value>显示的穿甲等级</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Penetration.None" xml:space="preserve">
+    <value>无穿甲标签</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.PresentationOnly" xml:space="preserve">
+    <value>仅影响展示</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Remove" xml:space="preserve">
+    <value>移除特性</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Remove.Aria" xml:space="preserve">
+    <value>移除 {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Reset" xml:space="preserve">
+    <value>重置标签</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Title" xml:space="preserve">
+    <value>军械库标签</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Traits.One" xml:space="preserve">
+    <value>显示的特性（最多 {0} 个）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Traits.Other" xml:space="preserve">
+    <value>显示的特性（最多 {0} 个）</value>
     <comment>new: needs native review</comment>
   </data>
 </root>

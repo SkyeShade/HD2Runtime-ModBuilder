@@ -5147,6 +5147,10 @@
     <value>Fire Mode</value>
     <comment>Weapon editor section heading</comment>
   </data>
+  <data name="Section.Functions" xml:space="preserve">
+    <value>Rate of fire &amp; functions</value>
+    <comment>Weapon editor section heading. new: needs native review</comment>
+  </data>
   <data name="Section.Handling" xml:space="preserve">
     <value>Handling</value>
     <comment>Weapon editor section heading (recoil, spread, sway, ergonomics)</comment>
@@ -5162,6 +5166,10 @@
   <data name="Section.Heatsinks" xml:space="preserve">
     <value>Heatsinks</value>
     <comment>Weapon editor section heading</comment>
+  </data>
+  <data name="Section.Presentation" xml:space="preserve">
+    <value>Armory presentation</value>
+    <comment>Weapon editor section heading. new: needs native review</comment>
   </data>
   <data name="Section.Projectile" xml:space="preserve">
     <value>Projectile</value>
@@ -6025,6 +6033,30 @@
   <data name="StratagemField.Uses.Unverified" xml:space="preserve">
     <value>Mission uses · effect not gameplay-confirmed</value>
     <comment>Warning panel title</comment>
+  </data>
+  <data name="Subweapon.Kind.Other" xml:space="preserve">
+    <value>Nested weapon ({0})</value>
+    <comment>{0}: sub-target kind as published. new: needs native review</comment>
+  </data>
+  <data name="Subweapon.Kind.Underbarrel" xml:space="preserve">
+    <value>Underbarrel weapon</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Subweapon.LinkItem" xml:space="preserve">
+    <value>Named by the default underbarrel item {0}; a separate weapon with its own records.</value>
+    <comment>{0}: item name as published. new: needs native review</comment>
+  </data>
+  <data name="Subweapon.NotExposed.One" xml:space="preserve">
+    <value>{0} value Runtime does not expose</value>
+    <comment>{0}: count. new: needs native review</comment>
+  </data>
+  <data name="Subweapon.NotExposed.Other" xml:space="preserve">
+    <value>{0} values Runtime does not expose</value>
+    <comment>{0}: count. new: needs native review</comment>
+  </data>
+  <data name="Subweapon.SharedDefinitions" xml:space="preserve">
+    <value>Shared definitions</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="Support.BackpackAmmo.AmmoBox" xml:space="preserve">
     <value>Ammo box: {0}</value>
@@ -6913,6 +6945,62 @@
   <data name="WeaponEditor.WritesUnavailable" xml:space="preserve">
     <value>Ordinary writes unavailable</value>
   </data>
+  <data name="WeaponFeeds.Added" xml:space="preserve">
+    <value>can be added</value>
+    <comment>A feed the weapon does not have natively. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Capacity" xml:space="preserve">
+    <value>Capacity {0}</value>
+    <comment>{0}: rounds. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Count.One" xml:space="preserve">
+    <value>{0} feed</value>
+    <comment>{0}: count. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Count.Other" xml:space="preserve">
+    <value>{0} feeds</value>
+    <comment>{0}: count. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Fields" xml:space="preserve">
+    <value>Its projectile and damage are edited under Projectile · {0}.</value>
+    <comment>{0}: attack role as published (feed primary / feed alternate). new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.Programmable" xml:space="preserve">
+    <value>Programmable ammunition</value>
+    <comment>Feed mechanism programmable_ammo. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.Projectile" xml:space="preserve">
+    <value>Normal projectile</value>
+    <comment>Feed mechanism projectile. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.RoundsMagazine" xml:space="preserve">
+    <value>Magazine</value>
+    <comment>Feed mechanism rounds_magazine. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.NotBound" xml:space="preserve">
+    <value>Selected with the {0} function once it is bound</value>
+    <comment>{0}: weapon function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.OwnedBy" xml:space="preserve">
+    <value>Set by the default customization {0}</value>
+    <comment>{0}: customization name as published. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Programmable" xml:space="preserve">
+    <value>Edited under weapon functions (programmable ammunition).</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Selectable" xml:space="preserve">
+    <value>Switchable in game</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.SelectedBy" xml:space="preserve">
+    <value>Selected with the {0} function on the {1} input</value>
+    <comment>{0}: weapon function, {1}: input. new: needs native review</comment>
+  </data>
+  <data name="WeaponFeeds.Title" xml:space="preserve">
+    <value>Feeds</value>
+    <comment>What a weapon can fire and how it switches. new: needs native review</comment>
+  </data>
   <data name="WeaponField.AtomicGroup" xml:space="preserve">
     <value>Atomic group</value>
   </data>
@@ -6991,5 +7079,341 @@
   <data name="WeaponField.UnverifiedEffect.Title" xml:space="preserve">
     <value>{0} · effect not gameplay-confirmed</value>
     <comment>{0}: field display name (SDK)</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Alternate" xml:space="preserve">
+    <value>Alternate</value>
+    <comment>The programmable projectile. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Alternate.Help" xml:space="preserve">
+    <value>Fired while the programmable-ammunition function is on</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Base" xml:space="preserve">
+    <value>Base</value>
+    <comment>The projectile the weapon fires normally. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Base.Help" xml:space="preserve">
+    <value>Fired normally (function off)</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.BoundOn" xml:space="preserve">
+    <value>Native on the {0} input</value>
+    <comment>{0}: input (Left / Right). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Donors.Label" xml:space="preserve">
+    <value>Projectiles this weapon can fire as programmable ammunition</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.FieldEffect" xml:space="preserve">
+    <value>Leaves a {0} field for {1} s, radius {2}</value>
+    <comment>{0}: field volume as published, {1}: seconds, {2}: radius. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.InputChoice" xml:space="preserve">
+    <value>Programmable-ammunition input</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Native" xml:space="preserve">
+    <value>Native programmable projectile</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.NativeNamed" xml:space="preserve">
+    <value>Native · {0}</value>
+    <comment>{0}: the native mode label as published (FLAK, HE…). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.None" xml:space="preserve">
+    <value>None</value>
+    <comment>No programmable projectile. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.OtherClass" xml:space="preserve">
+    <value>Other class</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.OtherClass.Tooltip" xml:space="preserve">
+    <value>A different compatibility class from the base projectile</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Proven" xml:space="preserve">
+    <value>Live-proven on {0}: {1}</value>
+    <comment>{0}: weapon, {1}: donor outputs. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Remove" xml:space="preserve">
+    <value>Remove alternate</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Reset" xml:space="preserve">
+    <value>Reset ammunition</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Restore" xml:space="preserve">
+    <value>Restore native projectile</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Scoped" xml:space="preserve">
+    <value>Programmable only</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Scoped.Tooltip" xml:space="preserve">
+    <value>The catalog allows this output only as a programmable projectile, never as an attack's projectile</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Search.Placeholder" xml:space="preserve">
+    <value>Hyena, Pacifier, EMS…</value>
+    <comment>Example donor names (as the SDK publishes them). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.SpareTwin" xml:space="preserve">
+    <value>Spare twin</value>
+    <comment>An independent copy of a projectile row. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.State.Addable" xml:space="preserve">
+    <value>Can be added</value>
+    <comment>Programmable ammunition state addable. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.State.Native" xml:space="preserve">
+    <value>Native</value>
+    <comment>Programmable ammunition state native. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Title" xml:space="preserve">
+    <value>Programmable ammunition</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.AmmoNeedsInput" xml:space="preserve">
+    <value>The {0} input already holds the rate-of-fire selector, and it is the only input that can take programmable ammunition.</value>
+    <comment>{0}: input (Left / Right). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.DropAmmo" xml:space="preserve">
+    <value>Use it for the rates (removes the programmable ammunition)</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.DropRates" xml:space="preserve">
+    <value>Use it for the ammunition (keeps only the default rate)</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.MoveAmmo" xml:space="preserve">
+    <value>Move programmable ammunition to the {0} input</value>
+    <comment>{0}: input (Left / Right). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.MoveRates" xml:space="preserve">
+    <value>Move the rate-of-fire selector to the {0} input</value>
+    <comment>{0}: input (Left / Right). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.RatesNeedInput" xml:space="preserve">
+    <value>The {0} input already holds programmable ammunition, and it is the only input that can take the rate-of-fire selector.</value>
+    <comment>{0}: input (Left / Right). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.FireMode" xml:space="preserve">
+    <value>Fire mode</value>
+    <comment>Weapon function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.LaserGuide" xml:space="preserve">
+    <value>Laser guide</value>
+    <comment>Weapon function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.LightMode" xml:space="preserve">
+    <value>Flashlight</value>
+    <comment>Weapon function (light mode). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.Magazine" xml:space="preserve">
+    <value>Magazine</value>
+    <comment>Weapon function (switches rounds magazines). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.MuzzleVelocity" xml:space="preserve">
+    <value>Muzzle velocity</value>
+    <comment>Weapon function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.None" xml:space="preserve">
+    <value>Unbound</value>
+    <comment>Weapon function 'none'. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.ProgrammableAmmo" xml:space="preserve">
+    <value>Programmable ammunition</value>
+    <comment>Weapon function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.RateOfFire" xml:space="preserve">
+    <value>Rate of fire</value>
+    <comment>Weapon function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Function.Zeroing" xml:space="preserve">
+    <value>Zeroing</value>
+    <comment>Weapon function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Include.Tooltip" xml:space="preserve">
+    <value>Include these rate-of-fire and programmable-ammunition edits in the build (they are written together)</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Info.Tooltip" xml:space="preserve">
+    <value>How weapon functions are written</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Info.Transaction" xml:space="preserve">
+    <value>The rate slots, the two weapon-function inputs and the programmable projectile are written in one Runtime transaction. A selector is bound on a free input exactly when what it selects is added, and removed with it. Weapons already built keep their copy until they are rebuilt (call in a new one, redeploy or reinforce).</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input" xml:space="preserve">
+    <value>{0} input: {1}</value>
+    <comment>{0}: input (Left / Right), {1}: bound function. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Free.Tooltip" xml:space="preserve">
+    <value>A free input: rate-of-fire or programmable-ammunition edits can bind a selector here</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Left" xml:space="preserve">
+    <value>Left</value>
+    <comment>The left weapon-function input. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Right" xml:space="preserve">
+    <value>Right</value>
+    <comment>The right weapon-function input. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.LiveProven" xml:space="preserve">
+    <value>Live-proven</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.AddHint" xml:space="preserve">
+    <value>Fill slot X or Z to give this weapon selectable rates; its rate-of-fire selector is bound on a free input with them.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Baseline" xml:space="preserve">
+    <value>Base: {0}</value>
+    <comment>{0}: rates X · Y · Z. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.BaselineToCurrent" xml:space="preserve">
+    <value>Base: {0} → {1}</value>
+    <comment>{0}: published rates, {1}: edited rates. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Binds" xml:space="preserve">
+    <value>Adds the game's rate-of-fire selector on the {0} input.</value>
+    <comment>{0}: input (Left / Right). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.BoundOn" xml:space="preserve">
+    <value>Selector on the {0} input</value>
+    <comment>{0}: input (Left / Right). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.DefaultSlot" xml:space="preserve">
+    <value>Slot {0} · default</value>
+    <comment>{0}: slot letter (X / Y / Z). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.EmptySlot" xml:space="preserve">
+    <value>No mode</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.InputChoice" xml:space="preserve">
+    <value>Rate-of-fire selector input</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Legacy" xml:space="preserve">
+    <value>The fire rate is edited to {0} RPM: that is the default slot (Y). Saving rate modes takes it over.</value>
+    <comment>{0}: rpm. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.MenuPosition" xml:space="preserve">
+    <value>Menu position {0}</value>
+    <comment>{0}: position in the weapon menu. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Order" xml:space="preserve">
+    <value>The weapon menu lists {0}; each selector press moves {1}.</value>
+    <comment>{0}: slots in menu order, {1}: slots in selector order from the default. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Overridden" xml:space="preserve">
+    <value>Equipping {0} overwrites all three rates when the weapon is built.</value>
+    <comment>{0}: customization names as published. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Range" xml:space="preserve">
+    <value>Each rate: 0 (no mode) or {0} to {1} RPM. The default slot is never empty.</value>
+    <comment>{0}: minimum, {1}: maximum. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Reset" xml:space="preserve">
+    <value>Reset rates</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Slot" xml:space="preserve">
+    <value>Slot {0}</value>
+    <comment>{0}: slot letter (X / Y / Z). new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Slot.Aria" xml:space="preserve">
+    <value>Rate of slot {0} (rounds per minute, 0 = empty)</value>
+    <comment>{0}: slot letter. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Absent" xml:space="preserve">
+    <value>No rate of fire</value>
+    <comment>Rate-of-fire state absent. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Addable" xml:space="preserve">
+    <value>Selector can be added</value>
+    <comment>Rate-of-fire state addable. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Selectable" xml:space="preserve">
+    <value>Native selector</value>
+    <comment>Rate-of-fire state selectable. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.SingleRate" xml:space="preserve">
+    <value>One rate</value>
+    <comment>Rate-of-fire state single_rate. new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Title" xml:space="preserve">
+    <value>Rate-of-fire modes</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.ResetAll" xml:space="preserve">
+    <value>Reset functions</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponFunctions.Title" xml:space="preserve">
+    <value>Weapon functions</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.AddTrait" xml:space="preserve">
+    <value>Add a trait</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.AddTrait.Choose" xml:space="preserve">
+    <value>Choose…</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.BaselineToCurrent" xml:space="preserve">
+    <value>Base: {0} → {1}</value>
+    <comment>{0}: published labels, {1}: edited labels. new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.MoveEarlier.Aria" xml:space="preserve">
+    <value>Show {0} earlier</value>
+    <comment>{0}: trait label. new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.MoveLater.Aria" xml:space="preserve">
+    <value>Show {0} later</value>
+    <comment>{0}: trait label. new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Penetration" xml:space="preserve">
+    <value>Displayed armor penetration</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Penetration.None" xml:space="preserve">
+    <value>No penetration label</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.PresentationOnly" xml:space="preserve">
+    <value>Presentation only</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Remove" xml:space="preserve">
+    <value>Remove trait</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Remove.Aria" xml:space="preserve">
+    <value>Remove {0}</value>
+    <comment>{0}: trait label. new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Reset" xml:space="preserve">
+    <value>Reset labels</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Title" xml:space="preserve">
+    <value>Armory labels</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Traits.One" xml:space="preserve">
+    <value>Displayed traits (up to {0})</value>
+    <comment>{0}: maximum. new: needs native review</comment>
+  </data>
+  <data name="WeaponPresentation.Traits.Other" xml:space="preserve">
+    <value>Displayed traits (up to {0})</value>
+    <comment>{0}: maximum. new: needs native review</comment>
   </data>
 </root>

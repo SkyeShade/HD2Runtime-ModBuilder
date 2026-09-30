@@ -1,0 +1,17 @@
+@inject BuilderWorkspace Workspace
+@* A typed status reference (HD2Runtime 0.28.0): one of the statuses the field publishes (player weapons) or the status catalog allows on the
+   slot (support weapons), or none where the slot may be cleared. Status names are shown as the SDK publishes them. *@
+<select class="status-reference" aria-label="@Label" data-status-reference="@Value" disabled="@Disabled" @onchange="e => Changed.InvokeAsync(e.Value?.ToString() ?? StatusReference.None)">
+    @if (AllowNone || Value == StatusReference.None) { <option value="@StatusReference.None" selected="@(Value == StatusReference.None)">@T["Common.None"]</option> }
+    @foreach (var key in Allowed.Where(k => k != StatusReference.None).Distinct())
+    { <option value="@key" selected="@(Value == key)">@Workspace.StatusLabel(key)</option> }
+</select>
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<string> Allowed { get; set; } = [];
+    [Parameter] public bool AllowNone { get; set; }
+    [Parameter] public string Value { get; set; } = StatusReference.None;
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public bool Disabled { get; set; }
+    // Receives the chosen status key ('none' to clear).
+    [Parameter] public EventCallback<string> Changed { get; set; }
+}
