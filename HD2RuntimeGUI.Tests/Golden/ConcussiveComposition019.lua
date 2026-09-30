@@ -1,7 +1,12 @@
 local hd2=require('mods/skyeshade/hd2runtime')
 
 local operations={}
-operations[#operations+1]=hd2.ensure({
+local function add(build)
+    local ok,operation=pcall(build)
+    if ok then operations[#operations+1]=operation
+    else print('[ModBuilder] operation skipped: '..tostring(operation)) end
+end
+add(function() return hd2.ensure({
     plan={
         id='plan-7edd05ad0d661c4b53a0e5bc',
         operations={
@@ -35,8 +40,8 @@ operations[#operations+1]=hd2.ensure({
             }
         },
     }
-})
-operations[#operations+1]=hd2.ensure({
+}) end)
+add(function() return hd2.ensure({
     patch={
         id='gui-object-ef0c749dcbc150be9a262ae5',
         target=hd2.weapon('AR-23C Liberator Concussive'),
@@ -44,5 +49,5 @@ operations[#operations+1]=hd2.ensure({
         expect=400,
         value=1100,
     }
-})
+}) end)
 return operations

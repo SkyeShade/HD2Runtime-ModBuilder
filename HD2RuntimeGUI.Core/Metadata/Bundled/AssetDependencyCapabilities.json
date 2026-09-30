@@ -11,7 +11,7 @@
     "pod_payload_pickup": {
       "description": "A drop-pod rack slot referencing a pickup from another package.",
       "packageResidency": "LIVE_PROVEN",
-      "basis": "Live: the replacement loaded and worked with nobody carrying the donor item (tests D, A).",
+      "basis": "Live: the replacement loaded and worked with nobody carrying the donor item (tests D, A, E).",
       "liveBuild": "F5FEE03DCFDB",
       "liveTests": [
         {
@@ -22,6 +22,11 @@
         {
           "id": "A",
           "project": "AssetTestStalwartPodEat700",
+          "result": "PASS"
+        },
+        {
+          "id": "E",
+          "project": "ResupplyTest",
           "result": "PASS"
         }
       ]
@@ -108,6 +113,17 @@
           "The Pelican did not deliver the FRV in this test, so the mount was never observed.",
           "Not evidence for or against package loading; Bastion-cannon-on-FRV mount compatibility is a separate, unverified question."
         ]
+      },
+      {
+        "id": "E",
+        "project": "ResupplyTest",
+        "family": "pod_payload_pickup",
+        "result": "PASS",
+        "donorCarried": false,
+        "observations": [
+          "The Grenade Box payload worked in the landed Resupply pod (all four written slots).",
+          "The donor assets loaded correctly; the Resupply operations settled 2/2 applied."
+        ]
       }
     ]
   },
@@ -119,14 +135,14 @@
     "refcountFillLimit": 0.75
   },
   "summary": {
-    "semanticObjects": 331,
-    "known": 260,
-    "ownPackage": 253,
+    "semanticObjects": 334,
+    "known": 264,
+    "ownPackage": 254,
     "holderPackage": 7,
-    "stratagemPackage": 0,
-    "unknown": 71,
-    "packages": 173,
-    "unnamedPackages": 24,
+    "stratagemPackage": 3,
+    "unknown": 70,
+    "packages": 176,
+    "unnamedPackages": 21,
     "liveTestedObjects": 3,
     "liveLoadedPackages": 3,
     "liveProvenFamilies": [
@@ -173,8 +189,8 @@
         "known": true,
         "autoLoadSupported": true,
         "derivation": "own_loadout_package",
-        "package": null,
-        "packageNamed": false,
+        "package": "drone_flamethrower_backpack",
+        "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
         "blocker": null
@@ -188,8 +204,8 @@
         "known": true,
         "autoLoadSupported": true,
         "derivation": "own_loadout_package",
-        "package": null,
-        "packageNamed": false,
+        "package": "drone_laser_rifle_backpack",
+        "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
         "blocker": null
@@ -369,6 +385,36 @@
         "autoLoadSupported": true,
         "derivation": "own_loadout_package",
         "package": "directional_energy_shield_backpack",
+        "packageNamed": true,
+        "liveTested": false,
+        "packageLiveLoaded": false,
+        "blocker": null
+      }
+    },
+    {
+      "key": "explosion/B-100 Portable Hellbomb",
+      "label": "B-100 Portable Hellbomb",
+      "kind": "explosion",
+      "packageDependency": {
+        "known": true,
+        "autoLoadSupported": true,
+        "derivation": "delivering_stratagem_package",
+        "package": "hellbomb_backpack",
+        "packageNamed": true,
+        "liveTested": false,
+        "packageLiveLoaded": false,
+        "blocker": null
+      }
+    },
+    {
+      "key": "explosion/NUX-223 Hellbomb",
+      "label": "NUX-223 Hellbomb",
+      "kind": "explosion",
+      "packageDependency": {
+        "known": true,
+        "autoLoadSupported": true,
+        "derivation": "delivering_stratagem_package",
+        "package": "hellbomb",
         "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
@@ -1718,8 +1764,8 @@
         "known": true,
         "autoLoadSupported": true,
         "derivation": "own_loadout_package",
-        "package": null,
-        "packageNamed": false,
+        "package": "drone_flamethrower_backpack",
+        "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
         "blocker": null
@@ -1733,8 +1779,8 @@
         "known": true,
         "autoLoadSupported": true,
         "derivation": "own_loadout_package",
-        "package": null,
-        "packageNamed": false,
+        "package": "drone_laser_rifle_backpack",
+        "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
         "blocker": null
@@ -1943,8 +1989,8 @@
         "known": true,
         "autoLoadSupported": true,
         "derivation": "own_loadout_package",
-        "package": null,
-        "packageNamed": false,
+        "package": "drone_assault_rifle_backpack",
+        "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
         "blocker": null
@@ -2570,14 +2616,14 @@
       "label": "Supply Box",
       "kind": "pickup_supply",
       "packageDependency": {
-        "known": false,
-        "autoLoadSupported": false,
-        "derivation": null,
-        "package": null,
-        "packageNamed": null,
+        "known": true,
+        "autoLoadSupported": true,
+        "derivation": "delivering_stratagem_package",
+        "package": "ammo_rack",
+        "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
-        "blocker": "No loadout package owns this object and no vanilla holder with a package references it, so Runtime cannot name the assets it needs."
+        "blocker": null
       }
     },
     {
@@ -3886,6 +3932,21 @@
       }
     },
     {
+      "key": "stratagem_weapon/A/M-23 EMS Mortar Sentry",
+      "label": "A/M-23 EMS Mortar Sentry",
+      "kind": "stratagem_weapon",
+      "packageDependency": {
+        "known": true,
+        "autoLoadSupported": true,
+        "derivation": "own_loadout_package",
+        "package": "mortar_turret_staticfield",
+        "packageNamed": true,
+        "liveTested": false,
+        "packageLiveLoaded": false,
+        "blocker": null
+      }
+    },
+    {
       "key": "support_weapon/40-K Meltagun",
       "label": "40-K Meltagun",
       "kind": "support_weapon",
@@ -4988,8 +5049,8 @@
         "known": true,
         "autoLoadSupported": true,
         "derivation": "own_loadout_package",
-        "package": null,
-        "packageNamed": false,
+        "package": "combat_walker_breacher",
+        "packageNamed": true,
         "liveTested": false,
         "packageLiveLoaded": false,
         "blocker": null

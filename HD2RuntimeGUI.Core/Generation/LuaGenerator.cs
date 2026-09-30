@@ -90,19 +90,22 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
         if (custom == null)
         {
             if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
-            if (project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1)
-                return prefix + "local operations={}\n" + string.Join("\n", operations.Select(o => "operations[#operations+1]=" + o)) + "\nreturn operations\n";
-            return prefix + (operations.Count == 1 ? "return " + operations[0] : "return {\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}") + "\n";
+            return prefix + Isolated(operations, "operations") + "return operations\n";
         }
         // Custom Lua (src/addon.lua) runs after the generated modifications are registered, as its own function so its locals and return
         // stay its own. Its text is copied exactly (line endings normalized to LF as the SDK builder does); ModBuilder never edits it.
-        var generated = operations.Count == 0 ? "local generated={}\n"
-            : project.CompositionChanges.Any(c => c.Enabled) && operations.Count > 1
-                ? "local generated={}\n" + string.Join("\n", operations.Select(o => "generated[#generated+1]=" + o)) + "\n"
-                : "local generated={\n" + string.Join(",\n", operations.Select(o => "    " + o.Replace("\n", "\n    "))) + "\n}\n";
+        var generated = operations.Count == 0 ? "local generated={}\n" : Isolated(operations, "generated");
         return prefix + generated + "\n-- Custom Lua: " + Models.CustomLuaSettings.RelativePath + " (hand-written; ModBuilder copies it unchanged)\nlocal function addon(...)\n"
             + custom + (custom.EndsWith('\n') ? "" : "\n") + "end\naddon()\nreturn generated\n";
     }
+    // Every generated operation is built inside pcall, in project order. Runtime (0.28.0+) rejects a refused operation without raising,
+    // but a Lua error while building a request (an unknown weapon or role name, a missing field constant) happens before hd2.ensure is
+    // called: it is printed to the Runtime log and skips only that operation, so the ones after it still register. Ids stay unique.
+    public const string SkippedPrefix = "[ModBuilder] operation skipped: ";
+    private static string Isolated(IReadOnlyList<string> operations, string list) =>
+        $"local {list}={{}}\nlocal function add(build)\n    local ok,operation=pcall(build)\n    if ok then {list}[#{list}+1]=operation\n"
+        + $"    else print({Quote(SkippedPrefix)}..tostring(operation)) end\nend\n"
+        + string.Concat(operations.Select(o => "add(function() return " + o + " end)\n"));
     // The enabled custom Lua, checked for syntax (a syntax error blocks the build and export, with its line); null when there is none.
     public static string? CustomSource(ModProject project)
     {

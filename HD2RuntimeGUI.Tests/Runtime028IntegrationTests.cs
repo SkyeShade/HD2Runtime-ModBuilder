@@ -105,7 +105,8 @@ public sealed class Runtime028IntegrationTests
     {
         using var e = new TestEnvironment(); var (w, sdk) = await EnemyAuthoringTests.Fresh(e);
         var events = sdk.Events!;
-        Assert.Equal(18, events.Events.Count()); Assert.Equal(17, events.Events.Count(x => x.IsAvailable));
+        Assert.Equal(20, events.Events.Count()); Assert.Equal(19, events.Events.Count(x => x.IsAvailable));
+        Assert.True(events.Event("player_hit")!.IsAvailable); Assert.True(events.Event("player_damage_dealt")!.IsAvailable);
         Assert.False(events.Event("entity_damage_pre")!.IsAvailable);
         var died = events.Event("player_died")!;
         Assert.Contains(died.Payload!, p => p.Name == "local_player" && p.Type == "boolean" && !p.Nullable);

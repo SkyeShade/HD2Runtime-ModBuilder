@@ -31,7 +31,14 @@ public sealed class SdkUpdateService(ISdkCache cache, IGitHubReleaseClient githu
         {
             // Local development SDK: fully validated on load, no GitHub download or release verification for this run.
             var sdk = await cache.GetCurrentAsync(ct);
-            return new(sdk, null, false, CoreText.Format("Messages.Sdk.LocalSource", sdk.Version, Path.GetFullPath(local)), Path.GetFullPath(local));
+            // A local SDK with the pinned version says whether it is the pinned build, so another build is never mistaken for it.
+            var pin = sdk.IsPinnedBuild switch
+            {
+                true => " " + CoreText.Format("Messages.Sdk.LocalPinned", SdkPin.Version, SdkPin.RuntimeCommit[..7]),
+                false => " " + CoreText.Format("Messages.Sdk.LocalNotPinned", SdkPin.Version, SdkPin.RuntimeCommit[..7]),
+                null => "",
+            };
+            return new(sdk, null, false, CoreText.Format("Messages.Sdk.LocalSource", sdk.Version, Path.GetFullPath(local)) + pin, Path.GetFullPath(local));
         }
         SdkMetadata installed; string? repaired = null;
         try { installed = await cache.GetCurrentAsync(ct); }

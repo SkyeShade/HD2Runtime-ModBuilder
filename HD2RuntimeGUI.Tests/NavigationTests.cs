@@ -13,7 +13,7 @@ public sealed class NavigationTests
         using var e = new TestEnvironment(); var sdk = await Current(e);
         var nav = Navigation.Build(sdk, null);
         // Vehicles and Backpacks are Support stratagems (Stratagems → Support tabs), not separate sidebar destinations.
-        Assert.Equal(["overview", "player-weapons", "throwables", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "boosters", "changes", "scripting", "lua", "export", "research"],
+        Assert.Equal(["overview", "player-weapons", "throwables", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "stratagems:mission", "boosters", "enemies", "structures", "changes", "scripting", "lua", "export", "research"],
             nav.Select(i => i.Page));
         var labels = nav.Select(i => i.Label).ToArray();
         // "Vehicles" is now the hd2.vehicle destination (page "vehicles"), never the legacy mapped "vehicle" builder category.
@@ -28,7 +28,7 @@ public sealed class NavigationTests
         var none = Navigation.Build(sdk, null, 5); var legacyOnly = Navigation.Build(null, null);
         Assert.Contains(none, i => i.Page == "player-weapons" && i.Count == 80);
         // 0.25.x: SG-88 and CQC-72 are standalone equipment (no call-in), not stratagems.
-        Assert.Contains(none, i => i.Page == "stratagems" && i.Count == 93); // 95 roots − 2 no_call_in; vehicle/backpack call-ins included
+        Assert.Contains(none, i => i.Page == "stratagems" && i.Count == 94); // 96 roots − 2 no_call_in; vehicle/backpack call-ins and the Resupply mission stratagem included
         Assert.Null(none.Single(i => i.Page == "changes").Count);
         Assert.Contains(legacyOnly, i => i.Page == "player-weapons"); Assert.Contains(legacyOnly, i => i.Page == "stratagems");
         var w = e.Workspace(); await w.CreateAsync(new("Nav", "Tests", "mods/tests/nav", "0.1.0"), sdk);

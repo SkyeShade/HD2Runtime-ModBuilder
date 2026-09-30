@@ -1,6 +1,12 @@
 local hd2=require('mods/skyeshade/hd2runtime')
 
-return hd2.ensure({
+local operations={}
+local function add(build)
+    local ok,operation=pcall(build)
+    if ok then operations[#operations+1]=operation
+    else print('[ModBuilder] operation skipped: '..tostring(operation)) end
+end
+add(function() return hd2.ensure({
     plan={
         id='plan-b10ef46e34f8bb87ba223777',
         phases={
@@ -26,4 +32,5 @@ return hd2.ensure({
             }},
         },
     }
-})
+}) end)
+return operations

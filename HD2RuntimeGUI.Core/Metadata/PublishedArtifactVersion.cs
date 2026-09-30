@@ -44,7 +44,8 @@ internal static class PublishedArtifactVersion
         {
             "0.20.1" or "0.21.0" or "0.22.0" or "0.22.1" or "0.23.0" or "0.23.1" or "0.23.2" or "0.24.0" or "0.25.0" or "0.25.1" => Reused019,
             "0.26.0" => Reused026,
-            "0.27.0" => Reused027,
+            // 0.28.0 republishes all eight byte-for-byte from 0.27.0.
+            "0.27.0" or "0.28.0" => Reused027,
             _ => null,
         };
         return pinned != null && pinned.TryGetValue(file, out var digest) && Convert.ToHexString(SHA256.HashData(bytes)).Equals(digest, StringComparison.OrdinalIgnoreCase);

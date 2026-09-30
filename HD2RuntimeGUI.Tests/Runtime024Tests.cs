@@ -193,14 +193,14 @@ public sealed class Runtime024Tests
     }
     [Fact] public async Task A_stale_cache_without_boosters_is_completed_only_from_an_identical_bundle()
     {
-        // The bundled SDK (0.26.0) completes its own version offline; an older incomplete cache needs the published release.
-        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.27.0");
-        File.Delete(Path.Combine(Path.GetDirectoryName(e.Paths.SdkFile("0.27.0"))!, BoosterAuthoringReader.FileName)); e.GitHub.Offline = true;
+        // The bundled SDK completes its own version offline; an older incomplete cache needs the published release.
+        using var e = new TestEnvironment(); await SdkFixtures.Install(e, SdkPin.Version);
+        File.Delete(Path.Combine(Path.GetDirectoryName(e.Paths.SdkFile(SdkPin.Version))!, BoosterAuthoringReader.FileName)); e.GitHub.Offline = true;
         var sdk = await new SdkCache(e.Paths, e.Reader, e.GitHub).GetCurrentAsync();
         Assert.Equal(20, sdk.Entities!.Boosters!.Boosters.Length);
         using var old = new TestEnvironment(); await SdkFixtures.Install(old, "0.24.0");
         File.Delete(Path.Combine(Path.GetDirectoryName(old.Paths.SdkFile("0.24.0"))!, BoosterAuthoringReader.FileName)); old.GitHub.Offline = true;
-        await Assert.ThrowsAsync<IncompleteSdkCacheException>(() => new SdkCache(old.Paths, old.Reader, old.GitHub).GetCurrentAsync());
+        await Assert.ThrowsAsync<IncompleteSdkCacheException>(() => new SdkCache(old.Paths, old.Reader, old.GitHub) { AdoptNewerBundled = false }.GetCurrentAsync());
     }
 
     [Fact] public async Task Expanded_support_catalog_publishes_new_field_families_with_their_guards()

@@ -15,7 +15,7 @@ namespace HD2RuntimeGUI.Tests;
 public sealed class SdkCacheUpgradeTests
 {
     private const string Magazine = "MagazineAttachmentCapabilities.json";
-    private const string Bundled = "0.27.0"; // The bundled offline SDK; stale-cache completion only uses the identical bundled release.
+    private const string Bundled = "0.28.0"; // The bundled offline SDK; stale-cache completion only uses the identical bundled release.
     private static string Dir(TestEnvironment e, string version) => Path.GetDirectoryName(e.Paths.SdkFile(version))!;
     private static string Current(TestEnvironment e) => (string)JsonNode.Parse(File.ReadAllText(e.Paths.CachePath("current.json")))!["version"]!;
     private static byte[] Archive(Action<ZipArchive> edit)
@@ -64,7 +64,8 @@ public sealed class SdkCacheUpgradeTests
         using var e = new TestEnvironment();
         await SdkFixtures.Install(e, "0.23.1"); e.GitHub.Release = FakeGitHub.MakeRelease("0.23.1", e.GitHub.Archive);
         await e.Updates.CheckAsync(); e.GitHub.Offline = true;
-        var fresh = new SdkCache(e.Paths, e.Reader, e.GitHub);
+        // A restart of the same ModBuilder (no newer bundled SDK to adopt) loads the installed SDK offline.
+        var fresh = new SdkCache(e.Paths, e.Reader, e.GitHub) { AdoptNewerBundled = false };
         var status = await new SdkUpdateService(fresh, e.GitHub, e.Paths).CheckAsync();
         Assert.False(status.VerifiedOnline); Assert.Contains("Offline", status.Message);
         Assert.Equal("0.23.1", status.Installed.Version); Assert.Equal("0.23.1", status.Latest!.Version);

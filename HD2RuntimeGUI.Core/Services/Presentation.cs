@@ -6,7 +6,9 @@ namespace HD2RuntimeGUI.Core.Services;
 // Readable groups for published semantic fields. Presentation only: groups never change targets, operations or guards.
 public static class FieldGroups
 {
-    public static readonly string[] Order = ["Ammo", "Handling", "Firing", "Fire Mode", "Projectile", "Damage", "Explosion", "Arc", "Beam", "Status"];
+    // 0.28.0 adds Functions (rate-of-fire modes, weapon-function bindings and programmable ammunition, written together) and the
+    // armory Presentation labels.
+    public static readonly string[] Order = ["Ammo", "Handling", "Firing", "Fire Mode", "Functions", "Projectile", "Damage", "Explosion", "Arc", "Beam", "Status", "Presentation"];
     public static string Of(string semanticFieldId, string? domain = null)
     {
         var id = semanticFieldId.ToLowerInvariant(); var head = id.Split('.')[0];
@@ -14,6 +16,10 @@ public static class FieldGroups
         // 0.26.0: the third-person reticle is aiming presentation; fire modes are their own native model.
         if (id == "weapon.third_person_reticle") return "Handling";
         if (head == "fire_mode") return "Fire Mode";
+        if (head is "fire_rate" or "weapon_function" or "function_ammo") return "Functions";
+        if (head == "presentation") return "Presentation";
+        // The attack's own projectile (a projectile host swap) sits with the projectile it fires.
+        if (head == "attack") return "Projectile";
         if (head == "weapon" && (id.Contains("ergonomic") || id.Contains("recoil") || id.Contains("sway") || id.Contains("spread") || id.Contains("drift"))) return "Handling";
         if (head is "weapon" or "windup" or "charge" or "heat" or "heatsink") return "Firing";
         return head switch
@@ -30,7 +36,8 @@ public static class FieldGroups
         "Ammo" => CoreText.Get("Presentation.Group.Ammo"), "Handling" => CoreText.Get("Presentation.Group.Handling"), "Firing" => CoreText.Get("Presentation.Group.Firing"),
         "Fire Mode" => CoreText.Get("Presentation.Group.FireMode"), "Projectile" => CoreText.Get("Presentation.Group.Projectile"), "Damage" => CoreText.Get("Presentation.Group.Damage"),
         "Explosion" => CoreText.Get("Presentation.Group.Explosion"), "Arc" => CoreText.Get("Presentation.Group.Arc"), "Beam" => CoreText.Get("Presentation.Group.Beam"),
-        "Status" => CoreText.Get("Presentation.Group.Status"),
+        "Status" => CoreText.Get("Presentation.Group.Status"), "Functions" => CoreText.Get("Presentation.Group.Functions"),
+        "Presentation" => CoreText.Get("Presentation.Group.Presentation"),
         _ => group,
     };
     public static IEnumerable<IGrouping<string, T>> Group<T>(IEnumerable<T> fields, Func<T, string> semanticFieldId, Func<T, string?>? domain = null)

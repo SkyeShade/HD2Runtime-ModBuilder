@@ -67,7 +67,8 @@ public sealed class PlayerWeaponHeatCatalogReader : IPlayerWeaponHeatCatalogRead
             foreach (var w in c.Weapons)
             {
                 var weapon = authoring.Weapon(w.Weapon);
-                var fields = weapon.Fields.Where(f => f.Domain is "heat" or "heatsink").ToArray();
+                // 0.28.0 publishes heat levels (thresholds, self statuses) and the overheat lock in the authoring catalog only.
+                var fields = weapon.Fields.Where(f => f.Domain is "heat" or "heatsink" && f.HeatLevel == null && f.SemanticFieldId != "heat.overheat_lock").ToArray();
                 if (!w.Resources.Order().SequenceEqual(weapon.Resources.Order()) || fields.Length != w.Fields.Count
                     || w.Fields.Select(f => f.Id).Distinct().Count() != w.Fields.Count
                     || w.HeatMechanismPresent != fields.Any(f => f.Domain == "heat")

@@ -16,7 +16,7 @@ namespace HD2RuntimeGUI.Tests;
 // local SDK path, exactly as `--sdk-path <HD2Runtime>\sdk` serves it.
 public sealed class EnemyAuthoringTests
 {
-    public const string Fixture = "sdk-dev-e15d5bf.zip";
+    public const string Fixture = "sdk-0.28.0.zip";
     private const string Charger = "enemy/v1/terminids/charger", Spewer = "enemy/v1/terminids/boomer_burrower", Gunship = "enemy/v1/automatons/gunship",
         Fabricator = "enemy/v1/automatons/spawner_factory_conscript_base", Bunker = "enemy/v1/automatons/command_bunker_side", Hunter = "enemy/v1/terminids/hunter_tier_1";
     public static string DevSdk(TestEnvironment e, string name = "dev-sdk")
@@ -67,7 +67,7 @@ public sealed class EnemyAuthoringTests
     {
         using var e = new TestEnvironment(); var (w, sdk) = await Fresh(e);
         var enemies = sdk.Entities!.Enemies!;
-        Assert.Equal("0.27.0", sdk.Version); Assert.Equal(177, enemies.Classes.Length);
+        Assert.Equal("0.28.0", sdk.Version); Assert.Equal(177, enemies.Classes.Length);
         Assert.Equal(138, enemies.Of(EnemyAuthoringReader.Enemy).Count()); Assert.Equal(39, enemies.Of(EnemyAuthoringReader.Structure).Count());
         Assert.Equal(10425, enemies.FieldInstances.Length); Assert.Equal(9106, enemies.FieldInstances.Count(f => f.Editable));
         Assert.Equal(1373, enemies.Classes.Sum(c => c.Zones.Length)); Assert.Equal(169, enemies.Classes.Sum(c => c.Attacks.Length));
@@ -113,7 +113,7 @@ public sealed class EnemyAuthoringTests
         Assert.Contains("target=hd2.enemy('charger'):zone('zone_0'),", lua);
         Assert.Contains("{field=hd2.fields.zone.armor,expect=4,value=3},", lua); Assert.Contains("{field=hd2.fields.zone.health,expect=1200,value=900},", lua);
         // The class and its head zone are independent objects, so they are independent requests: no plan bundles them.
-        Assert.Equal(2, CountOf(lua, "hd2.ensure(")); Assert.DoesNotContain("operations={", lua);
+        Assert.Equal(2, CountOf(lua, "hd2.ensure(")); Assert.DoesNotContain("plan={", lua);
         // Live-proven enemy health and zone armor need no opt-in.
         Assert.DoesNotContain("allow_shared", lua); Assert.DoesNotContain("allow_unverified_effect", lua);
     }
@@ -349,7 +349,7 @@ public sealed class EnemyAuthoringTests
     [Fact] public async Task The_catalog_is_parsed_once_and_indexed_for_the_editor()
     {
         using var e = new TestEnvironment(); var bytes = Catalog(e);
-        var clock = Stopwatch.StartNew(); var catalog = EnemyAuthoringReader.Read(bytes, "0.27.0"); clock.Stop();
+        var clock = Stopwatch.StartNew(); var catalog = EnemyAuthoringReader.Read(bytes, "0.28.0"); clock.Stop();
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), "enemy catalog read took " + clock.Elapsed);
         // Per-class field arrays and search text are built once; the editor reuses them on every render.
         Assert.Same(catalog.Fields(Charger), catalog.Fields(Charger)); Assert.Equal(6 + 6 * 17, catalog.Fields(Charger).Count);

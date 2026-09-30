@@ -3609,6 +3609,14 @@
   <data name="Messages.Sdk.CreationConsumed" xml:space="preserve">
     <value>Creation action already consumed.</value>
   </data>
+  <data name="Messages.Sdk.LocalNotPinned" xml:space="preserve">
+    <value>It is not the pinned HD2Runtime {0} release (Runtime {1}): its catalogs differ, so it is treated as a different build.</value>
+    <comment>{0}: pinned SDK version; {1}: short Runtime commit. new: needs native review</comment>
+  </data>
+  <data name="Messages.Sdk.LocalPinned" xml:space="preserve">
+    <value>It is byte-identical to the pinned HD2Runtime {0} release (Runtime {1}).</value>
+    <comment>{0}: pinned SDK version; {1}: short Runtime commit. new: needs native review</comment>
+  </data>
   <data name="Messages.Sdk.LocalSource" xml:space="preserve">
     <value>Local SDK {0} from {1}. GitHub release checks are skipped for this run; the SDK cache is not changed.</value>
     <comment>{0}: SDK version, {1}: full path of the local SDK.</comment>
@@ -4607,9 +4615,17 @@
     <value>Firing</value>
     <comment>Field group heading</comment>
   </data>
+  <data name="Presentation.Group.Functions" xml:space="preserve">
+    <value>Rate of fire &amp; functions</value>
+    <comment>Field group: rate-of-fire modes, weapon-function bindings, programmable ammunition. new: needs native review</comment>
+  </data>
   <data name="Presentation.Group.Handling" xml:space="preserve">
     <value>Handling</value>
     <comment>Field group heading</comment>
+  </data>
+  <data name="Presentation.Group.Presentation" xml:space="preserve">
+    <value>Armory presentation</value>
+    <comment>Field group: armory trait and penetration labels (presentation only). new: needs native review</comment>
   </data>
   <data name="Presentation.Group.Projectile" xml:space="preserve">
     <value>Projectile</value>
@@ -5498,6 +5514,10 @@
     <value>Firing</value>
     <comment>Field group / system label</comment>
   </data>
+  <data name="Stratagem.Group.Functions" xml:space="preserve">
+    <value>Rate of fire &amp; functions</value>
+    <comment>Field group heading. new: needs native review</comment>
+  </data>
   <data name="Stratagem.Group.Handling" xml:space="preserve">
     <value>Handling</value>
     <comment>Field group / system label</comment>
@@ -5521,6 +5541,10 @@
   <data name="Stratagem.Group.Payload" xml:space="preserve">
     <value>Payload</value>
     <comment>Field group / system label</comment>
+  </data>
+  <data name="Stratagem.Group.Presentation" xml:space="preserve">
+    <value>Armory presentation</value>
+    <comment>Field group heading. new: needs native review</comment>
   </data>
   <data name="Stratagem.Group.Projectile" xml:space="preserve">
     <value>Projectile</value>

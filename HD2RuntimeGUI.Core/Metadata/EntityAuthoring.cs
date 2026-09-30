@@ -20,7 +20,10 @@ public sealed record EntityTarget(string Resource, string Path, string? Vehicle 
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Effect = null,
     // Enemies and enemy structures (0.28.0 development SDKs): the class's semantic ID and the native class name Lua addresses it by.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Enemy = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? EnemyClass = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? EnemyClass = null,
+    // 0.28.0: an entity a backpack deploys or projects ("drone" for Guard Dogs, "energy_shield" for the SH-51), reached through the
+    // backpack (hd2.backpack(name):drone()). Fields on it target path "linked" or its own damage zones.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Linked = null)
 {
     // Vehicle or backpack name, the magazine attachment semantic ID (weapon_attachment, 0.23.1+), the booster name (booster, 0.24.0+),
     // the vehicle weapon key (vehicle_weapon, 0.26.0), the rack name (pod_rack, 0.26.0), the throwable name (0.27.0) or the enemy
@@ -51,7 +54,9 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     string? ResidencyWarning = null, EntityRange? Range = null, double? Min = null, double? Max = null, string? AcknowledgementReason = null, string? UiGroup = null,
     // Unreleased Runtime (0.28.0 development): why a published bound exists (for example a 10-bit network field), the hit actors a damage
     // zone lists, and whether/when a write takes effect (effect.activeSource, appliesWhen, the field that is active instead).
-    string? RangeReason = null, string[]? ZoneActors = null, FieldEffect? Effect = null)
+    string? RangeReason = null, string[]? ZoneActors = null, FieldEffect? Effect = null,
+    // 0.28.0: the native value each published value was matched against (entity, native, published).
+    EntityCorrelation[]? Correlations = null)
 {
     public const string ReferenceType = "mounted_weapon_reference";
     // 0.26.0 drop-pod slot payload: a reviewed pickup semantic ID or 'empty'.
@@ -66,6 +71,7 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     [JsonIgnore] public EntityRange? EffectiveRange => Range ?? (Min == null && Max == null ? null
         : new EntityRange(Min ?? double.NegativeInfinity, Max ?? double.PositiveInfinity, Type == "integer", RangeReason));
 }
+public sealed record EntityCorrelation(string? Entity, JsonElement Native, JsonElement Published);
 public sealed record EntityBackingObject(string BackingObjectId, string Kind, bool Shared, EntityConsumer[] SharedConsumers, string SharedScopeKey, string[] FieldInstances);
 public sealed record EntityOperationGroup(string OperationGroup, string BackingObjectId, EntityTarget Target, string[] FieldInstances, string RecommendedApi, bool AllowSharedRequired);
 public sealed record EntityCallIn(bool Known, string? SemanticId = null, string? Name = null, string? Relationship = null, string? Provenance = null, string? Reason = null);
@@ -101,7 +107,13 @@ public sealed record VehicleCatalog(string Contract, int SchemaVersion, string H
     public Vehicle? Find(string name) => Vehicles.FirstOrDefault(v => v.Name == name);
     public MountedWeapon? Weapon(string semanticId) => MountedWeapons.FirstOrDefault(w => w.SemanticId == semanticId);
 }
-public sealed record BackpackSettingGroup(string Group, string[] FieldInstanceKeys);
+public sealed record BackpackSettingGroup(string Group, string[] FieldInstanceKeys, string? Linked = null);
+// 0.28.0: an entity the backpack deploys or projects (a Guard Dog drone, the SH-51 energy shield), with its own fields and damage zones.
+// A Guard Dog's weapon is a vehicle weapon whose carrier is this backpack (VehicleWeaponCapabilities).
+public sealed record BackpackLinkedEntity(string Linked, string Relationship, string[] Chain, string? WeaponFamily, BackpackZone[]? DamageZones, string[] FieldInstanceKeys)
+{
+    public const string Drone = "drone", EnergyShield = "energy_shield";
+}
 // 0.26.0 backpack-fed support weapons: the weapon this backpack's deposit supplies (support weapon -> ammoBackpack, reverse link).
 public sealed record BackpackFeeds(string SupportWeapon, string SupportWeaponSemanticId, string Relationship, int AmmoMode, string InventorySlot,
     string RefillStyle, bool WeaponOwnsMagazine, string[] Chain);
@@ -114,9 +126,10 @@ public sealed record BackpackZone(string ZoneId, int Index, string? Name)
 }
 public sealed record Backpack(string Name, string SemanticId, EntityCallIn CallInStratagem, string[] DeliveryChain, string[] Components,
     BackpackSettingGroup[] SettingGroups, EntityBlocked[] BlockedFields, string[] FieldInstanceKeys, BackpackFeeds? Feeds = null, BackpackAmmo? Ammo = null,
-    BackpackZone[]? DamageZones = null)
+    BackpackZone[]? DamageZones = null, BackpackLinkedEntity[]? LinkedEntities = null)
 {
     public const string AmmoGroup = "backpack_ammo";
+    public BackpackLinkedEntity? Linked(string linked) => LinkedEntities?.FirstOrDefault(l => l.Linked == linked);
 }
 public sealed record BackpackSummary(int Backpacks, int FieldInstances, int WritableFieldInstances, int ReadOnlyFieldInstances, int BackpacksWithWritableFields,
     Dictionary<string, int> WritableByTier, int RackChainsResolved);
@@ -164,7 +177,8 @@ public static class EntityAuthoringReader
 {
     public const string VehicleFile = "VehicleAuthoringCapabilities.json", BackpackFile = "BackpackAuthoringCapabilities.json";
     public const int MaxBytes = 8 * 1024 * 1024;
-    public static readonly string[] Tiers = ["gameplay_proven", "gameplay_proven_combined", "schema_proven", "live_write_verified", "structural_reference"];
+    // 0.28.0 adds native_correlated: the native member matches the published value (backpack settings, linked drones and shields).
+    public static readonly string[] Tiers = ["gameplay_proven", "gameplay_proven_combined", "schema_proven", "live_write_verified", "structural_reference", "native_correlated"];
     private static readonly Regex Api = new(@"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z", RegexOptions.CultureInvariant);
     private static readonly Regex Slot = new(@"\A(zone|slot)_[0-9]{1,3}\z", RegexOptions.CultureInvariant);
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip };
@@ -181,7 +195,11 @@ public static class EntityAuthoringReader
             ValidateFields("backpack", b.FieldInstances, b.BackingObjects, b.OperationGroups, b.EvidenceTiers, b.InstanceAudit);
             ValidateVehicles(v);
             ValidateBackpacks(b);
-            return new() { Vehicles = v, Backpacks = b, CallIns = LinkCallIns(v, b, stratagems) };
+            var links = LinkCallIns(v, b, stratagems);
+            // Fields of a backpack's linked entities stay read-only until this build authors them (AuthoredTypes).
+            if (!AuthoredTypes.LinkedBackpackEntities && b.FieldInstances.Any(f => f.Target.Linked != null && f.Editable))
+                b = b with { FieldInstances = b.FieldInstances.Select(f => f.Target.Linked != null && f.Editable ? f with { Editable = false, Reason = AuthoredTypes.NotAuthoredReason } : f).ToArray() };
+            return new() { Vehicles = v, Backpacks = b, CallIns = links };
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException)
         { throw new InvalidDataException("Malformed vehicle/backpack capability metadata.", e); }
@@ -217,9 +235,11 @@ public static class EntityAuthoringReader
             {
                 "entity" => resource == "vehicle" && f.Target.Zone == null && f.Target.Mount == null,
                 "mount" => resource == "vehicle" && f.Target.Mount != null && Slot.IsMatch(f.Target.Mount) && f.Target.Zone == null,
-                "backpack" => resource == "backpack" && f.Target.Zone == null && f.Target.Mount == null,
-                // 0.28.0 development SDKs: a backpack's own damage zone (the SH-20 shield plate).
-                "damage_zone" => resource is "vehicle" or "backpack" && f.Target.Zone != null && Slot.IsMatch(f.Target.Zone) && f.Target.Mount == null,
+                "backpack" => resource == "backpack" && f.Target.Zone == null && f.Target.Mount == null && f.Target.Linked == null,
+                // 0.28.0: a backpack's own damage zone (the SH-20 shield plate), or a zone of the entity it deploys (a drone, the SH-51 shield).
+                "damage_zone" => resource is "vehicle" or "backpack" && f.Target.Zone != null && Slot.IsMatch(f.Target.Zone) && f.Target.Mount == null
+                    && (f.Target.Linked == null || resource == "backpack"),
+                "linked" => resource == "backpack" && f.Target.Linked is BackpackLinkedEntity.Drone or BackpackLinkedEntity.EnergyShield && f.Target.Zone == null && f.Target.Mount == null,
                 _ => false,
             });
             if (f.IsReference)
@@ -284,10 +304,18 @@ public static class EntityAuthoringReader
                 && x.SettingGroups.All(g => !string.IsNullOrWhiteSpace(g.Group) && g.FieldInstanceKeys.All(own.Contains))
                 && x.SettingGroups.SelectMany(g => g.FieldInstanceKeys).Distinct().Count() == x.SettingGroups.Sum(g => g.FieldInstanceKeys.Length)
                 && (x.CallInStratagem.Known ? x.CallInStratagem.SemanticId != null : !string.IsNullOrWhiteSpace(x.CallInStratagem.Reason)));
-            // Zone fields target one of the backpack's published damage zones.
-            var zones = x.DamageZones ?? [];
-            Check(zones.Select(z => z.ZoneId).Distinct().Count() == zones.Length && zones.All(z => z.ZoneId == "zone_" + z.Index)
-                && b.FieldInstances.Where(f => f.Target.Backpack == x.Name && f.Target.Path == "damage_zone").All(f => zones.Any(z => z.ZoneId == f.Target.Zone)));
+            // Zone fields target one of the published damage zones of the backpack, or of the linked entity they name.
+            static bool Zones(BackpackZone[] zones) => zones.Select(z => z.ZoneId).Distinct().Count() == zones.Length && zones.All(z => z.ZoneId == "zone_" + z.Index);
+            var linked = x.LinkedEntities ?? [];
+            Check(Zones(x.DamageZones ?? []) && linked.All(l => Zones(l.DamageZones ?? [])) && linked.Select(l => l.Linked).Distinct().Count() == linked.Length
+                && b.FieldInstances.Where(f => f.Target.Backpack == x.Name && f.Target.Path == "damage_zone")
+                    .All(f => (f.Target.Linked == null ? x.DamageZones : x.Linked(f.Target.Linked)?.DamageZones)?.Any(z => z.ZoneId == f.Target.Zone) == true));
+            // A linked entity lists exactly the fields that target it, and its setting group names it.
+            foreach (var l in linked)
+                Check(l.FieldInstanceKeys.Order(StringComparer.Ordinal).SequenceEqual(b.FieldInstances.Where(f => f.Target.Backpack == x.Name && f.Target.Linked == l.Linked)
+                        .Select(f => f.InstanceKey).Order(StringComparer.Ordinal)) && !string.IsNullOrWhiteSpace(l.Relationship));
+            Check(b.FieldInstances.Where(f => f.Target.Backpack == x.Name && f.Target.Linked != null).All(f => x.Linked(f.Target.Linked!) != null)
+                && x.SettingGroups.All(g => g.Linked == null || x.Linked(g.Linked) is { } l && g.FieldInstanceKeys.All(l.FieldInstanceKeys.Contains)));
         }
         var s = b.Summary; var f = b.FieldInstances;
         Check(s.Backpacks == b.Backpacks.Length && s.FieldInstances == f.Length && s.WritableFieldInstances == f.Count(x => x.Editable)

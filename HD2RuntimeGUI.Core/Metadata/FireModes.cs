@@ -27,7 +27,7 @@ public static class FireModes
 
     // Published capability: baseline, allowed modes, native slot encoding and selector agree (editable fields only carry a baseline).
     public static void ValidateCapability(string? state, JsonElement baseline, bool editable, IReadOnlyList<string>? allowed, IReadOnlyDictionary<string, int>? values,
-        int? maxModes, IReadOnlyList<int>? slots)
+        int? maxModes, IReadOnlyList<double>? slots)
     {
         if (state is not null && !States.Contains(state)) throw new InvalidDataException("Unknown fire-mode state.");
         if (!editable && baseline.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined) return;
@@ -36,7 +36,7 @@ public static class FireModes
             throw new InvalidDataException("Inconsistent fire-mode capability.");
         var modes = Modes(baseline);
         if (modes.Count < 1 || modes.Count > maxModes || modes.Distinct().Count() != modes.Count || modes.Any(m => !allowed.Contains(m))
-            || !slots.SequenceEqual(modes.Select(m => values[m]).Concat(Enumerable.Repeat(0, 4 - modes.Count))))
+            || !slots.SequenceEqual(modes.Select(m => (double)values[m]).Concat(Enumerable.Repeat(0d, 4 - modes.Count))))
             throw new InvalidDataException("Fire-mode baseline disagrees with its native slots.");
     }
     public static void ValidateCapability(WeaponCapability f) =>

@@ -31,7 +31,8 @@ public sealed class TestEnvironment : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(Paths.SdkFile(Metadata.Version))!);
         File.WriteAllBytes(Paths.SdkFile(Metadata.Version), LegacyMetadata());
         File.WriteAllText(Paths.CachePath("current.json"), "{\"version\":\"0.5.1\"}");
-        Cache = new(Paths, Reader, GitHub); Store = new(Paths); Projects = new(Store, Paths); Updates = new(Cache, GitHub, Paths);
+        // The cache stays pinned to the legacy fixture; tests that exercise adopting a newer bundled SDK construct their own cache.
+        Cache = new(Paths, Reader, GitHub) { AdoptNewerBundled = false }; Store = new(Paths); Projects = new(Store, Paths); Updates = new(Cache, GitHub, Paths);
         Generator = new(Changes); Exporter = new(Generator);
     }
     public BuilderWorkspace Workspace() => new(Store, Projects, Cache, Updates, Changes, Generator, Exporter, Desktop, Desktop, Paths);

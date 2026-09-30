@@ -42,6 +42,9 @@ public sealed record SdkMetadata(string Version, int ApiVersion, Dictionary<stri
     public Scripting.LuaApiIndex? LuaApi { get; init; }
     // Attack outputs and active projectile sources (sdk/AttackOutputCapabilities.json); unreleased 0.28.0 development SDKs.
     public AttackOutputCatalog? AttackOutputs { get; init; }
+    // SdkPin.Fingerprint of every SDK file this build read (set by SdkCache): whether this is the pinned build of its version.
+    public string? ContentFingerprint { get; init; }
+    public bool? IsPinnedBuild => ContentFingerprint == null ? null : SdkPin.Matches(Version, ContentFingerprint);
     public string CategoryName(string key)
     {
         var name = Types[key].Name;

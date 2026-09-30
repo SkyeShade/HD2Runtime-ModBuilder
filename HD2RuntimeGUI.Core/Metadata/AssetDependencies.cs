@@ -55,6 +55,8 @@ public static class AssetDependencyReader
         ["pickup_grenade"] = "pickup", ["pickup_stim"] = "pickup", ["pickup_supply"] = "pickup",
         // 0.28.0 development SDKs: explosions event scripts request (hd2.explosions.spawn), such as the Hellbombs.
         ["explosion"] = "explosion",
+        // 0.28.0: a stratagem-deployed weapon whose projectile the shared donor pool offers (the A/M-23 EMS Mortar Sentry).
+        ["stratagem_weapon"] = "stratagem_weapon",
     };
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
     private static void Check(bool valid, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0) { if (!valid) throw new InvalidDataException($"Inconsistent asset dependency metadata (check {line})."); }

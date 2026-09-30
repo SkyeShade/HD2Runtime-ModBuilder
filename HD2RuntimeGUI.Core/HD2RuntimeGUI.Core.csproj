@@ -13,6 +13,8 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Metadata/Bundled/*.json" />
+    <!-- The SDK LuaLS stub (stubs/mods/skyeshade/hd2runtime.lua), kept under its flat cache name. -->
+    <EmbeddedResource Include="Metadata/Bundled/hd2runtime-stubs.lua" />
     <!-- Release package / updater contract, shared with the standalone updater. -->
     <Compile Include="../HD2RuntimeModBuilder.Updater/UpdateContract.cs" Link="Updates/UpdateContract.cs" />
   </ItemGroup>

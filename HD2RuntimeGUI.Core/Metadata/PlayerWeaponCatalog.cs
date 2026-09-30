@@ -45,7 +45,9 @@ public sealed record FieldBacking(string Kind, string? Component, int Offset, st
     // Unreleased Runtime (0.28.0 development): a DamageInfo status slot and the enum a status reference is written as.
     int? StatusSlot = null, string? Enum = null);
 // A published live test of a field family (Runtime's LiveEvidenceCatalog), for example the enemy main-health test.
-public sealed record FieldLiveEvidence(string Status, string Family, string[] Tests, string Date, string[]? AppliesToKinds = null, string? Target = null, string? Field = null);
+public sealed record FieldLiveEvidence(string Status, string Family, string[] Tests, string Date, string[]? AppliesToKinds = null, string? Target = null, string? Field = null,
+    // 0.28.0: the exact values a live test proved (their writes drop the acknowledgement; allow_shared never drops).
+    string[]? Values = null);
 public sealed record WeaponCapability(string DisplayName, string SemanticFieldId, string Type, string? Unit,
     JsonElement CurrentDefault, bool Editable, bool DerivedReadOnly, FieldProvenance Provenance,
     double? Min, double? Max, Dictionary<string, JsonElement>? EnumValues, FieldBacking? Backing,
@@ -61,7 +63,7 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     // 0.26.0: Runtime-required opt-in for this field ("allow_unverified_effect") with its reason, and field-level evidence.
     string? Acknowledgement = null, string? AcknowledgementReason = null, WeaponFieldEvidence? Evidence = null,
     // 0.26.0 fire modes: the four native FireMode slots, the modes a write may use, and the in-game selector binding.
-    IReadOnlyList<int>? NativeSlots = null, IReadOnlyList<string>? AllowedModes = null, Dictionary<string, int>? ModeValues = null,
+    IReadOnlyList<double>? NativeSlots = null, IReadOnlyList<string>? AllowedModes = null, Dictionary<string, int>? ModeValues = null,
     int? MaxModes = null, string? FireModeState = null, FireModeSelector? Selector = null,
     // 0.27.0: the typed API constant of this field (hd2.fields.<domain>.<name>), published for tools.
     string? ApiFieldConstant = null,
@@ -71,12 +73,26 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     FieldLiveEvidence? LiveEvidence = null, JsonElement? Movement = null, WeaponProjectileSource? ProjectileSource = null,
     // In-progress Runtime work (0.28.0 development): whether a write takes effect (active source, instantiation-only, dormant, overridden).
     // Read, not interpreted by this build; Runtime's editable flag still decides what is authored.
-    JsonElement? Effect = null)
+    JsonElement? Effect = null,
+    // 0.28.0 weapon composition: rate-of-fire slots ({X, Y, Z} in menu order, the default slot, selector order and binding), the
+    // weapon-function inputs and the values they take, programmable ammunition, armory presentation (trait / penetration labels and
+    // their native values), heat levels and the exact live-proven values of a write. The operation group names fields Runtime writes
+    // together (weapon_selector: rates, bindings and the function projectile).
+    IReadOnlyList<string>? SlotNames = null, string? DefaultSlot = null, IReadOnlyList<string>? SelectorOrder = null, bool? SelectorBound = null,
+    string? SelectorInput = null, IReadOnlyList<string>? BindableInputs = null, string? FireRateState = null, IReadOnlyList<string>? OverriddenWhenEquipped = null,
+    string? OperationGroup = null, string? Input = null, Dictionary<string, int>? FunctionValues = null, string? FunctionAmmoState = null, bool? HostRounds = null,
+    IReadOnlyList<long>? NativeTags = null, Dictionary<string, long>? TraitValues = null, int? MaxTraits = null, JsonElement? Labels = null,
+    Dictionary<string, long>? PenetrationValues = null, int? PenetrationSlot = null, string? ArmorPenetrationState = null,
+    IReadOnlyList<string>? LiveProvenValues = null, JsonElement? HeatLevel = null, string? StatusScope = null, IReadOnlyList<string>? AllowedNames = null)
 {
+    public const string FireRateSet = "fire_rate_set", WeaponFunction = "weapon_function", FunctionProjectileReference = "function_projectile_reference",
+        TraitSet = "trait_set", ArmorPenetrationLabel = "armor_penetration_label";
+    // Value types a write carries as a list (the rest are scalars or typed references).
+    [JsonIgnore] public bool IsListValue => Type is FireModeSet or FireRateSet or TraitSet;
     public const string FireModeSet = "fire_mode_set";
     // A typed status reference (unreleased Runtime 0.28.0 development SDKs). This build shows it read-only.
     public const string StatusReference = "status_reference";
-    public const string StatusReferenceReason = "Status references (a status effect chosen by name) are published by this development SDK but are not authored by this ModBuilder build yet.";
+    public const string StatusReferenceReason = AuthoredTypes.NotAuthoredReason;
     [JsonIgnore] public string Domain => SemanticFieldId.Split('.')[0];
     [JsonIgnore] public bool IsPreferred => AliasOf == null && Canonical != false && Preferred != false && Deprecated != true;
     [JsonIgnore] public bool WriteAccepted => AcceptedForWrites ?? Editable;
@@ -96,7 +112,8 @@ public sealed record WeaponProjectileSource(string Status, string? Mechanism, st
 {
     public const string ActiveDirect = "ACTIVE_DIRECT";
 }
-public sealed record WeaponFieldEvidence(string? NativeOwner, string? Source, bool? GameplayProven, string? GameplaySource = null);
+public sealed record WeaponFieldEvidence(string? NativeOwner, string? Source, bool? GameplayProven, string? GameplaySource = null,
+    string? Selector = null, string? Reader = null, bool? DerivedFromGameplay = null);
 // Input bindings: a published WeaponFunctionType name ("Firemode", "None"…) or an unnamed native value.
 public sealed record FireModeSelector(JsonElement Left, JsonElement Right)
 {
@@ -105,12 +122,24 @@ public sealed record FireModeSelector(JsonElement Left, JsonElement Right)
 }
 public sealed record PlayerWeapon(string Name, string Slot, string Category, string Resolution,
     bool OrdinaryWritesBlocked, string? BlockReason, IReadOnlyList<string> Resources,
-    IReadOnlyList<string> ImplementationFamilies, IReadOnlyList<WeaponCapability> Fields);
+    IReadOnlyList<string> ImplementationFamilies, IReadOnlyList<WeaponCapability> Fields,
+    // 0.28.0: the weapon's nested sub-targets (underbarrels), listed in full under PlayerWeaponCatalog.Subweapons.
+    IReadOnlyList<SubweaponLink>? Subweapons = null);
+public sealed record SubweaponLink(string Name, string Kind);
+// 0.28.0 underbarrels and other sub-targets: a separate weapon entity reached through its parent (hd2.weapon(parent):underbarrel()),
+// never flattened into the parent. Its fields follow the player-weapon field contract.
+public sealed record Subweapon(string Name, string SubweaponOf, string Kind, string Slot, string Resolution, bool OrdinaryWritesBlocked, string? BlockReason,
+    IReadOnlyList<string> Resources, IReadOnlyList<string> ImplementationFamilies, string? LinkItem, string? Link, JsonElement? SharedDefinitions,
+    IReadOnlyList<string>? NotExposed, IReadOnlyList<WeaponCapability> Fields)
+{
+    public const string Underbarrel = "underbarrel";
+}
 public sealed record PlayerWeaponCatalog(int SchemaVersion, string Hd2RuntimeVersion, BuildFingerprints BuildFingerprints,
     string SourceSnapshot, CapabilitySummary Summary, IReadOnlyList<SemanticFieldDefinition> FieldDefinitions,
     IReadOnlyList<PlayerWeapon> Weapons, CatalogSafety Safety, IReadOnlyList<SemanticAliasRule>? SemanticAliases = null,
-    BackingCollisionAudit? BackingCollisionAudit = null)
+    BackingCollisionAudit? BackingCollisionAudit = null, IReadOnlyList<Subweapon>? Subweapons = null)
 {
+    public Subweapon? FindSubweapon(string name) => Subweapons?.FirstOrDefault(s => s.Name == name);
     public PlayerWeapon Weapon(string name) => Weapons.SingleOrDefault(w => w.Name == name) ?? throw new InvalidDataException("Weapon no longer exists in this SDK: " + name);
     public WeaponCapability Field(string weapon, string id) => Weapon(weapon).Fields.SingleOrDefault(f => f.SemanticFieldId == id) ?? throw new InvalidDataException("Field no longer exists in this SDK: " + id);
     public WeaponCapability? FindCanonicalField(string weapon, string id)
@@ -145,28 +174,20 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
             {
                 if (string.IsNullOrWhiteSpace(w.Name) || w.Name.Length > 256 || w.Slot is not ("primary" or "secondary") || w.Fields.Count > 256 || w.Fields.Select(f => f.SemanticFieldId).Distinct().Count() != w.Fields.Count) throw new InvalidDataException("Invalid weapon entry.");
                 if (w.Resolution is not ("UNIQUE" or "DUPLICATE") || (w.Resolution != "UNIQUE" && !w.OrdinaryWritesBlocked) || (w.Resolution == "UNIQUE" && w.Resources.Count != 1)) throw new InvalidDataException("Ambiguous weapon identity is not blocked.");
-                foreach (var f in w.Fields)
-                {
-                    if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName) || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference" or "explosion_reference" or WeaponCapability.FireModeSet or WeaponCapability.StatusReference)) throw new InvalidDataException("Invalid semantic field.");
-                    if (f.Type == WeaponCapability.StatusReference && (f.CurrentDefault.ValueKind != JsonValueKind.String || f.AllowedReferences is not { Count: > 0 } || f.StatusSlot is not (>= 1 and <= 4)))
-                        throw new InvalidDataException("Invalid status reference.");
-                    if (f.Type == WeaponCapability.FireModeSet) FireModes.ValidateCapability(f);
-                    else if (f.Type is not ("projectile_reference" or "explosion_reference") && f.CurrentDefault.ValueKind is (JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new InvalidDataException("Expected a scalar baseline.");
-                    if (f.SemanticFieldId == FireModes.ReticleField && (f.Type != "boolean" || f.Editable && (f.Encoding == null || f.NativeValue == null))) throw new InvalidDataException("Invalid third-person reticle field.");
-                    if (f.Acknowledgement is not (null or "allow_unverified_effect")) throw new UnsupportedSdkException("Unsupported player-weapon acknowledgement: " + f.Acknowledgement);
-                    if (f.Type == "projectile_reference" && f.Domain == "attack" && (f.CurrentDefault.ValueKind != JsonValueKind.Object || f.ReferenceKind != "projectile"
-                        || f.SemanticFieldId != "attack." + f.ReferenceRole + ".projectile" || string.IsNullOrWhiteSpace(f.CompatibilityClass))) throw new InvalidDataException("Invalid semantic projectile reference.");
-                    var definitionId = Regex.Replace(Regex.Replace(f.SemanticFieldId, @"\.(primary|alternate|feed_primary|feed_alternate|impact|expiry)(?=\.)", ""), @"status_\d+_", "status_");
-                    var definition = c.FieldDefinitions.SingleOrDefault(d => d.Id == definitionId) ?? throw new InvalidDataException("Capability has no semantic definition.");
-                    if (f.Type != definition.Type || (f.Editable && (!definition.Writable || definition.Derived))) throw new InvalidDataException("Capability disagrees with its semantic definition.");
-                    if (f.Provenance == null || f.SharedWithWeapons == null || f.SharedWithWeapons.Any(n => !c.Weapons.Any(other => other.Name == n))) throw new InvalidDataException("Invalid capability evidence or shared ownership.");
-                    if (f.Editable && (w.OrdinaryWritesBlocked || f.DerivedReadOnly || f.Backing == null || f.CurrentDefault.ValueKind == JsonValueKind.Null || f.WriteScope == "unknown")) throw new InvalidDataException("Unsafe writable capability.");
-                    if (f.Editable && (f.Backing!.Kind is not ("component" or "settings") || f.Backing.Storage is not ("f32" or "u32" or "i32" or "u8" or WeaponCapability.FireModeSet)
-                        || f.Backing.Width != (f.Backing.Storage switch { "u8" => 1, WeaponCapability.FireModeSet => 16, _ => 4 }) || (f.Backing.Storage == WeaponCapability.FireModeSet) != (f.Type == WeaponCapability.FireModeSet)))
-                        throw new UnsupportedSdkException("Unsupported writable backing type.");
-                    // Shared damage consumers can include unnamed/non-player consumers.
-                    if ((!f.AffectsMultipleWeapons && f.SharedWithWeapons.Count > 0) || f.AffectsMultipleWeapons != f.WriteScope.StartsWith("shared_", StringComparison.Ordinal)) throw new InvalidDataException("Inconsistent shared-write scope.");
-                }
+                foreach (var f in w.Fields) ValidateField(c, f, w.OrdinaryWritesBlocked);
+                if (w.Subweapons?.Any(l => c.Subweapons?.Any(s => s.Name == l.Name && s.SubweaponOf == w.Name && s.Kind == l.Kind) != true) == true)
+                    throw new InvalidDataException("Weapon names a subweapon the catalog does not publish.");
+            }
+            // 0.28.0 sub-targets: each belongs to a published weapon (and lists itself there), has a unique name, and its fields follow the
+            // same contract as a weapon's.
+            foreach (var sub in c.Subweapons ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(sub.Name) || sub.Name.Length > 256 || c.Weapons.Any(w => w.Name == sub.Name) || c.Subweapons!.Count(x => x.Name == sub.Name) != 1
+                    || c.Weapons.FirstOrDefault(w => w.Name == sub.SubweaponOf) is not { } parent || parent.Subweapons?.Any(l => l.Name == sub.Name) != true
+                    || sub.Kind != Subweapon.Underbarrel || sub.Fields.Count > 256 || sub.Fields.Select(f => f.SemanticFieldId).Distinct().Count() != sub.Fields.Count
+                    || sub.Resolution is not ("UNIQUE" or "DUPLICATE") || (sub.Resolution != "UNIQUE" && !sub.OrdinaryWritesBlocked))
+                    throw new InvalidDataException("Invalid subweapon entry.");
+                foreach (var f in sub.Fields) ValidateField(c, f, sub.OrdinaryWritesBlocked);
             }
             var s = c.Summary;
             if (c.SchemaVersion == 2) ValidateAliases(c);
@@ -174,26 +195,75 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
                 || c.Weapons.SelectMany(w => w.Fields).Any(f => f.AliasOf != null || f.SemanticTarget != null || f.Canonical != null || f.Preferred != null || f.Deprecated != null || f.AcceptedForWrites != null))
                 throw new InvalidDataException("Alias metadata requires capability schema v2.");
             if (s.Weapons != c.Weapons.Count || s.FieldInstances != c.Weapons.Sum(w => w.Fields.Count) || s.WritableFieldInstances != c.Weapons.Sum(w => w.Fields.Count(f => f.Editable)) || s.DuplicateWeapons != c.Weapons.Count(w => w.OrdinaryWritesBlocked) || s.UniqueWeapons + s.DuplicateWeapons != s.Weapons || s.SemanticFieldDefinitions != c.FieldDefinitions.Count || s.WritableSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Writable) || s.ReadOnlySemanticFieldDefinitions != c.FieldDefinitions.Count(f => !f.Writable) || s.DerivedSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Derived)) throw new InvalidDataException("Capability catalog summary mismatch.");
-            // Status references are validated as published, then kept read-only here: this build has no status-reference editor or Lua form.
-            return c.Weapons.Any(w => w.Fields.Any(f => f.Type == WeaponCapability.StatusReference && f.Editable))
-                ? c with { Weapons = c.Weapons.Select(w => w with { Fields = w.Fields.Select(f => f.Type == WeaponCapability.StatusReference && f.Editable
-                    ? f with { Editable = false, AcceptedForWrites = false, Reason = WeaponCapability.StatusReferenceReason } : f).ToArray() }).ToArray() }
+            // Value types this build does not author yet are validated as published, then kept read-only (AuthoredTypes).
+            static WeaponCapability Gate(WeaponCapability f) => f.Editable && !AuthoredTypes.Weapon(f) ? f with { Editable = false, AcceptedForWrites = false, Reason = AuthoredTypes.NotAuthoredReason } : f;
+            return c.Weapons.Any(w => w.Fields.Any(f => Gate(f) != f)) || c.Subweapons?.Any(w => w.Fields.Any(f => Gate(f) != f)) == true
+                ? c with { Weapons = c.Weapons.Select(w => w with { Fields = w.Fields.Select(Gate).ToArray() }).ToArray(),
+                    Subweapons = c.Subweapons?.Select(w => w with { Fields = w.Fields.Select(Gate).ToArray() }).ToArray() }
                 : c;
         }
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or FormatException or ArgumentException)
         { throw new InvalidDataException("Malformed player-weapon capability catalog: " + e.Message, e); }
     }
+    // Value types and their native storage (bytes): 0.28.0 adds the rate slots, weapon-function inputs, the programmable-ammunition
+    // projectile, and the armory's trait / penetration presentation.
+    private static readonly Dictionary<string, (string Storage, int Width)> ListStorage = new()
+    {
+        [WeaponCapability.FireModeSet] = (WeaponCapability.FireModeSet, 16), [WeaponCapability.FireRateSet] = (WeaponCapability.FireRateSet, 12),
+        [WeaponCapability.TraitSet] = (WeaponCapability.TraitSet, 20), [WeaponCapability.ArmorPenetrationLabel] = (WeaponCapability.ArmorPenetrationLabel, 20),
+    };
+    private static void ValidateField(PlayerWeaponCatalog c, WeaponCapability f, bool blocked)
+    {
+        if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName)
+            || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference" or "explosion_reference" or WeaponCapability.FireModeSet or WeaponCapability.StatusReference
+                or WeaponCapability.FireRateSet or WeaponCapability.WeaponFunction or WeaponCapability.FunctionProjectileReference or WeaponCapability.TraitSet or WeaponCapability.ArmorPenetrationLabel))
+            throw new InvalidDataException("Invalid semantic field.");
+        if (f.Type == WeaponCapability.StatusReference && (f.CurrentDefault.ValueKind != JsonValueKind.String || f.AllowedReferences is not { Count: > 0 } || f.StatusSlot is not (null or (>= 1 and <= 4))))
+            throw new InvalidDataException("Invalid status reference.");
+        if (f.Type == WeaponCapability.FireModeSet) FireModes.ValidateCapability(f);
+        else if (f.Type is WeaponCapability.FireRateSet or WeaponCapability.TraitSet)
+        {
+            if (f.CurrentDefault.ValueKind != JsonValueKind.Array) throw new InvalidDataException("Expected a list baseline.");
+        }
+        else if (f.Type is WeaponCapability.FunctionProjectileReference)
+        {
+            if (f.CurrentDefault.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Expected a function projectile baseline.");
+        }
+        else if (f.Type is not ("projectile_reference" or "explosion_reference") && f.CurrentDefault.ValueKind is (JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new InvalidDataException("Expected a scalar baseline.");
+        if (f.SemanticFieldId == FireModes.ReticleField && (f.Type != "boolean" || f.Editable && (f.Encoding == null || f.NativeValue == null))) throw new InvalidDataException("Invalid third-person reticle field.");
+        if (f.Acknowledgement is not (null or "allow_unverified_effect")) throw new UnsupportedSdkException("Unsupported player-weapon acknowledgement: " + f.Acknowledgement);
+        if (f.Type == "projectile_reference" && f.Domain == "attack" && (f.CurrentDefault.ValueKind != JsonValueKind.Object || f.ReferenceKind != "projectile"
+            || f.SemanticFieldId != "attack." + f.ReferenceRole + ".projectile" || string.IsNullOrWhiteSpace(f.CompatibilityClass))) throw new InvalidDataException("Invalid semantic projectile reference.");
+        var definitionId = Regex.Replace(Regex.Replace(f.SemanticFieldId, @"\.(primary|alternate|feed_primary|feed_alternate|impact|expiry)(?=\.)", ""), @"status_\d+_", "status_");
+        var definition = c.FieldDefinitions.SingleOrDefault(d => d.Id == definitionId) ?? throw new InvalidDataException("Capability has no semantic definition.");
+        if (f.Type != definition.Type || (f.Editable && (!definition.Writable || definition.Derived))) throw new InvalidDataException("Capability disagrees with its semantic definition.");
+        if (f.Provenance == null || f.SharedWithWeapons == null || f.SharedWithWeapons.Any(n => !c.Weapons.Any(other => other.Name == n))) throw new InvalidDataException("Invalid capability evidence or shared ownership.");
+        if (f.Editable && (blocked || f.DerivedReadOnly || f.Backing == null || f.CurrentDefault.ValueKind == JsonValueKind.Null || f.WriteScope == "unknown")) throw new InvalidDataException("Unsafe writable capability.");
+        if (f.Editable)
+        {
+            var listed = ListStorage.TryGetValue(f.Type, out var expected);
+            if (f.Backing!.Kind is not ("component" or "settings") || (listed ? f.Backing.Storage != expected.Storage || f.Backing.Width != expected.Width
+                : f.Backing.Storage is not ("f32" or "u32" or "i32" or "u8") || f.Backing.Width != (f.Backing.Storage == "u8" ? 1 : 4)))
+                throw new UnsupportedSdkException("Unsupported writable backing type.");
+        }
+        // Shared damage consumers can include unnamed/non-player consumers.
+        if ((!f.AffectsMultipleWeapons && f.SharedWithWeapons.Count > 0) || f.AffectsMultipleWeapons != f.WriteScope.StartsWith("shared_", StringComparison.Ordinal)) throw new InvalidDataException("Inconsistent shared-write scope.");
+    }
     // A status reference's allowedValues are status keys, not the integer mode values other fields publish; they are read as
     // AllowedReferences. Catalogs without status references are deserialized from the original bytes.
+    // 0.28.0 name lists (weapon-function values, armory penetration labels) are read as AllowedNames.
     private static byte[] StatusReferences(byte[] bytes, JsonElement root)
     {
-        if (!root.GetProperty("weapons").EnumerateArray().Any(w => w.GetProperty("fields").EnumerateArray().Any(f => f.TryGetProperty("type", out var t) && t.GetString() == WeaponCapability.StatusReference)))
-            return bytes;
+        static bool Named(JsonElement f) => f.TryGetProperty("allowedValues", out var v) && v.ValueKind == JsonValueKind.Array && v.EnumerateArray().Any(x => x.ValueKind == JsonValueKind.String);
+        static IEnumerable<JsonElement> Fields(JsonElement root) => root.GetProperty("weapons").EnumerateArray()
+            .Concat(root.TryGetProperty("subweapons", out var subs) ? subs.EnumerateArray() : []).SelectMany(w => w.GetProperty("fields").EnumerateArray());
+        if (!Fields(root).Any(Named)) return bytes;
         var node = System.Text.Json.Nodes.JsonNode.Parse(bytes)!;
-        foreach (var w in node["weapons"]!.AsArray())
+        var owners = node["weapons"]!.AsArray().Concat(node["subweapons"]?.AsArray() ?? []);
+        foreach (var w in owners)
         foreach (var f in w!["fields"]!.AsArray())
-            if (f!["type"]?.GetValue<string>() == WeaponCapability.StatusReference && f.AsObject().Remove("allowedValues", out var values))
-                f.AsObject()["allowedReferences"] = values;
+            if (f!["allowedValues"] is System.Text.Json.Nodes.JsonArray values && values.Any(v => v?.GetValueKind() == JsonValueKind.String) && f.AsObject().Remove("allowedValues"))
+                f.AsObject()[f["type"]?.GetValue<string>() == WeaponCapability.StatusReference ? "allowedReferences" : "allowedNames"] = values;
         return JsonSerializer.SerializeToUtf8Bytes(node);
     }
     private static void ValidateAliases(PlayerWeaponCatalog c)

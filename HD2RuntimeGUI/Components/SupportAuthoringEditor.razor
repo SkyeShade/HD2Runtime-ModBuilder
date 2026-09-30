@@ -65,7 +65,8 @@
         "Heatsinks" => t["Stratagem.Group.Heatsinks"], "Charge" => t["Stratagem.Group.Charge"], "Reload" => t["Stratagem.Group.Reload"], "Windup" => t["Stratagem.Group.Windup"],
         "Stratagem" => t["Stratagem.Group.Stratagem"], "Orbital" => t["Stratagem.Group.Orbital"], "Eagle" => t["Stratagem.Group.Eagle"], "Entity" => t["Stratagem.Group.Entity"],
         "Zone" => t["Stratagem.Group.Zone"], "Turret" => t["Stratagem.Group.Turret"], "Targeting" => t["Stratagem.Group.Targeting"], "Payload" => t["Stratagem.Group.Payload"],
-        "Minefield" => t["Stratagem.Group.Minefield"], "Shield" => t["Stratagem.Group.Shield"],
+        "Minefield" => t["Stratagem.Group.Minefield"], "Shield" => t["Stratagem.Group.Shield"], "Functions" => t["Stratagem.Group.Functions"],
+        "Presentation" => t["Stratagem.Group.Presentation"],
         _ => group,
     };
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }

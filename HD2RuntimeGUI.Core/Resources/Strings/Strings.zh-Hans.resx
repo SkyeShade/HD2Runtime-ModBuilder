@@ -4033,6 +4033,14 @@
     <value>此创建操作已处理过。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Sdk.LocalNotPinned" xml:space="preserve">
+    <value>它不是固定的 HD2Runtime {0} 发布版本（Runtime {1}）：其目录内容不同，因此视为另一个构建。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Sdk.LocalPinned" xml:space="preserve">
+    <value>它与固定的 HD2Runtime {0} 发布版本（Runtime {1}）逐字节一致。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Sdk.LocalSource" xml:space="preserve">
     <value>本地 SDK {0}，来自 {1}。本次运行跳过 GitHub 发布检查；SDK 缓存不会改变。</value>
     <comment>new: needs native review</comment>
@@ -5145,8 +5153,16 @@
     <value>射击</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Presentation.Group.Functions" xml:space="preserve">
+    <value>射速与功能</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Presentation.Group.Handling" xml:space="preserve">
     <value>操控</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Presentation.Group.Presentation" xml:space="preserve">
+    <value>军械库展示</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Presentation.Group.Projectile" xml:space="preserve">
@@ -6109,6 +6125,10 @@
     <value>射击</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Stratagem.Group.Functions" xml:space="preserve">
+    <value>射速与功能</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Stratagem.Group.Handling" xml:space="preserve">
     <value>操控</value>
     <comment>new: needs native review</comment>
@@ -6131,6 +6151,10 @@
   </data>
   <data name="Stratagem.Group.Payload" xml:space="preserve">
     <value>载荷</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Stratagem.Group.Presentation" xml:space="preserve">
+    <value>军械库展示</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Stratagem.Group.Projectile" xml:space="preserve">

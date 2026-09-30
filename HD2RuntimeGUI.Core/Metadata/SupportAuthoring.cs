@@ -29,14 +29,32 @@ public sealed record SupportProvenance(string Identity, string Semantics, string
 public sealed record SupportFireMode(string FireModeState, IReadOnlyList<int>? NativeSlots, IReadOnlyList<string>? AllowedModes,
     Dictionary<string, int>? ModeValues, int? MaxModes, FireModeSelector? Selector, WeaponFieldEvidence? Evidence);
 public sealed record SupportReticle(string ReticleState, int? NativeValue, string? NativeName, ReticleEncoding? Encoding, WeaponFieldEvidence? Evidence);
+// 0.28.0 weapon composition on support-weapon field instances: rate-of-fire slots ({X, Y, Z} in menu order, the default slot, the
+// selector traversal and binding), weapon-function inputs, programmable ammunition, armory presentation and the projectile a
+// support weapon fires (a unified projectile host, hd2.support_weapon(name):attack(role)).
+public sealed record SupportFireRate(string FireRateState, IReadOnlyList<double> NativeSlots, IReadOnlyList<string> SlotNames, string DefaultSlot,
+    IReadOnlyList<string> SelectorOrder, int MaxModes, bool SelectorBound, string? SelectorInput, IReadOnlyList<string> BindableInputs,
+    double Min, double Max, IReadOnlyList<string> OverriddenWhenEquipped);
+public sealed record SupportFunctionAmmo(string FunctionAmmoState, bool SelectorBound, string? SelectorInput, IReadOnlyList<string> BindableInputs, string? CompatibilityClass);
+public sealed record SupportPresentation(JsonElement? Labels, int? MaxTraits, IReadOnlyList<string>? AllowedValues, string? ArmorPenetrationState);
+public sealed record SupportWeaponFunction(string Input, IReadOnlyList<string> AllowedValues);
+public sealed record SupportProjectileReference(string ReferenceKind, string CompatibilityClass, string ReferenceRole, WeaponProjectileSource ProjectileSource,
+    ProjectileResidency? Residency, JsonElement? Effect);
 public sealed record SupportField(string InstanceKey, string SupportWeapon, SupportIdentity SupportWeaponIdentity, SupportTarget Target,
     string SemanticFieldId, string QualifiedSemanticFieldId, string ApiFieldConstant, SupportDisplay Display, SupportValue Value,
     bool Writable, bool ReadOnly, string? BlockedReason, SupportBacking Backing, SupportScope SharedScope,
     SupportOperation Operation, SupportResolution Resolution, SupportProvenance Provenance,
-    SupportFireMode? FireMode = null, SupportReticle? Reticle = null, FieldLiveEvidence? LiveEvidence = null)
+    SupportFireMode? FireMode = null, SupportReticle? Reticle = null, FieldLiveEvidence? LiveEvidence = null,
+    SupportProjectileReference? ProjectileReference = null, SupportFireRate? FireRate = null, SupportFunctionAmmo? FunctionAmmo = null,
+    SupportPresentation? Presentation = null, SupportWeaponFunction? WeaponFunction = null, JsonElement? Effect = null)
 {
-    // Unreleased Runtime (0.28.0 development): a typed status reference (value kind "reference"). Validated, but kept read-only here.
+    // A typed status reference (value kind "reference"): a status key, or 'none'.
     [JsonIgnore] public bool IsStatusReference => Value.Kind == "reference" && Value.Type == WeaponCapability.StatusReference;
+    // 0.28.0 typed references: the projectile an attack fires ({weapon, attack} baseline) and the programmable-ammunition projectile.
+    [JsonIgnore] public bool IsProjectileReference => Value.Kind == "reference" && Value.Type == "projectile_reference";
+    [JsonIgnore] public bool IsFunctionProjectile => Value.Kind == "reference" && Value.Type == WeaponCapability.FunctionProjectileReference;
+    // Plain scalars (numbers, integers, booleans) and the published list / label types.
+    [JsonIgnore] public bool IsScalar => Value.Kind == "scalar";
 }
 // 0.26.0: support weapons whose ammunition is stored in their backpack (support weapon -> ammoBackpack).
 public sealed record SupportAmmoBackpackBaseline(int Capacity, int StartAmount, int RefillAmount);
@@ -125,21 +143,24 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
                     && SupportAuthoringWeapon.Resolved(f.SupportWeaponIdentity.IdentityStatus)
                     && (f.Operation.Acknowledgement == null ? f.Operation.AcknowledgementReason == null
                         : f.Operation.Acknowledgement == "allow_unverified_effect" && !string.IsNullOrWhiteSpace(f.Operation.AcknowledgementReason))
-                    && f.Writable && !f.ReadOnly && (f.IsStatusReference ? f.Value.Baseline.ValueKind == JsonValueKind.String
-                        : f.Value.Kind == "scalar" && f.Value.Type is "number" or "integer" or "boolean" or WeaponCapability.FireModeSet)
+                    && f.Writable && !f.ReadOnly && ValidValue(f)
                     && (f.Value.Type == WeaponCapability.FireModeSet) == (f.FireMode != null && f.SemanticFieldId == FireModes.ModesField)
                     && (f.Reticle == null) == (f.SemanticFieldId != FireModes.ReticleField) && (f.Reticle == null || f.Value.Type == "boolean" && f.Reticle.Encoding != null)
                     && JsonElement.DeepEquals(f.Value.Baseline, f.Value.Expected));
                 if (f.FireMode is { } fm && f.Value.Type == WeaponCapability.FireModeSet)
-                    FireModes.ValidateCapability(fm.FireModeState, f.Value.Baseline, f.Writable, fm.AllowedModes, fm.ModeValues, fm.MaxModes, fm.NativeSlots);
-                if (!f.IsStatusReference) _ = Generation.SupportScalar.Normalize(f, f.Value.Baseline);
+                    FireModes.ValidateCapability(fm.FireModeState, f.Value.Baseline, f.Writable, fm.AllowedModes, fm.ModeValues, fm.MaxModes, fm.NativeSlots?.Select(x => (double)x).ToList());
+                if (f.IsScalar && f.Value.Type is "number" or "integer" or "boolean" or WeaponCapability.FireModeSet) _ = Generation.SupportScalar.Normalize(f, f.Value.Baseline);
                 Check(Regex.IsMatch(f.ApiFieldConstant, @"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z"));
                 ValidateTarget(f.Target);
                 var o = objects[f.Backing.ObjectKey]; var g = operations[f.Backing.OperationGroupingKey];
+                // 0.28.0 weapon_selector groups write a weapon's rates, function bindings and function projectile together in one
+                // transaction across its projectile-weapon and weapon-data components; every other group has a single backing object.
+                var selector = g.RecommendedApi == "hd2.transaction" && g.FieldInstanceKeys.All(k => fields[k].SemanticFieldId.Split('.')[0] is "fire_rate" or "function_ammo" or "weapon_function")
+                    && g.FieldInstanceKeys.Any(k => fields[k].Backing.ObjectKey == g.BackingObjectKey);
                 Check(o.FieldInstanceKeys.Contains(f.InstanceKey) && g.FieldInstanceKeys.Contains(f.InstanceKey)
-                    && g.BackingObjectKey == o.ObjectKey && f.Operation.TransactionGroupingKey == g.OperationGroupingKey
-                    && f.Operation.PlanGroupingKey == g.PlanGroupingKey && SameTarget(f.Target, g.Target)
-                    && g.RuntimeBackingScope == f.Backing.RuntimeBackingScope);
+                    && (selector || g.BackingObjectKey == o.ObjectKey && g.RuntimeBackingScope == f.Backing.RuntimeBackingScope)
+                    && f.Operation.TransactionGroupingKey == g.OperationGroupingKey
+                    && f.Operation.PlanGroupingKey == g.PlanGroupingKey && SameTarget(f.Target, g.Target));
                 Check(f.Operation.Phase == g.Phase && g.Phase == 1 && f.Resolution.PlanPhase == 1
                     && f.Operation.Dependencies.Length == 0 && g.Dependencies.Length == 0 && f.Resolution.PlanDependencies.Length == 0
                     && !f.Resolution.RequiresLaterPlanPhase && f.Resolution.TargetFrom.ValueKind == JsonValueKind.Null);
@@ -155,13 +176,37 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
             foreach (var o in objects.Values) Check(o.FieldInstanceKeys.Distinct().Count() == o.FieldInstanceKeys.Length && o.FieldInstanceKeys.All(k => fields[k].Backing.ObjectKey == o.ObjectKey));
             foreach (var g in operations.Values) Check(g.FieldInstanceKeys.Distinct().Count() == g.FieldInstanceKeys.Length && g.FieldInstanceKeys.All(k => fields[k].Backing.OperationGroupingKey == g.OperationGroupingKey));
             Check(c.Summary.SharedConsumerScopeCount == fields.Values.Where(f => f.SharedScope.Shared).Select(f => f.SharedScope.ScopeKey).Distinct().Count());
-            // Status references stay visible with Runtime's baseline, but this build has no status-reference editor or Lua form.
-            return c.FieldInstances.Any(f => f.IsStatusReference)
-                ? c with { FieldInstances = c.FieldInstances.Select(f => f.IsStatusReference ? f with { Writable = false, ReadOnly = true, BlockedReason = WeaponCapability.StatusReferenceReason } : f).ToArray() }
+            // Value types this build does not author yet stay visible with Runtime's baseline, read-only (AuthoredTypes).
+            return c.FieldInstances.Any(f => !AuthoredTypes.SupportField(f))
+                ? c with { FieldInstances = c.FieldInstances.Select(f => AuthoredTypes.SupportField(f) ? f : f with { Writable = false, ReadOnly = true, BlockedReason = AuthoredTypes.NotAuthoredReason }).ToArray() }
                 : c;
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException)
         { throw new InvalidDataException("Malformed support authoring metadata.", e); }
+    }
+    // Each published value kind carries its own metadata: rate sets their slots, weapon functions their input, labels their
+    // allowed names, and typed references their source class.
+    private static bool ValidValue(SupportField f)
+    {
+        var baseline = f.Value.Baseline;
+        static bool Names(IReadOnlyList<string>? names, JsonElement v) => names is { Count: > 0 } && v.ValueKind == JsonValueKind.String && names.Contains(v.GetString()!);
+        return (f.Value.Kind, f.Value.Type) switch
+        {
+            ("reference", WeaponCapability.StatusReference) => baseline.ValueKind == JsonValueKind.String,
+            ("reference", "projectile_reference") => f.SemanticFieldId == "attack.projectile" && f.Target.Path == "attack" && f.Target.AttackRole != null
+                && baseline.ValueKind == JsonValueKind.Object && f.ProjectileReference is { ReferenceKind: "projectile" } r && r.ReferenceRole == f.Target.AttackRole
+                && !string.IsNullOrWhiteSpace(r.CompatibilityClass) && r.ProjectileSource.Status == WeaponProjectileSource.ActiveDirect,
+            ("reference", WeaponCapability.FunctionProjectileReference) => f.SemanticFieldId == "function_ammo.projectile" && f.FunctionAmmo != null
+                && baseline.ValueKind == JsonValueKind.String,
+            ("scalar", "number" or "integer" or "boolean" or WeaponCapability.FireModeSet) => true,
+            ("scalar", WeaponCapability.FireRateSet) => f.FireRate is { MaxModes: 3, SlotNames.Count: 3, NativeSlots.Count: 3 } fr && fr.SlotNames.Contains(fr.DefaultSlot)
+                && baseline.ValueKind == JsonValueKind.Array && baseline.GetArrayLength() == 3 && baseline.EnumerateArray().Select(x => x.GetDouble()).SequenceEqual(fr.NativeSlots),
+            ("scalar", WeaponCapability.WeaponFunction) => f.WeaponFunction is { Input: "left" or "right" } wf && f.SemanticFieldId == "weapon_function." + wf.Input && Names(wf.AllowedValues, baseline),
+            ("scalar", WeaponCapability.ArmorPenetrationLabel) => Names(f.Presentation?.AllowedValues, baseline),
+            ("scalar", WeaponCapability.TraitSet) => f.Presentation is { MaxTraits: > 0 } p && baseline.ValueKind == JsonValueKind.Array
+                && baseline.GetArrayLength() <= p.MaxTraits && baseline.EnumerateArray().All(x => x.ValueKind == JsonValueKind.String),
+            _ => false,
+        };
     }
     public static bool SameTarget(SupportTarget a, SupportTarget b) => a.Resource == b.Resource && a.Path == b.Path && a.AttackRole == b.AttackRole && a.Accessor.SequenceEqual(b.Accessor);
     public static void ValidateTarget(SupportTarget t)

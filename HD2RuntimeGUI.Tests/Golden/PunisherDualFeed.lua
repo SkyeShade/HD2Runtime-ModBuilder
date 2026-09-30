@@ -1,6 +1,12 @@
 local hd2=require('mods/skyeshade/hd2runtime')
 
-return hd2.ensure({
+local operations={}
+local function add(build)
+    local ok,operation=pcall(build)
+    if ok then operations[#operations+1]=operation
+    else print('[ModBuilder] operation skipped: '..tostring(operation)) end
+end
+add(function() return hd2.ensure({
     transaction={
         id='gui-da38f420400172752525addd',
         target=hd2.weapon('SG-8 Punisher'),
@@ -12,4 +18,5 @@ return hd2.ensure({
             {field=hd2.fields.rounds.starting_rounds,expect=32,value=40},
         },
     }
-})
+}) end)
+return operations

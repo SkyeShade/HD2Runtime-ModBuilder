@@ -72,6 +72,14 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         using var buffer = new MemoryStream(); stream.CopyTo(buffer); return buffer.ToArray();
     }
     // The files the bundled release actually ships; which of them its version requires is decided by ReadPayload.
+    // The bundled SDK's version, read once from its metadata.json.
+    public static readonly Lazy<string> BundledVersion = new(() =>
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(BundledMetadata()); return doc.RootElement.GetProperty("runtime_version").GetString()!;
+    });
+    /// <summary>When the cached current SDK is older than the bundled one, the bundled SDK becomes current (true in the app; test fixtures
+    /// that pin the cache to an older SDK turn it off).</summary>
+    public bool AdoptNewerBundled { get; init; } = true;
     public static IReadOnlyDictionary<string, byte[]> BundledComposition() => GraphFiles
         .Select(n => (Name: n, Stream: Assembly.GetExecutingAssembly().GetManifestResourceStream("HD2RuntimeGUI.Core.Metadata.Bundled." + n)))
         .Where(x => x.Stream != null).ToDictionary(x => x.Name, x =>
@@ -131,7 +139,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             sdk = sdk with { FireModes = WeaponFireModeReader.Read(Required(WeaponFireModeReader.FileName, "weapon fire-mode capabilities"), sdk.Version, sdk.PlayerWeapons!, sdk.SupportAuthoring) };
             var e = sdk.Entities!;
             sdk = sdk with { Entities = new EntityAuthoring { Vehicles = e.Vehicles, Backpacks = e.Backpacks, CallIns = e.CallIns, Attachments = e.Attachments, Boosters = e.Boosters,
-                VehicleWeapons = VehicleWeaponReader.Read(Required(VehicleWeaponReader.FileName, "vehicle weapon capabilities"), sdk.Version, e.Vehicles),
+                VehicleWeapons = VehicleWeaponReader.Read(Required(VehicleWeaponReader.FileName, "vehicle weapon capabilities"), sdk.Version, e.Vehicles, e.Backpacks),
                 Pods = PodPayloadReader.Read(Required(PodPayloadReader.FileName, "drop-pod payload capabilities"), sdk.Version) } };
             LinkAmmoBackpacks(sdk.Entities, sdk.SupportAuthoring ?? throw new InvalidDataException("SDK is missing canonical support authoring metadata."));
             // A call-in that delivers a drop-pod rack (Resupply, 0.28.0 development SDKs) must name a published rack that lists it as a consumer.
@@ -167,13 +175,31 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             else if (sdk.Has028) throw MissingFile(EventCatalogReader.FileName, "SDK is missing its event catalog.");
             if (payload.Composition.GetValueOrDefault(AttackOutputReader.FileName) is { } outputs) sdk = sdk with { AttackOutputs = AttackOutputReader.Read(outputs, sdk.Version, sdk.PlayerWeapons!) };
             else if (sdk.Has028) throw MissingFile(AttackOutputReader.FileName, "SDK is missing attack output capabilities.");
+            if (sdk.AttackOutputs is { } hosts && sdk.Has028) LinkProjectileHosts(hosts, sdk.SupportAuthoring!, sdk.Entities!.VehicleWeapons!);
         }
         // The LuaLS stub only drives custom Lua autocomplete, for any SDK that ships one: an unreadable stub leaves autocomplete off
         // instead of refusing the SDK (nothing is written from it).
         if (payload.Composition?.GetValueOrDefault(Scripting.LuaApiIndex.CacheName) is { } stub)
             try { sdk = sdk with { LuaApi = Scripting.LuaStubReader.Read(System.Text.Encoding.UTF8.GetString(stub)) }; }
             catch (InvalidDataException) { }
-        return sdk;
+        return sdk with { ContentFingerprint = SdkPin.Fingerprint(Files(payload)) };
+    }
+    // 0.28.0 unified projectile hosts: a support or mounted attack publishes a projectile field exactly where Runtime's active-source
+    // table makes it a directly writable host, with the same compatibility class.
+    private static void LinkProjectileHosts(AttackOutputCatalog outputs, SupportAuthoringCatalog support, VehicleWeaponCatalog vehicles)
+    {
+        void Check(bool valid) { if (!valid) throw new InvalidDataException("Inconsistent projectile host link."); }
+        var supportFields = support.FieldInstances.Where(f => f.IsProjectileReference).ToArray();
+        var vehicleFields = vehicles.Published.Values.Where(f => f.Type == "projectile_reference").ToArray();
+        foreach (var s in outputs.ProjectileSources)
+        {
+            if (s.HostKind == AttackProjectileSource.SupportKind)
+                Check(supportFields.Count(f => f.SupportWeapon == s.Weapon && f.Target.AttackRole == s.Attack) == (s.DirectWritable ? 1 : 0));
+            else if (s.HostKind == AttackProjectileSource.VehicleKind)
+                Check(vehicleFields.Count(f => f.Weapon == s.Weapon && f.Target.Attack == s.Attack) == (s.DirectWritable ? 1 : 0));
+        }
+        Check(supportFields.All(f => outputs.Source(f.SupportWeapon, f.Target.AttackRole!) is { DirectWritable: true, HostKind: AttackProjectileSource.SupportKind })
+            && vehicleFields.All(f => outputs.Source(f.Weapon, f.Target.Attack!) is { DirectWritable: true, HostKind: AttackProjectileSource.VehicleKind }));
     }
     private static void LinkAssets(AssetDependencyCatalog assets, EntityAuthoring entities, PlayerWeaponComposition? composition)
     {
@@ -245,7 +271,10 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         try
         {
             var pointer = paths.CachePath("current.json");
-            if (File.Exists(pointer)) return await GetVersionAsync((await JsonStorage.ReadAsync<CurrentSdk>(pointer, ct)).Version, ct);
+            // A bundled SDK newer than the cached current one (a ModBuilder upgrade) becomes current; projects stay on their own SDK.
+            if (File.Exists(pointer) && (await JsonStorage.ReadAsync<CurrentSdk>(pointer, ct)).Version is var current
+                && (!AdoptNewerBundled || Models.SemVersion.Parse(current).CompareTo(Models.SemVersion.Parse(BundledVersion.Value)) >= 0))
+                return await GetVersionAsync(current, ct);
             var payload = new SdkPayload(BundledMetadata(), BundledCapabilities(), BundledAmmoCapabilities(), BundledComposition()); var sdk = ReadPayload(payload);
             await SavePayloadAsync(sdk.Version, payload, ct);
             await JsonStorage.WriteAtomicAsync(pointer, new CurrentSdk(sdk.Version), ct);
