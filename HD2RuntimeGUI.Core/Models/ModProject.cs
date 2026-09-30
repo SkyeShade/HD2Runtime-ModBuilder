@@ -62,6 +62,10 @@ public sealed class WeaponChange
     // 0.26.0: acknowledgement of Runtime's allow_unverified_effect opt-in for this field (reticle, fire modes). Omitted when absent.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? EffectAcknowledgement { get; set; }
+    // Format 11: the kind of sub-target ("underbarrel") when Weapon names a weapon's nested sub-target by its published name
+    // ("AR/GL-21 One-Two / underbarrel", hd2.weapon('AR/GL-21 One-Two'):underbarrel()). Omitted for ordinary weapons.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Subweapon { get; set; }
 }
 
 public sealed class ModChange

@@ -40,8 +40,18 @@ public static class CapabilitySurfaces
         [("player_weapon", "boolean")] = "Player Weapons › weapon fields", [("player_weapon", "enum")] = "Player Weapons › weapon fields",
         [("player_weapon", "projectile_reference")] = "Player Weapons › projectile selector", [("player_weapon", "explosion_reference")] = "Player Weapons › impact / expiry actions",
         [("player_weapon", WeaponCapability.FireModeSet)] = "Player Weapons › fire modes",
+        [("player_weapon", WeaponCapability.FireRateSet)] = "Player Weapons › rate of fire & functions", [("player_weapon", WeaponCapability.WeaponFunction)] = "Player Weapons › rate of fire & functions",
+        [("player_weapon", WeaponCapability.FunctionProjectileReference)] = "Player Weapons › programmable ammo",
+        [("player_weapon", WeaponCapability.TraitSet)] = "Player Weapons › armory presentation", [("player_weapon", WeaponCapability.ArmorPenetrationLabel)] = "Player Weapons › armory presentation",
+        [("player_weapon", WeaponCapability.StatusReference)] = "Player Weapons › status effects",
         [("support_weapon", "scalar/number")] = "Stratagems › Support › weapon fields", [("support_weapon", "scalar/integer")] = "Stratagems › Support › weapon fields",
         [("support_weapon", "scalar/boolean")] = "Stratagems › Support › weapon fields", [("support_weapon", "scalar/" + WeaponCapability.FireModeSet)] = "Stratagems › Support › fire modes",
+        [("support_weapon", "scalar/" + WeaponCapability.FireRateSet)] = "Stratagems › Support › rate of fire & functions",
+        [("support_weapon", "scalar/" + WeaponCapability.WeaponFunction)] = "Stratagems › Support › rate of fire & functions",
+        [("support_weapon", "reference/" + WeaponCapability.FunctionProjectileReference)] = "Stratagems › Support › programmable ammo",
+        [("support_weapon", "scalar/" + WeaponCapability.TraitSet)] = "Stratagems › Support › armory presentation",
+        [("support_weapon", "scalar/" + WeaponCapability.ArmorPenetrationLabel)] = "Stratagems › Support › armory presentation",
+        [("support_weapon", "reference/" + WeaponCapability.StatusReference)] = "Stratagems › Support › status effects",
         [("stratagem", "number")] = "Stratagems › stratagem fields", [("stratagem", "integer")] = "Stratagems › stratagem fields",
         [("stratagem", "stratagem_uses")] = "Stratagems › mission uses",
         [("vehicle", "number")] = "Stratagems › Support › vehicle", [("vehicle", "integer")] = "Stratagems › Support › vehicle",
@@ -56,7 +66,11 @@ public static class CapabilitySurfaces
         [("enemy", "number")] = "Enemies", [("enemy", "integer")] = "Enemies", [("structure", "number")] = "Structures", [("structure", "integer")] = "Structures",
     };
     // Player-weapon underbarrels (hd2.weapon(parent):underbarrel()) have their own nested section once this build authors them.
-    public static readonly IReadOnlyDictionary<string, string> Subweapons = new Dictionary<string, string>();
+    public static readonly IReadOnlyDictionary<string, string> Subweapons = new Dictionary<string, string>
+    {
+        ["number"] = "Player Weapons › parent weapon › underbarrel section", ["integer"] = "Player Weapons › parent weapon › underbarrel section",
+        ["boolean"] = "Player Weapons › parent weapon › underbarrel section",
+    };
     // Projectile host kinds the attack-output editor swaps (AttackProjectileSource.HostKind), and the builder / presentation editors.
     public static readonly IReadOnlyDictionary<string, string> ProjectileHosts = new Dictionary<string, string>
     {

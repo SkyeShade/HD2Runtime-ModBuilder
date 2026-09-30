@@ -23,7 +23,8 @@ public sealed class WeaponChangeService : IWeaponChangeService
         try { using var document = JsonDocument.Parse(value); parsed = document.RootElement.Clone(); }
         catch (JsonException e) { throw new InvalidDataException(CoreText.Get("Messages.Build.Field.InvalidValue"), e); }
         parsed = WeaponScalar.Normalize(capability, parsed);
-        var c = new WeaponChange { Weapon = weapon, SemanticFieldId = capability.SemanticFieldId, ExpectedValue = capability.CurrentDefault.Clone(), DesiredValue = parsed,
+        CheckComposition(sdk, weapon, capability, parsed);
+        var c = new WeaponChange { Weapon = weapon, Subweapon = catalog.FindSubweapon(weapon)?.Kind, SemanticFieldId = capability.SemanticFieldId, ExpectedValue = capability.CurrentDefault.Clone(), DesiredValue = parsed,
             FieldType = capability.Type, SharedAcknowledged = sharedAcknowledged && capability.AffectsMultipleWeapons,
             AcknowledgedWriteScope = sharedAcknowledged ? capability.WriteScope : null, AcknowledgedConsumerCount = sharedAcknowledged ? capability.Backing?.ConsumerCount : null,
             AcknowledgedAffectedWeapons = sharedAcknowledged ? capability.SharedWithWeapons.Order(StringComparer.Ordinal).ToList() : [], BaselineSdkVersion = sdk.Version };
@@ -40,7 +41,10 @@ public sealed class WeaponChangeService : IWeaponChangeService
         if (weapon.OrdinaryWritesBlocked) throw new InvalidDataException(weapon.BlockReason ?? CoreText.Get("Messages.Build.Weapon.AmbiguousIdentity"));
         if (!f.Editable || f.DerivedReadOnly || f.Backing == null) throw new InvalidDataException(f.Reason ?? CoreText.Get("Messages.Build.Weapon.FieldUnavailable"));
         if (c.FieldType != f.Type) throw new InvalidDataException(CoreText.Get("Messages.Build.Weapon.TypeChanged"));
+        // A sub-target change names its kind; a weapon change never does (the published target must still be the same kind of object).
+        if (c.Subweapon != catalog.FindSubweapon(c.Weapon)?.Kind) throw new InvalidDataException(CoreText.Format("Messages.Build.Weapon.SubweaponChanged", c.Weapon));
         ValidateValue(f, c.ExpectedValue); ValidateValue(f, c.DesiredValue);
+        CheckComposition(sdk, c.Weapon, f, c.DesiredValue);
         if (f.Format(c.ExpectedValue) != f.Format(f.CurrentDefault)) throw new InvalidDataException(CoreText.Format("Messages.Build.Weapon.BaselineChanged", f.Format(c.ExpectedValue), f.Format(f.CurrentDefault)));
         // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
     }
@@ -63,7 +67,15 @@ public sealed class WeaponChangeService : IWeaponChangeService
             try { Validate(sdk, c); } catch (InvalidDataException e) { issues.Add(new(c.Id, e.Message)); }
         foreach (var weapon in list.Select(c => c.Weapon).Distinct())
             if (FireModeConflict(list, weapon) is { } conflict) issues.Add(new(list.First(c => c.Weapon == weapon && c.SemanticFieldId == FireModes.ModesField).Id, conflict));
+        // 1.4.0: the rate-of-fire selector group is one Runtime transaction, and fields over the same native bytes are never combined.
+        foreach (var (id, message) in WeaponSelectorRules.PlayerIssues(sdk, list)) issues.Add(new(id, message));
         return issues;
+    }
+    // The published values a 1.4.0 field accepts that need the SDK beyond the field itself: a function projectile's donor outputs.
+    public static void CheckComposition(SdkMetadata sdk, string weapon, WeaponCapability f, JsonElement value)
+    {
+        if (f.Type == WeaponCapability.FunctionProjectileReference && !JsonElement.DeepEquals(value, f.CurrentDefault))
+            FunctionProjectile.Check(sdk, weapon, FunctionProjectile.Token(f.CurrentDefault), FunctionProjectile.Token(value));
     }
     public static PlayerWeaponCatalog Catalog(SdkMetadata sdk) => sdk.PlayerWeapons ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Weapon.SdkTooOld"));
     public static void ValidateValue(WeaponCapability f, JsonElement value)
@@ -73,6 +85,19 @@ public sealed class WeaponChangeService : IWeaponChangeService
         {
             if (f.AllowedModes is not { } allowed || f.MaxModes is not int maxModes) throw new InvalidDataException(f.Reason ?? CoreText.Get("Messages.Build.Weapon.FireModesReadOnly"));
             FireModes.ValidateValue(value, allowed, maxModes); return;
+        }
+        // 1.4.0 composition types: each validated against what the field publishes (a function projectile's donor is checked with the SDK
+        // in CheckComposition; its saved expect is the published baseline object).
+        switch (f.Type)
+        {
+            case WeaponCapability.FireRateSet: FireRateModes.Normalize(value, f.Min ?? 1, f.Max ?? 3000, f.MaxModes ?? 1); return;
+            case WeaponCapability.WeaponFunction: WeaponFunctions.Normalize(value, f.AllowedNames); return;
+            case WeaponCapability.FunctionProjectileReference: if (!JsonElement.DeepEquals(value, f.CurrentDefault)) FunctionProjectile.Token(value); return;
+            case WeaponCapability.TraitSet: TraitSets.Normalize(value, f.MaxTraits ?? 5, f.TraitValues?.Keys.ToArray()); return;
+            case WeaponCapability.ArmorPenetrationLabel:
+                if (value.ValueKind != JsonValueKind.String) throw new InvalidDataException(CoreText.Get("Messages.Build.Traits.Invalid"));
+                TraitSets.Label(value.GetString()!, f.AllowedNames); return;
+            case WeaponCapability.StatusReference: StatusReference.Normalize(value, f.AllowedReferences ?? [], f.AllowNone == true); return;
         }
         if (f.Type == "boolean")
         { if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException(CoreText.Get("Messages.Build.Value.ExpectedBoolean")); return; }

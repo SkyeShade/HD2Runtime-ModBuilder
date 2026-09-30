@@ -19,6 +19,23 @@ public static class SupportScalar
             FireModes.ValidateValue(v, allowed, max);
             return JsonSerializer.SerializeToElement(FireModes.Modes(v));
         }
+        // 1.4.0 composition types. The checks that need the SDK beyond the field (trait IDs, status keys, donor outputs) are in
+        // SupportChangeService.CheckComposition.
+        switch (f.Value.Type)
+        {
+            case WeaponCapability.FireRateSet:
+                if (f.FireRate is not { } rate) throw new InvalidDataException(CoreText.Get("Messages.Build.FireRate.ThreeSlots"));
+                return FireRateModes.Normalize(v, rate.Min, rate.Max, rate.MaxModes);
+            case WeaponCapability.WeaponFunction: WeaponFunctions.Normalize(v, f.WeaponFunction?.AllowedValues); return v.Clone();
+            case WeaponCapability.ArmorPenetrationLabel:
+                if (v.ValueKind != JsonValueKind.String) throw new InvalidDataException(CoreText.Get("Messages.Build.Traits.Invalid"));
+                TraitSets.Label(v.GetString()!, f.Presentation?.AllowedValues); return v.Clone();
+            case WeaponCapability.TraitSet: return TraitSets.Normalize(v, f.Presentation?.MaxTraits ?? 5, null);
+            case WeaponCapability.FunctionProjectileReference: FunctionProjectile.Token(v); return v.Clone();
+            case WeaponCapability.StatusReference:
+                if (v.ValueKind != JsonValueKind.String) throw new InvalidDataException(CoreText.Get("Messages.Build.Status.ChooseStatus"));
+                return v.Clone();
+        }
         if (v.ValueKind != JsonValueKind.Number) throw new InvalidDataException(CoreText.Get("Messages.Build.Value.ValidScalar"));
         if (f.Value.Type == "integer" && v.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue)
         {
@@ -35,6 +52,9 @@ public static class SupportScalar
     {
         "number" => ((float)value.GetDouble()).ToString("R", CultureInfo.InvariantCulture),
         WeaponCapability.FireModeSet => FireModes.Lua(value),
+        // 1.4.0: rate slots {450,600,750}, trait lists {'stun'}, quoted names, and a function projectile ('none', the native restore
+        // handle or hd2.attack_output(id)).
+        _ when CompositionLua.Value(f.Value.Type, value, WeaponTargets.Support(f.SupportWeapon)) is { } literal => literal,
         _ => Normalize(f, value).GetRawText(),
     };
 }
@@ -52,6 +72,7 @@ public sealed class SupportChangeService : ISupportChangeService
         JsonElement parsed;
         try { using var d = JsonDocument.Parse(value); parsed = SupportScalar.Normalize(f, d.RootElement); }
         catch (JsonException e) { throw new InvalidDataException(CoreText.Get("Messages.Build.Value.CompleteNumeric"), e); }
+        CheckComposition(sdk, f, parsed);
         return new() { InstanceKey = instance, Weapon = f.SupportWeapon, AttackRole = f.Target.AttackRole, SemanticFieldId = f.SemanticFieldId,
             FieldType = f.Value.Type, ExpectedValue = f.Value.Baseline.Clone(), DesiredValue = parsed, BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f) };
     }
@@ -61,8 +82,25 @@ public sealed class SupportChangeService : ISupportChangeService
         if (c.Weapon != f.SupportWeapon || c.AttackRole != f.Target.AttackRole || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Value.Type || c.CapabilityEvidence != Evidence(f))
             throw new InvalidDataException(CoreText.Get("Messages.Build.Support.CapabilityChanged"));
         if (!SupportScalar.Equal(f, c.ExpectedValue, f.Value.Baseline)) throw new InvalidDataException(CoreText.Format("Messages.Build.Support.BaselineChanged", SupportScalar.Text(f, c.ExpectedValue), SupportScalar.Text(f, f.Value.Baseline)));
-        _ = SupportScalar.Normalize(f, c.DesiredValue);
+        CheckComposition(sdk, f, SupportScalar.Normalize(f, c.DesiredValue));
         // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
+    }
+    // 1.4.0 values checked against the SDK beyond the field: trait IDs (sdk/WeaponPresentationCapabilities.json), status keys (attachable
+    // statuses plus the slot's own, 'none' only where the slots stay packed) and donor function projectiles (sdk/AttackOutputCapabilities.json).
+    public static void CheckComposition(SdkMetadata sdk, SupportField f, JsonElement value)
+    {
+        switch (f.Value.Type)
+        {
+            case WeaponCapability.TraitSet:
+                TraitSets.Normalize(value, f.Presentation?.MaxTraits ?? 5, sdk.Presentation?.Traits.Keys.ToArray()); break;
+            case WeaponCapability.StatusReference:
+                if (SupportScalar.Equal(f, value, f.Value.Baseline)) break;
+                var (allowed, none) = StatusReferences.Support(sdk, f);
+                StatusReference.Normalize(value, allowed, none); break;
+            case WeaponCapability.FunctionProjectileReference:
+                if (!SupportScalar.Equal(f, value, f.Value.Baseline)) FunctionProjectile.Check(sdk, f.SupportWeapon, FunctionProjectile.Token(f.Value.Baseline), FunctionProjectile.Token(value));
+                break;
+        }
     }
     private static void CheckWritable(SdkMetadata sdk, SupportField f)
     {

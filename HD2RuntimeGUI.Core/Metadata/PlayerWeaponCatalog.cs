@@ -90,9 +90,13 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     // Value types a write carries as a list (the rest are scalars or typed references).
     [JsonIgnore] public bool IsListValue => Type is FireModeSet or FireRateSet or TraitSet;
     public const string FireModeSet = "fire_mode_set";
-    // A typed status reference (unreleased Runtime 0.28.0 development SDKs). This build shows it read-only.
+    // A typed status reference (Runtime 0.28.0): a status key from AllowedReferences, or 'none' where AllowNone. Authored since 1.4.0;
+    // the reason is what a value type this build does not author would show.
     public const string StatusReference = "status_reference";
     public const string StatusReferenceReason = AuthoredTypes.NotAuthoredReason;
+    // The operation group Runtime writes in one transaction per weapon: rate-of-fire slots, weapon-function bindings, function projectile.
+    public const string WeaponSelectorGroup = "weapon_selector";
+    [JsonIgnore] public bool InWeaponSelector => OperationGroup == WeaponSelectorGroup;
     [JsonIgnore] public string Domain => SemanticFieldId.Split('.')[0];
     [JsonIgnore] public bool IsPreferred => AliasOf == null && Canonical != false && Preferred != false && Deprecated != true;
     [JsonIgnore] public bool WriteAccepted => AcceptedForWrites ?? Editable;
@@ -100,6 +104,12 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     {
         JsonValueKind.Null or JsonValueKind.Undefined => "Unavailable",
         JsonValueKind.Array when Type == FireModeSet => FireModes.Text(value),
+        // 1.4.0 lists and function projectiles in one canonical, language-neutral spelling (a saved value compares equal to its baseline
+        // whatever whitespace or number spelling the JSON had).
+        JsonValueKind.Array when Type == FireRateSet => string.Join(", ", value.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.Number
+            ? ((float)x.GetDouble()).ToString("R", CultureInfo.InvariantCulture) : x.GetRawText())),
+        JsonValueKind.Array when Type == TraitSet => string.Join(", ", value.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() : x.GetRawText())),
+        JsonValueKind.Object or JsonValueKind.String when Type == FunctionProjectileReference => Generation.FunctionProjectile.TokenOrNull(value) ?? value.GetRawText(),
         JsonValueKind.String => value.GetString()!,
         JsonValueKind.Number when Backing?.Storage == "f32" => ((float)value.GetDouble()).ToString("R", CultureInfo.InvariantCulture),
         _ => value.GetRawText()
@@ -140,11 +150,20 @@ public sealed record PlayerWeaponCatalog(int SchemaVersion, string Hd2RuntimeVer
     BackingCollisionAudit? BackingCollisionAudit = null, IReadOnlyList<Subweapon>? Subweapons = null)
 {
     public Subweapon? FindSubweapon(string name) => Subweapons?.FirstOrDefault(s => s.Name == name);
-    public PlayerWeapon Weapon(string name) => Weapons.SingleOrDefault(w => w.Name == name) ?? throw new InvalidDataException("Weapon no longer exists in this SDK: " + name);
+    public bool IsSubweapon(string name) => FindSubweapon(name) != null;
+    // A weapon, or a sub-target by its published name ("AR/GL-21 One-Two / underbarrel"), as an authoring target with its own fields. A
+    // sub-target is never listed among Weapons (it is not flattened into its parent); it is only resolved by name.
+    public PlayerWeapon? Find(string name) => Weapons.SingleOrDefault(w => w.Name == name) ?? (FindSubweapon(name) is { } sub ? View(sub) : null);
+    private PlayerWeapon View(Subweapon sub)
+    {
+        var parent = Weapons.Single(w => w.Name == sub.SubweaponOf);
+        return new(sub.Name, sub.Slot, parent.Category, sub.Resolution, sub.OrdinaryWritesBlocked, sub.BlockReason, sub.Resources, sub.ImplementationFamilies, sub.Fields);
+    }
+    public PlayerWeapon Weapon(string name) => Find(name) ?? throw new InvalidDataException("Weapon no longer exists in this SDK: " + name);
     public WeaponCapability Field(string weapon, string id) => Weapon(weapon).Fields.SingleOrDefault(f => f.SemanticFieldId == id) ?? throw new InvalidDataException("Field no longer exists in this SDK: " + id);
     public WeaponCapability? FindCanonicalField(string weapon, string id)
     {
-        var fields = Weapons.FirstOrDefault(w => w.Name == weapon)?.Fields;
+        var fields = Find(weapon)?.Fields;
         var field = fields?.FirstOrDefault(f => f.SemanticFieldId == id);
         return field?.AliasOf is { } canonical ? fields!.Single(f => f.SemanticFieldId == canonical) : field;
     }

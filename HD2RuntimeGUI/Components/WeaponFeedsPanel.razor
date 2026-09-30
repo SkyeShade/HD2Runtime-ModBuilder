@@ -1,0 +1,58 @@
+@inject BuilderWorkspace Workspace
+@* HD2Runtime 0.28.0 weapon feeds (sdk/WeaponFeedCapabilities.json) of one player or support weapon: what it can fire and how it switches.
+   A primary feed is the normal projectile; rounds-magazine feeds (the SG-20 Halt's flechette and stun magazines) are switched with the
+   Magazine function and each has its own capacity field and its own branch-qualified projectile / damage fields; a programmable feed is the
+   ProgrammableAmmo projectile (edited under weapon functions). Capacities are edited here; read-only parts show Runtime's reason. *@
+@if (Workspace.Metadata?.Feeds?.Of(Kind, Weapon) is { } entry)
+{
+    <div class="feeds-panel" data-weapon-feeds="@Weapon" data-feeds-selectable="@(entry.SelectableNatively ? "true" : "false")">
+        <div class="fire-mode-head"><strong>@T["WeaponFeeds.Title"]</strong>
+            <span class="badge">@(entry.SelectableNatively ? T["WeaponFeeds.Selectable"] : T.Plural("WeaponFeeds.Count", entry.Feeds.Length))</span></div>
+        <div class="feed-cards">
+            @foreach (var feed in entry.Feeds.OrderBy(f => f.Index))
+            {
+                <div class="fire-mode-slot feed-card" data-feed="@feed.Id" data-feed-mechanism="@feed.Mechanism">
+                    <span class="slot-label">@Mechanism(feed.Mechanism) @(feed.Native ? "" : "· " + T["WeaponFeeds.Added"])</span>
+                    <strong>@(feed.Presentation?.DisplayName ?? feed.Id)</strong>
+                    @if (feed.Selector is { } selector && selector.Function != null)
+                    {
+                        <small class="subtle" data-feed-selector="@selector.Function">@(selector.Bound && selector.Input != null
+                            ? T.Format("WeaponFeeds.SelectedBy", FieldPresentation.FunctionLabel(T, selector.Function), FieldPresentation.InputLabel(T, selector.Input))
+                            : T.Format("WeaponFeeds.NotBound", FieldPresentation.FunctionLabel(T, selector.Function)))</small>
+                    }
+                    @if (feed.OwnedBy != null) { <small class="subtle">@T.Format("WeaponFeeds.OwnedBy", feed.OwnedBy)</small> }
+                    @if (feed.AttackRole is { } role && feed.Mechanism == "rounds_magazine") { <small class="subtle" data-feed-fields="@role">@T.Format("WeaponFeeds.Fields", role.Replace('_', ' '))</small> }
+                    @if (feed.CapacityField is { } capacity)
+                    {
+                        <div class="stat-grid" data-feed-capacity="@capacity">
+                            @if (Kind == CompositionKind.Player && Workspace.Metadata.PlayerWeapons?.Find(Weapon) is { } weapon && weapon.Fields.FirstOrDefault(f => f.SemanticFieldId == capacity) is { } field)
+                            { <WeaponFieldEditor @key="(Weapon, capacity)" Weapon="weapon" Field="field" Changed="Changed" /> }
+                            else if (Kind == CompositionKind.Support && Workspace.Metadata.SupportAuthoring?.FieldInstances.FirstOrDefault(f => f.SupportWeapon == Weapon && f.Target.Path == "weapon" && f.SemanticFieldId == capacity) is { } instance)
+                            { <SupportFieldEditor @key="instance.InstanceKey" Field="instance" Changed="Changed" /> }
+                            else if (feed.Capacity is { } value) { <small class="subtle">@T.Format("WeaponFeeds.Capacity", value)</small> }
+                        </div>
+                    }
+                    @if (feed.Mechanism == "programmable_ammo")
+                    {
+                        <small class="subtle" data-feed-programmable="@feed.State">@(feed.Writable == true ? T["WeaponFeeds.Programmable"] : feed.Reason ?? T["Common.ReadOnly"])</small>
+                    }
+                    @if (Source(feed) is { } source) { <small class="subtle" data-feed-source>@source</small> }
+                </div>
+            }
+        </div>
+    </div>
+}
+@code {
+    [Parameter, EditorRequired] public string Kind { get; set; } = CompositionKind.Player;
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    // Mechanism names are Runtime identifiers; these are their labels (an unknown one shows as published).
+    private string Mechanism(string mechanism) => mechanism switch
+    {
+        "projectile" => T["WeaponFeeds.Mechanism.Projectile"], "rounds_magazine" => T["WeaponFeeds.Mechanism.RoundsMagazine"],
+        "programmable_ammo" => T["WeaponFeeds.Mechanism.Programmable"], _ => mechanism.Replace('_', ' '),
+    };
+    // Where a read-only feed projectile is set, with Runtime's reason (the Halt's magazines are patched by their default customization).
+    private static string? Source(WeaponFeed feed) => feed.ProjectileSource is { ValueKind: System.Text.Json.JsonValueKind.Object } s && s.TryGetProperty("reason", out var r)
+        && r.ValueKind == System.Text.Json.JsonValueKind.String ? r.GetString() : null;
+}

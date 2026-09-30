@@ -907,6 +907,9 @@
   <data name="Composition.Section.TerminalActions" xml:space="preserve">
     <value>Terminal Actions</value>
   </data>
+  <data name="Composition.Selector.ReferenceReason" xml:space="preserve">
+    <value>The programmable projectile is another output's row. Runtime proves the donor, its owner and its package before writing, but this weapon firing it has not been confirmed in play.</value>
+  </data>
   <data name="Composition.Shared.Description.One" xml:space="preserve">
     <value>This edit changes one definition that other weapons also use.</value>
     <comment>{0}: number of edits</comment>
@@ -3255,6 +3258,44 @@
   <data name="Messages.Build.Field.ReadOnly" xml:space="preserve">
     <value>This SDK field is read-only.</value>
   </data>
+  <data name="Messages.Build.FireRate.DefaultRequired" xml:space="preserve">
+    <value>The default rate (slot Y) cannot be empty.</value>
+  </data>
+  <data name="Messages.Build.FireRate.LegacyConflict" xml:space="preserve">
+    <value>{0}: the fire rate and the rate-of-fire modes write the same slot. Keep the rate in the modes' default slot (Y).</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.FireRate.Range" xml:space="preserve">
+    <value>Each rate is 0 (no mode) or between {0} and {1} rounds per minute.</value>
+    <comment>{0}: minimum rpm, {1}: maximum rpm.</comment>
+  </data>
+  <data name="Messages.Build.FireRate.ReadOnly" xml:space="preserve">
+    <value>The rate-of-fire modes of this weapon are read-only.</value>
+  </data>
+  <data name="Messages.Build.FireRate.SingleRate" xml:space="preserve">
+    <value>This weapon can hold only one rate of fire.</value>
+  </data>
+  <data name="Messages.Build.FireRate.ThreeSlots" xml:space="preserve">
+    <value>Rate-of-fire modes are three slots (X, Y, Z) in rounds per minute; 0 leaves a slot empty.</value>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.Invalid" xml:space="preserve">
+    <value>Choose none, the weapon's own programmable projectile, or a catalogued projectile output.</value>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NativeKept" xml:space="preserve">
+    <value>{0} has its own programmable projectile: it cannot be removed, only restored.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NoNative" xml:space="preserve">
+    <value>{0} has no programmable projectile of its own to restore.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NotADonor" xml:space="preserve">
+    <value>{0} is not a projectile output {1} can fire as programmable ammunition.</value>
+    <comment>{0}: attack output ID, {1}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.ReadOnly" xml:space="preserve">
+    <value>This weapon's programmable ammunition is read-only.</value>
+  </data>
   <data name="Messages.Build.Options.Blocked" xml:space="preserve">
     <value>In-game options: {0}</value>
     <comment>{0}: the first in-game option issue (a Messages.Build.Options.* message)</comment>
@@ -3538,6 +3579,46 @@
     <value>{0} is not a projectile-builder field.</value>
     <comment>{0}: Runtime field id</comment>
   </data>
+  <data name="Messages.Build.Selector.BindingNeedsProjectile" xml:space="preserve">
+    <value>{0}: the programmable-ammunition function needs a projectile in the same change.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.BindingNeedsRates" xml:space="preserve">
+    <value>{0}: a rate-of-fire selector needs at least two rates in the same change.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.DuplicateBinding" xml:space="preserve">
+    <value>{0}: one function can be bound to only one input.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.InputTaken" xml:space="preserve">
+    <value>{0}: the {1} input already selects the rate of fire.</value>
+    <comment>{0}: weapon name, {1}: input name (left / right, as published).</comment>
+  </data>
+  <data name="Messages.Build.Selector.MixedPersistence" xml:space="preserve">
+    <value>{0}: the rate-of-fire and programmable-ammunition edits are written together, so they must all be re-applied or all applied once.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.NoAmmoInput" xml:space="preserve">
+    <value>{0} has no free input left for programmable ammunition.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.None" xml:space="preserve">
+    <value>{0} publishes no rate-of-fire or programmable-ammunition fields.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.NoRateInput" xml:space="preserve">
+    <value>{0} has no free input for a rate-of-fire selector.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.ProjectileNeedsBinding" xml:space="preserve">
+    <value>{0}: a programmable projectile needs the programmable-ammunition function bound to a free input in the same change.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Selector.RatesNeedBinding" xml:space="preserve">
+    <value>{0} has no rate-of-fire selector: more than one rate needs one bound to a free input in the same change.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
   <data name="Messages.Build.Status.CatalogMissing" xml:space="preserve">
     <value>This SDK publishes no status effect catalog, so status slots cannot be written.</value>
     <comment>Build error.</comment>
@@ -3633,6 +3714,39 @@
   <data name="Messages.Build.Support.UnsupportedTransaction" xml:space="preserve">
     <value>Unsupported support transaction size or backing object.</value>
   </data>
+  <data name="Messages.Build.Traits.Conflict" xml:space="preserve">
+    <value>{0}: the trait list and the penetration label write the same five armory slots. Keep the label in the trait list.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Traits.Duplicate" xml:space="preserve">
+    <value>Each trait can be shown only once.</value>
+  </data>
+  <data name="Messages.Build.Traits.Invalid" xml:space="preserve">
+    <value>Armory labels are published trait IDs.</value>
+  </data>
+  <data name="Messages.Build.Traits.None" xml:space="preserve">
+    <value>{0} publishes no armory labels.</value>
+    <comment>{0}: weapon name.</comment>
+  </data>
+  <data name="Messages.Build.Traits.PenetrationNotAllowed" xml:space="preserve">
+    <value>'{0}' is not a penetration label this weapon can show.</value>
+    <comment>{0}: penetration choice.</comment>
+  </data>
+  <data name="Messages.Build.Traits.ReadOnly" xml:space="preserve">
+    <value>The armory labels of this weapon are read-only.</value>
+  </data>
+  <data name="Messages.Build.Traits.TooMany.One" xml:space="preserve">
+    <value>The armory shows at most {0} trait.</value>
+    <comment>{0}: maximum number of traits.</comment>
+  </data>
+  <data name="Messages.Build.Traits.TooMany.Other" xml:space="preserve">
+    <value>The armory shows at most {0} traits.</value>
+    <comment>{0}: maximum number of traits.</comment>
+  </data>
+  <data name="Messages.Build.Traits.Unknown" xml:space="preserve">
+    <value>'{0}' is not a trait this SDK publishes.</value>
+    <comment>{0}: trait ID.</comment>
+  </data>
   <data name="Messages.Build.Value.CompleteFinitePublishedType" xml:space="preserve">
     <value>Enter a complete, finite value of the published scalar type.</value>
   </data>
@@ -3704,6 +3818,10 @@
   <data name="Messages.Build.Weapon.SharedBackingConflict" xml:space="preserve">
     <value>Conflicting desired values for a shared backing setting.</value>
   </data>
+  <data name="Messages.Build.Weapon.SubweaponChanged" xml:space="preserve">
+    <value>{0}: this target changed between a weapon and a nested weapon (underbarrel) in this SDK. Reset the saved edit.</value>
+    <comment>{0}: weapon or sub-weapon name.</comment>
+  </data>
   <data name="Messages.Build.Weapon.TransactionLimit" xml:space="preserve">
     <value>A Runtime transaction supports at most 32 fields. Divide this weapon's changes into explicit groups.</value>
   </data>
@@ -3713,6 +3831,10 @@
   <data name="Messages.Build.Weapon.WriteNotAccepted" xml:space="preserve">
     <value>This field is not accepted for writes.</value>
     <comment>Shown when the SDK publishes no reason.</comment>
+  </data>
+  <data name="Messages.Build.WeaponFunction.NotAllowed" xml:space="preserve">
+    <value>'{0}' is not a function this input can take (allowed: {1}).</value>
+    <comment>{0}: function name as published, {1}: allowed names.</comment>
   </data>
   <data name="Messages.Entity.AttachmentsNeedSdk" xml:space="preserve">
     <value>Rebind to SDK 0.23.1 or newer for magazine attachments.</value>
@@ -5660,6 +5782,10 @@
     <value>Fire Mode</value>
     <comment>Weapon editor section heading</comment>
   </data>
+  <data name="Section.Functions" xml:space="preserve">
+    <value>Rate of fire &amp; functions</value>
+    <comment>Weapon editor section heading.</comment>
+  </data>
   <data name="Section.Handling" xml:space="preserve">
     <value>Handling</value>
     <comment>Weapon editor section heading (recoil, spread, sway, ergonomics)</comment>
@@ -5675,6 +5801,10 @@
   <data name="Section.Heatsinks" xml:space="preserve">
     <value>Heatsinks</value>
     <comment>Weapon editor section heading</comment>
+  </data>
+  <data name="Section.Presentation" xml:space="preserve">
+    <value>Armory presentation</value>
+    <comment>Weapon editor section heading.</comment>
   </data>
   <data name="Section.Projectile" xml:space="preserve">
     <value>Projectile</value>
@@ -6566,6 +6696,28 @@
   <data name="StratagemField.Uses.Unverified" xml:space="preserve">
     <value>Mission uses · effect not gameplay-confirmed</value>
     <comment>Warning panel title</comment>
+  </data>
+  <data name="Subweapon.Kind.Other" xml:space="preserve">
+    <value>Nested weapon ({0})</value>
+    <comment>{0}: sub-target kind as published.</comment>
+  </data>
+  <data name="Subweapon.Kind.Underbarrel" xml:space="preserve">
+    <value>Underbarrel weapon</value>
+  </data>
+  <data name="Subweapon.LinkItem" xml:space="preserve">
+    <value>Named by the default underbarrel item {0}; a separate weapon with its own records.</value>
+    <comment>{0}: item name as published.</comment>
+  </data>
+  <data name="Subweapon.NotExposed.One" xml:space="preserve">
+    <value>{0} value Runtime does not expose</value>
+    <comment>{0}: count.</comment>
+  </data>
+  <data name="Subweapon.NotExposed.Other" xml:space="preserve">
+    <value>{0} values Runtime does not expose</value>
+    <comment>{0}: count.</comment>
+  </data>
+  <data name="Subweapon.SharedDefinitions" xml:space="preserve">
+    <value>Shared definitions</value>
   </data>
   <data name="Support.BackpackAmmo.AmmoBox" xml:space="preserve">
     <value>Ammo box: {0}</value>
@@ -7486,6 +7638,60 @@
   <data name="WeaponEditor.WritesUnavailable" xml:space="preserve">
     <value>Ordinary writes unavailable</value>
   </data>
+  <data name="WeaponFeeds.Added" xml:space="preserve">
+    <value>can be added</value>
+    <comment>A feed the weapon does not have natively.</comment>
+  </data>
+  <data name="WeaponFeeds.Capacity" xml:space="preserve">
+    <value>Capacity {0}</value>
+    <comment>{0}: rounds.</comment>
+  </data>
+  <data name="WeaponFeeds.Count.One" xml:space="preserve">
+    <value>{0} feed</value>
+    <comment>{0}: count.</comment>
+  </data>
+  <data name="WeaponFeeds.Count.Other" xml:space="preserve">
+    <value>{0} feeds</value>
+    <comment>{0}: count.</comment>
+  </data>
+  <data name="WeaponFeeds.Fields" xml:space="preserve">
+    <value>Its projectile and damage are edited under Projectile · {0}.</value>
+    <comment>{0}: attack role as published (feed primary / feed alternate).</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.Programmable" xml:space="preserve">
+    <value>Programmable ammunition</value>
+    <comment>Feed mechanism programmable_ammo.</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.Projectile" xml:space="preserve">
+    <value>Normal projectile</value>
+    <comment>Feed mechanism projectile.</comment>
+  </data>
+  <data name="WeaponFeeds.Mechanism.RoundsMagazine" xml:space="preserve">
+    <value>Magazine</value>
+    <comment>Feed mechanism rounds_magazine.</comment>
+  </data>
+  <data name="WeaponFeeds.NotBound" xml:space="preserve">
+    <value>Selected with the {0} function once it is bound</value>
+    <comment>{0}: weapon function.</comment>
+  </data>
+  <data name="WeaponFeeds.OwnedBy" xml:space="preserve">
+    <value>Set by the default customization {0}</value>
+    <comment>{0}: customization name as published.</comment>
+  </data>
+  <data name="WeaponFeeds.Programmable" xml:space="preserve">
+    <value>Edited under weapon functions (programmable ammunition).</value>
+  </data>
+  <data name="WeaponFeeds.Selectable" xml:space="preserve">
+    <value>Switchable in game</value>
+  </data>
+  <data name="WeaponFeeds.SelectedBy" xml:space="preserve">
+    <value>Selected with the {0} function on the {1} input</value>
+    <comment>{0}: weapon function, {1}: input.</comment>
+  </data>
+  <data name="WeaponFeeds.Title" xml:space="preserve">
+    <value>Feeds</value>
+    <comment>What a weapon can fire and how it switches.</comment>
+  </data>
   <data name="WeaponField.AtomicGroup" xml:space="preserve">
     <value>Atomic group</value>
   </data>
@@ -7564,5 +7770,314 @@
   <data name="WeaponField.UnverifiedEffect.Title" xml:space="preserve">
     <value>{0} · effect not gameplay-confirmed</value>
     <comment>{0}: field display name (SDK)</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Alternate" xml:space="preserve">
+    <value>Alternate</value>
+    <comment>The programmable projectile.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Alternate.Help" xml:space="preserve">
+    <value>Fired while the programmable-ammunition function is on</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Base" xml:space="preserve">
+    <value>Base</value>
+    <comment>The projectile the weapon fires normally.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Base.Help" xml:space="preserve">
+    <value>Fired normally (function off)</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.BoundOn" xml:space="preserve">
+    <value>Native on the {0} input</value>
+    <comment>{0}: input (Left / Right).</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Donors.Label" xml:space="preserve">
+    <value>Projectiles this weapon can fire as programmable ammunition</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.FieldEffect" xml:space="preserve">
+    <value>Leaves a {0} field for {1} s, radius {2}</value>
+    <comment>{0}: field volume as published, {1}: seconds, {2}: radius.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.InputChoice" xml:space="preserve">
+    <value>Programmable-ammunition input</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Native" xml:space="preserve">
+    <value>Native programmable projectile</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.NativeNamed" xml:space="preserve">
+    <value>Native · {0}</value>
+    <comment>{0}: the native mode label as published (FLAK, HE…).</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.None" xml:space="preserve">
+    <value>None</value>
+    <comment>No programmable projectile.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.OtherClass" xml:space="preserve">
+    <value>Other class</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.OtherClass.Tooltip" xml:space="preserve">
+    <value>A different compatibility class from the base projectile</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Proven" xml:space="preserve">
+    <value>Live-proven on {0}: {1}</value>
+    <comment>{0}: weapon, {1}: donor outputs.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Remove" xml:space="preserve">
+    <value>Remove alternate</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Reset" xml:space="preserve">
+    <value>Reset ammunition</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Restore" xml:space="preserve">
+    <value>Restore native projectile</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Scoped" xml:space="preserve">
+    <value>Programmable only</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Scoped.Tooltip" xml:space="preserve">
+    <value>The catalog allows this output only as a programmable projectile, never as an attack's projectile</value>
+  </data>
+  <data name="WeaponFunctions.Ammo.Search.Placeholder" xml:space="preserve">
+    <value>Hyena, Pacifier, EMS…</value>
+    <comment>Example donor names (as the SDK publishes them).</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.SpareTwin" xml:space="preserve">
+    <value>Spare twin</value>
+    <comment>An independent copy of a projectile row.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.State.Addable" xml:space="preserve">
+    <value>Can be added</value>
+    <comment>Programmable ammunition state addable.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.State.Native" xml:space="preserve">
+    <value>Native</value>
+    <comment>Programmable ammunition state native.</comment>
+  </data>
+  <data name="WeaponFunctions.Ammo.Title" xml:space="preserve">
+    <value>Programmable ammunition</value>
+  </data>
+  <data name="WeaponFunctions.Conflict.AmmoNeedsInput" xml:space="preserve">
+    <value>The {0} input already holds the rate-of-fire selector, and it is the only input that can take programmable ammunition.</value>
+    <comment>{0}: input (Left / Right).</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.DropAmmo" xml:space="preserve">
+    <value>Use it for the rates (removes the programmable ammunition)</value>
+  </data>
+  <data name="WeaponFunctions.Conflict.DropRates" xml:space="preserve">
+    <value>Use it for the ammunition (keeps only the default rate)</value>
+  </data>
+  <data name="WeaponFunctions.Conflict.MoveAmmo" xml:space="preserve">
+    <value>Move programmable ammunition to the {0} input</value>
+    <comment>{0}: input (Left / Right).</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.MoveRates" xml:space="preserve">
+    <value>Move the rate-of-fire selector to the {0} input</value>
+    <comment>{0}: input (Left / Right).</comment>
+  </data>
+  <data name="WeaponFunctions.Conflict.RatesNeedInput" xml:space="preserve">
+    <value>The {0} input already holds programmable ammunition, and it is the only input that can take the rate-of-fire selector.</value>
+    <comment>{0}: input (Left / Right).</comment>
+  </data>
+  <data name="WeaponFunctions.Function.FireMode" xml:space="preserve">
+    <value>Fire mode</value>
+    <comment>Weapon function.</comment>
+  </data>
+  <data name="WeaponFunctions.Function.LaserGuide" xml:space="preserve">
+    <value>Laser guide</value>
+    <comment>Weapon function.</comment>
+  </data>
+  <data name="WeaponFunctions.Function.LightMode" xml:space="preserve">
+    <value>Flashlight</value>
+    <comment>Weapon function (light mode).</comment>
+  </data>
+  <data name="WeaponFunctions.Function.Magazine" xml:space="preserve">
+    <value>Magazine</value>
+    <comment>Weapon function (switches rounds magazines).</comment>
+  </data>
+  <data name="WeaponFunctions.Function.MuzzleVelocity" xml:space="preserve">
+    <value>Muzzle velocity</value>
+    <comment>Weapon function.</comment>
+  </data>
+  <data name="WeaponFunctions.Function.None" xml:space="preserve">
+    <value>Unbound</value>
+    <comment>Weapon function 'none'.</comment>
+  </data>
+  <data name="WeaponFunctions.Function.ProgrammableAmmo" xml:space="preserve">
+    <value>Programmable ammunition</value>
+    <comment>Weapon function.</comment>
+  </data>
+  <data name="WeaponFunctions.Function.RateOfFire" xml:space="preserve">
+    <value>Rate of fire</value>
+    <comment>Weapon function.</comment>
+  </data>
+  <data name="WeaponFunctions.Function.Zeroing" xml:space="preserve">
+    <value>Zeroing</value>
+    <comment>Weapon function.</comment>
+  </data>
+  <data name="WeaponFunctions.Include.Tooltip" xml:space="preserve">
+    <value>Include these rate-of-fire and programmable-ammunition edits in the build (they are written together)</value>
+  </data>
+  <data name="WeaponFunctions.Info.Tooltip" xml:space="preserve">
+    <value>How weapon functions are written</value>
+  </data>
+  <data name="WeaponFunctions.Info.Transaction" xml:space="preserve">
+    <value>The rate slots, the two weapon-function inputs and the programmable projectile are written in one Runtime transaction. A selector is bound on a free input exactly when what it selects is added, and removed with it. Weapons already built keep their copy until they are rebuilt (call in a new one, redeploy or reinforce).</value>
+  </data>
+  <data name="WeaponFunctions.Input" xml:space="preserve">
+    <value>{0} input: {1}</value>
+    <comment>{0}: input (Left / Right), {1}: bound function.</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Free.Tooltip" xml:space="preserve">
+    <value>A free input: rate-of-fire or programmable-ammunition edits can bind a selector here</value>
+  </data>
+  <data name="WeaponFunctions.Input.Left" xml:space="preserve">
+    <value>Left</value>
+    <comment>The left weapon-function input.</comment>
+  </data>
+  <data name="WeaponFunctions.Input.Right" xml:space="preserve">
+    <value>Right</value>
+    <comment>The right weapon-function input.</comment>
+  </data>
+  <data name="WeaponFunctions.LiveProven" xml:space="preserve">
+    <value>Live-proven</value>
+  </data>
+  <data name="WeaponFunctions.ModeLabels.Alternate" xml:space="preserve">
+    <value>Alternate label</value>
+    <comment>Heading: the mode label and icon of the programmable-ammunition projectile row.</comment>
+  </data>
+  <data name="WeaponFunctions.ModeLabels.Primary" xml:space="preserve">
+    <value>Primary label</value>
+    <comment>Heading: the mode label and icon of the weapon's base projectile row.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.AddHint" xml:space="preserve">
+    <value>Fill slot X or Z to give this weapon selectable rates; its rate-of-fire selector is bound on a free input with them.</value>
+  </data>
+  <data name="WeaponFunctions.Rates.Baseline" xml:space="preserve">
+    <value>Base: {0}</value>
+    <comment>{0}: rates X · Y · Z.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.BaselineToCurrent" xml:space="preserve">
+    <value>Base: {0} → {1}</value>
+    <comment>{0}: published rates, {1}: edited rates.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Binds" xml:space="preserve">
+    <value>Adds the game's rate-of-fire selector on the {0} input.</value>
+    <comment>{0}: input (Left / Right).</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.BoundOn" xml:space="preserve">
+    <value>Selector on the {0} input</value>
+    <comment>{0}: input (Left / Right).</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.DefaultSlot" xml:space="preserve">
+    <value>Slot {0} · default</value>
+    <comment>{0}: slot letter (X / Y / Z).</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.EmptySlot" xml:space="preserve">
+    <value>No mode</value>
+  </data>
+  <data name="WeaponFunctions.Rates.InputChoice" xml:space="preserve">
+    <value>Rate-of-fire selector input</value>
+  </data>
+  <data name="WeaponFunctions.Rates.Legacy" xml:space="preserve">
+    <value>The fire rate is edited to {0} RPM: that is the default slot (Y). Saving rate modes takes it over.</value>
+    <comment>{0}: rpm.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.MenuPosition" xml:space="preserve">
+    <value>Menu position {0}</value>
+    <comment>{0}: position in the weapon menu.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Order" xml:space="preserve">
+    <value>The weapon menu lists {0}; each selector press moves {1}.</value>
+    <comment>{0}: slots in menu order, {1}: slots in selector order from the default.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Overridden" xml:space="preserve">
+    <value>Equipping {0} overwrites all three rates when the weapon is built.</value>
+    <comment>{0}: customization names as published.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Range" xml:space="preserve">
+    <value>Each rate: 0 (no mode) or {0} to {1} RPM. The default slot is never empty.</value>
+    <comment>{0}: minimum, {1}: maximum.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Reset" xml:space="preserve">
+    <value>Reset rates</value>
+  </data>
+  <data name="WeaponFunctions.Rates.Slot" xml:space="preserve">
+    <value>Slot {0}</value>
+    <comment>{0}: slot letter (X / Y / Z).</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Slot.Aria" xml:space="preserve">
+    <value>Rate of slot {0} (rounds per minute, 0 = empty)</value>
+    <comment>{0}: slot letter.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Absent" xml:space="preserve">
+    <value>No rate of fire</value>
+    <comment>Rate-of-fire state absent.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Addable" xml:space="preserve">
+    <value>Selector can be added</value>
+    <comment>Rate-of-fire state addable.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.Selectable" xml:space="preserve">
+    <value>Native selector</value>
+    <comment>Rate-of-fire state selectable.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.State.SingleRate" xml:space="preserve">
+    <value>One rate</value>
+    <comment>Rate-of-fire state single_rate.</comment>
+  </data>
+  <data name="WeaponFunctions.Rates.Title" xml:space="preserve">
+    <value>Rate-of-fire modes</value>
+  </data>
+  <data name="WeaponFunctions.ResetAll" xml:space="preserve">
+    <value>Reset functions</value>
+  </data>
+  <data name="WeaponFunctions.Title" xml:space="preserve">
+    <value>Weapon functions</value>
+  </data>
+  <data name="WeaponPresentation.AddTrait" xml:space="preserve">
+    <value>Add a trait</value>
+  </data>
+  <data name="WeaponPresentation.AddTrait.Choose" xml:space="preserve">
+    <value>Choose…</value>
+  </data>
+  <data name="WeaponPresentation.BaselineToCurrent" xml:space="preserve">
+    <value>Base: {0} → {1}</value>
+    <comment>{0}: published labels, {1}: edited labels.</comment>
+  </data>
+  <data name="WeaponPresentation.MoveEarlier.Aria" xml:space="preserve">
+    <value>Show {0} earlier</value>
+    <comment>{0}: trait label.</comment>
+  </data>
+  <data name="WeaponPresentation.MoveLater.Aria" xml:space="preserve">
+    <value>Show {0} later</value>
+    <comment>{0}: trait label.</comment>
+  </data>
+  <data name="WeaponPresentation.Penetration" xml:space="preserve">
+    <value>Displayed armor penetration</value>
+  </data>
+  <data name="WeaponPresentation.Penetration.None" xml:space="preserve">
+    <value>No penetration label</value>
+  </data>
+  <data name="WeaponPresentation.PresentationOnly" xml:space="preserve">
+    <value>Presentation only</value>
+  </data>
+  <data name="WeaponPresentation.Remove" xml:space="preserve">
+    <value>Remove trait</value>
+  </data>
+  <data name="WeaponPresentation.Remove.Aria" xml:space="preserve">
+    <value>Remove {0}</value>
+    <comment>{0}: trait label.</comment>
+  </data>
+  <data name="WeaponPresentation.Reset" xml:space="preserve">
+    <value>Reset labels</value>
+  </data>
+  <data name="WeaponPresentation.Title" xml:space="preserve">
+    <value>Armory labels</value>
+  </data>
+  <data name="WeaponPresentation.Traits.One" xml:space="preserve">
+    <value>Displayed traits (up to {0})</value>
+    <comment>{0}: maximum.</comment>
+  </data>
+  <data name="WeaponPresentation.Traits.Other" xml:space="preserve">
+    <value>Displayed traits (up to {0})</value>
+    <comment>{0}: maximum.</comment>
   </data>
 </root>

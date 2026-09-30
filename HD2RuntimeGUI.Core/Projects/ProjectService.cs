@@ -78,6 +78,19 @@ public static class ProjectIdentity
     private static bool ModeList(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Array && v.GetArrayLength() is >= 1 and <= 4
         && v.EnumerateArray().All(m => m.ValueKind == System.Text.Json.JsonValueKind.String && Metadata.FireModes.Native.ContainsKey(m.GetString()!))
         && v.EnumerateArray().Select(m => m.GetString()).Distinct().Count() == v.GetArrayLength();
+    // 1.4.0 composition values as saved: three rate slots, up to five trait IDs, a published name, or a function projectile token (its
+    // expect may be the player catalog's {projectileType} baseline). Their meaning is checked against the SDK when the project is built.
+    private static bool Name(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.String && Regex.IsMatch(v.GetString()!, @"\A[a-z][a-z0-9_]{0,63}\z");
+    private static bool CompositionValue(string type, System.Text.Json.JsonElement v, bool expect) => type switch
+    {
+        Metadata.WeaponCapability.FireRateSet => v.ValueKind == System.Text.Json.JsonValueKind.Array && v.GetArrayLength() == 3
+            && v.EnumerateArray().All(x => x.ValueKind == System.Text.Json.JsonValueKind.Number && double.IsFinite(x.GetDouble())),
+        Metadata.WeaponCapability.TraitSet => v.ValueKind == System.Text.Json.JsonValueKind.Array && v.GetArrayLength() <= 5 && v.EnumerateArray().All(Name),
+        Metadata.WeaponCapability.FunctionProjectileReference => expect && v.ValueKind == System.Text.Json.JsonValueKind.Object && v.TryGetProperty("projectileType", out var t)
+                && t.ValueKind == System.Text.Json.JsonValueKind.Number
+            || v.ValueKind == System.Text.Json.JsonValueKind.String && Regex.IsMatch(v.GetString()!, @"\A(?:none|native|output/v1/projectile/[a-z0-9-]{1,128})\z"),
+        _ => Name(v),
+    };
     private static bool Uses(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number
         || v.ValueKind == System.Text.Json.JsonValueKind.String && v.GetString() == Metadata.StratagemUses.Unlimited;
     // Format 8: SDK 0.26.0 edits (fire-mode lists, mission uses, effect acknowledgements, vehicle weapons, drop-pod payloads).
@@ -85,9 +98,13 @@ public static class ProjectIdentity
     // Format 10: enemy and enemy-structure edits (0.28.0 development SDKs); older ModBuilder versions reject the format instead of the edits.
     // Format 11: hand-written Runtime Lua (custom src/addon.lua).
     // Format 11 (1.4.0) also covers 0.28.0 projectile hosts (support and mounted swaps), projectile-builder row writes, backpack-linked
-    // entities and Guard Dog drone weapons (EntityChange.Linked) and mounted-weapon status slots.
+    // entities and Guard Dog drone weapons (EntityChange.Linked), mounted-weapon status slots, weapon composition edits (rate slots, weapon
+    // functions, function projectiles, armory presentation, status references) and sub-target edits (underbarrels).
+    private static bool Composition(string fieldType) => AuthoredTypes.Composition.Contains(fieldType);
     public static int RequiredFormat(ModProject p) => p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 }
-        || p.EntityChanges.Any(c => c.Linked != null || c.FieldType == Metadata.WeaponCapability.StatusReference) ? 11 :
+        || p.EntityChanges.Any(c => c.Linked != null || c.FieldType == Metadata.WeaponCapability.StatusReference)
+        || p.WeaponChanges.Any(c => Composition(c.FieldType) || c.Subweapon != null) || p.SupportChanges.Any(c => Composition(c.FieldType))
+        || p.CompositionChanges.Any(c => c.Scalar is { } s && Composition(s.FieldType)) ? 11 :
         p.EntityChanges.Any(c => Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers != null) ? 10 :
         p.EntityChanges.Any(c => c.Resource == ThrowableAuthoringReader.Resource || c.Effect != null) ? 9 :
         p.WeaponChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet || c.EffectAcknowledgement != null)
@@ -130,7 +147,9 @@ public static class ProjectIdentity
         if (p.RuntimeApi != 1 || p.Changes == null || p.Changes.Count > 1000 || p.Description.Length > 8000) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidData"));
         if (p.Changes.Select(c => c.Id).Distinct().Count() != p.Changes.Count) throw new InvalidDataException(CoreText.Get("Messages.Project.DuplicateChangeIds"));
         if (p.WeaponChanges == null || p.WeaponChanges.Count > 1000 || p.WeaponChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || string.IsNullOrWhiteSpace(c.SemanticFieldId) || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000 || c.AcknowledgedAffectedWeapons == null
-            || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue) : Scalar(c.ExpectedValue) && Scalar(c.DesiredValue))
+            || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue)
+                : Composition(c.FieldType) ? CompositionValue(c.FieldType, c.ExpectedValue, true) && CompositionValue(c.FieldType, c.DesiredValue, false) : Scalar(c.ExpectedValue) && Scalar(c.DesiredValue))
+            || c.Subweapon != null && !Regex.IsMatch(c.Subweapon, @"\A[a-z][a-z_]{0,31}\z")
             || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z"))) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidWeaponOverrides"));
         if (p.WeaponChanges.Select(c => c.Id).Distinct().Count() != p.WeaponChanges.Count) throw new InvalidDataException(CoreText.Get("Messages.Project.DuplicateWeaponChangeIds"));
         if (p.ProjectileChanges == null || p.ProjectileChanges.Count > 1000 || p.ProjectileChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256
@@ -146,6 +165,7 @@ public static class ProjectIdentity
                 || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000
                 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z") || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z")
                 || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue)
+                    : Composition(c.FieldType) ? CompositionValue(c.FieldType, c.ExpectedValue, true) && CompositionValue(c.FieldType, c.DesiredValue, false)
                     : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue)))) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidSupportOverrides"));
         foreach (var c in p.SupportChanges) SemVersion.Parse(c.BaselineSdkVersion);
         foreach (var a in p.SupportApprovals) if (a.Key.Length > 256 || !a.Key.StartsWith("support-scope/v1/", StringComparison.Ordinal) || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidSupportApproval"));

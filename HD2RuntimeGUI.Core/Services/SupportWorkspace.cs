@@ -22,7 +22,14 @@ public sealed partial class BuilderWorkspace
         }
         finally { weaponEditGate.Release(); }
     }
-    public Task SetSupportAsync(string instance, string value, bool acceptBaseline = false) => EditSupportAsync(p =>
+    public async Task SetSupportAsync(string instance, string value, bool acceptBaseline = false)
+    {
+        // 1.4.0: with rate modes edited, the older fire rate is their default (Y) slot and is written there.
+        if (!acceptBaseline && SupportChangeService.Catalog(Metadata!).FieldInstances.FirstOrDefault(f => f.InstanceKey == instance) is { Target.Path: "weapon" } field
+            && await FoldLegacyFireRateAsync(CompositionKind.Support, field.SupportWeapon, field.SemanticFieldId, value)) return;
+        await SetSupportValueAsync(instance, value, acceptBaseline);
+    }
+    private Task SetSupportValueAsync(string instance, string value, bool acceptBaseline) => EditSupportAsync(p =>
     {
         var next = supportChanges.Create(Metadata!, instance, value);
         var old = p.SupportChanges.SingleOrDefault(c => c.InstanceKey == instance);
@@ -36,8 +43,14 @@ public sealed partial class BuilderWorkspace
         // A deliberate edit back to today's displayed vanilla is a reset, even after rebind.
         if (!SupportScalar.Equal(field, next.DesiredValue, field.Value.Baseline)) p.SupportChanges.Add(next);
     });
-    public Task ResetSupportAsync(string? weapon = null, string? instance = null) => EditSupportAsync(p =>
-        p.SupportChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (instance == null || c.InstanceKey == instance)));
+    public Task ResetSupportAsync(string? weapon = null, string? instance = null)
+    {
+        // A rate-of-fire / programmable-ammunition field resets with its pair (Runtime writes them together).
+        if (instance != null && Metadata?.SupportAuthoring?.FieldInstances.FirstOrDefault(f => f.InstanceKey == instance) is { Target.Path: "weapon" } field
+            && WeaponSelectorRules.IsSelectorField(field.SemanticFieldId))
+            return ResetSelectorFieldAsync(CompositionKind.Support, field.SupportWeapon, field.SemanticFieldId);
+        return EditSupportAsync(p => p.SupportChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (instance == null || c.InstanceKey == instance)));
+    }
     public Task SetSupportApprovalAsync(string instance, bool approved) => EditSupportAsync(p =>
     {
         var f = SupportChangeService.Catalog(Metadata!).Field(instance);
@@ -51,6 +64,11 @@ public sealed partial class BuilderWorkspace
         if (f.Operation.Acknowledgement != "allow_unverified_effect") throw new InvalidDataException(CoreText.Get("Messages.Workspace.EffectAcknowledgementNotRequired"));
         p.SupportChanges = p.SupportChanges.Select(c => c.InstanceKey == instance ? c with { EffectAcknowledgement = acknowledged ? SupportChangeService.EffectEvidence(f) : null } : c).ToList();
     });
-    public Task ToggleSupportAsync(string instance) => EditSupportAsync(p =>
-        p.SupportChanges = p.SupportChanges.Select(c => c.InstanceKey == instance ? c with { Enabled = !c.Enabled } : c).ToList());
+    public async Task ToggleSupportAsync(string instance)
+    {
+        // A weapon's rate-of-fire / programmable-ammunition group is one transaction: it is enabled or disabled as a whole.
+        if (Metadata?.SupportAuthoring?.FieldInstances.FirstOrDefault(f => f.InstanceKey == instance) is { Target.Path: "weapon" } field
+            && await ToggleSelectorAsync(CompositionKind.Support, field.SupportWeapon, field.SemanticFieldId)) return;
+        await EditSupportAsync(p => p.SupportChanges = p.SupportChanges.Select(c => c.InstanceKey == instance ? c with { Enabled = !c.Enabled } : c).ToList());
+    }
 }

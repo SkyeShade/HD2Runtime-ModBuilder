@@ -11,6 +11,10 @@ public static class WeaponScalar
     {
         WeaponChangeService.ValidateValue(field, value);
         if (field.Type == WeaponCapability.FireModeSet) return JsonSerializer.SerializeToElement(FireModes.Modes(value));
+        if (field.Type == WeaponCapability.FireRateSet) return FireRateModes.Normalize(value, field.Min ?? 1, field.Max ?? 3000, field.MaxModes ?? 1);
+        if (field.Type == WeaponCapability.TraitSet) return TraitSets.Normalize(value, field.MaxTraits ?? 5, field.TraitValues?.Keys.ToArray());
+        if (field.Type is WeaponCapability.WeaponFunction or WeaponCapability.FunctionProjectileReference or WeaponCapability.ArmorPenetrationLabel or WeaponCapability.StatusReference)
+            return value.Clone();
         if (field.Type == "integer")
         {
             if (!value.TryGetDecimal(out var integer) || decimal.Truncate(integer) != integer)
@@ -29,6 +33,10 @@ public static class WeaponScalar
     {
         if (field.Type == "boolean") return a.ValueKind is JsonValueKind.True or JsonValueKind.False && b.ValueKind == a.ValueKind;
         if (field.Type == WeaponCapability.FireModeSet) return FireModes.Equal(a, b);
+        if (field.Type == WeaponCapability.FireRateSet) return FireRateModes.Equal(a, b);
+        if (field.Type == WeaponCapability.TraitSet) return TraitSets.Equal(a, b);
+        // A function projectile's baseline object and its saved token compare by what they name ('none', 'native' or an output).
+        if (field.Type == WeaponCapability.FunctionProjectileReference) return FunctionProjectile.Equal(a, b);
         if (a.ValueKind != JsonValueKind.Number || b.ValueKind != JsonValueKind.Number)
             return JsonElement.DeepEquals(a, b);
         if (field.Type == "integer") return a.TryGetDecimal(out var x) && decimal.Truncate(x) == x

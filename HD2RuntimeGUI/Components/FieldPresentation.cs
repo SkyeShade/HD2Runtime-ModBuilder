@@ -52,6 +52,8 @@ internal static class FieldPresentation
         // 0.26.0: the reticle and fire modes stay in their own sections even when read-only, so their blocker is visible there.
         if (f.SemanticFieldId == HD2RuntimeGUI.Core.Metadata.FireModes.ReticleField) return "Handling";
         if (f.Domain == "fire_mode") return FireMode;
+        if (f.Domain == "presentation") return Presentation;
+        if (Composition(f)) return Functions;
         if (!f.Editable || f.DerivedReadOnly) return Advanced;
         if (f.Domain == "heat") return "Heat";
         if (f.Domain == "heatsink") return "Heatsinks";
@@ -62,7 +64,22 @@ internal static class FieldPresentation
         return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(f.Domain.Replace('_', ' '));
     }
     public const string FireMode = "Fire Mode";
-    public static int SectionOrder(string name) => name switch { "Weapon" => 0, FireMode => 1, "Ammo / Magazine" => 2, "Handling" => 3, "Heat" => 4, "Heatsinks" => 5, "Projectile" => 6, "Damage" => 7, "Status Effects" => 8, "Explosion" => 9, Advanced => 99, _ => 10 };
+    // 1.4.0 sections: the weapon-function group (rate-of-fire slots, weapon-function inputs, programmable ammunition, feeds) and the armory
+    // labels. Read-only fields of both stay in their section, so their blocker is shown where the editor would be.
+    public const string Functions = "Functions", Presentation = "Presentation";
+    public static bool Composition(WeaponCapability f) => f.InWeaponSelector || f.Domain is "fire_rate" or "weapon_function" or "function_ammo" or "presentation";
+    // Weapon-function input and function names are Runtime identifiers; these are their labels in the UI language (unknown ones as published).
+    public static string InputLabel(IUiText t, string input) => input switch { "left" => t["WeaponFunctions.Input.Left"], "right" => t["WeaponFunctions.Input.Right"], _ => input };
+    public static string FunctionLabel(IUiText t, string function) => function switch
+    {
+        "none" => t["WeaponFunctions.Function.None"], "rate_of_fire" => t["WeaponFunctions.Function.RateOfFire"],
+        "programmable_ammo" => t["WeaponFunctions.Function.ProgrammableAmmo"], "fire_mode" => t["WeaponFunctions.Function.FireMode"],
+        "magazine" => t["WeaponFunctions.Function.Magazine"], "zeroing" => t["WeaponFunctions.Function.Zeroing"], "light_mode" => t["WeaponFunctions.Function.LightMode"],
+        "laser_guide" => t["WeaponFunctions.Function.LaserGuide"], "muzzle_velocity" => t["WeaponFunctions.Function.MuzzleVelocity"],
+        _ => function.Replace('_', ' '),
+    };
+    public static int SectionOrder(string name) => name switch { "Weapon" => 0, FireMode => 1, Functions => 2, "Ammo / Magazine" => 3, "Handling" => 4, "Heat" => 5, "Heatsinks" => 6,
+        "Projectile" => 7, "Damage" => 8, "Status Effects" => 9, "Explosion" => 10, Presentation => 12, Advanced => 99, _ => 11 };
     // Section names are keys (data-section values, ordering, comparisons); this is only their heading in the UI language. A section
     // named after an SDK domain shows as published.
     public static string SectionLabel(IUiText t, string section) => section switch
@@ -71,6 +88,7 @@ internal static class FieldPresentation
         "Heat" => t["Section.Heat"], "Heatsinks" => t["Section.Heatsinks"], "Heat / Heatsink" => t["Section.HeatHeatsink"], "Projectile" => t["Section.Projectile"],
         "Damage" => t["Section.Damage"], "Status Effects" => t["Section.StatusEffects"], "Explosion" => t["Section.Explosion"], Advanced => t["Section.Advanced"],
         "Composition" => t["Section.Composition"], "Unavailable" => t["Section.Unavailable"],
+        Functions => t["Section.Functions"], Presentation => t["Section.Presentation"],
         _ => section,
     };
 }
