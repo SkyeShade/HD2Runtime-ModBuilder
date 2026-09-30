@@ -11,9 +11,9 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// Enemies and enemy structures (hd2.enemy / hd2.structure) from an unreleased HD2Runtime development SDK. The fixture is the committed
-// sdk/*.json of HD2Runtime e15d5bf (reports 0.27.0; carries EnemyAuthoringCapabilities.json for 0.28.0), served through the developer-only
-// local SDK path, exactly as `--sdk-path <HD2Runtime>\sdk` serves it.
+// Enemies and enemy structures (hd2.enemy / hd2.structure). The fixture is sdk-0.28.0.zip (the frozen HD2Runtime 0.28.0 release candidate),
+// served through the developer-only local SDK path exactly as
+// `--sdk-path <HD2Runtime>\sdk` serves it.
 public sealed class EnemyAuthoringTests
 {
     public const string Fixture = "sdk-0.28.0.zip";

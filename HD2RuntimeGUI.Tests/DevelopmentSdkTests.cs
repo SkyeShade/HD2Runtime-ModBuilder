@@ -3,9 +3,9 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// The unreleased HD2Runtime development SDK (fixture e15d5bf) also changes the catalogs of other domains. ModBuilder binds it without
-// inventing anything: new additive metadata is read, new targets that map onto published accessors are authored, and value types this
-// build has no editor for (typed status references) stay visible but read-only with a reason.
+// The HD2Runtime 0.28.0 SDK (fixture sdk-0.28.0.zip, the frozen release candidate) also changes the catalogs of other domains. ModBuilder
+// binds it without inventing anything: new additive metadata is read, new targets that map onto published accessors are authored, and a
+// field Runtime publishes without a typed API constant stays visible but read-only with a reason.
 public sealed class DevelopmentSdkTests
 {
     // 1.4.0 authors typed status references on player and support weapons (WeaponCompositionTests); vehicle-weapon ones stay read-only here.

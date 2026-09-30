@@ -10,7 +10,7 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// The unreleased HD2Runtime 0.28.0 development SDK (fixture e15d5bf): event scripting and custom Lua, attack outputs through the active
+// The HD2Runtime 0.28.0 SDK (fixture sdk-0.28.0.zip, the frozen release candidate): event scripting and custom Lua, attack outputs through the active
 // projectile source, Resupply, the SH-20 shield zone, numeric bounds, the SG-20 Halt's branch-qualified fields and the developer SDK setting.
 public sealed class Runtime028IntegrationTests
 {

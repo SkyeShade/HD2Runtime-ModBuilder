@@ -1,9 +1,18 @@
-# HD2Runtime 0.28.0 integration (development)
+# HD2Runtime 0.28.0 integration (ModBuilder 1.4.0)
 
-Internal notes for the local compatibility pass against the **unreleased** HD2Runtime SDK at commit `e15d5bf` (the Runtime work
-finished before the weapon-composition pass; its `VERSION` still reads 0.27.0). Nothing here is released. The ModBuilder version,
-the SDK compatibility pin (`SdkCompatibility.NewestSupportedVersion`, 0.27.0) and the update manifests are unchanged.
-The development fixture is `HD2RuntimeGUI.Tests/Fixtures/sdk-dev-e15d5bf.zip`.
+Internal notes on how ModBuilder 1.4.0 consumes the frozen **HD2Runtime 0.28.0** release candidate: release commit `39aabe3`, SDK generated
+at `e304f26`, API 1, schema 1, SDK archive SHA-256 `42b9cac4e0d3328a638b766d70bf04e03e064a357f897bc1f89e0066f188851e`.
+
+- **Pin.** `SdkPin` records the version, commits, archive SHA-256 and a content fingerprint of every SDK file ModBuilder reads. The bundled
+  SDK (`HD2RuntimeGUI.Core/Metadata/Bundled/`) is byte-identical to the release asset; `SdkPinTests` checks it against the fixture
+  `HD2RuntimeGUI.Tests/Fixtures/sdk-0.28.0.zip` (the release-candidate asset itself). `SdkCompatibility.NewestSupportedVersion` is 0.28.0.
+- **Upgrade.** A bundled SDK newer than the cached current one becomes current on start (`SdkCache.AdoptNewerBundled`); projects stay on
+  their own SDK until the user rebinds them.
+- **Local SDKs.** A local SDK with the pinned version but other contents is reported as a different build (`SdkMetadata.IsPinnedBuild`),
+  never taken for the pin, and never cached.
+- **Exports** declare `requires.hd2runtime.min_version` = the SDK they were built on (0.28.0).
+- **Fail closed.** Every reader validates the frozen catalogs strictly; value types or targets this build could not author would stay
+  visible and read-only (`AuthoredTypes`), and `CapabilityAudit` would report them. At 1.4.0 it reports none missing.
 
 ## Local SDK selection
 
@@ -22,20 +31,6 @@ About the Settings entry:
 
 The local SDK is still validated in memory and never cached. Exports require its version, and nothing from the Runtime is packaged.
 
-**The live checkout currently has uncommitted weapon-composition work in `sdk/`:**
-
-- new files: `OutputCompositionCapabilities.json`, `WeaponFeedCapabilities.json`, `WeaponFireRateCapabilities.json`, `WeaponPresentationCapabilities.json`;
-- reshaped player and support catalogs (`fire_rate.modes`, `nativeSlots`).
-
-This build refuses that SDK, fail-closed ("Malformed player-weapon capability catalog"). Until that pass is integrated, bind a clean snapshot:
-
-```
-git -C ..\HD2Runtime archive --format=tar -o %TEMP%\sdk.tar e15d5bf sdk
-tar -x -f %TEMP%\sdk.tar -C %TEMP%\hd2runtime-sdk-e15d5bf
-```
-
-Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This does not modify the Runtime checkout.
-
 ## SDK files consumed
 
 | File | Contract | Use |
@@ -44,7 +39,13 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
 | `AttackOutputCapabilities.json` | `hd2runtime.attack_outputs.v1` schema 2 | Active projectile source per attack (ACTIVE_DIRECT / INDIRECT / AMBIGUOUS / BLOCKED), ammunition sources, proven compositions, host model, 105 outputs (66 selectable). Cross-checked against the player catalog. Read when present, required from 0.28.0. |
 | `stubs/mods/skyeshade/hd2runtime.lua` | LuaLS annotations | Autocomplete and the diagnostics reference: all 195 classes of the frozen stub with their fields and functions (inherited members included, so an `HD2Event_*` payload has the common `event`, `time`, `frame`, `mission`, `cause`), the sub-tables declared on `hd2` (`hd2.diagnostics` through `---@type`, `hd2.compatibility.*`), every string alias (weapon, attack output, status, event names ...), and each function's first parameter type. Cached as `hd2runtime-stubs.lua` for every SDK that ships it; an unreadable stub only turns autocomplete off. |
 | `LiveEvidenceCatalog.json` | `hd2runtime.live_evidence.v1` | For scripting: the `events` / `event_actions` families (`event_action_heal`, `event_damage_source_attribution`, `event_weapon_in_hand`, `event_player_died_position`, `event_action_explosion_named`, `event_action_projectile`, `event_action_status`), shown next to the event, action or handle method they name. |
-| `BackpackAuthoringCapabilities.json` | (existing) | Now with `damageZones`, per-field `effect`, `rangeReason`. |
+| `PlayerWeaponAuthoringCapabilities.json` | (existing) | 0.28.0: rate-of-fire slots, weapon functions, programmable-ammunition projectiles, armory traits and penetration labels, status references, heat levels, and `subweapons` (underbarrels). |
+| `SupportWeaponAuthoringCapabilities.json` | (existing) | 0.28.0: the same composition types, support projectile hosts (`attack.projectile`) and weapon_selector operation groups spanning two components. |
+| `VehicleWeaponCapabilities.json` | (existing) | 0.28.0: mounted projectile hosts, Guard Dog drone carriers, status slots, shared beam and arc rows, live-proven values. |
+| `StatusEffectCatalog.json` | `hd2runtime.status_effects.v1` | Status names and attachability for every status-reference editor. |
+| `WeaponPresentationCapabilities.json` | `hd2runtime.weapon.presentation.v1` | Trait and penetration labels; the presentation-only and refresh notes. |
+| `WeaponFeedCapabilities.json` | `hd2runtime.weapon.feeds.v1` | Native, rounds-magazine and programmable feeds per weapon (SG-20 Halt, AC-8, GR-8, RL-77, addable weapons). |
+| `BackpackAuthoringCapabilities.json` | (existing) | Now with `damageZones`, per-field `effect`, `rangeReason`, and linked entities (Guard Dog drones, the SH-51 energy shield) with their zones. |
 | `PodPayloadCapabilities.json` | (existing) | Now with per-slot `liveVerifiedPickups` (Resupply: Grenade Box). |
 | `StratagemAuthoringCapabilities.json` | (existing) | Resupply (family `mission`), sentry turret/targeting and minefield salvo fields. |
 
@@ -180,24 +181,12 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
 
 ## Other items
 
-- **SG-20 Halt:** fields stay per feed (feed_primary → `damage.primary.*`, feed_alternate → `damage.alternate.*`), grouped under each feed. The planner now emits the branch-qualified constant the target publishes (`hd2.fields.damage.primary_standard_damage`, `…alternate_*`) instead of the generic name. The Runtime's user report (2026-09-29) found the generic name fails on 0.27.0. The change applies only to projectile-object fields whose published id is branch-qualified; only the Halt has those, so no other weapon's output changes.
-- **SH-20 Ballistic Shield:**
-  - The shield plate is edited as "Shield zone · Armor" (`hd2.backpack(name):damage_zone('zone_0')`, `hd2.fields.zone.armor`).
-  - `entity.armor` is read-only, badged **Not active**, and names the active field.
-  - Any field's `effect` is shown generically: how it takes effect, whether that is proven, spawn-only, and its damage rule.
-- **Numeric bounds:** published ranges are enforced as before, and their reason is shown in ⓘ (for example the 10-bit deposit limit, 1023, on the Cremator, GL-28 and Maxigun backpacks).
-- **Resupply:**
-  - listed under Stratagems → Mission, with cooldown and uses (unlimited or 1–100);
-  - its shared drop pod has four authorable slots and spawn count 1–4;
-  - Grenade Box shows **Live-verified pair**, from the slot's `liveVerifiedPickups`;
-  - the rack is shared with `AmmoRack_PresidentReward`.
-- **Sentries and mines:** yaw/pitch speed and limits, targeting range, minefield salvos and mines per salvo are all generic fields, with no field list in ModBuilder.
-- **Support, player and throwables:** audited against 0.27.0.
-  - New support and player fields are authored, including `stationary_while_firing`, status strengths and `projectile.lifetime` / `penetration_slowdown`.
-  - Status *type* references stay read-only with a reason.
-  - Throwables publish no new fields.
-- **Bug fixed during the pass:** the attack-output operations were first inserted between `if (sdk.Plans != null)` and its `else`, which made plan projects emit every operation twice. A test now checks that operation ids are unique.
-- **Export page:** for 0.28 SDKs it explains apply timing. Weapons built before a change applied keep their copy, and the Runtime logs `registered operations settled`.
+- **SG-20 Halt:** fields stay per feed (feed_primary → `damage.primary.*`, feed_alternate → `damage.alternate.*`), grouped under each feed. The planner emits the branch-qualified constant the target publishes (`hd2.fields.damage.primary_standard_damage`, `…alternate_*`). Every generated operation is also built inside `pcall` (`LuaGenerator.Isolated`), so an operation whose request cannot be built is logged (`[ModBuilder] operation skipped: …`) and the others still register (ModBuilder#2; `HaltRegressionTests`, and the Runtime issue variants validate with isolation probes).
+- **SH-20 Ballistic Shield:** the shield plate is edited as "Shield zone · Armor"; `entity.armor` is read-only, badged **Not active**, and names the active field.
+- **Numeric bounds:** published ranges are enforced where the edit is made, with their reason (for example the 1023 backpack-ammo limit, sentry and minefield ranges).
+- **Resupply:** Stratagems → Mission, cooldown and uses; its shared drop pod has four slots; a pickup live-proven in that exact slot (Grenade Box) carries no `allow_unverified_reference`.
+- **Status references** (player, support and mounted weapons, heat levels) are chosen by name from the published statuses; only attachable statuses, the last used slot can be cleared.
+- **Export page:** for 0.28 SDKs it explains apply timing (`registered operations settled`).
 
 ## Hardcoded assumptions that remain
 
@@ -213,26 +202,31 @@ Then point `--sdk-path` or Settings at `%TEMP%\hd2runtime-sdk-e15d5bf\sdk`. This
 
 ## Tests and smoke
 
-- 19 new tests in `Runtime028IntegrationTests` cover:
-  - custom Lua persistence, outside-edit conflict and reload, syntax and diagnostics;
-  - the event catalog and stub, and snippets end to end;
-  - Liberator donors, active-source codegen and opt-in persistence, same-class classic swaps, discarding object edits;
-  - validation of the saved attack outputs;
-  - Resupply, the SH-20 zone, 1023 bounds, Halt branch constants, unique operation ids;
-  - older projects, and the developer SDK setting.
-- Three existing tests were updated for the new nav item, the Mission category and the cached stub. The suite has 755 tests.
+- Unit tests: `SdkPinTests`, `HaltRegressionTests`, `OldProjectCompatibilityTests` (projects saved by ModBuilder 1.3.1 itself), `CapabilityAuditTests`
+  (unexpected missing = 0; writes `capability-audit.json` and `COVERAGE.md`), `ExportFixtureTests`, `WeaponCompositionTests`, `ProjectileHostTests`,
+  `ProjectileBuilderTests`, `EquipmentTests`, `ScriptingReferenceTests`, `Runtime028IntegrationTests`.
+- Export validation: `tools/validate-exports.py` runs every export fixture through HD2Runtime 0.28.0's own validator from the extracted release
+  tree (read-only, `git archive 39aabe3`), in snapshot mode, with an isolation probe per export.
+- Desktop smokes against the packaged app (`scripts/run-rc-smokes.ps1`): `scripting`, `language`, `runtime028`, `projectile-builder`, `export`,
+  `old-project`. Screenshots go to the release candidate's `smokes/screenshots/`.
 - Event scripting against the frozen 0.28.0 SDK: `ScriptingReferenceTests` (10 tests) checks that every catalog event and action reaches the
   reference and pickers with its availability, blocked reason, options and live evidence; the `player_hit` / `player_damage_dealt` payloads,
   source records and snippets; that every snippet, handler and picker insert parses and checks clean; that completion covers every class,
-  field and function of the stub (and falls back to the catalog without one); the diagnostics reference built from the stub; that the
-  generated operation wrapper checks clean; and that no code path turns telemetry on.
-- Desktop smoke: `tools/scripting-smoke.mjs`, run with the app on the e15d5bf snapshot and CDP port 9241. Screenshots are in `docs/screenshots/`: `custom-lua-*`, `attack-output-liberator`, `backpack-sh20-shield-zone`, `resupply-drop-pod`, `settings-local-sdk`.
+  field and function of the stub; the diagnostics reference built from the stub; that the generated operation wrapper checks clean; and that
+  no code path turns telemetry on.
 
-## Next: the weapon-composition pass
+## Weapon composition, projectile hosts and equipment (frozen 0.28.0)
 
-These are the capabilities of the Runtime pass in progress, already visible as uncommitted files in the checkout:
-
-- **Multi-RPM fire modes** (`WeaponFireRateCapabilities.json`, `fire_rate.modes`): a per-mode rate editor on the fire-mode panel.
-- **Alternate ammunition / feed modes** (`WeaponFeedCapabilities.json`): the selectable ammunition items per weapon (the Liberator's ten alternates, the Halt's rounds feed). Donors then follow the equipped feed.
-- **Cross-family beam / output composition** (`OutputCompositionCapabilities.json`): beam, arc and spray outputs, and the component changes they need. Today those are BLOCKED with a reason.
-- **Presentation / armory labels** (`WeaponPresentationCapabilities.json`): names and labels shown in the armory, edited next to the weapon.
+- **Rate-of-fire slots, weapon functions and programmable ammunition** (`WeaponFunctionsPanel`): X / Y / Z rates, the default slot and selector
+  order, input bindings resolved inline, the function projectile from the one donor pool (spare twins and function-ammo-only rows included),
+  written with its binding in one `weapon_selector` transaction. Mode labels and icons for the base and alternate rows are edited in place
+  (`ModePresentationEditor`).
+- **Armory presentation** (`WeaponPresentationPanel`): traits and the penetration label, presentation only.
+- **Underbarrels** (`SubweaponSection`): a nested section on the parent weapon, written to `hd2.weapon(parent):underbarrel()`.
+- **Unified projectile hosts** (`ProjectileHostSwaps`): support weapons, vehicle mounts and the Guard Dog gun, with read-only hosts and refused
+  donors shown with Runtime's reason.
+- **Projectile builder** (Projectiles page, `ProjectileRowEditor`): row slots (direct damage, impact and expiry explosion), host row versus donor
+  row, the row's flight values, and who fires it.
+- **Equipment:** backpack-linked entities (`:drone()`, `:energy_shield()` and their zones), Guard Dog drone weapons through the backpack, mounted
+  status slots, Resupply and pod payloads.
+- **Beam, arc, spray and melee outputs** are listed with their blocked reason; no projectile editing is invented for them.

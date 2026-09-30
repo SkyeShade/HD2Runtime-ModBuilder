@@ -131,11 +131,11 @@ they:
 - provided the initial zh-Hans translation resource set (`Strings.resx` / `Strings.zh-Hans.resx` for v1.3.0);
 - provided the English/Chinese review table used as the translation baseline and as the terminology reference for new text.
 
-**What that baseline covers today.** The current interface has 1,896 keys: many more than v1.3.0 had, because of the enemy, custom Lua,
-Runtime 0.28 and Core message work. The comments in `Strings.zh-Hans.resx` show where each value came from:
+**What that baseline covers today.** The ModBuilder 1.4.0 interface has 2,233 keys: many more than v1.3.0 had, because of the enemy, custom Lua,
+Runtime 0.28 (projectile builder, weapon composition, equipment, scripting reference) and Core message work. The comments in `Strings.zh-Hans.resx` show where each value came from:
 
 - 508 values are the contributor's translations, used verbatim (`issue #1`);
 - 201 are the contributor's translations, adapted where the English was reworded, split or merged (`issue #1 (adapted)`);
-- 1,187 were translated during implementation, following the contributor's terminology (`new: needs native review`).
+- 1,524 were translated during implementation, following the contributor's terminology (`new: needs native review`).
 
 Corrections and reviews by native speakers are welcome; see [Adding a language](#adding-a-language) for the workflow, which is the same for improving an existing one.

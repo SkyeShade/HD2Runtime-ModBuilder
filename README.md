@@ -150,6 +150,19 @@ The 19 customization-supplied default presets (including Concussive and the shar
 
 Capability schema v2 supplies explicit `aliasOf`, `canonical`, `preferred`, `deprecated`, `acceptedForWrites` and `semanticTarget` metadata. Only preferred canonical fields appear as independent controls. Old project aliases resolve per weapon for display/editing and generated Lua; equal desired values appear once. Conflicting desired values (or different saved baselines) block building until a saved source is explicitly selected or the field is reset. Source records remain intact on opening/rebinding; ordinary edits save the canonical identifier while retaining the saved expected baseline. Fields are never merged merely because they share an offset or semantic target.
 
+## SDK 0.28.0 authoring
+
+ModBuilder 1.4.0 binds the frozen HD2Runtime 0.28.0 SDK (release `39aabe3`); see [the integration notes](docs/runtime028-integration.md).
+
+- **Unified projectile hosts.** Player primaries and secondaries, support weapons, vehicle mounts and the Guard Dog gun swap their projectile from one donor pool (`hd2.attack_output`), with Runtime's active-source rule, package loading, sharing and live evidence. Read-only hosts and refused donors show Runtime's reason.
+- **Projectile builder** (Projectiles page). A row's direct-hit damage, impact and expiry explosion take another row's handle or `none`; its mode label and HUD icon take a native value (`auto` icon included). A row write changes every entity firing the row and never follows a host swap; the editor names those entities.
+- **Rate of fire & functions.** X / Y / Z rates, the default slot and selector order, weapon-function bindings and programmable ammunition (MG-206 Incendiary / Stun / Gas, the S-11 Speargun's Stun spare twin), written together in one transaction.
+- **Armory presentation** (traits, penetration label, presentation only), **weapon feeds** (the SG-20 Halt's two feeds), **status effects by name**, heat levels, and **underbarrels** (the AR/GL-21 One-Two launcher as a nested section).
+- **Equipment.** Guard Dog drones and their weapons, the SH-51 energy shield, SH-32, Warp and Hover Packs, Resupply and its pod, sentries and minefields.
+- **Events and custom Lua.** Every 0.28.0 event (including `player_hit` and `player_damage_dealt`), actions, snippets, completion from the SDK stub, and a diagnostics reference (telemetry is never turned on by ModBuilder).
+- **Coverage.** `CapabilityAudit` classifies every published capability; at 1.4.0 none is missing (COVERAGE.md in the release candidate).
+- **Halt hardening.** Every generated operation is built inside `pcall`, so one that cannot be built is logged and the rest still register.
+
 ## Heat and heatsinks
 
 SDK 0.18 adds a dedicated **Heat / Heatsink** section for seven energy weapons. The typed heat companion is cross-checked against the authoring catalog for identities, fingerprints, baselines, ownership, permissions and counts. Five weapons expose 30 writable field instances (15 heat, 15 heatsink); Scythe and Dagger stay blocked by duplicate identities. Dagger's native/catalog disagreements remain visible.

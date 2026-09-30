@@ -16,6 +16,7 @@ param(
 #   package\                                  the release ZIP, its .sha256 and both update manifests (not published)
 #   RELEASE-NOTES-<version>.md, TEST-CHECKLIST.md, COVERAGE.md, capability-audit.json
 #   export-fixtures\*.zip, export-validation.json  representative exports and their HD2Runtime validation
+#   smokes\                                   desktop smokes run on the packaged app (logs, screenshots, summary.json)
 #   test-results\, BUILD-REPORT.md, build-report.json
 # Nothing is pushed, tagged or published.
 
@@ -79,10 +80,13 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
     # 4. Documents.
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\release-notes\v$version.md") -Destination (Join-Path $rc "RELEASE-NOTES-$version.md")
     Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\testing\TEST-CHECKLIST.md') -Destination (Join-Path $rc 'TEST-CHECKLIST.md')
+    # 5. Desktop smokes against the packaged app (also the packaged-launch check).
+    & (Join-Path $PSScriptRoot 'run-rc-smokes.ps1') -App $exe -RuntimeTree $RuntimeTree
+    $smokeExit = $LASTEXITCODE
     $smokes = Join-Path $rc 'smokes'
     $smokeSummary = if (Test-Path (Join-Path $smokes 'summary.json')) { Get-Content -LiteralPath (Join-Path $smokes 'summary.json') -Raw | ConvertFrom-Json } else { $null }
 
-    # 5. Build report.
+    # 6. Build report.
     $zip = Get-Item -LiteralPath (Join-Path $package "$name.zip")
     $sdkZip = Join-Path $repoRoot 'HD2RuntimeGUI.Tests\Fixtures\sdk-0.28.0.zip'
     $audit = Get-Content -LiteralPath (Join-Path $rc 'capability-audit.json') -Raw | ConvertFrom-Json
@@ -106,11 +110,11 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
         "- Tests: $($counters.passed) passed, $($counters.failed) failed of $($counters.total)",
         "- Export validation (HD2Runtime 0.28.0 validator, $($exports.mode) $($exports.snapshot)): $($exports.status), $(@($exports.failed).Count) failed of $($exports.exports) exports (with isolation probes)",
         "- Capability audit: unexpected missing = $($audit.unexpectedMissing) (see COVERAGE.md)",
-        "- Smokes: $(if ($smokeSummary) { ($smokeSummary.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ' } else { 'run scripts\run-rc-smokes.ps1 (writes smokes\summary.json), then rebuild the report' })",
+        "- Desktop smokes on the packaged app: $(if ($smokeSummary) { ($smokeSummary.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ' } else { 'not run' })",
         '', 'Open the app with "Launch ModBuilder RC (test data).cmd" and follow TEST-CHECKLIST.md. Nothing here is published.'
     )
     Set-Content -LiteralPath (Join-Path $rc 'BUILD-REPORT.md') -Value ($lines -join "`n") -Encoding utf8
     Write-Host "Release candidate: $rc"
-    if ($testExit -ne 0 -or $exportExit -ne 0 -or $audit.unexpectedMissing -ne 0) { throw "Release candidate checks failed (tests $testExit, exports $exportExit, unexpected missing $($audit.unexpectedMissing))." }
+    if ($testExit -ne 0 -or $exportExit -ne 0 -or $smokeExit -ne 0 -or $audit.unexpectedMissing -ne 0) { throw "Release candidate checks failed (tests $testExit, exports $exportExit, smokes $smokeExit, unexpected missing $($audit.unexpectedMissing))." }
 }
 finally { Pop-Location }
