@@ -18,7 +18,8 @@ public sealed class EnemyAuthoringTests
 {
     public const string Fixture = "sdk-0.28.0.zip";
     private const string Charger = "enemy/v1/terminids/charger", Spewer = "enemy/v1/terminids/boomer_burrower", Gunship = "enemy/v1/automatons/gunship",
-        Fabricator = "enemy/v1/automatons/spawner_factory_conscript_base", Bunker = "enemy/v1/automatons/command_bunker_side", Hunter = "enemy/v1/terminids/hunter_tier_1";
+        Fabricator = "enemy/v1/automatons/spawner_factory_conscript_base", Bunker = "enemy/v1/automatons/command_bunker_side", Hunter = "enemy/v1/terminids/hunter_tier_1",
+        Hunter2 = "enemy/v1/terminids/hunter_tier_2", ScoutStrider = "enemy/v1/automatons/assault_walker";
     public static string DevSdk(TestEnvironment e, string name = "dev-sdk")
     {
         var dir = Path.Combine(e.Paths.Root, name);
@@ -201,6 +202,72 @@ public sealed class EnemyAuthoringTests
         var error = await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(right.InstanceKey, "12"));
         Assert.Contains("already edited through Gunship · HEAT Rocket Racks (direct-hit damage)", error.Message);
         Assert.Null(w.BuildError); Assert.Single(w.Project!.EntityChanges);
+    }
+
+    // Every damage zone is its own entry in its class's health record (Runtime publishes one backing object for the whole record), so the same
+    // field on two zones is two values: the first zone edit never blocks another zone. Regression: 1.4.0 refused every later zone edit of a
+    // class as "already edited through <first zone>". Checked on two enemy families (the Charger's head and torso plate, the Scout Strider's legs).
+    [Theory]
+    [InlineData(Charger, "charger", "zone_0", "zone_5")]
+    [InlineData(ScoutStrider, "assault_walker", "zone_0", "zone_4")]
+    public async Task The_same_field_on_two_zones_of_one_class_is_two_values(string enemy, string className, string a, string b)
+    {
+        using var e = new TestEnvironment(); var (w, sdk) = await Fresh(e);
+        var first = Zone(sdk, enemy, a, "zone.health"); var second = Zone(sdk, enemy, b, "zone.health");
+        Assert.Equal(first.BackingObjectId, second.BackingObjectId); Assert.Equal(first.ApiFieldConstant, second.ApiFieldConstant);
+        await w.SetEntityAsync(first.InstanceKey, "2000");
+        await w.SetEntityAsync(second.InstanceKey, "2100");
+        await w.SetEntityAsync(Zone(sdk, enemy, b, "zone.armor").InstanceKey, "6");
+        Assert.Equal(3, w.Project!.EntityChanges.Count); Assert.Null(w.BuildError);
+        // One request per zone, each carrying its own edits.
+        var lua = w.LuaPreview; Assert.Equal(2, CountOf(lua, "hd2.ensure("));
+        string Request(string zone) => Flat(lua.Split("hd2.ensure(").Single(r => r.Contains("target=hd2.enemy('" + className + "'):zone('" + zone + "'),", StringComparison.Ordinal)));
+        Assert.Contains("field=hd2.fields.zone.health, expect=" + first.CurrentDefault.GetRawText() + ", value=2000,", Request(a));
+        Assert.Contains("{field=hd2.fields.zone.health,expect=" + second.CurrentDefault.GetRawText() + ",value=2100}", Request(b));
+        Assert.Contains("{field=hd2.fields.zone.armor,expect=4,value=6}", Request(b));
+        Assert.DoesNotContain("allow_shared", lua);
+    }
+
+    // Every class at once: one zone.health edit on every editable zone of every enemy and structure builds, one request per zone.
+    [Fact] public async Task Every_class_takes_independent_edits_on_all_of_its_zones()
+    {
+        using var e = new TestEnvironment(); var (w, sdk) = await Fresh(e); var service = new EntityChangeService();
+        var zones = sdk.Entities!.Enemies!.FieldInstances.Where(f => f.Editable && f.SemanticFieldId == "zone.health").ToArray();
+        Assert.True(zones.Select(f => f.Target.Enemy).Distinct().Count() > 100);
+        var p = w.Project!;
+        p.EntityChanges = zones.Select(f => service.Create(sdk, f.InstanceKey, (f.CurrentDefault.GetInt32() + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))).ToList();
+        Assert.Equal(zones.Length, new EntityLua(service).Operations(p, sdk).Count);
+    }
+
+    // True shared values are still one value. A health record Runtime publishes as shared by two classes is one record: the same zone (or main
+    // health) reached through both classes is refused where the edit is made and at build time, while another zone of that record is not.
+    [Fact] public async Task A_zone_of_a_shared_health_record_is_one_value_across_its_classes()
+    {
+        using var e = new TestEnvironment();
+        var n = Json(e); var one = Class(n, "hunter_tier_1"); var two = Class(n, "hunter_tier_2");
+        foreach (var c in new[] { one, two }) { c["sharedHealthRecord"] = true; c["allowSharedRequired"] = true; c["healthRecordConsumers"] = new JsonArray("hunter_tier_1", "hunter_tier_2"); }
+        two["backingObjectId"] = (string)one["backingObjectId"]!;
+        var dir = Path.Combine(e.Paths.Root, "dev-sdk-shared-record"); Directory.CreateDirectory(dir);
+        foreach (var file in Directory.GetFiles(DevSdk(e))) File.Copy(file, Path.Combine(dir, Path.GetFileName(file)));
+        n["summary"]!["sharedHealthRecords"] = 2; await File.WriteAllBytesAsync(Path.Combine(dir, EnemyAuthoringReader.FileName), Bytes(n));
+        var w = Workspace(e, dir, out var updates); var sdk = (await updates.CheckAsync()).Installed;
+        await w.CreateAsync(new("Shared Record", "Tests", "mods/tests/shared_record", "0.1.0"), sdk);
+        var zone0 = Zone(sdk, Hunter, "zone_0", "zone.health"); var sameZone = Zone(sdk, Hunter2, "zone_0", "zone.health");
+        Assert.Equal(zone0.BackingObjectId, sameZone.BackingObjectId); Assert.True(zone0.Shared && sameZone.Shared);
+        await w.SetEntityAsync(zone0.InstanceKey, "50");
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(sameZone.InstanceKey, "55"));
+        Assert.Contains("Zone health is one shared value, already edited through hunter_tier_1 · zone_0", error.Message);
+        // Another zone of the shared record is another value.
+        await w.SetEntityAsync(Zone(sdk, Hunter2, "zone_7", "zone.health").InstanceKey, "30");
+        // Main health of the shared record is one value too.
+        await w.SetEntityAsync(Main(sdk, Hunter, "entity.health").InstanceKey, "777");
+        Assert.Contains("already edited through hunter_tier_1", (await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(Main(sdk, Hunter2, "entity.health").InstanceKey, "777"))).Message);
+        Assert.Equal(3, w.Project!.EntityChanges.Count); Assert.Null(w.BuildError);
+        Assert.Contains(Flat("target=hd2.enemy('hunter_tier_2'):zone('zone_7'),\n    allow_shared=true,"), Flat(w.LuaPreview));
+        // A project that carries both edits anyway (edited outside ModBuilder) does not build.
+        var p = w.Project; p.EntityChanges.Add(new EntityChangeService().Create(sdk, sameZone.InstanceKey, "55"));
+        var build = Assert.Throws<InvalidDataException>(() => new EntityLua(new EntityChangeService()).Operations(p, sdk));
+        Assert.Contains("Zone health is one shared value reached through", build.Message);
     }
 
     [Fact] public async Task Structures_use_the_same_editor_model_with_hd2_structure()

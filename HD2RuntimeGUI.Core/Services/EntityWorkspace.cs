@@ -56,10 +56,11 @@ public sealed partial class BuilderWorkspace
         // naming both slots, instead of at build time.
         if (f.IsStatusReference) EntityChangeService.CheckPacking(p, Metadata!, f);
     });
-    // One native value reached through two targets: the same backing row, or (0.28.0) a settings row a Guard Dog drone weapon and a vehicle
-    // mount both fire.
+    // One native value reached through two targets: the same value of one backing row (never two zones of it), or (0.28.0) a settings row a
+    // Guard Dog drone weapon and a vehicle mount both fire.
     private static bool SameValue(EntityField other, EntityField f) => other.ApiFieldConstant == f.ApiFieldConstant && other.Target != f.Target
-        && (other.BackingObjectId == f.BackingObjectId || (other.Target.Linked != null || f.Target.Linked != null) && other.SharedRow != null && other.SharedRow == f.SharedRow);
+        && (EntityChangeService.NativeValue(other) == EntityChangeService.NativeValue(f)
+            || (other.Target.Linked != null || f.Target.Linked != null) && other.SharedRow != null && other.SharedRow == f.SharedRow);
     public Task SetEntityReferenceAcknowledgedAsync(string instance, bool acknowledged) => EditEntityAsync(p =>
     {
         var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.VehicleCapabilityMissing"));

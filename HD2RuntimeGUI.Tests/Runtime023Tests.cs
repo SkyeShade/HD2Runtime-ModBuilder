@@ -106,6 +106,18 @@ public sealed class Runtime023Tests
         await w.SetEntityAsync(Entity(w, Bastion, "entity.armor").InstanceKey, "4"); Assert.Equal(3, w.Project.EntityChanges.Count);
         await w.ResetEntityAsync("vehicle", Bastion); Assert.Empty(w.Project.EntityChanges);
     }
+    // A vehicle's damage zones are entries of the one health component Runtime publishes as their backing object: the same field on two
+    // zones is two values, so editing one zone never blocks another.
+    [Fact] public async Task The_same_field_on_two_vehicle_zones_is_two_values()
+    {
+        using var e = new TestEnvironment(); var w = await Workspace(e);
+        var three = Entity(w, Bastion, "zone.armor", "zone_3"); var four = Entity(w, Bastion, "zone.armor", "zone_4");
+        Assert.Equal(three.BackingObjectId, four.BackingObjectId);
+        await w.SetEntityAsync(three.InstanceKey, "5"); await w.SetEntityAsync(four.InstanceKey, "6");
+        Assert.Null(w.BuildError); Assert.Equal(2, w.Project!.EntityChanges.Count); var lua = w.LuaPreview;
+        Assert.Contains("target=hd2.vehicle('TD-220 Bastion MK XVI'):damage_zone('zone_3'),", lua); Assert.Contains("target=hd2.vehicle('TD-220 Bastion MK XVI'):damage_zone('zone_4'),", lua);
+        Assert.Equal(2, lua.Split("field=hd2.fields.zone.armor,").Length - 1); Assert.Contains("value=5,", lua); Assert.Contains("value=6,", lua);
+    }
 
     [Fact] public async Task Mount_replacements_are_published_same_family_weapons_only()
     {

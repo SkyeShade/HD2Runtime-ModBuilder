@@ -1,10 +1,10 @@
-# ModBuilder 1.4.0 release candidate: manual check (10-20 minutes)
+# ModBuilder 1.4.1 release candidate: manual check (10-20 minutes)
 
-Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4.0/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
+Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4.1/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
 
 ## Start
 1. [ ] ModBuilder starts; the sidebar footer shows **SDK 0.28.0**.
-2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.4.0**; installed SDK **0.28.0**; supported up to **0.28.0**.
+2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.4.1**; installed SDK **0.28.0**; supported up to **0.28.0**.
 3. [ ] **Project library → Create New Mod**, name it `RC Check`. The overview shows SDK 0.28.0.
 
 ## Weapons

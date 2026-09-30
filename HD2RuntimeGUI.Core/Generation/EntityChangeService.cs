@@ -155,6 +155,9 @@ public sealed class EntityChangeService : IEntityChangeService
         }).ToList();
         return refreshed;
     }
+    // The native value a field writes: its backing object, the damage zone inside it, and the field. Vehicles and enemies share one backing object
+    // (their health component) across all their zones, and each zone is its own entry in it, so the same field on two zones is two values.
+    public static (string Backing, string? Zone, string Field) NativeValue(EntityField f) => (f.BackingObjectId, f.Target.Zone, f.ApiFieldConstant);
     public static bool Approved(ModProject p, EntityField f) => p.EntityApprovals.GetValueOrDefault(f.SharedScopeKey) == ApprovalEvidence(f);
     public static EntityChange? Saved(ModProject? p, EntityField f) => p?.EntityChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);
     public static bool NoOp(SdkMetadata sdk, EntityChange c)
@@ -177,11 +180,11 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         foreach (var c in active) service.Validate(project, sdk, c);
         var output = new List<string>();
         var effective = active.Where(c => !EntityChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: EntityChangeService.Resolve(catalog, c))).ToArray();
-        // One native owner reached through several targets (a weapon in two mounts, a projectile row shared by two mounted weapons)
-        // is one value: edit it through one of them only, otherwise two jobs would race on the same bytes.
-        foreach (var same in effective.GroupBy(r => (r.Field.BackingObjectId, r.Field.ApiFieldConstant))
+        // One native value reached through several targets (a weapon in two mounts, a projectile row shared by two mounted weapons)
+        // is one value: edit it through one of them only, otherwise two jobs would race on the same bytes. Two zones are two values.
+        foreach (var same in effective.GroupBy(r => EntityChangeService.NativeValue(r.Field))
             // A Guard Dog drone weapon (0.28.0) can fire a settings row a vehicle mount also fires: the same row through both is one value too.
-            .Concat(effective.Where(r => r.Field.SharedRow != null).GroupBy(r => (r.Field.SharedRow!, r.Field.ApiFieldConstant)).Where(g => g.Any(r => r.Field.Target.Linked != null))))
+            .Concat<IEnumerable<(EntityChange Change, EntityField Field)>>(effective.Where(r => r.Field.SharedRow != null).GroupBy(r => (r.Field.SharedRow!, r.Field.ApiFieldConstant)).Where(g => g.Any(r => r.Field.Target.Linked != null))))
             if (same.Select(r => r.Field.Target).Distinct().Count() > 1)
                 throw new InvalidDataException(CoreText.Format("Messages.Build.Entity.SharedValue", same.First().Field.DisplayName,
                     same.Select(r => Describe(catalog, r.Field.Target)).Distinct().Aggregate((a, b) => CoreText.Format("Messages.Build.Entity.SharedValueTargets", a, b))));
