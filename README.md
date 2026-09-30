@@ -223,6 +223,10 @@ See [0.17 sample projects](samples/README.md#runtime-017-samples) and [verificat
 
 The reticle icon (`HD2RuntimeGUI/Resources/AppIcon/appicon.svg`, identical to `wwwroot/brand/modbuilder-icon.svg`) is the executable, window, taskbar and Alt-Tab icon; the build generates `appicon.ico` from it. The full HD2Runtime ModBuilder lockup appears in the sidebar, About, the empty project library and the startup splash. The brand yellow is `--brand-yellow: #FDD00E`; the Boosters category keeps its own `--booster-category-yellow`. The wordmark uses Big Shoulders Display (SIL Open Font License, `wwwroot/brand/fonts/`).
 
+## Languages
+
+The interface is available in English and Simplified Chinese (简体中文); choose it in **Settings & SDK → Language** (System default follows Windows). Switching is immediate and never changes what ModBuilder generates: Lua, project files and exported mods are identical in every language. Translations are standard `.resx` resources in `HD2RuntimeGUI.Core/Resources/Strings/`; adding a language is a data file plus one registry line. See [docs/localization.md](docs/localization.md). The Chinese translation originated from [@CChusky](https://github.com/CChusky)'s contribution in [issue #1](https://github.com/SkyeShade/HD2Runtime-ModBuilder/issues/1).
+
 ## Architecture
 
 `HD2RuntimeGUI/` is the MAUI Windows host, with Razor `Components/`, native desktop adapters in `Services/`, and custom dark CSS in `wwwroot/`.

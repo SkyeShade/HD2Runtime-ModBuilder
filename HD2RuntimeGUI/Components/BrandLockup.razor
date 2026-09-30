@@ -2,7 +2,7 @@
 <div class="brand-lockup @Size" data-brand-lockup="@Size">
     <BrandMark Size="@(Size == "lg" ? 112 : 38)" />
     <div class="brand-wordmark"><span class="brand-line1"><b>HD2</b>Runtime</span><strong class="brand-line2">ModBuilder</strong>
-        @if (Tagline) { <small class="brand-tagline">mod authoring for hd2runtime</small> }</div>
+        @if (Tagline) { <small class="brand-tagline">@T["App.Brand.Tagline"]</small> }</div>
 </div>
 @code {
     // "sm" (sidebar) or "lg" (About, project library).

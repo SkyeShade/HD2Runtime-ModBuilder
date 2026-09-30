@@ -1,9 +1,11 @@
+using HD2RuntimeGUI.Core.Localization;
+
 namespace HD2RuntimeGUI.Core.Models;
 
 public sealed record ProjectileReference(string Weapon, string AttackRole)
 {
     [System.Text.Json.Serialization.JsonIgnore]
-    public string Label => Weapon + " · " + AttackRole.Replace('_', ' ') + " projectile";
+    public string Label => CoreText.Format("Messages.Model.Projectile", Weapon, AttackRole.Replace('_', ' '));
 }
 public sealed class ProjectileChange
 {

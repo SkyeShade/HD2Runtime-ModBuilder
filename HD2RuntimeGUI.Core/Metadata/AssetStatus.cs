@@ -1,4 +1,5 @@
 using System.Globalization;
+using HD2RuntimeGUI.Core.Localization;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
@@ -18,39 +19,40 @@ public enum AssetState
     Unknown,
 }
 
+// Label, Short, Description, InGame and FamilyProofText are ModBuilder's UI text in the current UI language (State is the logic value);
+// Blocker, Basis, package names and Runtime status tokens are shown as published.
 public sealed record AssetStatusView(AssetState State, string Family, AssetReferenceFamily? FamilyProof, string? Package, bool? PackageNamed,
     string? Derivation, bool LiveTested, bool PackageLiveLoaded, string? Blocker, AssetLoadPolicy? Policy)
 {
     public string Label => State switch
     {
-        AssetState.LiveVerified => "Assets live-verified",
-        AssetState.AutoLoaded => "Assets loaded automatically",
-        AssetState.AlwaysResident => "Assets always loaded",
-        AssetState.Unknown => "Assets unknown",
+        AssetState.LiveVerified => CoreText.Get("Asset.Label.LiveVerified"),
+        AssetState.AutoLoaded => CoreText.Get("Asset.Label.AutoLoaded"),
+        AssetState.AlwaysResident => CoreText.Get("Asset.Label.AlwaysResident"),
+        AssetState.Unknown => CoreText.Get("Asset.Label.Unknown"),
         _ => "",
     };
     public string Short => State switch
     {
-        AssetState.LiveVerified => "assets live-verified", AssetState.AutoLoaded => "assets auto-load", AssetState.AlwaysResident => "assets always loaded",
-        AssetState.Unknown => "assets unknown", _ => "",
+        AssetState.LiveVerified => CoreText.Get("Asset.Short.LiveVerified"), AssetState.AutoLoaded => CoreText.Get("Asset.Short.AutoLoaded"),
+        AssetState.AlwaysResident => CoreText.Get("Asset.Short.AlwaysResident"), AssetState.Unknown => CoreText.Get("Asset.Short.Unknown"), _ => "",
     };
     public bool Warning => State == AssetState.Unknown;
     public string Description => State switch
     {
-        AssetState.LiveVerified => "HD2Runtime loads the package holding these assets automatically before the write; that package was loaded in a passing live test with nobody carrying the donor item.",
-        AssetState.AutoLoaded => "HD2Runtime loads the package holding these assets automatically before the write. Nobody needs to carry the donor item.",
-        AssetState.AlwaysResident => "These assets ship in a package the game always has loaded.",
-        AssetState.Unknown => "HD2Runtime cannot load these assets automatically: " + (Blocker ?? "the package holding them is not known.")
-            + " Unless the item is already loaded in the mission, it may appear as a missing asset (for example a purple placeholder).",
+        AssetState.LiveVerified => CoreText.Get("Asset.Description.LiveVerified"),
+        AssetState.AutoLoaded => CoreText.Get("Asset.Description.AutoLoaded"),
+        AssetState.AlwaysResident => CoreText.Get("Asset.Description.AlwaysResident"),
+        AssetState.Unknown => CoreText.Format("Asset.Description.Unknown", Blocker ?? CoreText.Get("Asset.Description.UnknownPackage")),
         _ => "",
     };
     // What happens in game: the operation waits (waiting_for_assets), then applies; or Runtime rejects it with ASSET_UNAVAILABLE
     // and the original reference stays. Uses Runtime's published load policy.
     public string? InGame => State is AssetState.LiveVerified or AssetState.AutoLoaded && Policy is { } p
-        ? string.Create(CultureInfo.InvariantCulture, $"In game the write waits for the assets (status waiting_for_assets, at most {p.LoadTimeoutSeconds} s), then applies. If they cannot be loaded, Runtime rejects it with ASSET_UNAVAILABLE and the original reference stays in place.")
+        ? CoreText.Format("Asset.InGame", p.LoadTimeoutSeconds.ToString(CultureInfo.InvariantCulture))
         : null;
     public string? FamilyProofText => FamilyProof == null ? null
-        : (FamilyProof.LiveProven ? "Loader live-proven for this kind of reference" : "Loader proven offline for this kind of reference; not yet live-tested") + ". " + FamilyProof.Basis;
+        : CoreText.Format(FamilyProof.LiveProven ? "Asset.Loader.LiveProven" : "Asset.Loader.Offline", FamilyProof.Basis);
 }
 
 public static class AssetStatus

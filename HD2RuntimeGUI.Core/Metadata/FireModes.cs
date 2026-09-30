@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HD2RuntimeGUI.Core.Localization;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
@@ -11,7 +12,14 @@ public static class FireModes
     public const string ModesField = "fire_mode.modes", BurstField = "fire_mode.burst_rounds", ReticleField = "weapon.third_person_reticle";
     public static readonly IReadOnlyDictionary<string, int> Native = new Dictionary<string, int> { ["automatic"] = 1, ["single"] = 2, ["burst"] = 3 };
     public static readonly string[] States = ["selectable", "single_mode", "blocked", "absent"];
+    // Label is language-neutral: WeaponCapability.Format uses it, and that text is compared and re-parsed. DisplayLabel is the same
+    // name in the UI language, for display only; an unnamed mode token shows as published.
     public static string Label(string mode) => mode switch { "automatic" => "Automatic", "single" => "Single", "burst" => "Burst", _ => mode.Replace('_', ' ') };
+    public static string DisplayLabel(string mode) => mode switch
+    {
+        "automatic" => CoreText.Get("FireMode.Mode.Automatic"), "single" => CoreText.Get("FireMode.Mode.Single"), "burst" => CoreText.Get("FireMode.Mode.Burst"),
+        _ => Label(mode),
+    };
 
     public static IReadOnlyList<string> Modes(JsonElement value) =>
         value.ValueKind == JsonValueKind.Array ? value.EnumerateArray().Select(e => e.ValueKind == JsonValueKind.String ? e.GetString()! : throw new InvalidDataException("Fire modes are named modes.")).ToArray()
@@ -38,14 +46,15 @@ public static class FireModes
     public static void ValidateValue(JsonElement value, IReadOnlyList<string> allowed, int maxModes)
     {
         var modes = Modes(value);
-        if (modes.Count < 1) throw new InvalidDataException("Keep at least one fire mode.");
-        if (modes.Count > maxModes) throw new InvalidDataException(maxModes == 1 ? "This weapon has no fire-mode selector, so it has exactly one mode." : $"This weapon holds at most {maxModes} fire modes.");
-        if (modes.Distinct().Count() != modes.Count) throw new InvalidDataException("Each fire mode can be listed once.");
-        if (modes.FirstOrDefault(m => !allowed.Contains(m)) is { } bad) throw new InvalidDataException($"{Label(bad)} is not a fire mode Runtime allows for this weapon.");
+        if (modes.Count < 1) throw new InvalidDataException(CoreText.Get("FireMode.Error.AtLeastOne"));
+        if (modes.Count > maxModes) throw new InvalidDataException(maxModes == 1 ? CoreText.Get("FireMode.Error.SingleMode") : CoreText.Plural("FireMode.Error.AtMost", maxModes));
+        if (modes.Distinct().Count() != modes.Count) throw new InvalidDataException(CoreText.Get("FireMode.Error.Duplicate"));
+        if (modes.FirstOrDefault(m => !allowed.Contains(m)) is { } bad) throw new InvalidDataException(CoreText.Format("FireMode.Error.NotAllowed", DisplayLabel(bad)));
     }
     public static bool Equal(JsonElement a, JsonElement b) => a.ValueKind == JsonValueKind.Array && b.ValueKind == JsonValueKind.Array && Modes(a).SequenceEqual(Modes(b));
     public static string Lua(JsonElement value) => "{" + string.Join(",", Modes(value).Select(m => "'" + m + "'")) + "}";
     public static string Text(JsonElement value) => string.Join(", ", Modes(value).Select(Label));
+    public static string DisplayText(JsonElement value) => string.Join(", ", Modes(value).Select(DisplayLabel));
 }
 
 // WeaponFireModeCapabilities.json (hd2runtime.weapon.fire_modes.v1): every player and support weapon's mode set and state, including
@@ -54,7 +63,8 @@ public static class FireModes
 public sealed record WeaponFireModeEntry(string Kind, string Weapon, string State, JsonElement[]? Modes, JsonElement? DefaultMode, int? MaxModes, int? BurstRounds,
     bool Writable, string? Reason, bool? SelectorBound = null)
 {
-    public IEnumerable<string> ModeLabels => (Modes ?? []).Select(m => m.ValueKind == JsonValueKind.String ? FireModes.Label(m.GetString()!) : "native value " + m.GetRawText());
+    // Display only (the observed modes of a read-only weapon), in the UI language.
+    public IEnumerable<string> ModeLabels => (Modes ?? []).Select(m => m.ValueKind == JsonValueKind.String ? FireModes.DisplayLabel(m.GetString()!) : CoreText.Format("FireMode.NativeValue", m.GetRawText()));
     public IEnumerable<string> NamedModes => (Modes ?? []).Where(m => m.ValueKind == JsonValueKind.String && FireModes.Native.ContainsKey(m.GetString()!)).Select(m => m.GetString()!);
 }
 public sealed record WeaponFireModeCatalog(string Contract, int SchemaVersion, string Hd2RuntimeVersion, WeaponFireModeEntry[] Weapons)

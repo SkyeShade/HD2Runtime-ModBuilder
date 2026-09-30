@@ -1,4 +1,5 @@
 using System.Globalization;
+using HD2RuntimeGUI.Core.Localization;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
@@ -55,7 +56,12 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
     public static string Title(string identity) => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(identity.Replace('_', ' '));
     public static string WeaponGroup(StratagemField f) => f.SemanticFieldId == "weapon.capacity" || f.Domain is "magazine" or "rounds" ? "ammo" : f.Domain;
     private static int WeaponGroupOrder(string key) => key switch { "ammo" => 0, "weapon" => 1, "heat" => 2, "heatsink" => 3, _ => 4 };
-    private static string WeaponGroupTitle(string key) => key switch { "ammo" => "Ammo", "weapon" => "Weapon", "heat" => "Heat", "heatsink" => "Heatsinks", _ => Title(key) };
+    // Display titles (UI language); group keys and attack kinds stay the logic. Unknown groups and kinds show as published.
+    private static string WeaponGroupTitle(string key) => key switch
+    {
+        "ammo" => CoreText.Get("Stratagem.Group.Ammo"), "weapon" => CoreText.Get("Stratagem.Group.Weapon"), "heat" => CoreText.Get("Stratagem.Group.Heat"),
+        "heatsink" => CoreText.Get("Stratagem.Group.Heatsinks"), _ => Title(key),
+    };
     // Labels come from the published settings kind and path; the parent role is used only when it names a published attack.
     public static string AttackTitle(StratagemAttack a, IReadOnlyCollection<StratagemAttack> siblings)
     {
@@ -63,12 +69,13 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
         var slot = a.Path.Split('/').LastOrDefault(p => p.StartsWith("status:", StringComparison.Ordinal))?["status:".Length..];
         return a.Kind switch
         {
-            "ProjectileSettings" => "Projectile",
-            "ExplosionSettings" => a.Path.EndsWith("/expiry", StringComparison.Ordinal) ? "Explosion (expiry)" : a.Path.EndsWith("/impact", StringComparison.Ordinal) ? "Explosion (impact)" : "Explosion",
-            "DamageInfo" => parent?.Kind == "ExplosionSettings" ? "Explosion Damage" : "Damage",
-            "StatusEffectSettings" => slot == null ? "Status" : "Status · slot " + slot,
-            "BeamSettings" or "Beam" => "Beam",
-            "ArcSettings" => "Arc",
+            "ProjectileSettings" => CoreText.Get("Stratagem.Group.Projectile"),
+            "ExplosionSettings" => a.Path.EndsWith("/expiry", StringComparison.Ordinal) ? CoreText.Get("Stratagem.Attack.ExplosionExpiry")
+                : a.Path.EndsWith("/impact", StringComparison.Ordinal) ? CoreText.Get("Stratagem.Attack.ExplosionImpact") : CoreText.Get("Stratagem.Group.Explosion"),
+            "DamageInfo" => parent?.Kind == "ExplosionSettings" ? CoreText.Get("Stratagem.Attack.ExplosionDamage") : CoreText.Get("Stratagem.Group.Damage"),
+            "StatusEffectSettings" => slot == null ? CoreText.Get("Stratagem.Group.Status") : CoreText.Format("Stratagem.Attack.StatusSlot", slot),
+            "BeamSettings" or "Beam" => CoreText.Get("Stratagem.Group.Beam"),
+            "ArcSettings" => CoreText.Get("Stratagem.Group.Arc"),
             _ => a.Kind,
         };
     }
@@ -78,23 +85,27 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
 public static class EntityStats
 {
     public static int Order(string semanticFieldId) => semanticFieldId switch { "entity.health" => 0, "entity.armor" => 1, _ => 2 };
+    // Display labels (UI language); other entity kinds show as published.
     public static string? Label(string semanticFieldId) => semanticFieldId switch
     {
-        "entity.health" => "Health",
-        "entity.armor" => "Armor",
+        "entity.health" => CoreText.Get("EntityStat.Health"),
+        "entity.armor" => CoreText.Get("EntityStat.Armor"),
         _ => null,
     };
-    public static string KindLabel(StratagemEntityIdentity identity) => identity.Kind == "DeployableSystem" ? "Deployment system" : identity.Kind;
+    public static string KindLabel(StratagemEntityIdentity identity) => identity.Kind == "DeployableSystem" ? CoreText.Get("EntityStat.Kind.DeploymentSystem") : identity.Kind;
 }
 
 // Stratagem browser filters. Families come from metadata; known families use the editor's tab labels and order.
 public static class StratagemBrowser
 {
     private static readonly string[] KnownOrder = ["orbital", "eagle", "support", "vehicle", "backpack", "sentry", "emplacement", "mine"];
+    // Display label (UI language) of a family id; family ids stay the tab/filter keys. Unknown SDK families show title-cased as published.
     public static string FamilyLabel(string family) => family switch
     {
-        "orbital" => "Orbital", "eagle" => "Eagle", "support" => "Support Weapons", "vehicle" => "Vehicles", "backpack" => "Backpacks", "sentry" => "Sentries",
-        "emplacement" => "Emplacements", "mine" => "Mines / Deployables", _ => StratagemGraph.Title(family),
+        "orbital" => CoreText.Get("Stratagem.Family.Orbital"), "eagle" => CoreText.Get("Stratagem.Family.Eagle"), "support" => CoreText.Get("Stratagem.Family.Support"),
+        "vehicle" => CoreText.Get("Stratagem.Family.Vehicle"), "backpack" => CoreText.Get("Stratagem.Family.Backpack"), "sentry" => CoreText.Get("Stratagem.Family.Sentry"),
+        "emplacement" => CoreText.Get("Stratagem.Family.Emplacement"), "mine" => CoreText.Get("Stratagem.Family.Mine"), "mission" => CoreText.Get("Stratagem.Family.Mission"),
+        _ => StratagemGraph.Title(family),
     };
     public static IReadOnlyList<(string Family, string Label, int Count)> Tabs(StratagemCatalog c) =>
         [("", "All", c.Stratagems.Length), ..c.Stratagems.GroupBy(s => s.Family)

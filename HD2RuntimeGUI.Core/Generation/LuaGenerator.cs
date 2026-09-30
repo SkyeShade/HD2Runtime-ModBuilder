@@ -110,7 +110,7 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
         var source = lua.Source.Replace("\r\n", "\n").Replace('\r', '\n');
         if (source.StartsWith('\uFEFF')) source = source[1..];
         foreach (var d in Scripting.LuaScriptAnalyzer.Analyze(source, null).Where(d => d.Severity == Scripting.LuaDiagnostic.Error))
-            throw new InvalidDataException(Models.CustomLuaSettings.RelativePath + " line " + d.Line + ": " + d.Message);
+            throw new InvalidDataException(Localization.CoreText.Format("CustomLua.BuildError", Models.CustomLuaSettings.RelativePath, d.Line, d.Message));
         return source;
     }
     public static string Quote(string value)

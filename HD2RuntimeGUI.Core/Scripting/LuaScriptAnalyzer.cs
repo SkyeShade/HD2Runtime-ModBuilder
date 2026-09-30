@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 
 namespace HD2RuntimeGUI.Core.Scripting;
@@ -5,6 +6,7 @@ namespace HD2RuntimeGUI.Core.Scripting;
 // Checks hand-written mod Lua: the syntax (LuaParser), what the build adds itself (the discovery header), and names the SDK enumerates
 // where a literal is passed straight to the API: event names (hd2.events.on/once, mod:on/once), explosions, projectiles, statuses and
 // enemy semantic IDs. Anything computed at run time is not checked, and nothing is executed; a warning never blocks a build.
+// Messages are UI text (LuaCheck.*); Lua names, API calls, Runtime refusal codes and quoted source are arguments, never translated.
 public static class LuaScriptAnalyzer
 {
     public static IReadOnlyList<LuaDiagnostic> Analyze(string source, EventCatalog? events, EnemyCatalog? enemies = null)
@@ -14,9 +16,9 @@ public static class LuaScriptAnalyzer
         for (var i = 0; i < lines.Length; i++)
         {
             if (lines[i].Contains("-- HD2-Addon:", StringComparison.Ordinal))
-                result.Add(new(i + 1, lines[i].IndexOf("-- HD2-Addon:", StringComparison.Ordinal) + 1, LuaDiagnostic.Error, "Remove the '-- HD2-Addon:' header: ModBuilder adds the mod's discovery header itself.", "header"));
+                result.Add(new(i + 1, lines[i].IndexOf("-- HD2-Addon:", StringComparison.Ordinal) + 1, LuaDiagnostic.Error, CoreText.Format("LuaCheck.Header", "-- HD2-Addon:"), "header"));
             if (lines[i].Contains("---@meta", StringComparison.Ordinal))
-                result.Add(new(i + 1, lines[i].IndexOf("---@meta", StringComparison.Ordinal) + 1, LuaDiagnostic.Error, "Remove '---@meta': SDK stub declarations cannot be part of a mod.", "meta"));
+                result.Add(new(i + 1, lines[i].IndexOf("---@meta", StringComparison.Ordinal) + 1, LuaDiagnostic.Error, CoreText.Format("LuaCheck.Meta", "---@meta"), "meta"));
         }
         List<LuaToken> tokens;
         try { tokens = LuaParser.Check(source); }
@@ -48,23 +50,23 @@ public static class LuaScriptAnalyzer
                 LuaToken? eventName = Seq(i, "hd2", ".", "events", ".", "on|once", "(", "$str") ? tokens[i + 6] : Seq(i, ":", "on|once", "(", "$str") ? tokens[i + 3] : null;
                 if (eventName != null && (i == 0 || !tokens[i - 1].Is(".")) && eventNames!.TryGetValue(eventName.Value!, out var definition) is var known)
                 {
-                    if (!known) Warn(eventName, $"Unknown event '{eventName.Value}'. Catalogued events: {string.Join(", ", events.Events.Where(e => e.IsAvailable).Select(e => e.Name))}.", "event");
-                    else if (!definition!.IsAvailable) Warn(eventName, $"Event '{eventName.Value}' is {definition.Status}: {definition.Reason}", "event");
+                    if (!known) Warn(eventName, CoreText.Format("LuaCheck.UnknownEvent", eventName.Value, string.Join(", ", events.Events.Where(e => e.IsAvailable).Select(e => e.Name))), "event");
+                    else if (!definition!.IsAvailable) Warn(eventName, CoreText.Format("LuaCheck.EventUnavailable", eventName.Value, definition.Status, definition.Reason), "event");
                 }
                 if (Seq(i, "hd2", ".", "explosions", ".", "spawn|prepare", "(", "$str") && !explosions!.Contains(tokens[i + 6].Value!))
-                    Warn(tokens[i + 6], $"'{tokens[i + 6].Value}' is not a catalogued explosion (hd2.explosions.list()); Runtime refuses it with UNKNOWN_EXPLOSION.", "explosion");
+                    Warn(tokens[i + 6], CoreText.Format("LuaCheck.UnknownExplosion", tokens[i + 6].Value, "hd2.explosions.list()", "UNKNOWN_EXPLOSION"), "explosion");
                 if (Seq(i, "hd2", ".", "explosions", ".", "of", "(", "$str") && !events.Actions.Explosions.Weapons.Contains(tokens[i + 6].Value!))
-                    Warn(tokens[i + 6], $"'{tokens[i + 6].Value}' has no catalogued explosion; hd2.explosions.of returns nil for it.", "explosion");
+                    Warn(tokens[i + 6], CoreText.Format("LuaCheck.NoWeaponExplosion", tokens[i + 6].Value, "hd2.explosions.of"), "explosion");
                 if (Seq(i, "hd2", ".", "projectiles", ".", "spawn|prepare", "(", "$str") && !events.Actions.Projectiles.Weapons.Contains(tokens[i + 6].Value!))
-                    Warn(tokens[i + 6], $"'{tokens[i + 6].Value}' is not a catalogued projectile weapon (hd2.projectiles.list()); Runtime refuses it with UNKNOWN_PROJECTILE.", "projectile");
+                    Warn(tokens[i + 6], CoreText.Format("LuaCheck.UnknownProjectile", tokens[i + 6].Value, "hd2.projectiles.list()", "UNKNOWN_PROJECTILE"), "projectile");
                 if (Seq(i, "hd2", ".", "status", ".", "apply", "(") && SecondArgument(tokens, i + 6) is { Kind: LuaTokenKind.String } status
                     && !events.Actions.StatusEffects.Statuses.Any(s => s.Id == status.Value))
-                    Warn(status, $"'{status.Value}' is not a status hd2.status can apply ({string.Join(", ", events.Actions.StatusEffects.Statuses.Select(s => s.Id))}); Runtime refuses it with UNKNOWN_STATUS.", "status");
+                    Warn(status, CoreText.Format("LuaCheck.UnknownStatus", status.Value, "hd2.status", string.Join(", ", events.Actions.StatusEffects.Statuses.Select(s => s.Id)), "UNKNOWN_STATUS"), "status");
                 if (Seq(i, "hd2", ".", "input", ".", "bind", "(", "$str") && !tokens[i + 6].Value!.Contains('.'))
-                    Warn(tokens[i + 6], "Keybind ids are namespaced ('author_mod.action') so they never collide with another mod's.", "keybind");
+                    Warn(tokens[i + 6], CoreText.Format("LuaCheck.KeybindNamespace", "author_mod.action"), "keybind");
             }
             if (enemies != null && tokens[i].Kind == LuaTokenKind.String && tokens[i].Value!.StartsWith("enemy/v1/", StringComparison.Ordinal) && enemies.Find(tokens[i].Value!) == null)
-                Warn(tokens[i], $"'{tokens[i].Value}' is not a catalogued enemy or structure semantic id; comparisons with it never match.", "enemy");
+                Warn(tokens[i], CoreText.Format("LuaCheck.UnknownEnemy", tokens[i].Value), "enemy");
         }
         return result.OrderBy(d => d.Line).ThenBy(d => d.Column).ToArray();
     }

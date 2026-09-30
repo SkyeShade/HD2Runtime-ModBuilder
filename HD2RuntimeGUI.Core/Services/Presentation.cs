@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 
 namespace HD2RuntimeGUI.Core.Services;
@@ -22,6 +23,16 @@ public static class FieldGroups
         };
     }
     public static int Rank(string group) => Array.IndexOf(Order, group) is var i and >= 0 ? i : Order.Length;
+    // Group names are logic keys (Order, Rank, grouping); this is their heading in the UI language. A group derived from an SDK domain
+    // shows as published.
+    public static string Label(string group) => group switch
+    {
+        "Ammo" => CoreText.Get("Presentation.Group.Ammo"), "Handling" => CoreText.Get("Presentation.Group.Handling"), "Firing" => CoreText.Get("Presentation.Group.Firing"),
+        "Fire Mode" => CoreText.Get("Presentation.Group.FireMode"), "Projectile" => CoreText.Get("Presentation.Group.Projectile"), "Damage" => CoreText.Get("Presentation.Group.Damage"),
+        "Explosion" => CoreText.Get("Presentation.Group.Explosion"), "Arc" => CoreText.Get("Presentation.Group.Arc"), "Beam" => CoreText.Get("Presentation.Group.Beam"),
+        "Status" => CoreText.Get("Presentation.Group.Status"),
+        _ => group,
+    };
     public static IEnumerable<IGrouping<string, T>> Group<T>(IEnumerable<T> fields, Func<T, string> semanticFieldId, Func<T, string?>? domain = null)
         => fields.GroupBy(f => Of(semanticFieldId(f), domain?.Invoke(f))).OrderBy(g => Rank(g.Key)).ThenBy(g => g.Key, StringComparer.Ordinal);
     private static string Title(string s) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.Replace('_', ' '));
@@ -51,10 +62,14 @@ public static class WeaponAcknowledgements
 {
     public static string ScopeKey(Metadata.WeaponCapability f) => string.Join("|", f.WriteScope, f.Backing?.Kind, f.Backing?.Settings ?? f.Backing?.Component,
         f.Backing?.RecordIndex, f.Backing?.Row, string.Join(",", f.SharedWithWeapons.Order(StringComparer.Ordinal)));
+    // UI text in the current UI language; a settings/component name from the SDK is shown as published.
     public static string Title(Metadata.WeaponCapability f) => f.Domain switch
     {
-        "projectile" => "Shared projectile definition", "damage" => "Shared damage definition", "explosion" => "Shared explosion definition",
-        _ => "Shared " + (f.Backing?.Settings ?? f.Backing?.Component ?? "setting").Replace("ComponentData", "").Replace("Settings", " settings"),
+        "projectile" => CoreText.Get("Presentation.SharedAck.Projectile"), "damage" => CoreText.Get("Presentation.SharedAck.Damage"),
+        "explosion" => CoreText.Get("Presentation.SharedAck.Explosion"),
+        _ => (f.Backing?.Settings ?? f.Backing?.Component) is { } name
+            ? CoreText.Format("Presentation.SharedAck.Other", name.Replace("ComponentData", "").Replace("Settings", " settings"))
+            : CoreText.Get("Presentation.SharedAck.Setting"),
     };
     // Saved (non-conflicting) shared edits of one weapon, grouped by the shared object they write.
     public static IReadOnlyList<SharedAckGroup> Groups(IEnumerable<Generation.WeaponChangeGroup> saved, string weapon) =>

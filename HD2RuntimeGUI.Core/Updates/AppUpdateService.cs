@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Models;
 using HD2RuntimeGUI.Core.Storage;
 using HD2RuntimeModBuilder.Updater;
@@ -103,7 +104,7 @@ public sealed class AppUpdateService(IAppReleaseClient client, AppPaths paths, I
                 var latest = await client.GetLatestAsync();
                 cache = cache with { LastChecked = clock.GetUtcNow(), Latest = latest };
                 Status = latest == null ? AppUpdateStatus.UpToDate : Compare(latest);
-                CheckMessage = latest == null ? "No HD2Runtime ModBuilder release is published yet." : null;
+                CheckMessage = latest == null ? CoreText.Get("Messages.Update.NoRelease") : null;
                 await SaveAsync();
             }
             catch (AppUpdateCheckException e) { if (background && known) CheckMessage = e.Message; else { Status = e.Status; CheckMessage = e.Message; } }
@@ -129,7 +130,7 @@ public sealed class AppUpdateService(IAppReleaseClient client, AppPaths paths, I
     /// <summary>Only pages of the official repository are opened.</summary>
     public static Uri ValidatedReleaseUrl(string url) =>
         url.StartsWith(BuildInfo.RepositoryUrl + "/releases", StringComparison.Ordinal) && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == "https"
-            ? uri : throw new InvalidDataException("Only official HD2Runtime ModBuilder release pages can be opened.");
+            ? uri : throw new InvalidDataException(CoreText.Get("Messages.Update.OfficialPagesOnly"));
 
     /// <summary>The command that starts the staged updater; it runs from outside the installation folder.</summary>
     public static ProcessStartInfo UpdaterCommand(UpdaterOptions options)
@@ -159,32 +160,32 @@ public sealed class AppUpdateService(IAppReleaseClient client, AppPaths paths, I
         var work = Path.Combine(TempRoot, release.Version);
         try
         {
-            if (!IsReleaseInstall) { InstallNeedsManualDownload = true; throw new InvalidOperationException("This copy of HD2Runtime ModBuilder was not installed from a release ZIP, so it cannot update itself. Download the new version from the release page."); }
-            if (!CanWrite(host.InstallDirectory)) { InstallNeedsManualDownload = true; throw new UnauthorizedAccessException($"Automatic updating cannot write to {host.InstallDirectory}. Download the new version from the release page, or move HD2Runtime ModBuilder to a folder you can write to."); }
-            Stage("Checking the update…");
+            if (!IsReleaseInstall) { InstallNeedsManualDownload = true; throw new InvalidOperationException(CoreText.Get("Messages.Update.NotReleaseInstall")); }
+            if (!CanWrite(host.InstallDirectory)) { InstallNeedsManualDownload = true; throw new UnauthorizedAccessException(CoreText.Format("Messages.Update.CannotWrite", host.InstallDirectory)); }
+            Stage(CoreText.Get("Messages.Update.Stage.Checking"));
             var manifest = AppUpdateManifest.Parse(await client.DownloadManifestAsync(release, ct), release);
             if (Directory.Exists(work)) Directory.Delete(work, recursive: true);
             Directory.CreateDirectory(work);
             var zip = Path.Combine(work, release.Package.Name);
-            Stage("Downloading…");
+            Stage(CoreText.Get("Messages.Update.Stage.Downloading"));
             var lastPercent = -1;
             await client.DownloadPackageAsync(release, zip, new Progress<long>(bytes =>
             {
                 var percent = (int)(bytes * 100 / Math.Max(1, release.Package.Size));
-                if (percent != lastPercent) { lastPercent = percent; Stage($"Downloading… {percent}%"); }
+                if (percent != lastPercent) { lastPercent = percent; Stage(CoreText.Format("Messages.Update.Stage.DownloadingPercent", percent)); }
             }), ct);
-            Stage("Verifying…");
+            Stage(CoreText.Get("Messages.Update.Stage.Verifying"));
             var staged = Path.Combine(work, "staged");
             await AppUpdatePackage.StageAsync(zip, manifest, staged, ct);
             File.Delete(zip);
             var options = new UpdaterOptions(host.ProcessId, host.ProcessStartTicks, Path.TrimEndingDirectorySeparator(Path.GetFullPath(host.InstallDirectory)), staged, release.Version, ResultPath);
-            Stage("Restarting HD2Runtime ModBuilder…");
+            Stage(CoreText.Get("Messages.Update.Stage.Restarting"));
             host.Launch(UpdaterCommand(options));
             host.Exit();
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException or HttpRequestException or System.ComponentModel.Win32Exception)
         {
-            InstallError = e is HttpRequestException ? "The update could not be downloaded: " + e.Message : e.Message;
+            InstallError = e is HttpRequestException ? CoreText.Format("Messages.Update.DownloadFailed", e.Message) : e.Message;
             Installing = false; InstallStage = null;
             TryDelete(work);
             Changed?.Invoke();

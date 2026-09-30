@@ -4,15 +4,15 @@
 {
     var graph = StratagemGraph.Build(catalog, Name, f => (!ExcludeRearm || f.Target.Path != "eagle_rearm") && (!RearmOnly || f.Target.Path == "eagle_rearm")
         && (!ModifiedOnly || StratagemChangeService.Saved(Workspace.Project, catalog, f) != null));
-    @if (Workspace.Project == null) { <p class="notice">Create or open a project to edit stratagems.</p> }
-    else if (!RearmOnly && Workspace.Project.StratagemChanges.Any(c => c.Stratagem == Name)) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetStratagemAsync(Name))">Reset stratagem</button> }
+    @if (Workspace.Project == null) { <p class="notice">@T["Stratagem.Editor.NoProject"]</p> }
+    else if (!RearmOnly && Workspace.Project.StratagemChanges.Any(c => c.Stratagem == Name)) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetStratagemAsync(Name))">@T["Stratagem.Editor.Reset"]</button> }
     @foreach (var scope in graph.AllFields.Where(f => f.Shared).GroupBy(f => f.ScopeKey))
     {
         var field = scope.First(); var consumers = catalog.Backing(field)?.SharedConsumers ?? field.SharedConsumers;
         @if (Workspace.Project != null && scope.Any(f => StratagemChangeService.Saved(Workspace.Project, catalog, f) != null))
         {
-            <AckPanel Title="@(field.Target.Path == "eagle_rearm" ? "Eagle Rearm Time — Shared across all Eagle stratagems" : "Shared " + field.BackingObjectKind)" Kind="shared"
-                Description="@($"Changing this object may affect {consumers.Length} reviewed {(consumers.Length == 1 ? "consumer" : "consumers")}.{(field.DynamicConsumersPossible ? " Additional runtime consumers are possible." : "")}{(!field.ReviewedScopeComplete ? " The reviewed consumer scope is incomplete." : "")}")"
+            <AckPanel Title="@(field.Target.Path == "eagle_rearm" ? T["Stratagem.Shared.EagleRearm"] : T.Format("Stratagem.Shared.Title", field.BackingObjectKind))" Kind="shared"
+                Description="@(T.Plural("Stratagem.Shared.Affects", consumers.Length) + (field.DynamicConsumersPossible ? " " + T["Stratagem.Shared.Dynamic"] : "") + (!field.ReviewedScopeComplete ? " " + T["Stratagem.Shared.Incomplete"] : ""))"
                 PanelAttributes="@(new() { ["data-stratagem-approval"] = field.Target.Path, ["data-shared-scope"] = field.ScopeKey })">
                 <ul class="ack-list">@foreach (var consumer in consumers) { <li data-shared-consumer>@consumer.Label · @ConsumerPath(consumer.Path)</li> }</ul>
             </AckPanel>
@@ -20,7 +20,7 @@
     }
     @if (graph.Definition.Length > 0 || graph.EagleRearm.Length > 0)
     {
-        <details class="ia-section" data-section="call-in" open><summary>Call-in <small>cooldown, uses and call-in settings</small></summary><div class="ia-body">
+        <details class="ia-section" data-section="call-in" open><summary>@T["Stratagem.Section.CallIn"] <small>@T["Stratagem.Section.CallIn.Hint"]</small></summary><div class="ia-body">
         @if (graph.Definition.Length > 0)
         {
             <section class="panel" data-stratagem-branch="stratagem">
@@ -29,8 +29,8 @@
         }
         @if (graph.EagleRearm.Length > 0)
         {
-            <section class="panel" data-stratagem-branch="eagle_rearm"><h3 class="group-title">Eagle shared system</h3>
-                <p class="subtle">One shared Eagle system. The same saved value applies to every reviewed Eagle consumer.</p>
+            <section class="panel" data-stratagem-branch="eagle_rearm"><h3 class="group-title">@T["Stratagem.EagleShared.Title"]</h3>
+                <p class="subtle">@T["Stratagem.EagleShared.Help"]</p>
                 <div class="stat-grid">@foreach (var f in graph.EagleRearm) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
             </section>
         }
@@ -38,24 +38,24 @@
     }
     @if (link != null && !RearmOnly && (!ModifiedOnly || Workspace.Project?.SupportChanges.Any(c => c.Weapon == link.Weapon.Name) == true) || graph.Entities.Length > 0 || graph.Attacks.Length > 0)
     {
-    <details class="ia-section" data-section="delivered" open><summary>Delivered object <small>@DeliveredLabel(graph, link)</small></summary><div class="ia-body">
+    <details class="ia-section" data-section="delivered" open><summary>@T["Stratagem.Section.Delivered"] <small>@DeliveredLabel(graph, link)</small></summary><div class="ia-body">
     @if (link != null && !RearmOnly)
     {
         // Merged support entry: the linked weapon's own editor and guards, joined through published semantic IDs only.
         if (!ModifiedOnly) { <SupportWeaponDetail Weapon="@link.Weapon.Name" Embedded="true" Changed="Refresh" /> }
         else if (Workspace.Project?.SupportChanges.Any(c => c.Weapon == link.Weapon.Name) == true)
-        { <div class="linked-weapon-changes" data-linked-weapon="@link.Weapon.Name"><h3 class="section-label">Weapon · @link.Weapon.Name</h3><SupportAuthoringEditor Weapon="@link.Weapon.Name" ModifiedOnly="true" Changed="Refresh" /></div> }
+        { <div class="linked-weapon-changes" data-linked-weapon="@link.Weapon.Name"><h3 class="section-label">@T.Format("Stratagem.Delivered.Weapon", link.Weapon.Name)</h3><SupportAuthoringEditor Weapon="@link.Weapon.Name" ModifiedOnly="true" Changed="Refresh" /></div> }
     }
     @foreach (var entity in graph.Entities)
     {
-        <EntityStats TField="StratagemField" Title="@(entity.Shield != null ? "Physical emitter / base" : "Deployed Entity")" Identity="@entity.Entity" Kind="@EntityStats.KindLabel(entity.Identity)" Items="entity.Stats"
-                     Description="@(graph.Root.Family == "mine" ? "Deployment entity of the minefield. Individual mines are not resolved by Runtime." : entity.Shield != null ? "The physical emitter that can be destroyed. Its shield projector is a separate component of the same entity and is edited below." : null)">
+        <EntityStats TField="StratagemField" Title="@(entity.Shield != null ? T["Stratagem.Entity.Emitter"] : T["Stratagem.Graph.DeployedEntity"])" Identity="@entity.Entity" Kind="@EntityStats.KindLabel(entity.Identity)" Items="entity.Stats"
+                     Description="@(graph.Root.Family == "mine" ? T["Stratagem.Entity.Minefield"] : entity.Shield != null ? T["Stratagem.Entity.EmitterHelp"] : null)">
             <Editor Context="f"><StratagemFieldEditor @key="f.InstanceKey" Field="f" Label="@EntityStats.Label(f.SemanticFieldId)" Changed="Refresh" /></Editor>
             <ChildContent>
                 @if (entity.Zones.Length > 0)
                 {
                     <div class="entity-zones" data-entity-zones="@entity.Entity">
-                        <h3 class="group-title">@(entity.Shield != null ? "Body damage zones" : "Damage zones")</h3>
+                        <h3 class="group-title">@(entity.Shield != null ? T["Stratagem.Entity.BodyZones"] : T["Stratagem.Entity.Zones"])</h3>
                         @foreach (var zone in entity.Zones)
                         {
                             <div class="zone-row" data-zone="@zone.Zone.ZoneId"><strong>@(zone.Zone.Name?.Replace('_', ' ') ?? zone.Zone.ZoneId)</strong> <small class="subtle">@zone.Zone.ZoneId</small>
@@ -66,7 +66,7 @@
                 @foreach (var weapon in entity.Weapons)
                 {
                     <div class="mounted-weapon" data-mounted-weapon="@weapon.Weapon">
-                        <h3 class="section-label">Mounted Weapon · @weapon.Title</h3>
+                        <h3 class="section-label">@T.Format("Stratagem.Graph.MountedWeapon", weapon.Title)</h3>
                         @foreach (var group in weapon.Groups)
                         { <h4 class="group-title">@group.Title</h4><div class="stat-grid">@foreach (var f in group.Fields) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
                         @foreach (var attack in weapon.Attacks)
@@ -83,11 +83,11 @@
         @if (entity.Shield is { } shield)
         {
             <section class="panel category-panel cat-defensive shield-projector" data-shield-projector="@entity.Entity">
-                <div class="panel-heading"><h2>Shield projector</h2><span class="badge">@shield.Config.Component</span></div>
-                <p class="subtle">The @shield.Config.IdentityRole on the same deployed entity as the emitter. The spawned runtime shield instance is @shield.Config.RuntimeShieldInstance, so the shield is edited through its typed configuration.</p>
+                <div class="panel-heading"><h2>@T["Stratagem.Shield.Title"]</h2><span class="badge">@shield.Config.Component</span></div>
+                <p class="subtle">@T.Format("Stratagem.Shield.Help", shield.Config.IdentityRole, shield.Config.RuntimeShieldInstance)</p>
                 @if (shield.Fields.Length > 0) { <div class="stat-grid">@foreach (var f in shield.Fields) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
                 @if (!ModifiedOnly && shield.Config.BlockedFields.Length > 0)
-                { <details data-shield-blocked><summary>Not currently writable</summary>@foreach (var b in shield.Config.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@b.Field:</strong> @b.Reason</p> }</details> }
+                { <details data-shield-blocked><summary>@T["Stratagem.Blocked.Title"]</summary>@foreach (var b in shield.Config.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@T.Format("Stratagem.Blocked.Field", b.Field)</strong> @b.Reason</p> }</details> }
             </section>
         }
     }
@@ -96,7 +96,7 @@
         <section class="panel" data-stratagem-branch="@attack.Attack.Role">
             <h2>@ConsumerPath(attack.Attack.Path)</h2>
             @foreach (var domain in FieldGroups.Group(attack.Fields, f => f.SemanticFieldId, f => f.Domain))
-            { <h3 class="group-title">@domain.Key</h3><div class="stat-grid">@foreach (var f in domain) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+            { <h3 class="group-title">@SupportAuthoringEditor.GroupLabel(T, domain.Key)</h3><div class="stat-grid">@foreach (var f in domain) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
         </section>
     }
     </div></details>
@@ -111,8 +111,8 @@
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     public static string ConsumerPath(string path) => path.Replace("/", " → ");
-    private static string DeliveredLabel(StratagemGraph graph, SupportCallInLink? link) => link != null ? "support equipment · " + link.Weapon.Name
-        : graph.Entities.Length > 0 ? string.Join(", ", graph.Entities.Select(e => EntityStats.KindLabel(e.Identity).ToLowerInvariant()).Distinct()) : graph.Attacks.Length + " attack " + (graph.Attacks.Length == 1 ? "branch" : "branches");
+    private string DeliveredLabel(StratagemGraph graph, SupportCallInLink? link) => link != null ? T.Format("Stratagem.Delivered.Support", link.Weapon.Name)
+        : graph.Entities.Length > 0 ? string.Join(", ", graph.Entities.Select(e => EntityStats.KindLabel(e.Identity).ToLowerInvariant()).Distinct()) : T.Plural("Stratagem.Delivered.Attacks", graph.Attacks.Length);
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) { Error = e.Message; } }
 }

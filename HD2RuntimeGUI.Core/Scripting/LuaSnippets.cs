@@ -1,11 +1,12 @@
 using System.Globalization;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 
 namespace HD2RuntimeGUI.Core.Scripting;
 
 // Insertable patterns for hand-written event scripting, written against the current Runtime API (docs/event-scripting.md and the SDK stub).
 // Names used in them (events, explosions, projectiles, statuses, weapon values) come from the bound SDK where it publishes them; a snippet
-// that needs something the SDK does not publish is not offered.
+// that needs something the SDK does not publish is not offered. Titles and descriptions are UI text (Snippets.*); the code never changes.
 public sealed record LuaSnippet(string Id, string Title, string Description, string Code, string[] Uses);
 
 public static class LuaSnippets
@@ -29,7 +30,7 @@ public static class LuaSnippets
         var prefix = BindingPrefix(resourceId);
 
         if (Event("player_died") && hellbomb != null)
-            result.Add(new("player-death-explosion", "Player death explosion", "When the local player dies, request a Hellbomb detonation where they died (host only; ignores deaths a mod action caused).",
+            result.Add(new("player-death-explosion", CoreText.Get("Snippets.PlayerDeathExplosion.Title"), CoreText.Get("Snippets.PlayerDeathExplosion.Description"),
                 $$"""
                 hd2.events.on('player_died', function(event)
                     if event.local_player and event.position and event.cause.source ~= 'mod' then
@@ -39,7 +40,7 @@ public static class LuaSnippets
 
                 """, ["player_died", "hd2.explosions.spawn"]));
         if (Event("entity_died") && Event("mission_started") && enemy != null && weaponExplosion != null)
-            result.Add(new("enemy-death-callback", "Enemy death callback", "React to one enemy class dying: keep the snapshot position, then request an explosion there 1 to 10 seconds later (mission-scoped timer).",
+            result.Add(new("enemy-death-callback", CoreText.Get("Snippets.EnemyDeathCallback.Title"), CoreText.Get("Snippets.EnemyDeathCallback.Description"),
                 $$"""
                 local TARGET = '{{enemy}}'
                 assert(hd2.entities.describe(TARGET), 'unknown enemy id ' .. TARGET)
@@ -61,7 +62,7 @@ public static class LuaSnippets
             && damage.CurrentDefault.TryGetInt32(out var baseDamage))
         {
             var step = Math.Max(1, baseDamage / 10);
-            result.Add(new("kill-stacking", "Kill-stacking weapon damage", "Every AR-23 Liberator kill credited to you adds +10% Liberator damage (up to +100%), reset each mission. The bonus changes the shared damage definition, so every user of that row gets it.",
+            result.Add(new("kill-stacking", CoreText.Get("Snippets.KillStacking.Title"), CoreText.Get("Snippets.KillStacking.Description"),
                 $$"""
                 local stack_mod = hd2.mod()
                 local BASE, STEP, CAP = {{baseDamage.ToString(CultureInfo.InvariantCulture)}}, {{step.ToString(CultureInfo.InvariantCulture)}}, 10 -- published standard damage; +10% per kill; at most +100%
@@ -89,7 +90,7 @@ public static class LuaSnippets
 
                 """, ["player_kill_credited", "mod:value", "hd2.ensure"]));
         }
-        result.Add(new("timer", "Timer / delayed action", "Run something once after a delay, and something repeatedly while a mission lasts (game time; paused while the game does not update).",
+        result.Add(new("timer", CoreText.Get("Snippets.Timer.Title"), CoreText.Get("Snippets.Timer.Description"),
             """
             local delayed = hd2.after(2.5, function(timer)
                 hd2.mod():log('2.5 s of game time later')
@@ -101,7 +102,7 @@ public static class LuaSnippets
             -- delayed:cancel(); repeating:cancel()
 
             """, ["hd2.after", "hd2.every"]));
-        result.Add(new("keybind", "Keybind callback", "Bind a key for this mod (polled only while the game window has focus). A chord already in use leaves the binding in 'conflict'.",
+        result.Add(new("keybind", CoreText.Get("Snippets.Keybind.Title"), CoreText.Get("Snippets.Keybind.Description"),
             $$"""
             hd2.input.bind('{{prefix}}.action', {key = 'F6', on_press = function(binding)
                 local player = hd2.local_player()
@@ -111,7 +112,7 @@ public static class LuaSnippets
 
             """, ["hd2.input.bind"]));
         if (projectile != null)
-            result.Add(new("projectile-spawn", "Projectile spawn", $"Fire a catalogued weapon projectile from above the local player (host only, in a mission). Live-proven for {string.Join(", ", events.Actions.Projectiles.LiveProven)}.",
+            result.Add(new("projectile-spawn", CoreText.Get("Snippets.ProjectileSpawn.Title"), CoreText.Format("Snippets.ProjectileSpawn.Description", string.Join(", ", events.Actions.Projectiles.LiveProven)),
                 $$"""
                 local player = hd2.local_player()
                 local p = player and player:position()
@@ -125,7 +126,7 @@ public static class LuaSnippets
 
                 """, ["hd2.projectiles.spawn"]));
         if (status != null && Event("entity_damaged"))
-            result.Add(new("status-application", "Status application", $"Add '{status.Id}' buildup to enemies you damage (host only). The amount is buildup, not strength; applying again refreshes the duration.",
+            result.Add(new("status-application", CoreText.Get("Snippets.StatusApplication.Title"), CoreText.Format("Snippets.StatusApplication.Description", status.Id),
                 $$"""
                 hd2.events.on('entity_damaged', function(event)
                     if event.local_attacker and event.enemy then
@@ -135,7 +136,7 @@ public static class LuaSnippets
 
                 """, ["entity_damaged", "hd2.status.apply"]));
         if (Event("weapon_changed"))
-            result.Add(new("weapon-changed", "Weapon-changed event", "Log what the local player switches between (ten checks a second; not kill attribution).",
+            result.Add(new("weapon-changed", CoreText.Get("Snippets.WeaponChanged.Title"), CoreText.Get("Snippets.WeaponChanged.Description"),
                 """
                 hd2.events.on('weapon_changed', function(event)
                     local previous = event.previous and event.previous.name or 'nothing'
@@ -145,7 +146,7 @@ public static class LuaSnippets
 
                 """, ["weapon_changed"]));
         if (Event("entity_killed"))
-            result.Add(new("heal-on-kill", "Heal on kill", "Heal the local player by 25 for every enemy the game credits to them (the game's own heal, clamped to maximum health).",
+            result.Add(new("heal-on-kill", CoreText.Get("Snippets.HealOnKill.Title"), CoreText.Get("Snippets.HealOnKill.Description"),
                 """
                 hd2.events.on('entity_killed', function(event)
                     if not (event.local_killer and event.enemy) then return end
@@ -155,7 +156,7 @@ public static class LuaSnippets
 
                 """, ["entity_killed", "hd2.actions.heal"]));
         if (Event("entity_killed") && Event("mission_ended"))
-            result.Add(new("mission-counter", "Mission-scoped counter", "Count your credited kills this mission in mod.mission (cleared at every mission start and end).",
+            result.Add(new("mission-counter", CoreText.Get("Snippets.MissionCounter.Title"), CoreText.Get("Snippets.MissionCounter.Description"),
                 """
                 local counter_mod = hd2.mod()
                 hd2.events.on('entity_killed', function(event)

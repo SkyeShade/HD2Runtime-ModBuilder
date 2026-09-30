@@ -1486,3 +1486,6 @@ h2.native-name { font-size:21px }
 .donor-name { min-width:0 }
 .donor-badges { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end }
 .donor-refusal { grid-column:1 / -1; color:var(--muted) }
+/* Localization: CJK text uses the Windows UI fonts for its script. Set on the root only, so elements with their own font (brand wordmark,
+   code, the Lua editor) keep it and fall back per glyph. */
+html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei UI','Microsoft YaHei',sans-serif }

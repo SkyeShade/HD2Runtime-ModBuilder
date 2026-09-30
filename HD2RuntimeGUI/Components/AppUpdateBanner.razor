@@ -6,24 +6,24 @@
 {
     <div class="app-update-result @(result.Success ? "ok" : "failed")" role="status" data-app-update-result="@(result.Success ? "success" : "failed")">
         <span>@result.Message</span>
-        @if (!result.Success) { <button class="link-button" @onclick="OpenNotes">View release</button> }
-        <button class="app-update-close" aria-label="Dismiss" @onclick="Updates.ClearPreviousResult">×</button>
+        @if (!result.Success) { <button class="link-button" @onclick="OpenNotes">@T["AppUpdate.ViewRelease"]</button> }
+        <button class="app-update-close" aria-label="@T["AppUpdate.Result.Dismiss"]" @onclick="Updates.ClearPreviousResult">×</button>
     </div>
 }
 @if (Updates.ShowBanner && Updates.Latest is { } latest)
 {
-    <section class="app-update-banner" role="region" aria-label="Application update" data-app-update-banner="@latest.Version">
+    <section class="app-update-banner" role="region" aria-label="@T["AppUpdate.Banner.Aria"]" data-app-update-banner="@latest.Version">
         <BrandMark Size="34" CssClass="app-update-mark" />
         <div class="app-update-text">
-            <strong>HD2Runtime ModBuilder @latest.Version is available</strong>
-            <span>You're currently using @Updates.CurrentVersion.@if (Updates.Installing) { <span class="app-update-stage" data-app-update-stage> @Updates.InstallStage</span> }</span>
+            <strong>@T.Format("AppUpdate.Banner.Available", latest.Version)</strong>
+            <span>@T.Format("AppUpdate.Banner.Current", Updates.CurrentVersion)@if (Updates.Installing) { <span class="app-update-stage" data-app-update-stage> @Updates.InstallStage</span> }</span>
             @if (Updates.InstallError is { } error) { <span class="app-update-error" role="alert" data-app-update-error>@error</span> }
         </div>
         <div class="app-update-actions">
-            @if (Updates.InstallNeedsManualDownload) { <button class="primary" @onclick="OpenNotes" data-app-update-download>Open release page</button> }
-            else { <button class="primary" disabled="@Updates.Installing" @onclick="Install" data-app-update-install>@(Updates.Installing ? "Installing…" : "Install update")</button> }
-            <button @onclick="OpenNotes" data-app-update-notes>View release notes</button>
-            <button class="app-update-dismiss" disabled="@Updates.Installing" @onclick="Updates.DismissAsync" data-app-update-dismiss>Dismiss</button>
+            @if (Updates.InstallNeedsManualDownload) { <button class="primary" @onclick="OpenNotes" data-app-update-download>@T["AppUpdate.OpenReleasePage"]</button> }
+            else { <button class="primary" disabled="@Updates.Installing" @onclick="Install" data-app-update-install>@(Updates.Installing ? T["AppUpdate.Installing"] : T["AppUpdate.Install"])</button> }
+            <button @onclick="OpenNotes" data-app-update-notes>@T["AppUpdate.ViewReleaseNotes"]</button>
+            <button class="app-update-dismiss" disabled="@Updates.Installing" @onclick="Updates.DismissAsync" data-app-update-dismiss>@T["AppUpdate.Dismiss"]</button>
         </div>
     </section>
 }

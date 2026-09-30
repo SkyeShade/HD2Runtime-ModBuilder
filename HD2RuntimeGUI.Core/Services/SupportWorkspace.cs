@@ -1,4 +1,5 @@
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -14,7 +15,7 @@ public sealed partial class BuilderWorkspace
         var project = Project; await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var previous = project.SupportChanges.ToList(); var approvals = new Dictionary<string, string>(project.SupportApprovals);
             try { edit(project); project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(Metadata!, c)); await SaveChangesAsync(); }
             catch { project.SupportChanges = previous; project.SupportApprovals = approvals; throw; }
@@ -47,7 +48,7 @@ public sealed partial class BuilderWorkspace
     public Task SetSupportEffectAcknowledgedAsync(string instance, bool acknowledged) => EditSupportAsync(p =>
     {
         var f = SupportChangeService.Catalog(Metadata!).Field(instance);
-        if (f.Operation.Acknowledgement != "allow_unverified_effect") throw new InvalidDataException("This field does not require an unverified-effect acknowledgement.");
+        if (f.Operation.Acknowledgement != "allow_unverified_effect") throw new InvalidDataException(CoreText.Get("Messages.Workspace.EffectAcknowledgementNotRequired"));
         p.SupportChanges = p.SupportChanges.Select(c => c.InstanceKey == instance ? c with { EffectAcknowledgement = acknowledged ? SupportChangeService.EffectEvidence(f) : null } : c).ToList();
     });
     public Task ToggleSupportAsync(string instance) => EditSupportAsync(p =>

@@ -11,21 +11,21 @@
     var keys = fields.Select(f => f.InstanceKey).ToArray();
     var edited = fields.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null);
     <section class="panel backpack-ammo @(edited ? "modified" : "")" data-backpack-ammo="@backpack.Name">
-        <div class="panel-heading"><h3>Backpack ammo</h3>
-            <span class="badge" data-ammo-owner>Stored in @backpack.Name</span>
-            <span class="badge amber" data-flag="allow_unverified_effect" title="@fields.FirstOrDefault()?.AcknowledgementReason">Effect unverified</span>
-            @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", backpack.Name))'>Reset backpack ammo</button> }</div>
-        <p class="subtle" data-ammo-ownership>@Weapon has no magazine of its own: it fires from the ammunition stored in its backpack, so these values belong to the backpack.</p>
+        <div class="panel-heading"><h3>@T["Support.BackpackAmmo.Title"]</h3>
+            <span class="badge" data-ammo-owner>@T.Format("Support.BackpackAmmo.StoredIn", backpack.Name)</span>
+            <span class="badge amber" data-flag="allow_unverified_effect" title="@fields.FirstOrDefault()?.AcknowledgementReason">@T["Support.BackpackAmmo.EffectUnverified"]</span>
+            @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", backpack.Name))'>@T["Support.BackpackAmmo.Reset"]</button> }</div>
+        <p class="subtle" data-ammo-ownership>@T.Format("Support.BackpackAmmo.Ownership", Weapon)</p>
         <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="entities.Backpacks.EvidenceTiers" Changed="Refresh" /> }</div>
         @if (backpack.Ammo?.FromAmmoBox is { } box && !ModifiedOnly)
-        { <p class="subtle" data-ammo-box>Ammo box: @box.Value.GetRawText()@(box.Writable ? "" : " · " + box.Reason)</p> }
+        { <p class="subtle" data-ammo-box>@T.Format("Support.BackpackAmmo.AmmoBox", box.Value.GetRawText() + (box.Writable ? "" : " · " + box.Reason))</p> }
         @if (edited && Workspace.Project != null)
         {
-            <AckPanel Title="Backpack ammo · effect not gameplay-confirmed" Kind="unverified"
+            <AckPanel Title="@T["Support.BackpackAmmo.Unverified"]" Kind="unverified"
                 Description="@fields.FirstOrDefault()?.AcknowledgementReason" />
         }
-        <details class="field-info"><summary title="How this is written">ⓘ</summary><div class="field-info-body">
-            <p>Written as <code>hd2.support_weapon('@Weapon'):backpack()</code> (<code>@link.Owner</code>). Keep the starting amount no greater than the capacity.</p>
+        <details class="field-info"><summary title="@T["Support.BackpackAmmo.HowWritten"]">ⓘ</summary><div class="field-info-body">
+            <p>@T.Markup("Support.BackpackAmmo.WrittenAs.Html", $"hd2.support_weapon('{Weapon}'):backpack()", link.Owner)</p>
             @if (backpack.Feeds is { } feeds) { <ul>@foreach (var step in feeds.Chain) { <li>@step</li> }</ul> }</div></details>
         @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
     </section>

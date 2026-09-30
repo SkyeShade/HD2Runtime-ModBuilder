@@ -2,6 +2,8 @@ using Microsoft.Maui.LifecycleEvents;
 using Microsoft.Extensions.Logging;
 using HD2RuntimeGUI.Core.Generation;
 using HD2RuntimeGUI.Core.GitHub;
+using System.Globalization;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Projects;
 using HD2RuntimeGUI.Core.Services;
@@ -35,6 +37,11 @@ public static class MauiProgram
         if (!string.IsNullOrWhiteSpace(configuredRoot)) dataRoot = Path.GetFullPath(configuredRoot);
         var paths = new AppPaths(dataRoot);
         builder.Services.AddSingleton(paths);
+        // UI language (Settings → Language: system / en / zh-Hans): applied before the first render, changed live afterwards.
+        var language = new LanguageService(paths, CultureInfo.CurrentUICulture);
+        language.Apply();
+        builder.Services.AddSingleton(language);
+        builder.Services.AddSingleton<IUiText, UiText>();
         builder.Services.AddSingleton(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(25) });
         builder.Services.AddSingleton<IGitHubReleaseClient, GitHubReleaseClient>();
         builder.Services.AddSingleton<IMetadataReader, MetadataReader>();

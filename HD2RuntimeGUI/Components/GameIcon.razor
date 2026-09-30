@@ -19,7 +19,7 @@
     [Parameter] public string? State { get; set; }
     [Parameter] public string? Reason { get; set; }
     private string Initials => string.Concat(Label.Split([' ', '-', '/'], StringSplitOptions.RemoveEmptyEntries).Where(w => char.IsLetter(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
-    private string FallbackTitle => Reason != null ? Label + " · " + Reason : Booster == null && Key == null || Booster != null && Booster.Identity.UiIcon == null ? "No published icon identity" : "Icon not imported (Settings → Game icons)";
+    private string FallbackTitle => Reason != null ? Label + " · " + Reason : Booster == null && Key == null || Booster != null && Booster.Identity.UiIcon == null ? T["Icons.Fallback.NoIdentity"] : T["Icons.Fallback.NotImported"];
     protected override void OnInitialized() => Icons.Changed += Refresh;
     private void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Icons.Changed -= Refresh;

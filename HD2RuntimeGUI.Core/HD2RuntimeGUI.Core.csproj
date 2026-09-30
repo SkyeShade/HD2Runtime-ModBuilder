@@ -7,6 +7,9 @@
          names) stays HD2RuntimeGUI.Core. -->
     <AssemblyName>HD2RuntimeModBuilder.Core</AssemblyName>
     <RootNamespace>HD2RuntimeGUI.Core</RootNamespace>
+    <!-- UI text: Resources/Strings/Strings.resx is English (neutral); each Strings.<culture>.resx builds to
+         <culture>/HD2RuntimeModBuilder.Core.resources.dll. See docs/localization.md. -->
+    <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Metadata/Bundled/*.json" />

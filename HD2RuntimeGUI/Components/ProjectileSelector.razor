@@ -8,19 +8,19 @@
    var current = Workspace.EffectiveProjectile(Weapon, Attack.Role);
    var orphaned = Workspace.OrphanedObjectEdits(Weapon, Attack.Role); }
 <div class="composition-control @(saved != null ? "modified" : "")" data-projectile="@Attack.Role">
-    <div class="panel-heading"><h3>Projectile · @Attack.Role.Replace('_', ' ')</h3><span class="badge @(saved != null ? "modified-badge" : "")">@(saved != null ? "Modified" : Attack.WritableReferenceSwap ? "Guarded" : "Read-only")</span></div>
+    <div class="panel-heading"><h3>@T.Format("Projectile.Title", Attack.Role.Replace('_', ' '))</h3><span class="badge @(saved != null ? "modified-badge" : "")">@(saved != null ? T["Common.Modified"] : Attack.WritableReferenceSwap ? T["Composition.Guarded"] : T["Common.ReadOnly"])</span></div>
     <p class="@(saved != null ? "modified-value" : "subtle")">@baseline.Label @if (saved != null) { <span> → <strong>@saved.ReplacementProjectile.Label</strong></span> }</p>
     @if (sources.Count > 0)
     {
-        <label>Replacement projectile
-            <select aria-label="Replacement projectile" value="@Key(Pending?.Source ?? saved?.ReplacementProjectile ?? baseline)" @onchange="Select" disabled="@(Pending != null)">
-                <option value="">Original · @baseline.Label</option>
-                @if (saved != null && !sources.Contains(saved.ReplacementProjectile)) { <option value="@Key(saved.ReplacementProjectile)" disabled>Unavailable · @saved.ReplacementProjectile.Label</option> }
+        <label>@T["Projectile.Replacement.Label"]
+            <select aria-label="@T["Projectile.Replacement.Label"]" value="@Key(Pending?.Source ?? saved?.ReplacementProjectile ?? baseline)" @onchange="Select" disabled="@(Pending != null)">
+                <option value="">@T.Format("Composition.Original", baseline.Label)</option>
+                @if (saved != null && !sources.Contains(saved.ReplacementProjectile)) { <option value="@Key(saved.ReplacementProjectile)" disabled>@T.Format("Projectile.Unavailable", saved.ReplacementProjectile.Label)</option> }
                 @foreach (var source in sources.Where(s => s != baseline)) { <option value="@Key(source)">@source.Label @ResidencyLabel(source)</option> }
             </select>
         </label>
         @if (Pending is { } pending) { <ProjectileSwapPrompt Current="current" Target="pending.Target" Edits="pending.Edits" Reset="pending.Source == null" Decide="Swap" Cancel="() => Pending = null" /> }
-        <p class="subtle">Compatibility: @Attack.CompatibilityClass.Replace('_', ' ')</p>
+        <p class="subtle">@T.Format("Projectile.Compatibility", Attack.CompatibilityClass.Replace('_', ' '))</p>
         @* 0.27.0+: Runtime loads a known donor package itself, so a cross-package source needs nobody to carry the donor weapon. *@
         @if (Workspace.Metadata!.Assets != null)
         {
@@ -31,25 +31,25 @@
         {
             var residency = Workspace.Metadata.Composition!.Attack((saved?.ReplacementProjectile ?? baseline).Weapon, (saved?.ReplacementProjectile ?? baseline).AttackRole).Residency;
             <span class="badge">@residency?.Classification.Replace('_', ' ')</span><p class="subtle">@residency?.Evidence</p>
-            @if (residency?.Classification == "DEPENDENCY_UNRESOLVED") { <p class="notice warning">Runtime permits this source, but its independent resource residency is unresolved.</p> }
+            @if (residency?.Classification == "DEPENDENCY_UNRESOLVED") { <p class="notice warning">@T["Projectile.ResidencyUnresolved"]</p> }
         }
     }
-    else { <p class="subtle">@(Attack.Reason ?? "The SDK has not approved a writable projectile selector for this attack.")</p> }
+    else { <p class="subtle">@(Attack.Reason ?? T["Projectile.NoSelector"])</p> }
     @if (orphaned.Count > 0 && Pending == null)
     {
-        <div class="swap-prompt orphaned" role="group" aria-label="Edits on a previous projectile" data-orphaned-edits>
-            <p><strong>@(orphaned.Count == 1 ? "One value was changed" : $"{orphaned.Count} values were changed") on the @string.Join(", ", orphaned.Select(e => e.Target.Label).Distinct())</strong>, which this attack no longer fires. Keep them on the @current.Label or discard them.</p>
+        <div class="swap-prompt orphaned" role="group" aria-label="@T["Projectile.Orphaned.Label"]" data-orphaned-edits>
+            <p><strong>@T.Plural("Projectile.Orphaned.Changed", orphaned.Count, string.Join(", ", orphaned.Select(e => e.Target.Label).Distinct()))</strong> @T.Format("Projectile.Orphaned.Choice", current.Label)</p>
             <ul class="swap-edits">@foreach (var edit in orphaned) { <li data-orphaned-edit>@Workspace.ObjectEditLabel(edit)</li> }</ul>
             <div class="swap-actions">
-                <button class="primary" data-orphaned-keep @onclick="() => Resolve(true)">Keep on current projectile</button>
-                <button data-orphaned-discard @onclick="() => Resolve(false)">Discard them</button>
+                <button class="primary" data-orphaned-keep @onclick="() => Resolve(true)">@T["Projectile.Orphaned.Keep"]</button>
+                <button data-orphaned-discard @onclick="() => Resolve(false)">@T["Projectile.Orphaned.Discard"]</button>
             </div>
         </div>
     }
     @if (Result is { } result) { <ProjectileSwapResult Result="result" Dismiss="() => Result = null" /> }
     @if (saved != null)
     {
-        <button class="reset-action" @onclick="() => Choose(null)">Reset projectile</button>
+        <button class="reset-action" @onclick="() => Choose(null)">@T["Projectile.Reset"]</button>
         @if (Workspace.ProjectileIssue(saved) is { } issue) { <p class="notice warning" role="alert">@issue</p> }
     }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }

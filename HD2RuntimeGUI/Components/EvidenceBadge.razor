@@ -1,62 +1,66 @@
 @* Runtime-published evidence tier. Labels deliberately distinguish in-game testing from schema proof, live writes and structure-only references.
    Compact labels keep that distinction in a short badge; the full label, description and proof stay in the tooltip. *@
-<span class="badge evidence tier-@Evidence.Tier.Replace('_', '-')" data-evidence-tier="@Evidence.Tier" title="@Tooltip">@(Compact ? Short(Evidence.Tier) : Label(Evidence.Tier))</span>
+<span class="badge evidence tier-@Evidence.Tier.Replace('_', '-')" data-evidence-tier="@Evidence.Tier" title="@Tooltip">@(Compact ? Short(T, Evidence.Tier) : Label(T, Evidence.Tier))</span>
 @code {
     [Parameter, EditorRequired] public EntityEvidence Evidence { get; set; } = null!;
     [Parameter] public IReadOnlyDictionary<string, string>? Tiers { get; set; }
     [Parameter] public bool Compact { get; set; }
-    public static string Label(string tier) => tier switch
+    // Tier ids are Runtime identifiers; the labels are ModBuilder's text. An unknown tier shows as published. The overloads without
+    // IUiText use the current UI language.
+    private static readonly IUiText Current = new UiText();
+    public static string Label(string tier) => Label(Current, tier);
+    public static string Short(string tier) => Short(Current, tier);
+    public static string Label(IUiText t, string tier) => tier switch
     {
-        "gameplay_proven" => "In-game tested",
-        "gameplay_proven_combined" => "In-game (combined edit)",
-        "schema_proven" => "Schema-proven",
-        "live_write_verified" => "Live write confirmed",
-        "structural_reference" => "Structure only",
+        "gameplay_proven" => t["Evidence.Tier.GameplayProven"],
+        "gameplay_proven_combined" => t["Evidence.Tier.GameplayProvenCombined"],
+        "schema_proven" => t["Evidence.Tier.SchemaProven"],
+        "live_write_verified" => t["Evidence.Tier.LiveWriteVerified"],
+        "structural_reference" => t["Evidence.Tier.StructuralReference"],
         // Magazine attachment tiers (0.23.1): the native owner is proven; the gameplay effect of an edit is not.
-        "native_owner" => "Native owner · effect unproven",
-        "native_owner_effect_consistent" => "Native owner · effects match catalog",
-        "native_owner_value_consistent" => "Native owner · value matches catalog",
+        "native_owner" => t["Evidence.Tier.NativeOwner"],
+        "native_owner_effect_consistent" => t["Evidence.Tier.NativeOwnerEffectConsistent"],
+        "native_owner_value_consistent" => t["Evidence.Tier.NativeOwnerValueConsistent"],
         // Booster tiers (0.24.0): the native link is proven; no booster edit is gameplay-tested yet.
-        "structural_chain_exact_fingerprint" => "Structural chain · exact match · effect unproven",
-        "unique_exact_multi_value_fingerprint" => "Unique value fingerprint · effect unproven",
+        "structural_chain_exact_fingerprint" => t["Evidence.Tier.StructuralChainExactFingerprint"],
+        "unique_exact_multi_value_fingerprint" => t["Evidence.Tier.UniqueExactMultiValueFingerprint"],
         // Booster tiers (0.25.0): natively traced consumer code; "exact" adds an independent value fingerprint. Effects remain unproven in game.
-        "native_table_code_consumer_exact_fingerprint" => "Native table + consumer · exact match · effect unproven",
-        "native_table_code_consumer" => "Native table + consumer · effect unproven",
-        "structural_code_chain_exact_fingerprint" => "Code chain · exact match · effect unproven",
-        "structural_code_selector_exact_fingerprint" => "Code selector · exact match · effect unproven",
-        "structural_code_selector" => "Code selector · effect unproven",
+        "native_table_code_consumer_exact_fingerprint" => t["Evidence.Tier.NativeTableCodeConsumerExactFingerprint"],
+        "native_table_code_consumer" => t["Evidence.Tier.NativeTableCodeConsumer"],
+        "structural_code_chain_exact_fingerprint" => t["Evidence.Tier.StructuralCodeChainExactFingerprint"],
+        "structural_code_selector_exact_fingerprint" => t["Evidence.Tier.StructuralCodeSelectorExactFingerprint"],
+        "structural_code_selector" => t["Evidence.Tier.StructuralCodeSelector"],
         // Throwable tiers (0.27.0): the native member is proven, and "wiki exact" adds an exact published-value match. Effects remain unproven in game.
-        "wiki_exact" => "Native member · exact value match · effect unproven",
-        "native_member" => "Native member · effect unproven",
+        "wiki_exact" => t["Evidence.Tier.WikiExact"],
+        "native_member" => t["Evidence.Tier.NativeMember"],
         // Enemy tiers (0.28.0 development SDKs): live-tested on enemies, a member proven on vehicles, wiki-correlated members, and mount-chain rows.
-        "live_proven" => "In-game tested on enemies",
-        "gameplay_proven_member" => "Member proven on vehicles · enemy value untested",
-        "schema_wiki_correlated" => "Member + wiki match · effect unproven",
-        "mount_chain_structural" => "Mount chain · effect unproven",
+        "live_proven" => t["Evidence.Tier.LiveProven"],
+        "gameplay_proven_member" => t["Evidence.Tier.GameplayProvenMember"],
+        "schema_wiki_correlated" => t["Evidence.Tier.SchemaWikiCorrelated"],
+        "mount_chain_structural" => t["Evidence.Tier.MountChainStructural"],
         _ => tier.Replace('_', ' '),
     };
-    public static string Short(string tier) => tier switch
+    public static string Short(IUiText t, string tier) => tier switch
     {
-        "gameplay_proven" => "In-game tested",
-        "gameplay_proven_combined" => "In-game (combined)",
-        "schema_proven" => "Schema",
-        "live_write_verified" => "Live write",
-        "structural_reference" => "Structure only",
-        "native_owner" or "native_owner_effect_consistent" or "native_owner_value_consistent" => "Native owner",
-        "structural_chain_exact_fingerprint" => "Structural chain",
-        "unique_exact_multi_value_fingerprint" => "Value fingerprint",
-        "native_table_code_consumer_exact_fingerprint" or "native_table_code_consumer" => "Native consumer",
-        "structural_code_chain_exact_fingerprint" => "Code chain",
-        "structural_code_selector_exact_fingerprint" or "structural_code_selector" => "Code selector",
-        "wiki_exact" => "Exact match",
-        "native_member" => "Native member",
-        "live_proven" => "In-game tested",
-        "gameplay_proven_member" => "Proven member",
-        "schema_wiki_correlated" => "Wiki-correlated",
-        "mount_chain_structural" => "Mount chain",
+        "gameplay_proven" or "live_proven" => t["Evidence.Tier.GameplayProven"],
+        "gameplay_proven_combined" => t["Evidence.Short.GameplayProvenCombined"],
+        "schema_proven" => t["Evidence.Short.SchemaProven"],
+        "live_write_verified" => t["Evidence.Short.LiveWriteVerified"],
+        "structural_reference" => t["Evidence.Tier.StructuralReference"],
+        "native_owner" or "native_owner_effect_consistent" or "native_owner_value_consistent" => t["Evidence.Short.NativeOwner"],
+        "structural_chain_exact_fingerprint" => t["Evidence.Short.StructuralChain"],
+        "unique_exact_multi_value_fingerprint" => t["Evidence.Short.ValueFingerprint"],
+        "native_table_code_consumer_exact_fingerprint" or "native_table_code_consumer" => t["Evidence.Short.NativeConsumer"],
+        "structural_code_chain_exact_fingerprint" => t["Evidence.Short.CodeChain"],
+        "structural_code_selector_exact_fingerprint" or "structural_code_selector" => t["Evidence.Short.CodeSelector"],
+        "wiki_exact" => t["Evidence.Short.WikiExact"],
+        "native_member" => t["Evidence.Short.NativeMember"],
+        "gameplay_proven_member" => t["Evidence.Short.GameplayProvenMember"],
+        "schema_wiki_correlated" => t["Evidence.Short.SchemaWikiCorrelated"],
+        "mount_chain_structural" => t["Evidence.Short.MountChainStructural"],
         _ => tier.Replace('_', ' '),
     };
-    private string Tooltip => string.Join("\n", new[] { Label(Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : "Reference mod: " + Evidence.ReferenceMod,
-        Evidence.ProvenOn is { Length: > 0 } on ? "Proven on: " + string.Join(", ", on) : null, Evidence.Proof,
-        Evidence.NativeOwner == null ? null : "Native owner: " + Evidence.NativeOwner, Evidence.GameplayWriteEffect == null ? null : "Gameplay effect of a write: " + Evidence.GameplayWriteEffect }.Where(s => !string.IsNullOrWhiteSpace(s)));
+    private string Tooltip => string.Join("\n", new[] { Label(T, Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : T.Format("Evidence.ReferenceMod", Evidence.ReferenceMod),
+        Evidence.ProvenOn is { Length: > 0 } on ? T.Format("Evidence.ProvenOn", string.Join(", ", on)) : null, Evidence.Proof,
+        Evidence.NativeOwner == null ? null : T.Format("Evidence.NativeOwner", Evidence.NativeOwner), Evidence.GameplayWriteEffect == null ? null : T.Format("Evidence.GameplayEffect", Evidence.GameplayWriteEffect) }.Where(s => !string.IsNullOrWhiteSpace(s)));
 }

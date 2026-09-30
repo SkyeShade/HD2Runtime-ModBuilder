@@ -12,13 +12,13 @@
     {
         <section class="panel category-panel cat-throwable" data-throwable="@throwable.Name">
             <div class="object-header"><GameIcon Kind="throwable" Label="@throwable.Name" CssClass="cat-throwable" Size="md" /><div>
-                <div class="eyebrow">THROWABLE@(throwable.Designation is { } d ? " · " + d : "")</div><h2>@throwable.Name</h2>
+                <div class="eyebrow">@T["Throwable.Eyebrow"]@(throwable.Designation is { } d ? " · " + d : "")</div><h2>@throwable.Name</h2>
                 <div class="field-badges"><span class="badge" data-throwable-category>@throwable.Category</span><span class="badge" data-throwable-family>@FamilyLabel(throwable.Family)</span>
-                    <span class="badge @(throwable.Identity.Status == "RESOLVED" ? "green" : "")" title="@string.Join("\n", throwable.Identity.Evidence)">@(throwable.Identity.Status == "RESOLVED" ? "Resolved identity" : throwable.Identity.Status)</span>
-                    <span class="badge">@throwable.WritableFields writable</span></div></div></div>
+                    <span class="badge @(throwable.Identity.Status == "RESOLVED" ? "green" : "")" title="@string.Join("\n", throwable.Identity.Evidence)">@(throwable.Identity.Status == "RESOLVED" ? T["Throwable.Identity.Resolved"] : throwable.Identity.Status)</span>
+                    <span class="badge">@T.Format("EntityPanel.WritableCount", throwable.WritableFields)</span></div></div></div>
             <p class="subtle"><code data-semantic-id>@throwable.SemanticId</code></p>
-            <details><summary>Identity evidence</summary><ul>@foreach (var e in throwable.Identity.Evidence) { <li>@e</li> }</ul><p class="subtle">Matched facts: @string.Join(", ", throwable.Identity.MatchedFacts)</p></details>
-            @if (edited.Length > 0 && Workspace.Project != null) { <button class="reset-action" data-throwable-reset @onclick='() => Run(() => Workspace.ResetEntityAsync(ThrowableAuthoringReader.Resource, Name))'>Reset throwable</button> }
+            <details><summary>@T["EntityPanel.IdentityEvidence"]</summary><ul>@foreach (var e in throwable.Identity.Evidence) { <li>@e</li> }</ul><p class="subtle">@T.Format("Throwable.MatchedFacts", string.Join(", ", throwable.Identity.MatchedFacts))</p></details>
+            @if (edited.Length > 0 && Workspace.Project != null) { <button class="reset-action" data-throwable-reset @onclick='() => Run(() => Workspace.ResetEntityAsync(ThrowableAuthoringReader.Resource, Name))'>@T["Throwable.Reset"]</button> }
         </section>
     }
     @foreach (var target in throwable.Targets.OrderBy(t => Order(t.Path)))
@@ -26,24 +26,24 @@
         var targetFields = target.Fields.Select(f => fields[f.InstanceKey]).Where(Show).ToArray();
         if (targetFields.Length == 0) continue;
         <section class="panel throwable-target @(targetFields.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null) ? "modified" : "")" data-throwable-target="@TargetKey(target)">
-            <div class="panel-heading"><h2>@TargetTitle(target)</h2>
-                @if (target.LabelConfidence is { } confidence && confidence != "exact") { <span class="badge" title="Runtime's confidence in this status label">Label @confidence</span> }</div>
+            <div class="panel-heading"><h2>@TargetTitle(T, target)</h2>
+                @if (target.LabelConfidence is { } confidence && confidence != "exact") { <span class="badge" title="@T["Throwable.LabelConfidence.Tooltip"]">@T.Format("Throwable.LabelConfidence", confidence)</span> }</div>
             @if (!ModifiedOnly) { <p class="subtle">@target.Relationship</p> }
-            @if (target.SharedDamageWithParentExplosion && !ModifiedOnly) { <p class="subtle" data-bomblet-shared-damage>Each bomblet's direct hit uses this grenade's explosion damage; edit it under Explosion.</p> }
+            @if (target.SharedDamageWithParentExplosion && !ModifiedOnly) { <p class="subtle" data-bomblet-shared-damage>@T["Throwable.BombletSharedDamage"]</p> }
             @foreach (var row in targetFields.GroupBy(f => ThrowableAuthoringReader.Block(target.Path, f.SemanticFieldId)))
             {
                 var raw = catalog.Raw(row.First().InstanceKey)!.Value; var consumers = ThrowableCatalog.Consumers(target, raw.Field); var shared = row.First().Shared;
                 <div class="throwable-row" data-throwable-row="@row.Key">
                     @if (target.Scope is { Count: > 1 } || shared)
                     {
-                        <h3 class="group-title">@RowTitle(row.Key)
-                            @if (shared && consumers != null) { <span class="badge amber" data-flag="allow_shared" title="@ConsumerText(consumers)">Shared · @consumers.RootEntities</span> }
-                            else { <span class="badge" title="Owned by this throwable only">Own record</span> }</h3>
+                        <h3 class="group-title">@RowTitle(T, row.Key)
+                            @if (shared && consumers != null) { <span class="badge amber" data-flag="allow_shared" title="@ConsumerText(consumers)">@T.Format("Throwable.SharedRow.Badge", consumers.RootEntities)</span> }
+                            else { <span class="badge" title="@T["Throwable.OwnRecord.Tooltip"]">@T["Throwable.OwnRecord"]</span> }</h3>
                     }
                     <div class="stat-grid">@foreach (var f in row) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
                     @if (shared && consumers != null && row.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null))
                     {
-                        <AckPanel Title="Shared settings row" Kind="shared" Description="@raw.Field.Scope.Note" Items="@Consumers(consumers)" ItemsLabel="Also used by:"
+                        <AckPanel Title="@T["Throwable.SharedRow.Title"]" Kind="shared" Description="@raw.Field.Scope.Note" Items="@Consumers(consumers)" ItemsLabel="@T["EntityPanel.AlsoUsedBy"]"
                             PanelAttributes='@(new() { ["data-throwable-shared"] = row.Key })' />
                     }
                 </div>
@@ -52,8 +52,8 @@
     }
     @if (edited.Any(f => f.Acknowledgement == "allow_unverified_effect"))
     {
-        <AckPanel Title="Throwable effect not gameplay-confirmed" Kind="unverified" Description="@edited.First().AcknowledgementReason"
-            Items="@edited.Select(f => TargetTitle(throwable.Targets.First(t => t.Path == f.Target.Path && t.Key == f.Target.Effect)) + " · " + f.DisplayName).ToArray()" ItemsLabel="Edited:"
+        <AckPanel Title="@T["Throwable.Unverified.Title"]" Kind="unverified" Description="@edited.First().AcknowledgementReason"
+            Items="@edited.Select(f => TargetTitle(T, throwable.Targets.First(t => t.Path == f.Target.Path && t.Key == f.Target.Effect)) + " · " + f.DisplayName).ToArray()" ItemsLabel="@T["EntityPanel.Edited"]"
             PanelAttributes='@(new() { ["data-throwable-unverified"] = "true" })' />
     }
     @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
@@ -63,27 +63,28 @@
     [Parameter] public bool ModifiedOnly { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
-    private static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string>
+    // Descriptions of the throwable evidence tiers (ModBuilder's wording of Runtime's definitions).
+    private IReadOnlyDictionary<string, string> Tiers => new Dictionary<string, string>
     {
-        ["wiki_exact"] = "Native member proven, and the value matches the published wiki value exactly. No changed value has been tested in game.",
-        ["native_member"] = "Native member proven. No changed value has been tested in game.",
+        ["wiki_exact"] = T["Throwable.Tier.WikiExact"],
+        ["native_member"] = T["Throwable.Tier.NativeMember"],
     };
     // Presentation order and titles of the published targets (the target set itself comes from the SDK).
     private static int Order(string path) => Array.IndexOf(["throwable", "detonation", "damage", "explosion", "status_effect", "shrapnel", "bomblets", "bomblet_explosion", "entity", "shield"], path);
-    public static string TargetTitle(ThrowableTarget t) => t.Path switch
+    public static string TargetTitle(IUiText t, ThrowableTarget target) => target.Path switch
     {
-        "throwable" => "Inventory", "detonation" => "Detonation", "damage" => "Direct hit", "explosion" => "Explosion",
-        "status_effect" => "Status effect · " + (t.Label ?? t.Key), "shrapnel" => "Shrapnel", "bomblets" => "Bomblets", "bomblet_explosion" => "Bomblet explosion",
-        "entity" => "Deployed entity", "shield" => "Shield", _ => FieldPresentation.EnumLabel(t.Path),
+        "throwable" => t["Throwable.Target.Inventory"], "detonation" => t["Throwable.Target.Detonation"], "damage" => t["Throwable.Target.DirectHit"], "explosion" => t["Throwable.Target.Explosion"],
+        "status_effect" => t.Format("Throwable.Target.StatusEffect", target.Label ?? target.Key), "shrapnel" => t["Throwable.Target.Shrapnel"], "bomblets" => t["Throwable.Target.Bomblets"],
+        "bomblet_explosion" => t["Throwable.Target.BombletExplosion"], "entity" => t["Throwable.Target.DeployedEntity"], "shield" => t["Throwable.Target.Shield"], _ => FieldPresentation.EnumLabel(target.Path),
     };
-    private static string RowTitle(string block) => block switch
+    private static string RowTitle(IUiText t, string block) => block switch
     {
-        "explosion" => "Explosion settings", "damage" => "Damage", "projectile" => "Projectile", "definition" => "Status definition", _ => FieldPresentation.EnumLabel(block),
+        "explosion" => t["Throwable.Row.Explosion"], "damage" => t["Throwable.Row.Damage"], "projectile" => t["Throwable.Row.Projectile"], "definition" => t["Throwable.Row.Definition"], _ => FieldPresentation.EnumLabel(block),
     };
     private static string TargetKey(ThrowableTarget t) => t.Key == null ? t.Path : t.Path + ":" + t.Key;
     public static string FamilyLabel(string family) => System.Text.RegularExpressions.Regex.Replace(family, "(?<=[a-z])(?=[A-Z])", " ");
-    private static string[] Consumers(ThrowableScopeBlock b) => [.. b.Throwables, .. b.OtherEntities > 0 ? new[] { b.OtherEntities + " other " + (b.OtherEntities == 1 ? "entity" : "entities") } : []];
-    private static string ConsumerText(ThrowableScopeBlock b) => "Shared settings row: " + string.Join(", ", Consumers(b)) + ". Edits change every user of this row.";
+    private string[] Consumers(ThrowableScopeBlock b) => [.. b.Throwables, .. b.OtherEntities > 0 ? new[] { T.Plural("Throwable.OtherEntities", b.OtherEntities) } : []];
+    private string ConsumerText(ThrowableScopeBlock b) => T.Format("Throwable.SharedRow.Tooltip", string.Join(", ", Consumers(b)));
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

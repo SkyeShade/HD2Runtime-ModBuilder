@@ -146,9 +146,9 @@ public sealed class Runtime028IntegrationTests
         Assert.Contains("hd2.input.bind('tests_enemy_tuning.action'", lua);
     }
 
-    [Fact] public void Unknown_events_actions_and_statuses_are_flagged_as_warnings()
+    [Fact] public async Task Unknown_events_actions_and_statuses_are_flagged_as_warnings()
     {
-        using var e = new TestEnvironment(); var sdk = EnemyAuthoringTests.Fresh(e).GetAwaiter().GetResult().Sdk;
+        using var e = new TestEnvironment(); var sdk = (await EnemyAuthoringTests.Fresh(e)).Sdk;
         var source = "hd2.events.on('player_dyed', function() end)\nhd2.events.on('entity_damage_pre', function() end)\n"
             + "hd2.explosions.spawn('Not A Bomb', {})\nhd2.projectiles.spawn('Not A Gun', {})\nhd2.status.apply(nil, 'not_a_status')\nhd2.input.bind('nodot', {})\n";
         var found = LuaScriptAnalyzer.Analyze(source, sdk.Events, sdk.Entities!.Enemies);

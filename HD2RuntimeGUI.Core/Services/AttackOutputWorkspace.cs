@@ -1,4 +1,5 @@
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -13,7 +14,7 @@ public sealed partial class BuilderWorkspace
     public string? AttackOutputIssue(AttackOutputChange change) { try { AttackOutputChangeService.Validate(Metadata!, change); return null; } catch (InvalidDataException e) { return e.Message; } }
     public AttackOutputHost? OutputHost(string weapon, string role, out string reason)
     {
-        reason = "This SDK publishes no active projectile sources.";
+        reason = CoreText.Get("Messages.Output.NoSources");
         return Metadata?.AttackOutputs is { } catalog && Metadata.PlayerWeapons is { } weapons ? catalog.Host(weapons, weapon, role, out reason) : null;
     }
     // The classic reference swap that expresses the same donor, when there is one (same class, a player weapon the projectile graph offers).
@@ -30,7 +31,7 @@ public sealed partial class BuilderWorkspace
         var project = Project; await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var (outputs, projectiles, composition, format) = (project.AttackOutputChanges?.ToList(), project.ProjectileChanges.ToList(), project.CompositionChanges.ToList(), project.FormatVersion);
             try
             {
@@ -43,7 +44,7 @@ public sealed partial class BuilderWorkspace
                     if (old != null) next = next with { Id = old.Id, Enabled = old.Enabled, EnsureEnabled = old.EnsureEnabled, Group = old.Group, Notes = old.Notes };
                     var edits = project.CompositionChanges.Where(c => c.Weapon == weapon && c.AttackRole == role).ToArray();
                     if (edits.Length > 0 && !discardObjectEdits)
-                        throw new InvalidDataException($"{weapon} has {edits.Length} projectile or explosion {(edits.Length == 1 ? "edit" : "edits")} that cannot follow an attack output. Discard them to switch.");
+                        throw new InvalidDataException(CoreText.Plural("Messages.Output.EditsBlockSwitch", edits.Length, weapon));
                     project.CompositionChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
                     project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
                     list.Add(next);

@@ -4,48 +4,48 @@
 <div class="field-row @(Modified ? "modified" : "") @(CanEdit ? "" : "readonly")" data-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@Field.DisplayName</span>@if (FieldPresentation.Unit(Field) is { Length: > 0 } unit) { <small class="field-unit">@unit</small> }
         <span class="field-flags">
-            @if (Modified) { <span class="badge modified-badge">Modified</span> }
-            @if (Dirty) { <span class="badge">Unsaved</span> }
-            @if (SavedGroup?.Enabled == false) { <span class="badge">Disabled</span> }
-            @if (Field.AffectsMultipleWeapons) { <span class="badge amber" data-flag="allow_shared" title="Shared definition: other weapons use it">Shared</span> }
-            @if (!CanEdit) { <span class="badge" title="@(Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)">@(SavedGroup?.Conflict != null ? "Resolve conflict" : Field.DerivedReadOnly ? "Derived" : !Available ? "Unavailable" : "Read-only")</span> }
+            @if (Modified) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (Dirty) { <span class="badge">@T["WeaponField.Unsaved"]</span> }
+            @if (SavedGroup?.Enabled == false) { <span class="badge">@T["WeaponField.Disabled"]</span> }
+            @if (Field.AffectsMultipleWeapons) { <span class="badge amber" data-flag="allow_shared" title="@T["WeaponField.Shared.Tooltip"]">@T["Common.Shared"]</span> }
+            @if (!CanEdit) { <span class="badge" title="@(Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)">@(SavedGroup?.Conflict != null ? T["WeaponField.ResolveConflict"] : Field.DerivedReadOnly ? T["WeaponField.Derived"] : !Available ? T["WeaponField.Unavailable"] : T["Common.ReadOnly"])</span> }
         </span></div>
     <div class="field-value">
         @if (CanEdit)
         {
             @if (Field.Type == "boolean")
-            { <label class="boolean-control"><input id="@InputId" type="checkbox" role="switch" checked='@(Value == "true")' disabled="@Busy" @onchange='async e => { Value = (bool)e.Value! ? "true" : "false"; await Commit(); }' aria-label="@Field.DisplayName" /><span>@(Value == "true" ? "On" : "Off")</span></label> }
+            { <label class="boolean-control"><input id="@InputId" type="checkbox" role="switch" checked='@(Value == "true")' disabled="@Busy" @onchange='async e => { Value = (bool)e.Value! ? "true" : "false"; await Commit(); }' aria-label="@Field.DisplayName" /><span>@(Value == "true" ? T["Common.On"] : T["FieldValue.Off"])</span></label> }
             else if (Field.Type == "enum")
             { <select id="@InputId" @bind="Value" @bind:after="Commit" disabled="@Busy" aria-label="@Field.DisplayName">@foreach (var option in Field.EnumValues!.Where(p => Field.AllowedValues == null || Field.AllowedValues.Contains(p.Value.GetInt32()))) { <option value="@option.Value.GetRawText()">@FieldPresentation.EnumLabel(option.Key)</option> }</select> }
             else
             { <input id="@InputId" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" aria-label="@Field.DisplayName" /> }
         }
-        else { <span class="readonly-value">@FieldPresentation.Value(Field, CurrentValue)</span> }
+        else { <span class="readonly-value">@FieldPresentation.DisplayValue(T, Field, CurrentValue)</span> }
     </div>
-    <div class="field-baseline @(Modified ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">Base @FieldPresentation.Value(Field, Field.CurrentDefault)@if (Modified) { <span> → <strong>@FieldPresentation.Value(Field, CurrentValue)</strong></span> }</div>
+    <div class="field-baseline @(Modified ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("WeaponField.Base", FieldPresentation.DisplayValue(T, Field, Field.CurrentDefault))@if (Modified) { <span> → <strong>@FieldPresentation.DisplayValue(T, Field, CurrentValue)</strong></span> }</div>
     <div class="field-tools">
         @if (SavedGroup != null) { <OptionToggle Key="@ModOptionsService.WeaponKey(Weapon.Name, Field.SemanticFieldId)" Changed="Changed" /> }
-        @if (Busy) { <small role="status">Saving…</small> }
-        @if (CanEdit && (Modified || FieldPresentation.Modified(Field, Change))) { <button class="reset-action small" @onclick="Reset" disabled="@Busy">Reset field</button> }
-        <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
-            @if (FieldPresentation.Explanation(Field) is { } explanation) { <p class="flag-explanation">@explanation</p> }
-            @if (Field.DerivedReadOnly) { <p>Calculated SDK baseline · read-only. This is not a live calculation of project edits.</p> }
-            @if (!CanEdit) { <p><strong>Not writable:</strong> @(Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)</p> }
-            @if (Field.AffectsMultipleWeapons) { <p><strong>Shared with:</strong> @(Field.SharedWithWeapons.Count > 0 ? string.Join(", ", Field.SharedWithWeapons) : "consumers the SDK cannot name")</p> }
-            <p><span class="badge">@Field.Provenance.Label</span> @(Field.Backing?.Settings ?? Field.Backing?.Component ?? "Calculated")</p>
+        @if (Busy) { <small role="status">@T["WeaponField.Saving"]</small> }
+        @if (CanEdit && (Modified || FieldPresentation.Modified(Field, Change))) { <button class="reset-action small" @onclick="Reset" disabled="@Busy">@T["WeaponField.ResetField"]</button> }
+        <details class="field-info"><summary title="@T["WeaponField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+            @if (FieldPresentation.Explanation(T, Field) is { } explanation) { <p class="flag-explanation">@explanation</p> }
+            @if (Field.DerivedReadOnly) { <p>@T["WeaponField.DerivedHelp"]</p> }
+            @if (!CanEdit) { <p>@T.Markup("WeaponField.NotWritable.Html", Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)</p> }
+            @if (Field.AffectsMultipleWeapons) { <p>@(Field.SharedWithWeapons.Count > 0 ? T.Markup("WeaponField.SharedWith.Html", string.Join(", ", Field.SharedWithWeapons)) : T.Markup("WeaponField.SharedWithUnnamed.Html"))</p> }
+            <p><span class="badge">@Field.Provenance.Label</span> @(Field.Backing?.Settings ?? Field.Backing?.Component ?? T["WeaponField.Calculated"])</p>
             <code>@Field.SemanticFieldId</code>
-            <p>@Field.Provenance.Source</p><p>Family: @string.Join(", ", Weapon.ImplementationFamilies). Scope: @Field.WriteScope.</p>
-            @if (Field.Backing is { } backing) { <p>Backing: @backing.Kind · @backing.Storage · offset @backing.Offset · width @backing.Width. Record @backing.RecordIndex / settings row @backing.Row.</p> }
-            @if (Field.Provenance.PendingGameplayConfirmation) { <p>Gameplay confirmation is pending.</p> }
+            <p>@Field.Provenance.Source</p><p>@T.Format("WeaponField.FamilyScope", string.Join(", ", Weapon.ImplementationFamilies), Field.WriteScope)</p>
+            @if (Field.Backing is { } backing) { <p>@T.Format("WeaponField.Backing", backing.Kind, backing.Storage, backing.Offset, backing.Width, backing.RecordIndex, backing.Row)</p> }
+            @if (Field.Provenance.PendingGameplayConfirmation) { <p>@T["WeaponField.GameplayPending"]</p> }
             @if (CanEdit)
-            { <details class="field-options"><summary>Change group &amp; notes</summary><label>Atomic group<input @bind="Group" @bind:after="Commit" disabled="@Busy" maxlength="120" /></label><label>Notes<textarea @bind="Notes" @bind:after="Commit" disabled="@Busy" maxlength="4000"></textarea></label></details> }
+            { <details class="field-options"><summary>@T["WeaponField.GroupNotes"]</summary><label>@T["WeaponField.AtomicGroup"]<input @bind="Group" @bind:after="Commit" disabled="@Busy" maxlength="120" /></label><label>@T["WeaponField.Notes"]<textarea @bind="Notes" @bind:after="Commit" disabled="@Busy" maxlength="4000"></textarea></label></details> }
         </div></details>
     </div>
     @if (SavedGroup?.Conflict != null) { <div class="field-wide"><WeaponAliasConflict Group="SavedGroup" Changed="AliasResolved" /></div> }
     @* 0.26.0: Runtime's allow_unverified_effect opt-in (reticle, burst length) is warned about next to the edit it covers. *@
     @if (Change != null && Field.Acknowledgement == "allow_unverified_effect" && FieldPresentation.Modified(Field, Change))
     {
-        <div class="field-wide"><AckPanel Title="@(Field.DisplayName + " · effect not gameplay-confirmed")" Kind="unverified" Description="@Field.AcknowledgementReason" /></div>
+        <div class="field-wide"><AckPanel Title="@T.Format("WeaponField.UnverifiedEffect.Title", Field.DisplayName)" Kind="unverified" Description="@Field.AcknowledgementReason" /></div>
     }
     @if (!CanEdit && Field.SemanticFieldId == FireModes.ReticleField) { <p class="field-wide subtle field-blocker" data-field-blocker>@(Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)</p> }
     @if (Error != null) { <p class="field-wide dialog-error" role="alert">@Error</p> }

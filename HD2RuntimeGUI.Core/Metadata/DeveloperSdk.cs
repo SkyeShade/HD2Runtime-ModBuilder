@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Metadata;
@@ -56,19 +57,19 @@ public static class DeveloperSdk
     public static string? Normalize(string input, out string? path)
     {
         path = null;
-        if (string.IsNullOrWhiteSpace(input)) return "Choose the sdk folder of an HD2Runtime build, or an SDK zip.";
+        if (string.IsNullOrWhiteSpace(input)) return CoreText.Get("Messages.LocalSdk.ChoosePath");
         string full;
-        try { full = System.IO.Path.GetFullPath(input.Trim().Trim('"')); } catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException) { return "Not a valid path."; }
+        try { full = System.IO.Path.GetFullPath(input.Trim().Trim('"')); } catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException) { return CoreText.Get("Messages.LocalSdk.InvalidPath"); }
         if (File.Exists(full))
         {
-            if (!full.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return "A local SDK file must be an SDK zip.";
+            if (!full.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return CoreText.Get("Messages.LocalSdk.NotZip");
             path = full; return null;
         }
-        if (!Directory.Exists(full)) return "The path does not exist.";
+        if (!Directory.Exists(full)) return CoreText.Get("Messages.LocalSdk.PathMissing");
         if (File.Exists(System.IO.Path.Combine(full, "metadata.json"))) { path = full; return null; }
         var sdk = System.IO.Path.Combine(full, "sdk");
         if (File.Exists(System.IO.Path.Combine(sdk, "metadata.json"))) { path = sdk; return null; }
-        return "No SDK here: the folder has no metadata.json (choose HD2Runtime's sdk folder).";
+        return CoreText.Get("Messages.LocalSdk.NoMetadata");
     }
     /// <summary>The Runtime commit a local sdk/ folder was generated in, read from the checkout's .git (display only), or null.</summary>
     public static string? RuntimeCommit(string sdkPath)

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 using HD2RuntimeGUI.Core.Storage;
@@ -42,7 +43,7 @@ public static class ProjectIdentity
         if (string.IsNullOrEmpty(resource) || !Regex.IsMatch(resource, @"\Amods/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)+\z") ||
             resource.Equals(RuntimeModule, StringComparison.OrdinalIgnoreCase) || resource.StartsWith(RuntimeModule + "/", StringComparison.OrdinalIgnoreCase) ||
             resource.Equals("mods/codex/loader", StringComparison.OrdinalIgnoreCase) || Encoding.UTF8.GetByteCount($"-- HD2-Addon: {resource}\n") > 256)
-            throw new InvalidDataException("Resource ID must be mods/author/mod_id using ASCII letters, digits and underscores, within 256 discovery bytes. Runtime/loader IDs are reserved.");
+            throw new InvalidDataException(CoreText.Get("Messages.Project.ResourceIdRules"));
     }
     public static Guid ManagerGuid(string resource)
     {
@@ -88,9 +89,9 @@ public static class ProjectIdentity
         || p.EntityChanges.Any(c => c.Resource is "vehicle_weapon" or "pod_rack" || c.Attack != null || c.Slot != null) ? 8 : 1;
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11) || p.Id == Guid.Empty) throw new InvalidDataException("Unsupported project format or identity.");
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11) || p.Id == Guid.Empty) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedFormat"));
         if (p.CustomLua is { } lua && (lua.Source == null || lua.Source.Length > CustomLuaSettings.MaxLength || lua.Source.Contains('\0')))
-            throw new InvalidDataException("Invalid custom Lua source.");
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCustomLua"));
         // Attack outputs: semantic weapon / role / output identities and the published opt-ins only.
         if (p.AttackOutputChanges is { } outputs && (outputs.Count > 500 || outputs.Select(c => c.Id).Distinct().Count() != outputs.Count
             || outputs.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)
@@ -98,26 +99,26 @@ public static class ProjectIdentity
                 || c.Mechanism is not ("component" or "ammunition") || !Regex.IsMatch(c.Output, @"\Aoutput/v1/projectile/[a-z0-9-]{1,128}\z") || c.OutputName.Length > 256
                 || c.Acknowledgements.Any(a => a is not ("allow_shared" or "allow_unverified_effect" or "allow_unverified_reference")) || !Regex.IsMatch(c.Evidence, @"\A[a-f0-9]{64}\z")
                 || c.Group.Length > 120 || c.Notes?.Length > 4000)))
-            throw new InvalidDataException("Invalid attack output changes.");
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidAttackOutputs"));
         foreach (var c in p.AttackOutputChanges ?? []) SemVersion.Parse(c.BaselineSdkVersion);
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
-            throw new InvalidDataException("Mod name and author are required (maximum 120 characters).");
+            throw new InvalidDataException(CoreText.Get("Messages.Project.NameAuthorRequired"));
         ValidateResource(p.ResourceId);
-        if (p.ManagerGuid != ManagerGuid(p.ResourceId)) throw new InvalidDataException("Project manager GUID does not match its resource identity.");
-        if (!Regex.IsMatch(p.Version, @"\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z")) throw new InvalidDataException("Mod version must be major.minor.patch.");
+        if (p.ManagerGuid != ManagerGuid(p.ResourceId)) throw new InvalidDataException(CoreText.Get("Messages.Project.ManagerGuidMismatch"));
+        if (!Regex.IsMatch(p.Version, @"\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z")) throw new InvalidDataException(CoreText.Get("Messages.Project.VersionFormat"));
         SemVersion.Parse(p.Version); SemVersion.Parse(p.SdkVersion);
-        if (p.RuntimeApi != 1 || p.Changes == null || p.Changes.Count > 1000 || p.Description.Length > 8000) throw new InvalidDataException("Invalid project data.");
-        if (p.Changes.Select(c => c.Id).Distinct().Count() != p.Changes.Count) throw new InvalidDataException("Duplicate change IDs.");
+        if (p.RuntimeApi != 1 || p.Changes == null || p.Changes.Count > 1000 || p.Description.Length > 8000) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidData"));
+        if (p.Changes.Select(c => c.Id).Distinct().Count() != p.Changes.Count) throw new InvalidDataException(CoreText.Get("Messages.Project.DuplicateChangeIds"));
         if (p.WeaponChanges == null || p.WeaponChanges.Count > 1000 || p.WeaponChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || string.IsNullOrWhiteSpace(c.SemanticFieldId) || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000 || c.AcknowledgedAffectedWeapons == null
             || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue) : Scalar(c.ExpectedValue) && Scalar(c.DesiredValue))
-            || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z"))) throw new InvalidDataException("Invalid weapon overrides.");
-        if (p.WeaponChanges.Select(c => c.Id).Distinct().Count() != p.WeaponChanges.Count) throw new InvalidDataException("Duplicate weapon change IDs.");
+            || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z"))) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidWeaponOverrides"));
+        if (p.WeaponChanges.Select(c => c.Id).Distinct().Count() != p.WeaponChanges.Count) throw new InvalidDataException(CoreText.Get("Messages.Project.DuplicateWeaponChangeIds"));
         if (p.ProjectileChanges == null || p.ProjectileChanges.Count > 1000 || p.ProjectileChanges.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256
             || !Regex.IsMatch(c.AttackRole, "\\A[a-z][a-z_0-9]{0,63}\\z") || c.SemanticFieldId != "attack.projectile" || c.ExpectedProjectile != new ProjectileReference(c.Weapon, c.AttackRole)
             || c.ReplacementProjectile == null || string.IsNullOrWhiteSpace(c.ReplacementProjectile.Weapon) || c.ReplacementProjectile.Weapon.Length > 256
             || !Regex.IsMatch(c.ReplacementProjectile.AttackRole, "\\A[a-z][a-z_0-9]{0,63}\\z") || c.Group.Length > 120 || c.Notes?.Length > 4000
-            || !Regex.IsMatch(c.ExpectedEvidence, "\\A[a-f0-9]{64}\\z") || !Regex.IsMatch(c.ReplacementEvidence, "\\A[a-f0-9]{64}\\z"))) throw new InvalidDataException("Invalid semantic projectile overrides.");
-        if (p.ProjectileChanges.Select(c => c.Id).Distinct().Count() != p.ProjectileChanges.Count) throw new InvalidDataException("Duplicate projectile change IDs.");
+            || !Regex.IsMatch(c.ExpectedEvidence, "\\A[a-f0-9]{64}\\z") || !Regex.IsMatch(c.ReplacementEvidence, "\\A[a-f0-9]{64}\\z"))) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidProjectileOverrides"));
+        if (p.ProjectileChanges.Select(c => c.Id).Distinct().Count() != p.ProjectileChanges.Count) throw new InvalidDataException(CoreText.Get("Messages.Project.DuplicateProjectileChangeIds"));
         foreach (var c in p.ProjectileChanges) SemVersion.Parse(c.BaselineSdkVersion);
         if (p.SupportChanges == null || p.SupportChanges.Count > 2000 || p.SupportApprovals == null || p.SupportApprovals.Count > 2000
             || p.SupportChanges.Select(c => c.InstanceKey).Distinct().Count() != p.SupportChanges.Count || p.SupportChanges.Select(c => c.Id).Distinct().Count() != p.SupportChanges.Count
@@ -125,9 +126,9 @@ public static class ProjectIdentity
                 || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || c.SemanticFieldId.Length > 128 || c.Group.Length > 120 || c.Notes?.Length > 4000
                 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z") || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z")
                 || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue)
-                    : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue)))) throw new InvalidDataException("Invalid support overrides.");
+                    : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue)))) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidSupportOverrides"));
         foreach (var c in p.SupportChanges) SemVersion.Parse(c.BaselineSdkVersion);
-        foreach (var a in p.SupportApprovals) if (a.Key.Length > 256 || !a.Key.StartsWith("support-scope/v1/", StringComparison.Ordinal) || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid support approval.");
+        foreach (var a in p.SupportApprovals) if (a.Key.Length > 256 || !a.Key.StartsWith("support-scope/v1/", StringComparison.Ordinal) || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidSupportApproval"));
         if (p.StratagemChanges == null || p.StratagemApprovals == null || p.StratagemChanges.Count > 2000 || p.StratagemApprovals.Count > 2000
             || p.StratagemChanges.Select(c => c.InstanceKey).Distinct().Count() != p.StratagemChanges.Count
             || p.StratagemChanges.Select(c => c.Id).Distinct().Count() != p.StratagemChanges.Count
@@ -140,9 +141,9 @@ public static class ProjectIdentity
                 // 0.26.0 mission uses: an integer count or Runtime's 'unlimited'.
                 || !(c.FieldType == Metadata.StratagemUses.Type ? Uses(c.ExpectedValue) && Uses(c.DesiredValue)
                     : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue))))
-            throw new InvalidDataException("Invalid semantic stratagem overrides.");
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidStratagemOverrides"));
         foreach (var c in p.StratagemChanges) SemVersion.Parse(c.BaselineSdkVersion);
-        foreach (var a in p.StratagemApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid stratagem approval.");
+        foreach (var a in p.StratagemApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidStratagemApproval"));
         // Format 6: vehicle/backpack (0.23.0), magazine attachment (0.23.1) and booster (0.24.0) changes. Targets are published names and zone_N / slot_N identities; mount values are published semantic IDs.
         static bool Slot(string? s, string prefix) => s != null && Regex.IsMatch(s, @"\A" + prefix + @"_[0-9]{1,3}\z");
         if (p.EntityChanges == null || p.EntityApprovals == null || p.EntityChanges.Count > 4000 || p.EntityApprovals.Count > 2000
@@ -194,10 +195,10 @@ public static class ProjectIdentity
                 })
                 || c.Group.Length > 120 || c.Notes?.Length > 4000 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")
                 || c.ReferenceAcknowledgement != null && !Regex.IsMatch(c.ReferenceAcknowledgement, @"\A[a-f0-9]{64}\z")))
-            throw new InvalidDataException("Invalid semantic vehicle/backpack overrides.");
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidEntityOverrides"));
         foreach (var c in p.EntityChanges) SemVersion.Parse(c.BaselineSdkVersion);
-        foreach (var a in p.EntityApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException("Invalid vehicle/backpack approval.");
-        if (p.CompositionChanges == null || p.CompositionChanges.Count > 1000 || p.CompositionChanges.Select(c => c.Id).Distinct().Count() != p.CompositionChanges.Count) throw new InvalidDataException("Invalid composition changes.");
+        foreach (var a in p.EntityApprovals) if (a.Key.Length > 256 || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidEntityApproval"));
+        if (p.CompositionChanges == null || p.CompositionChanges.Count > 1000 || p.CompositionChanges.Select(c => c.Id).Distinct().Count() != p.CompositionChanges.Count) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCompositionChanges"));
         foreach (var c in p.CompositionChanges)
         {
             bool Reference(ProjectileReference? r) => r != null && !string.IsNullOrWhiteSpace(r.Weapon) && r.Weapon.Length <= 256 && Regex.IsMatch(r.AttackRole, @"\A[a-z][a-z_0-9]{0,63}\z");
@@ -205,10 +206,10 @@ public static class ProjectIdentity
             if (c.Id == Guid.Empty || !Reference(new(c.Weapon, c.AttackRole)) || !Reference(c.Target) || c.Kind is not ("projectile" or "explosion" or "terminal")
                 || (c.Kind == "projectile" ? c.Phase != null : c.Phase is not ("impact" or "expiry")) || c.Group.Length > 120 || c.Notes?.Length > 4000
                 || (c.Kind == "terminal" ? c.Scalar != null || !Explosion(c.ExpectedExplosion) || !Explosion(c.DesiredExplosion) : c.Scalar == null)
-                || c.Kind == "explosion" && !Explosion(c.ExplosionTarget)) throw new InvalidDataException("Invalid semantic composition override.");
+                || c.Kind == "explosion" && !Explosion(c.ExplosionTarget)) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCompositionOverride"));
             SemVersion.Parse(c.BaselineSdkVersion);
         }
-        if (!Path.IsPathFullyQualified(p.ExportDirectory)) throw new InvalidDataException("Choose an absolute export directory.");
+        if (!Path.IsPathFullyQualified(p.ExportDirectory)) throw new InvalidDataException(CoreText.Get("Messages.Project.ExportDirectoryAbsolute"));
     }
 }
 
@@ -228,7 +229,7 @@ public sealed class JsonProjectStore(AppPaths paths) : IProjectStore
     private async Task<Library> ReadLibraryAsync()
     {
         var library = File.Exists(paths.Library) ? await JsonStorage.ReadAsync<Library>(paths.Library) : new Library();
-        if (library.FormatVersion != 1 || library.Projects == null) throw new InvalidDataException("Unsupported project library.");
+        if (library.FormatVersion != 1 || library.Projects == null) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedLibrary"));
         return library;
     }
     public async Task<IReadOnlyList<ProjectSummary>> ListAsync() => (await ReadLibraryAsync()).Projects.OrderByDescending(p => p.ModifiedAt).ToArray();
@@ -236,7 +237,7 @@ public sealed class JsonProjectStore(AppPaths paths) : IProjectStore
     {
         var project = await JsonStorage.ReadAsync<ModProject>(paths.ProjectFile(id));
         ProjectIdentity.Validate(project);
-        if (project.Id != id) throw new InvalidDataException("Project file identity mismatch.");
+        if (project.Id != id) throw new InvalidDataException(CoreText.Get("Messages.Project.IdentityMismatch"));
         return project;
     }
     public async Task SaveAsync(ModProject project)
@@ -247,7 +248,7 @@ public sealed class JsonProjectStore(AppPaths paths) : IProjectStore
         {
             var library = await ReadLibraryAsync();
             if (library.Projects.Any(p => p.Id != project.Id && p.ResourceId.Equals(project.ResourceId, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidDataException("A project with this resource ID already exists in the library.");
+                throw new InvalidDataException(CoreText.Get("Messages.Project.ResourceIdTaken"));
             project.ModifiedAt = DateTimeOffset.UtcNow;
             await JsonStorage.WriteAtomicAsync(paths.ProjectFile(project.Id), project);
             library.Projects.RemoveAll(p => p.Id == project.Id);
@@ -268,7 +269,7 @@ public sealed class JsonProjectStore(AppPaths paths) : IProjectStore
         ProjectIdentity.Validate(project);
         // Keep one managed project root. Opening a removed project re-registers its file.
         if (File.Exists(paths.ProjectFile(project.Id)) && !Path.GetFullPath(file).Equals(paths.ProjectFile(project.Id), StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("This project is already stored locally. Open it from the library to avoid overwriting changes.");
+            throw new InvalidDataException(CoreText.Get("Messages.Project.AlreadyStored"));
         await SaveAsync(project); return project;
     }
 }

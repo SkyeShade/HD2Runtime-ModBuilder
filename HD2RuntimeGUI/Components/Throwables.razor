@@ -1,27 +1,27 @@
 @inject BuilderWorkspace Workspace
 @* Throwables (hd2.throwable, SDK 0.27.0+): every published armory throwable, filterable by its published category and family. *@
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Entities?.Throwables; }
-<div class="page-heading cat-throwable"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version</div><h1>Throwables</h1><p>Grenades, the throwing knife, mines and the shield from <code>hd2.throwable</code>. Every write carries <code>allow_unverified_effect</code>; shared settings rows also carry <code>allow_shared</code>.</p></div></div>
-@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
-@if (catalog == null) { <section class="panel" data-throwable-unavailable><h2>Throwable authoring requires SDK 0.27.0</h2><p>This project is bound to SDK @sdk?.Version. Rebind it from Overview to use the published throwable capabilities.</p></section> }
+<div class="page-heading cat-throwable"><div><div class="eyebrow">@T.Format("EntityPanel.GuardedEyebrow", sdk?.Version)</div><h1>@T["Throwable.Page.Title"]</h1><p>@T.Markup("Throwable.Page.Help.Html")</p></div></div>
+@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">@T.Format("EntityPanel.BuildReview", issue)</div> }
+@if (catalog == null) { <section class="panel" data-throwable-unavailable><h2>@T["Throwable.Unavailable.Title"]</h2><p>@T.Format("Throwable.Unavailable.Help", sdk?.Version)</p></section> }
 else
 {
     var families = catalog.Throwables.Select(t => t.Family).Distinct().Order(StringComparer.Ordinal).ToArray();
     var list = catalog.Throwables.Where(t => (Family.Length == 0 || t.Family == Family)
             && string.Join(" ", t.Name, t.Designation, t.SemanticId, t.Category, t.Family).Contains(Search, StringComparison.OrdinalIgnoreCase))
         .OrderBy(t => t.Category == "Standard" ? 0 : 1).ThenBy(t => t.Name, StringComparer.Ordinal).ToArray();
-    <div class="weapon-editor"><section class="panel weapon-browser"><h2>@list.Length throwables</h2>
-        <label>Search<input id="throwable-search" @bind="Search" @bind:event="oninput" placeholder="Name, designation or ID" /></label>
-        <label>Family<select data-throwable-family-filter @bind="Family"><option value="">All families</option>@foreach (var f in families) { <option value="@f">@ThrowableEditor.FamilyLabel(f)</option> }</select></label>
+    <div class="weapon-editor"><section class="panel weapon-browser"><h2>@T.Plural("Throwable.List.Count", list.Length)</h2>
+        <label>@T["Common.Search"]<input id="throwable-search" @bind="Search" @bind:event="oninput" placeholder="@T["Throwable.Search.Placeholder"]" /></label>
+        <label>@T["Throwable.Family.Label"]<select data-throwable-family-filter @bind="Family"><option value="">@T["Throwable.Family.All"]</option>@foreach (var f in families) { <option value="@f">@ThrowableEditor.FamilyLabel(f)</option> }</select></label>
         <div class="weapon-list">@foreach (var t in list)
         {
             <button class="resource-item with-icon cat-throwable @(Selected == t.Name ? "active" : "")" data-throwable-item="@t.Name" data-throwable-family="@t.Family" @onclick="() => Selected = t.Name">
                 <GameIcon Kind="throwable" Label="@t.Name" CssClass="cat-throwable" /><span class="resource-text">
-                <strong>@t.Name</strong><small>@t.Category · @ThrowableEditor.FamilyLabel(t.Family) · @t.WritableFields writable@(Modified(t.Name) ? " · modified" : "")</small></span></button>
+                <strong>@t.Name</strong><small>@t.Category · @ThrowableEditor.FamilyLabel(t.Family) · @T.Format("EntityPanel.WritableCount", t.WritableFields)@(Modified(t.Name) ? " · " + T["EntityPanel.ListModified"] : "")</small></span></button>
         }</div>
     </section><div class="weapon-detail">
         @if (catalog.Find(Selected) != null) { <ThrowableEditor Name="@Selected" Changed="Refresh" @key="Selected" /> }
-        else { <section class="panel category-panel cat-throwable" data-throwable-summary><h2>Choose a throwable</h2><p>@catalog.Summary.Throwables throwables · @catalog.Summary.WritableFieldInstances writable fields · @catalog.Summary.SharedFieldInstances on shared settings rows</p></section> }
+        else { <section class="panel category-panel cat-throwable" data-throwable-summary><h2>@T["Throwable.Choose.Title"]</h2><p>@T.Format("Throwable.Choose.Summary", catalog.Summary.Throwables, catalog.Summary.WritableFieldInstances, catalog.Summary.SharedFieldInstances)</p></section> }
     </div></div>
 }
 @code {

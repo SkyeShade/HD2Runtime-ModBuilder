@@ -1,4 +1,5 @@
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 using HD2RuntimeGUI.Core.Projects;
@@ -39,7 +40,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var previous = project.ProjectileChanges.ToList();
             ApplyProjectile(project, weapon, role, replacement, acceptBaseline);
             try { await SaveChangesAsync(); } catch { project.ProjectileChanges = previous; throw; }
@@ -81,11 +82,18 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     public string? WeaponWithOrphanedObjectEdits => Project?.CompositionChanges.FirstOrDefault(c => c.Target != EffectiveProjectile(c.Weapon, c.AttackRole))?.Weapon;
     public string ObjectEditLabel(CompositionChange c)
     {
-        if (c.Kind == "terminal") return FieldLabel(c.Phase!) + " explosion → " + c.DesiredExplosion!.Label;
+        if (c.Kind == "terminal") return CoreText.Format("Messages.Weapon.ObjectEdit.Terminal", ExplosionLabel(c.Phase!), c.DesiredExplosion!.Label);
         string name; try { name = CompositionChangeService.Capability(Metadata!, c).DisplayName; } catch (InvalidDataException) { name = c.Scalar!.SemanticFieldId; }
-        return (c.Kind == "explosion" ? FieldLabel(c.Phase!) + " explosion · " : "") + name + " " + c.Scalar!.DesiredValue.GetRawText();
+        var value = c.Scalar!.DesiredValue.GetRawText();
+        return c.Kind == "explosion" ? CoreText.Format("Messages.Weapon.ObjectEdit.Explosion", ExplosionLabel(c.Phase!), name, value) : CoreText.Format("Messages.Weapon.ObjectEdit.Projectile", name, value);
     }
-    private static string FieldLabel(string phase) => char.ToUpperInvariant(phase[0]) + phase[1..];
+    // "Impact explosion" / "Expiry explosion"; another phase shows capitalized, as published.
+    private static string ExplosionLabel(string phase) => phase switch
+    {
+        "impact" => CoreText.Get("Messages.Weapon.Explosion.Impact"),
+        "expiry" => CoreText.Get("Messages.Weapon.Explosion.Expiry"),
+        _ => CoreText.Format("Messages.Weapon.Explosion.Phase", char.ToUpperInvariant(phase[0]) + phase[1..]),
+    };
 
     /// <summary>Swaps an attack's projectile and, in the same save, keeps the values of its object edits on the new projectile (keepValues) or
     /// discards them. Values that the new projectile cannot take are listed in the result instead of failing the swap.</summary>
@@ -95,7 +103,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var (projectiles, composition) = (project.ProjectileChanges.ToList(), project.CompositionChanges.ToList());
             var edits = ObjectEditsOnCurrentProjectile(weapon, role);
             try
@@ -115,7 +123,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var composition = project.CompositionChanges.ToList();
             try { var result = Retarget(project, weapon, role, OrphanedObjectEdits(weapon, role), keepValues); await SaveChangesAsync(); return result; }
             catch { project.CompositionChanges = composition; throw; }
@@ -141,7 +149,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
                 if (compositionChanges.IsNoOp(Metadata!, next)) { atBase++; continue; }
                 project.CompositionChanges.Add(next); kept++;
             }
-            catch (InvalidDataException e) { dropped.Add(ObjectEditLabel(c) + ": " + (e.Message.StartsWith("Field does not belong", StringComparison.Ordinal) ? "the new projectile has no such value" : e.Message)); }
+            catch (InvalidDataException e) { dropped.Add(CoreText.Format("Messages.Weapon.ObjectEdit.NotKept", ObjectEditLabel(c), CompositionChangeService.IsFieldNotOnTarget(e) ? CoreText.Get("Messages.Weapon.ObjectEdit.NoSuchValue") : e.Message)); }
         }
         project.FormatVersion = Math.Max(project.FormatVersion, 4);
         return new(kept, atBase, dropped);
@@ -174,7 +182,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         var project = Project; await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var next = create(); var previous = project.CompositionChanges.ToList();
             var old = previous.SingleOrDefault(c => c.Weapon == next.Weapon && c.AttackRole == next.AttackRole && c.Kind == next.Kind && c.Phase == next.Phase && c.Scalar?.SemanticFieldId == next.Scalar?.SemanticFieldId);
             var revokeApproval = old != null && CompositionChangeService.ApprovalCurrent(Metadata!, old) && !next.SharedAcknowledged;
@@ -231,14 +239,14 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         var project = Project; await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var group = WeaponGroups.Single(g => g.Sources.Any(c => c.Id == id));
             if (group.Conflict != null) throw new InvalidDataException(group.Conflict);
             var old = group.Representative; var field = group.Field!;
-            if (!CompositionChangeService.ProjectileOwned(field)) throw new InvalidDataException("This is not a projectile-object field.");
+            if (!CompositionChangeService.ProjectileOwned(field)) throw new InvalidDataException(CoreText.Get("Messages.Weapon.NotProjectileObjectField"));
             var role = Metadata!.Composition!.Projectiles.Weapons.Single(w => w.Weapon == old.Weapon).Attacks.Single(a => a.Role == field.Backing!.Branch || a.Role == "feed_" + field.Backing.Branch).Role;
-            if (EffectiveProjectile(old.Weapon, role) != new ProjectileReference(old.Weapon, role)) throw new InvalidDataException("The saved override targets the original projectile. Reset the replacement first, or remove the old override and edit the replacement object.");
-            if (project.CompositionChanges.Any(c => c.Weapon == old.Weapon && c.AttackRole == role && c.Scalar?.SemanticFieldId == field.SemanticFieldId)) throw new InvalidDataException("A Composition override already exists for this field.");
+            if (EffectiveProjectile(old.Weapon, role) != new ProjectileReference(old.Weapon, role)) throw new InvalidDataException(CoreText.Get("Messages.Weapon.OverrideTargetsOriginal"));
+            if (project.CompositionChanges.Any(c => c.Weapon == old.Weapon && c.AttackRole == role && c.Scalar?.SemanticFieldId == field.SemanticFieldId)) throw new InvalidDataException(CoreText.Get("Messages.Weapon.CompositionOverrideExists"));
             var next = compositionChanges.CreateScalar(project, Metadata, old.Weapon, role, "projectile", null, field.SemanticFieldId, old.DesiredValue.GetRawText(), false);
             next.Scalar!.ExpectedValue = old.ExpectedValue; next.Scalar.BaselineSdkVersion = old.BaselineSdkVersion; next.BaselineSdkVersion = old.BaselineSdkVersion;
             next.Enabled = group.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
@@ -275,7 +283,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     }
     public async Task InstallUpdateAsync()
     {
-        await updates.InstallLatestAsync(SdkStatus?.Latest ?? throw new InvalidOperationException("Check for SDK updates first."));
+        await updates.InstallLatestAsync(SdkStatus?.Latest ?? throw new InvalidOperationException(CoreText.Get("Messages.Sdk.CheckFirst")));
         await CheckUpdatesAsync();
     }
     public async Task CreateAsync(CreateProjectRequest request, SdkMetadata sdk)
@@ -337,6 +345,9 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         try { projectileChanges.Validate(sdk, c); return projectileChanges.IsBaseline(sdk, c.Weapon, c.AttackRole, c.ReplacementProjectile); }
         catch (InvalidDataException) { return false; }
     });
+    /// <summary>After a UI language change: rebuilds the preview so the build error (UI text) is in the new language. The generated Lua is
+    /// the same in every language.</summary>
+    public void RefreshMessages() { if (Project != null && Metadata != null) RefreshPreview(); }
     private void RefreshPreview()
     {
         optionTargets = null;
@@ -349,7 +360,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the edit could be saved.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChangedBeforeEdit"));
             var next = weaponChanges.Create(Metadata!, weapon, field, value, acknowledge); var previous = Project!.WeaponChanges.ToList();
             var saved = WeaponGroups.SingleOrDefault(g => g.Weapon == weapon && g.FieldId == next.SemanticFieldId);
             if (saved?.Conflict != null) throw new InvalidDataException(saved.Conflict);
@@ -373,7 +384,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the reset could be saved.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChangedBeforeReset"));
             var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field || saved?.Sources.Contains(c) == true));
             var oldReferences = Project.ProjectileChanges.ToList();
             var oldObjects = Project.CompositionChanges.ToList();
@@ -392,11 +403,11 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the acknowledgement could be saved.");
-            var f = Metadata!.PlayerWeapons!.FindCanonicalField(weapon, field) ?? throw new InvalidDataException("Field no longer exists in this SDK: " + field);
-            if (f.Acknowledgement != "allow_unverified_effect") throw new InvalidDataException("This field does not require an unverified-effect acknowledgement.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChangedBeforeAcknowledgement"));
+            var f = Metadata!.PlayerWeapons!.FindCanonicalField(weapon, field) ?? throw new InvalidDataException(CoreText.Format("Messages.Weapon.FieldMissing", field));
+            if (f.Acknowledgement != "allow_unverified_effect") throw new InvalidDataException(CoreText.Get("Messages.Workspace.EffectAcknowledgementNotRequired"));
             var changes = project.WeaponChanges.Where(c => c.Weapon == weapon && c.SemanticFieldId == f.SemanticFieldId).ToList();
-            if (changes.Count == 0) throw new InvalidDataException("Change the value before acknowledging.");
+            if (changes.Count == 0) throw new InvalidDataException(CoreText.Get("Messages.Workspace.ChangeBeforeAcknowledging"));
             var previous = changes.Select(c => c.EffectAcknowledgement).ToList();
             foreach (var c in changes) c.EffectAcknowledgement = acknowledged ? WeaponChangeService.EffectEvidence(weapon, f) : null;
             try { await SaveChangesAsync(); } catch { for (var i = 0; i < changes.Count; i++) changes[i].EffectAcknowledgement = previous[i]; throw; }
@@ -416,7 +427,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("The active project changed before the conflict could be resolved.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChangedBeforeResolve"));
             var group = WeaponGroups.Single(g => g.Sources.Any(c => c.Id == keepId));
             var previous = Project!.WeaponChanges.ToList();
             Project.WeaponChanges.RemoveAll(c => group.Sources.Contains(c) && c.Id != keepId);

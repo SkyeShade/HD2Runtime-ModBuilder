@@ -13,19 +13,19 @@
     @if (!ModifiedOnly || edited.Length > 0)
     {
     <section class="panel pod-payload @(edited.Length > 0 ? "modified" : "")" data-pod-rack="@rack.Name" data-pod-shared="@(rack.Shared ? "true" : "false")">
-        <div class="panel-heading"><h3>Drop pod contents</h3><span class="badge" data-pod-rack-name>@rack.Name</span>
-            @if (rack.Shared) { <span class="badge amber" data-flag="allow_shared" title="One rack delivered by several call-ins">Shared rack · @rack.Consumers.Length</span> }
-            @if (edited.Length > 0) { <span class="badge modified-badge">Modified</span> }
-            @if (edited.Length > 0 && Workspace.Project != null) { <button class="reset-action small" data-pod-reset @onclick='() => Run(() => Workspace.ResetEntityAsync("pod_rack", rack.Name))'>Reset drop pod</button> }</div>
-        @if (!rack.Writable) { <p class="subtle field-blocker" data-pod-readonly>Read-only · @rack.Reason</p> }
+        <div class="panel-heading"><h3>@T["DropPod.Title"]</h3><span class="badge" data-pod-rack-name>@rack.Name</span>
+            @if (rack.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["DropPod.SharedRack.Tooltip"]">@T.Format("DropPod.SharedRack", rack.Consumers.Length)</span> }
+            @if (edited.Length > 0) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (edited.Length > 0 && Workspace.Project != null) { <button class="reset-action small" data-pod-reset @onclick='() => Run(() => Workspace.ResetEntityAsync("pod_rack", rack.Name))'>@T["DropPod.Reset"]</button> }</div>
+        @if (!rack.Writable) { <p class="subtle field-blocker" data-pod-readonly>@T.Format("DropPod.ReadOnly", rack.Reason)</p> }
         else
         {
             @if (rack.Shared)
             {
-                <p class="notice cat-note" data-pod-shared-warning>This drop pod is shared by <strong>@string.Join(", ", rack.Consumers.Select(c => c.Name))</strong>. Editing it here changes every one of them.</p>
+                <p class="notice cat-note" data-pod-shared-warning>@T.Markup("DropPod.SharedWarning.Html", string.Join(", ", rack.Consumers.Select(c => c.Name)))</p>
             }
             @if (spawn != null && (!ModifiedOnly || EntityChangeService.Saved(Workspace.Project, spawn) != null))
-            { <div class="stat-grid" data-pod-spawn-count><EntityFieldEditor @key="spawn.InstanceKey" Field="spawn" Label="Spawn count" Tiers="Tiers" Changed="Refresh" /></div> }
+            { <div class="stat-grid" data-pod-spawn-count><EntityFieldEditor @key="spawn.InstanceKey" Field="spawn" Label="@T["DropPod.SpawnCount"]" Tiers="Tiers" Changed="Refresh" /></div> }
             <div class="pod-slots">
             @foreach (var (s, f) in slots.Where(x => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, x.Field) != null))
             {
@@ -33,19 +33,19 @@
                 var value = (saved?.DesiredValue ?? f.CurrentDefault).GetString()!;
                 var chosen = value == PodPayloadReader.Empty ? null : pods.Pickup(value);
                 <article class="stat-card pod-slot @(saved != null ? "modified" : "") @(s.Slot > count ? "inactive" : "")" data-pod-slot="@s.Slot">
-                    <div class="panel-heading"><h4>Slot @s.Slot</h4>
-                        @if (s.Slot > count) { <span class="badge" data-pod-slot-idle title="The rack spawns its first @count slot(s)">Not spawned at count @count</span> }
-                        @if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
-                    <p class="subtle" data-pod-slot-vanilla>Vanilla: <strong>@(s.Current?.Name ?? "Empty")</strong></p>
-                    <label>Contents
+                    <div class="panel-heading"><h4>@T.Format("DropPod.Slot", s.Slot)</h4>
+                        @if (s.Slot > count) { <span class="badge" data-pod-slot-idle title="@T.Plural("DropPod.SpawnsFirst", count)">@T.Format("DropPod.NotSpawned", count)</span> }
+                        @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }</div>
+                    <p class="subtle" data-pod-slot-vanilla>@T.Markup("DropPod.Vanilla.Html", s.Current?.Name ?? T["Common.Empty"])</p>
+                    <label>@T["DropPod.Contents"]
                         <select data-pod-slot-select disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(f.InstanceKey, e.Value?.ToString() ?? string.Empty))">
-                            <option value="@PodPayloadReader.Empty" selected="@(value == PodPayloadReader.Empty)">Empty@(s.Current == null ? " (vanilla)" : "")</option>
+                            <option value="@PodPayloadReader.Empty" selected="@(value == PodPayloadReader.Empty)">@(s.Current == null ? T["DropPod.EmptyVanilla"] : T["Common.Empty"])</option>
                             @foreach (var category in pods.Categories)
                             {
                                 var items = pods.Pickups.Where(p => p.Category == category.Key).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToArray();
                                 if (items.Length == 0) continue;
                                 <optgroup label="@category.Value">
-                                    @foreach (var p in items) { <option value="@p.SemanticId" selected="@(value == p.SemanticId)">@p.Name@(s.Current?.Pickup == p.SemanticId ? " (vanilla)" : "") · @Short(pods.LiveVerifiedPair(rack, s, p) ? LiveVerified : PodPayloadCatalog.CompatibilityIn(s, p), PodPayloadCatalog.LowPackageRisk(rack, s, p), AssetStatus.Pickup(sdk!, s, p))</option> }
+                                    @foreach (var p in items) { <option value="@p.SemanticId" selected="@(value == p.SemanticId)">@p.Name@(s.Current?.Pickup == p.SemanticId ? " " + T["DropPod.VanillaSuffix"] : "") · @Short(T, pods.LiveVerifiedPair(rack, s, p) ? LiveVerified : PodPayloadCatalog.CompatibilityIn(s, p), PodPayloadCatalog.LowPackageRisk(rack, s, p), AssetStatus.Pickup(sdk!, s, p))</option> }
                                 </optgroup>
                             }
                         </select>
@@ -57,28 +57,28 @@
                             @* A pickup Runtime verified live in this slot shows that instead of the catalog's generic "unverified" (the write still carries allow_unverified_reference). *@
                             @switch (pods.LiveVerifiedPair(rack, s, chosen) ? LiveVerified : PodPayloadCatalog.CompatibilityIn(s, chosen))
                             {
-                                case "PROVEN_COMPATIBLE": <span class="badge green" data-pickup-badge="proven" title="@pods.CompatibilityStates["PROVEN_COMPATIBLE"]">Proven</span> break;
+                                case "PROVEN_COMPATIBLE": <span class="badge green" data-pickup-badge="proven" title="@pods.CompatibilityStates["PROVEN_COMPATIBLE"]">@T["DropPod.Proven"]</span> break;
                                 case LiveVerified: break;
-                                case "SCHEMA_COMPATIBLE": <span class="badge" data-pickup-badge="rack-compatible" title="@pods.CompatibilityStates["SCHEMA_COMPATIBLE"]">Rack-compatible</span> break;
-                                default: <span class="badge amber" data-pickup-badge="unverified" title="@pods.CompatibilityStates["UNVERIFIED_REFERENCE"]">Unverified</span> break;
+                                case "SCHEMA_COMPATIBLE": <span class="badge" data-pickup-badge="rack-compatible" title="@pods.CompatibilityStates["SCHEMA_COMPATIBLE"]">@T["DropPod.RackCompatible"]</span> break;
+                                default: <span class="badge amber" data-pickup-badge="unverified" title="@pods.CompatibilityStates["UNVERIFIED_REFERENCE"]">@T["Common.Unverified"]</span> break;
                             }
-                            @if (chosen.Evidence.WorldLoot || chosen.Evidence.StandalonePickup) { <span class="badge" data-pickup-badge="world" title="@chosen.CompatibilityBasis">World pickup</span> }
-                            @if (pods.LiveVerifiedPair(rack, s, chosen)) { <span class="badge green" data-pickup-badge="live-pair" title="This rack and pickup were used together in a passing live test.">Live-verified pair</span> }
+                            @if (chosen.Evidence.WorldLoot || chosen.Evidence.StandalonePickup) { <span class="badge" data-pickup-badge="world" title="@chosen.CompatibilityBasis">@T["DropPod.WorldPickup"]</span> }
+                            @if (pods.LiveVerifiedPair(rack, s, chosen)) { <span class="badge green" data-pickup-badge="live-pair" title="@T["DropPod.LivePair.Tooltip"]">@T["DropPod.LivePair"]</span> }
                             @* 0.27.0+: Runtime loads known packages itself, so package risk is replaced by the asset-loading state. *@
                             @if (AssetStatus.Pickup(sdk!, s, chosen) is { } assetView) { <AssetBadge View="assetView" Compact="true" /> }
-                            else if (!PodPayloadCatalog.LowPackageRisk(rack, s, chosen)) { <span class="badge amber" data-pickup-badge="package-risk" title="@chosen.Residency.Basis">Package risk</span> }
+                            else if (!PodPayloadCatalog.LowPackageRisk(rack, s, chosen)) { <span class="badge amber" data-pickup-badge="package-risk" title="@chosen.Residency.Basis">@T["DropPod.PackageRisk"]</span> }
                         </div>
                         @if (AssetStatus.Pickup(sdk!, s, chosen) is { Warning: true } unknownAssets) { <p class="asset-note" data-asset-warning>@unknownAssets.Description</p> }
                     }
                     @if (saved != null)
                     {
                         <div class="field-tools">
-                            <label class="field-toggle" title="Include this change in the build"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> On</label>
-                            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: f.InstanceKey))">Reset slot</button></div>
+                            <label class="field-toggle" title="@T["DropPod.Include.Tooltip"]"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> @T["Common.On"]</label>
+                            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: f.InstanceKey))">@T["DropPod.ResetSlot"]</button></div>
                         @if (EntityScalar.AcknowledgementRequired(f, saved.DesiredValue))
                         {
                             @* Slot/gameplay compatibility stays unverified even when the assets load automatically (allow_unverified_reference). *@
-                            <AckPanel Title="Gameplay compatibility unverified" Kind="unverified" Description="@CompatibilityNote(pods, rack, s, chosen)"
+                            <AckPanel Title="@T["DropPod.Compatibility.Title"]" Kind="unverified" Description="@CompatibilityNote(T, pods, rack, s, chosen)"
                                 PanelAttributes='@(new() { ["data-pod-compatibility-warning"] = "true" })' />
                         }
                         @if (Workspace.EntityIssue(saved) is { } issue) { <p class="notice warning">@issue</p> }
@@ -86,16 +86,16 @@
                 </article>
             }
             </div>
-            @if (!ModifiedOnly && rack.AuthoredSlots.Any(s => !s.Writable)) { <p class="subtle field-blocker">Read-only slots: @string.Join(", ", rack.AuthoredSlots.Where(s => !s.Writable).Select(s => s.Slot))</p> }
+            @if (!ModifiedOnly && rack.AuthoredSlots.Any(s => !s.Writable)) { <p class="subtle field-blocker">@T.Format("DropPod.ReadOnlySlots", string.Join(", ", rack.AuthoredSlots.Where(s => !s.Writable).Select(s => s.Slot)))</p> }
             @if (spawn != null && EntityChangeService.Saved(Workspace.Project, spawn) != null)
             {
-                <AckPanel Title="Spawn count · effect not gameplay-confirmed" Kind="unverified"
-                    Description="Changing how many slots spawn has not been confirmed in game (allow_unverified_effect)." />
+                <AckPanel Title="@T["DropPod.SpawnCount.Unverified"]" Kind="unverified"
+                    Description="@T["DropPod.SpawnCount.Unverified.Description"]" />
             }
             @if (rack.Shared && edited.Length > 0)
             {
-                <AckPanel Title="Shared drop pod" Kind="shared"
-                    Description="Runtime writes this rack once (allow_shared); every call-in listed receives the same contents." Items="@rack.Consumers.Select(c => c.Name).ToArray()" ItemsLabel="Also changes:" />
+                <AckPanel Title="@T["DropPod.Shared.Title"]" Kind="shared"
+                    Description="@T["DropPod.Shared.Description"]" Items="@rack.Consumers.Select(c => c.Name).ToArray()" ItemsLabel="@T["DropPod.Shared.ItemsLabel"]" />
             }
         }
         @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
@@ -107,19 +107,17 @@
     [Parameter] public bool ModifiedOnly { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
-    private static readonly IReadOnlyDictionary<string, string> Tiers = new Dictionary<string, string> { ["structural_reference"] = "Rack layout proven; the in-game effect of changing it has not been tested." };
+    private IReadOnlyDictionary<string, string> Tiers => new Dictionary<string, string> { ["structural_reference"] = T["DropPod.Tier.StructuralReference"] };
     private static int Int(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
     private const string LiveVerified = "LIVE_VERIFIED";
-    private static string Short(string compatibility, bool lowRisk, AssetStatusView? assets) => (compatibility switch { "PROVEN_COMPATIBLE" => "Proven", "SCHEMA_COMPATIBLE" => "Rack-compatible", LiveVerified => "Live-verified here", _ => "Unverified" })
-        + (assets != null ? (assets.State == AssetState.None ? "" : " · " + assets.Short) : lowRisk ? "" : " · package risk");
+    private static string Short(IUiText t, string compatibility, bool lowRisk, AssetStatusView? assets) => (compatibility switch { "PROVEN_COMPATIBLE" => t["DropPod.Proven"], "SCHEMA_COMPATIBLE" => t["DropPod.RackCompatible"], LiveVerified => t["DropPod.LiveVerifiedHere"], _ => t["Common.Unverified"] })
+        + (assets != null ? (assets.State == AssetState.None ? "" : " · " + assets.Short) : lowRisk ? "" : " · " + t["DropPod.Short.PackageRisk"]);
     // What the replacement acknowledgement covers. From 0.27.0 package loading is Runtime's job, so this is only slot compatibility.
-    private static string CompatibilityNote(PodPayloadCatalog pods, PodRack rack, PodRackSlot slot, Pickup? chosen)
+    private static string CompatibilityNote(IUiText t, PodPayloadCatalog pods, PodRack rack, PodRackSlot slot, Pickup? chosen)
     {
-        if (pods.PackageResidency == null) return chosen != null && !PodPayloadCatalog.LowPackageRisk(rack, slot, chosen) ? pods.PackageRisk : "Not this slot's vanilla occupant (allow_unverified_reference).";
-        if (chosen == null) return "An empty slot is not this slot's vanilla occupant; how the pod behaves is unverified (allow_unverified_reference).";
-        return pods.LiveVerifiedPair(rack, slot, chosen)
-            ? "This pickup was verified live in this rack slot. HD2Runtime still writes pod replacements with allow_unverified_reference."
-            : "Not this slot's vanilla occupant. Loading its assets does not verify how it behaves in this pod (allow_unverified_reference).";
+        if (pods.PackageResidency == null) return chosen != null && !PodPayloadCatalog.LowPackageRisk(rack, slot, chosen) ? pods.PackageRisk : t["DropPod.Note.NotVanilla"];
+        if (chosen == null) return t["DropPod.Note.EmptySlot"];
+        return pods.LiveVerifiedPair(rack, slot, chosen) ? t["DropPod.Note.LiveVerified"] : t["DropPod.Note.AssetsNotBehaviour"];
     }
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }

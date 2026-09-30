@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -21,12 +22,12 @@ internal static class PlayerWeaponLua
         WeaponCapability Field(WeaponChange c) => catalog!.FindCanonicalField(c.Weapon, c.SemanticFieldId)!;
         // Shared backing aliases cannot declare conflicting desired values in one mod.
         foreach (var group in active.Where(c => Field(c).AffectsMultipleWeapons).GroupBy(c => (Field(c).Backing!.Settings, Field(c).Backing!.Group, Field(c).Backing!.Row, Field(c).Backing!.Offset)))
-            if (group.Select(c => Field(c).Format(c.DesiredValue)).Distinct().Count() > 1) throw new InvalidDataException("Conflicting desired values for a shared backing setting.");
+            if (group.Select(c => Field(c).Format(c.DesiredValue)).Distinct().Count() > 1) throw new InvalidDataException(CoreText.Get("Messages.Build.Weapon.SharedBackingConflict"));
         foreach (var group in active.GroupBy(c => (c.Weapon, c.Group, c.EnsureEnabled, Shared: Field(c).AffectsMultipleWeapons)))
         {
             // Runtime 0.13 transactions accept at most 32 fields; never silently split an atomic group.
             var list = group.ToArray();
-            if (list.Length > 32) throw new InvalidDataException("A Runtime transaction supports at most 32 fields. Divide this weapon's changes into explicit groups.");
+            if (list.Length > 32) throw new InvalidDataException(CoreText.Get("Messages.Build.Weapon.TransactionLimit"));
             var idInput = project.ResourceId + "\n" + group.Key.Weapon + "\n" + group.Key.Group + "\n" + group.Key.EnsureEnabled + "\n" + group.Key.Shared;
             var id = "gui-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(idInput)))[..24].ToLowerInvariant();
             var body = new StringBuilder("{\n    id=" + LuaGenerator.Quote(id) + ",\n    target=hd2.weapon(" + LuaGenerator.Quote(group.Key.Weapon) + "),\n");

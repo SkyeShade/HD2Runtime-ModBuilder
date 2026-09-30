@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -13,9 +14,9 @@ public static class WeaponScalar
         if (field.Type == "integer")
         {
             if (!value.TryGetDecimal(out var integer) || decimal.Truncate(integer) != integer)
-                throw new InvalidDataException("Expected an exact integer.");
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Value.ExpectedInteger"));
             var normalized = JsonSerializer.SerializeToElement(decimal.Truncate(integer));
-            if (!JsonElement.DeepEquals(value, normalized)) throw new InvalidDataException("Expected an exact integer.");
+            if (!JsonElement.DeepEquals(value, normalized)) throw new InvalidDataException(CoreText.Get("Messages.Build.Value.ExpectedInteger"));
             return normalized;
         }
         // System.Text.Json writes Single using its round-trip representation, just

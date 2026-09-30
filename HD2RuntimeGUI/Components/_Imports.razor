@@ -16,3 +16,8 @@
 @using HD2RuntimeGUI.Core.GameAssets
 @using HD2RuntimeGUI.Core.Updates
 @using HD2RuntimeGUI.Core.Scripting
+@using HD2RuntimeGUI.Core.Localization
+@* UI text: T[key], T.Format(key, args), T.Plural(key, count, args), T.Or(key, sdkText), T.Markup(htmlKey, args); keys are Area.Element.
+   Every component re-renders when the language changes (LocalizedComponentBase). See docs/localization.md. *@
+@inherits LocalizedComponentBase
+@inject IUiText T

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -16,7 +17,7 @@ public static class StratagemScalar
             if (f.Type == "integer" && value.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue) return JsonSerializer.SerializeToElement(n);
             if (f.Type == "number" && value.TryGetDouble(out var x) && float.IsFinite((float)x)) return JsonSerializer.SerializeToElement((float)x);
         }
-        throw new InvalidDataException("Enter a complete, finite value of the published scalar type.");
+        throw new InvalidDataException(CoreText.Get("Messages.Build.Value.CompleteFinitePublishedType"));
     }
     public static bool Equal(StratagemField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
     // Lua literal. Mission uses are Runtime's 'unlimited' token or an integer.
@@ -27,7 +28,8 @@ public static class StratagemScalar
         _ => Normalize(f, v).GetRawText(),
     };
     // What a person reads ("Unlimited" rather than the Lua token).
-    public static string Display(StratagemField f, JsonElement v) => f.Type == StratagemUses.Type && v.ValueKind != JsonValueKind.Null ? StratagemUses.Text(Normalize(f, v)) : Text(f, v);
+    public static string Display(StratagemField f, JsonElement v) => v.ValueKind == JsonValueKind.Null ? CoreText.Get("Common.Unknown")
+        : f.Type == StratagemUses.Type ? StratagemUses.Text(Normalize(f, v)) : Text(f, v);
 }
 public interface IStratagemChangeService
 {
@@ -36,7 +38,7 @@ public interface IStratagemChangeService
 }
 public sealed class StratagemChangeService : IStratagemChangeService
 {
-    public static StratagemCatalog Catalog(SdkMetadata sdk) => sdk.Stratagems ?? throw new InvalidDataException("Explicitly rebind to SDK 0.21 or newer for stratagem authoring.");
+    public static StratagemCatalog Catalog(SdkMetadata sdk) => sdk.Stratagems ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Stratagem.SdkTooOld"));
     public static string TargetKind(StratagemField f) => f.Target.Path switch
     {
         "deployed_entity" or "damage_zone" => "deployed_entity",
@@ -58,19 +60,19 @@ public sealed class StratagemChangeService : IStratagemChangeService
                 SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(), DesiredValue = desired,
                 BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f) };
         }
-        catch (JsonException e) { throw new InvalidDataException("Enter a complete scalar value.", e); }
+        catch (JsonException e) { throw new InvalidDataException(CoreText.Get("Messages.Build.Value.CompleteScalar"), e); }
     }
-    private static void Writable(StratagemField f) { if (!f.Editable) throw new InvalidDataException(f.Reason ?? "Read-only stratagem field."); }
+    private static void Writable(StratagemField f) { if (!f.Editable) throw new InvalidDataException(f.Reason ?? CoreText.Get("Messages.Build.Stratagem.ReadOnly")); }
     public static StratagemField Resolve(StratagemCatalog catalog, StratagemChange c) => catalog.Resolve(c)
-        ?? throw new InvalidDataException("Stratagem capability is missing. Review or reset this modification.");
+        ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Stratagem.Missing"));
     public void Validate(ModProject p, SdkMetadata sdk, StratagemChange c)
     {
         var f = Resolve(Catalog(sdk), c); Writable(f);
         if (c.InstanceKey != f.InstanceKey || c.TargetKind != TargetKind(f) || c.Stratagem != f.Target.Stratagem || c.Path != f.Target.Path
             || c.Entity != f.Target.Entity || c.Weapon != f.Target.Weapon || c.Zone != f.Target.Zone || c.Attack != f.Target.Attack
             || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Type || c.CapabilityEvidence != Evidence(f))
-            throw new InvalidDataException("Stratagem capability or ownership changed. Review and accept the current capability, or reset the change.");
-        if (!StratagemScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException("Stratagem baseline changed. Review the saved and current values before accepting the new baseline.");
+            throw new InvalidDataException(CoreText.Get("Messages.Build.Stratagem.CapabilityChanged"));
+        if (!StratagemScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException(CoreText.Get("Messages.Build.Stratagem.BaselineChanged"));
         _ = StratagemScalar.Normalize(f, c.DesiredValue);
         if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, c.ExpectedValue, c.DesiredValue);
         // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.

@@ -3,7 +3,7 @@
 @if (Workspace.Metadata?.Composition is { } graph)
 {
     <section class="semantic-section" data-section="Composition">
-        <h2>Composition</h2>
+        <h2>@T["Section.Composition"]</h2>
         <div class="stat-grid">
         @foreach (var attack in graph.Projectiles.Weapons.Single(w => w.Weapon == Weapon).Attacks)
         {
@@ -11,41 +11,41 @@
         }
         </div>
         @if (graph.Projectiles.Weapons.Single(w => w.Weapon == Weapon).Attacks.Count == 0)
-        { <p class="subtle">No resolved projectile attack is published for this weapon. Its supported scalar fields remain below.</p> }
+        { <p class="subtle">@T["WeaponComposition.NoAttack"]</p> }
         @if (graph.Magazines.Weapons.Single(w => w.Weapon == Weapon).DefaultOption is { } option)
         {
-            <details class="panel composition-inspection" data-inspection="magazine"><summary><strong>Magazine Options</strong> <span class="badge">Read-only</span></summary>
-                <h3>@option.Name</h3><p>Default: @(option.Default ? "Yes" : "No")</p>
-                <dl class="composition-values"><dt>Capacity</dt><dd>@option.Values.Capacity</dd><dt>Starting magazines</dt><dd>@option.Values.StartingMagazines</dd><dt>Spare magazines</dt><dd>@option.Values.SpareMagazines</dd><dt>Supply magazines</dt><dd>@option.Values.MagazinesFromSupply</dd></dl>
+            <details class="panel composition-inspection" data-inspection="magazine"><summary><strong>@T["WeaponComposition.MagazineOptions"]</strong> <span class="badge">@T["Common.ReadOnly"]</span></summary>
+                <h3>@option.Name</h3><p>@(option.Default ? T["WeaponComposition.DefaultYes"] : T["WeaponComposition.DefaultNo"])</p>
+                <dl class="composition-values"><dt>@T["WeaponComposition.Capacity"]</dt><dd>@option.Values.Capacity</dd><dt>@T["WeaponComposition.StartingMagazines"]</dt><dd>@option.Values.StartingMagazines</dd><dt>@T["WeaponComposition.SpareMagazines"]</dt><dd>@option.Values.SpareMagazines</dd><dt>@T["WeaponComposition.SupplyMagazines"]</dt><dd>@option.Values.MagazinesFromSupply</dd></dl>
                 <p class="subtle">@option.Reason</p><p class="subtle">@graph.Magazines.Weapons.Single(w => w.Weapon == Weapon).AlternateOptions.Reason</p>
             </details>
         }
         else if (graph.Magazines.Weapons.Single(w => w.Weapon == Weapon) is { ObservedCustomizationOptions.Count: > 0 } observed)
         {
-            <details class="panel composition-inspection" data-inspection="magazine"><summary><strong>Observed Magazine Options</strong> <span class="badge">Read-only</span></summary>
-                <p class="subtle">These identities occur in customization data. Their default/allowed relationship and option-owned ammo values are not proven.</p>
+            <details class="panel composition-inspection" data-inspection="magazine"><summary><strong>@T["WeaponComposition.ObservedMagazineOptions"]</strong> <span class="badge">@T["Common.ReadOnly"]</span></summary>
+                <p class="subtle">@T["WeaponComposition.ObservedHelp"]</p>
                 @foreach (var item in observed.ObservedCustomizationOptions) { <p>@item.Name</p> }
                 <p class="subtle">@observed.AlternateOptions.Reason</p>
             </details>
         }
         @{ var fire = graph.FireModes.Weapons.Single(w => w.Weapon == Weapon); }
-        <details class="panel composition-inspection" data-inspection="fire-mode"><summary><strong>Fire Mode</strong> <span class="badge">Read-only</span></summary>
-            <p>Native mode: <strong>@fire.PrimaryFireModeNativeValue</strong></p><p class="subtle">@fire.Reason</p>
+        <details class="panel composition-inspection" data-inspection="fire-mode"><summary><strong>@T["Section.FireMode"]</strong> <span class="badge">@T["Common.ReadOnly"]</span></summary>
+            <p>@T.Markup("WeaponComposition.NativeMode.Html", fire.PrimaryFireModeNativeValue)</p><p class="subtle">@fire.Reason</p>
         </details>
         @{ var terminal = graph.TerminalActions.Weapons.Single(w => w.Weapon == Weapon); }
         @if (terminal.Attacks.Count > 0)
         {
-            <details class="panel composition-inspection" data-inspection="terminal"><summary><strong>Projectile Actions</strong> <span class="badge">Read-only · SDK baseline</span></summary>
+            <details class="panel composition-inspection" data-inspection="terminal"><summary><strong>@T["WeaponComposition.ProjectileActions"]</strong> <span class="badge">@T["WeaponComposition.ReadOnlyBaseline"]</span></summary>
             @foreach (var attack in terminal.Attacks)
             {
                 <h3>@attack.Role.Replace('_', ' ')</h3>
                 @foreach (var action in attack.Actions)
                 {
-                    <div class="metadata-row"><strong>@action.Phase</strong><span>@(action.LinkedExplosionRecord ? "ExplosionSettings · " + action.ReferenceType : action.ActionKind == "none" ? "None" : "Unresolved")</span></div>
+                    <div class="metadata-row"><strong>@action.Phase</strong><span>@(action.LinkedExplosionRecord ? "ExplosionSettings · " + action.ReferenceType : action.ActionKind == "none" ? T["Common.None"] : T["WeaponComposition.Unresolved"])</span></div>
                     <p class="subtle">@action.Reason</p>
                 }
             }
-            <p class="subtle">Inspection describes the published baseline, not a simulated result of project modifications.</p>
+            <p class="subtle">@T["WeaponComposition.InspectionNote"]</p>
             </details>
         }
     </section>

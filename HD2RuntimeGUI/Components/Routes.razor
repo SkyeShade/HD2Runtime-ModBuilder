@@ -1,6 +1,28 @@
-<Router AppAssembly="typeof(MauiProgram).Assembly" NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)"/>
-        <FocusOnNavigate RouteData="routeData" Selector="h1"/>
-    </Found>
-</Router>
+@implements IDisposable
+@inject LanguageService Language
+@inject BuilderWorkspace Workspace
+@inject IJSRuntime JS
+@* The UI language cascades from here: a change re-renders every component in place (projects, drafts and the SDK stay as they are). *@
+<CascadingValue Name="@LocalizedComponentBase.LanguageCascade" Value="@Language.Language.Id">
+    <Router AppAssembly="typeof(MauiProgram).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)"/>
+            <FocusOnNavigate RouteData="routeData" Selector="h1"/>
+        </Found>
+    </Router>
+</CascadingValue>
+@code {
+    private string? shown;
+    protected override void OnInitialized() => Language.Changed += Refresh;
+    public void Dispose() => Language.Changed -= Refresh;
+    private void Refresh() => _ = InvokeAsync(() => { Workspace.RefreshMessages(); StateHasChanged(); });
+    // <html lang> / dir follow the UI language (screen readers, fonts, a future right-to-left language).
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var language = Language.Language;
+        if (shown == language.Id) return;
+        shown = language.Id;
+        try { await JS.InvokeVoidAsync("hd2Ui.setLanguage", language.Id, language.Direction, T["App.ErrorUi.Message"], T["App.ErrorUi.Reload"]); }
+        catch (JSException) { }
+    }
+}

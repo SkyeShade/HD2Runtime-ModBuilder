@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -14,19 +15,19 @@ public static class SupportScalar
         if (f.Value.Type == "boolean" && v.ValueKind is JsonValueKind.True or JsonValueKind.False) return v.Clone();
         if (f.Value.Type == WeaponCapability.FireModeSet)
         {
-            if (f.FireMode is not { AllowedModes: { } allowed, MaxModes: int max }) throw new InvalidDataException("This weapon's fire modes are read-only.");
+            if (f.FireMode is not { AllowedModes: { } allowed, MaxModes: int max }) throw new InvalidDataException(CoreText.Get("Messages.Build.Weapon.FireModesReadOnly"));
             FireModes.ValidateValue(v, allowed, max);
             return JsonSerializer.SerializeToElement(FireModes.Modes(v));
         }
-        if (v.ValueKind != JsonValueKind.Number) throw new InvalidDataException("Enter a valid scalar value.");
+        if (v.ValueKind != JsonValueKind.Number) throw new InvalidDataException(CoreText.Get("Messages.Build.Value.ValidScalar"));
         if (f.Value.Type == "integer" && v.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue)
         {
             var normalized = JsonSerializer.SerializeToElement(n);
             if (JsonElement.DeepEquals(v, normalized)) return normalized;
-            throw new InvalidDataException("Expected an exact integer.");
+            throw new InvalidDataException(CoreText.Get("Messages.Build.Value.ExpectedInteger"));
         }
         if (f.Value.Type == "number" && v.TryGetDouble(out var x) && float.IsFinite((float)x)) return JsonSerializer.SerializeToElement((float)x);
-        throw new InvalidDataException("Enter a finite value of the published scalar type.");
+        throw new InvalidDataException(CoreText.Get("Messages.Build.Value.FinitePublishedType"));
     }
     public static bool Equal(SupportField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
     // Lua literal: a fire-mode set is a table of mode names ({'single','burst'}); scalars are their JSON text.
@@ -44,13 +45,13 @@ public interface ISupportChangeService
 }
 public sealed class SupportChangeService : ISupportChangeService
 {
-    public static SupportAuthoringCatalog Catalog(SdkMetadata sdk) => sdk.SupportAuthoring ?? throw new InvalidDataException("Rebind explicitly to SDK 0.20.1 or newer for support authoring.");
+    public static SupportAuthoringCatalog Catalog(SdkMetadata sdk) => sdk.SupportAuthoring ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Support.SdkTooOld"));
     public SupportChange Create(SdkMetadata sdk, string instance, string value)
     {
         var f = Catalog(sdk).Field(instance); CheckWritable(sdk, f);
         JsonElement parsed;
         try { using var d = JsonDocument.Parse(value); parsed = SupportScalar.Normalize(f, d.RootElement); }
-        catch (JsonException e) { throw new InvalidDataException("Enter a complete numeric value.", e); }
+        catch (JsonException e) { throw new InvalidDataException(CoreText.Get("Messages.Build.Value.CompleteNumeric"), e); }
         return new() { InstanceKey = instance, Weapon = f.SupportWeapon, AttackRole = f.Target.AttackRole, SemanticFieldId = f.SemanticFieldId,
             FieldType = f.Value.Type, ExpectedValue = f.Value.Baseline.Clone(), DesiredValue = parsed, BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f) };
     }
@@ -58,15 +59,15 @@ public sealed class SupportChangeService : ISupportChangeService
     {
         var f = Catalog(sdk).Field(c.InstanceKey); CheckWritable(sdk, f);
         if (c.Weapon != f.SupportWeapon || c.AttackRole != f.Target.AttackRole || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Value.Type || c.CapabilityEvidence != Evidence(f))
-            throw new InvalidDataException("Support capability or ownership changed. Review and accept the current capability, or reset this modification.");
-        if (!SupportScalar.Equal(f, c.ExpectedValue, f.Value.Baseline)) throw new InvalidDataException($"Support SDK baseline changed: saved {SupportScalar.Text(f, c.ExpectedValue)}, current {SupportScalar.Text(f, f.Value.Baseline)}. Review and explicitly accept the new baseline.");
+            throw new InvalidDataException(CoreText.Get("Messages.Build.Support.CapabilityChanged"));
+        if (!SupportScalar.Equal(f, c.ExpectedValue, f.Value.Baseline)) throw new InvalidDataException(CoreText.Format("Messages.Build.Support.BaselineChanged", SupportScalar.Text(f, c.ExpectedValue), SupportScalar.Text(f, f.Value.Baseline)));
         _ = SupportScalar.Normalize(f, c.DesiredValue);
         // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
     }
     private static void CheckWritable(SdkMetadata sdk, SupportField f)
     {
         var w = Catalog(sdk).Weapons.Single(w => w.Name == f.SupportWeapon);
-        if (!w.Writable || !SupportAuthoringWeapon.Resolved(w.IdentityStatus) || !f.Writable || f.ReadOnly) throw new InvalidDataException(f.BlockedReason ?? "Duplicate or read-only support identity.");
+        if (!w.Writable || !SupportAuthoringWeapon.Resolved(w.IdentityStatus) || !f.Writable || f.ReadOnly) throw new InvalidDataException(f.BlockedReason ?? CoreText.Get("Messages.Build.Support.ReadOnly"));
     }
     public static string Evidence(SupportField f) => Hash(JsonSerializer.Serialize(new { f.SupportWeaponIdentity, f.Target, f.ApiFieldConstant, f.Value.Type, f.Backing, f.Operation, f.Resolution, f.SharedScope }));
     // Acknowledges Runtime's allow_unverified_effect opt-in for one field, regardless of value.

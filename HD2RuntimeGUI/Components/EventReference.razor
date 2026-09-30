@@ -1,15 +1,16 @@
 @inject BuilderWorkspace Workspace
 @* The event scripting reference, read from the bound SDK's EventCatalog.json (nothing here is written by hand): events with their payloads,
-   the scripting API (timers, keybinds, mod context, game state), the live / snapshot handle model, and the dispatch model. *@
+   the scripting API (timers, keybinds, mod context, game state), the live / snapshot handle model, and the dispatch model. Headings and notes
+   are UI text; event names, payload fields, types, signatures and the SDK's doc strings are shown as published. *@
 @{ var catalog = Workspace.Metadata?.Events; }
 @if (catalog != null)
 {
     <div class="event-reference" data-event-reference>
         <div class="custom-lua-subtabs" role="tablist">
-            @foreach (var (key, label) in new[] { ("events", "Events"), ("utility", "Utility"), ("handles", "Handles"), ("model", "Model") })
+            @foreach (var (key, label) in new[] { ("events", T["EventReference.Section.Events"]), ("utility", T["EventReference.Section.Utility"]), ("handles", T["EventReference.Section.Handles"]), ("model", T["EventReference.Section.Model"]) })
             { <button role="tab" class="@(Section == key ? "active" : "")" data-reference-section="@key" @onclick="() => Section = key">@label</button> }
         </div>
-        <label class="reference-search">Search<input data-reference-search @bind="Search" @bind:event="oninput" placeholder="event, field, function…" /></label>
+        <label class="reference-search">@T["Common.Search"]<input data-reference-search @bind="Search" @bind:event="oninput" placeholder="@T["EventReference.Search.Placeholder"]" /></label>
         @if (Section == "events")
         {
             @foreach (var e in catalog.Events.Where(e => Match(e.Name, e.Summary, string.Join(" ", e.Payload?.Select(p => p.Name) ?? []))))
@@ -18,16 +19,16 @@
                     <summary><code>@e.Name</code>
                         @if (e.IsAvailable) { <span class="badge">@e.Phase</span><span class="badge" title="@catalog.Sources.GetValueOrDefault(e.Source ?? "")">@e.Source</span> }
                         else { <span class="badge red" data-event-blocked>@e.Status</span> }
-                        @if (e.Hot) { <span class="badge amber" title="Observed every update tick while subscribed">every tick</span> }</summary>
+                        @if (e.Hot) { <span class="badge amber" title="@T["EventReference.EveryTick.Tooltip"]">@T["EventReference.EveryTick.Label"]</span> }</summary>
                     @if (e.IsAvailable)
                     {
                         <p class="subtle">@e.Summary</p>
-                        <p class="subtle">Source: @catalog.Sources.GetValueOrDefault(e.Source ?? "")</p>
-                        <table class="reference-table"><thead><tr><th>Field</th><th>Type</th><th></th></tr></thead><tbody>
+                        <p class="subtle">@T.Format("EventReference.Source", catalog.Sources.GetValueOrDefault(e.Source ?? ""))</p>
+                        <table class="reference-table"><thead><tr><th>@T["EventReference.Field"]</th><th>@T["EventReference.Type"]</th><th></th></tr></thead><tbody>
                             @foreach (var f in e.Payload ?? [])
-                            { <tr data-payload-field="@f.Name"><td><code>@f.Name</code></td><td><code>@f.Type</code></td><td class="subtle">@(f.Nullable ? "may be nil · " : "")@f.Doc</td></tr> }
+                            { <tr data-payload-field="@f.Name"><td><code>@f.Name</code></td><td><code>@f.Type</code></td><td class="subtle">@(f.Nullable ? T.Format("EventReference.MayBeNil", f.Doc) : f.Doc)</td></tr> }
                         </tbody></table>
-                        <p class="subtle">Every payload also carries <code>event</code>, <code>time</code>, <code>frame</code>, <code>mission</code> and <code>cause</code>. Payloads are snapshots: keep them in timers freely, but do not rewrite them.</p>
+                        <p class="subtle">@T.Markup("EventReference.PayloadCommon.Html", "event", "time", "frame", "mission", "cause")</p>
                     }
                     else { <p class="notice warning">@e.Reason</p> }
                 </details>
@@ -35,7 +36,7 @@
         }
         else if (Section == "utility")
         {
-            <h3 class="group-title">hd2 functions</h3>
+            <h3 class="group-title">@T.Format("EventReference.Functions.Title", "hd2")</h3>
             @foreach (var f in catalog.Api.Functions.Where(f => Match(f.Name, f.Doc))) { <div class="reference-item"><code>hd2.@f.Signature</code><p class="subtle">@f.Doc</p></div> }
             @foreach (var (name, c) in catalog.Api.Classes.Where(c => c.Value.Methods is { Length: > 0 } && Match(c.Key, c.Value.Doc, string.Join(" ", c.Value.Methods!.Select(m => m.Name)))))
             {
@@ -51,11 +52,11 @@
             {
                 <div class="reference-item" data-reference-handle="@name"><h3 class="group-title">@name</h3><p class="subtle">@h.Doc</p>
                     <table class="reference-table"><tbody>
-                        @foreach (var f in h.Fields.Where(f => Match(f[0], f.Length > 2 ? f[2] : null))) { <tr><td><code>@f[0]</code></td><td><code>@(f.Length > 1 ? f[1] : "")</code></td><td class="subtle">@(f.Length > 2 ? f[2] : "") <em>(snapshot)</em></td></tr> }
-                        @foreach (var m in h.Methods.Where(m => Match(m.Name, m.Doc))) { <tr><td><code>:@(m.Name)()</code></td><td><code>@m.Returns</code></td><td class="subtle">@m.Doc <em>(live)</em></td></tr> }
+                        @foreach (var f in h.Fields.Where(f => Match(f[0], f.Length > 2 ? f[2] : null))) { <tr><td><code>@f[0]</code></td><td><code>@(f.Length > 1 ? f[1] : "")</code></td><td class="subtle">@(f.Length > 2 ? f[2] : "") <em>@T["EventReference.Snapshot"]</em></td></tr> }
+                        @foreach (var m in h.Methods.Where(m => Match(m.Name, m.Doc))) { <tr><td><code>:@(m.Name)()</code></td><td><code>@m.Returns</code></td><td class="subtle">@m.Doc <em>@T["EventReference.Live"]</em></td></tr> }
                     </tbody></table></div>
             }
-            <p class="subtle">Identity fields are snapshots and stay valid after the entity is gone. Live queries read the game now and return nil / false once the entity is destroyed, its id reused or the mission ended. Positions in payloads are read-only snapshots.</p>
+            <p class="subtle">@T["EventReference.Handles.Note"]</p>
         }
         else
         {

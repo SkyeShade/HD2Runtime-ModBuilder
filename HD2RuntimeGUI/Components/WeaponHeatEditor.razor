@@ -5,15 +5,15 @@
     && Weapon.Fields.Where(f => f.IsPreferred && f.Domain is "heat" or "heatsink" && FieldPresentation.Section(f) != FieldPresentation.Advanced).ToArray() is { Length: > 0 } fields)
 {
     <section class="semantic-section" data-section="Heat / Heatsink">
-        <h2>Heat / Heatsink</h2>
-        <p class="subtle">Direct heat and heatsink mechanics. These changes do not edit the read-only attachment presets.</p>
+        <h2>@FieldPresentation.SectionLabel(T, "Heat / Heatsink")</h2>
+        <p class="subtle">@T["Heat.Help"]</p>
         @foreach (var section in fields.GroupBy(FieldPresentation.Section).OrderBy(g => FieldPresentation.SectionOrder(g.Key)))
         {
-            <h3 class="group-title">@section.Key</h3>
+            <h3 class="group-title">@FieldPresentation.SectionLabel(T, section.Key)</h3>
             <div class="stat-grid">@foreach (var field in section) { <WeaponFieldEditor @key="(Weapon.Name, field.SemanticFieldId)" Weapon="Weapon" Field="field" Changed="Changed" /> }</div>
         }
         @foreach (var evidence in heat.Fields.Where(e => e.CorrelationMatches == false && e.WikiValue.ValueKind == System.Text.Json.JsonValueKind.Number && fields.Any(f => f.SemanticFieldId == e.Id)))
-        { <p class="notice warning">@fields.First(f => f.SemanticFieldId == evidence.Id).DisplayName · catalog comparison: @evidence.WikiValue. The SDK native baseline is preserved; scaling/correlation is not proven.</p> }
+        { <p class="notice warning">@T.Format("Heat.CatalogComparison", fields.First(f => f.SemanticFieldId == evidence.Id).DisplayName, evidence.WikiValue.GetRawText())</p> }
         <WeaponSharedAcks Weapon="@Weapon.Name" FieldIds="@fields.Select(f => f.SemanticFieldId).ToArray()" />
     </section>
 }

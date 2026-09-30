@@ -6,45 +6,54 @@
 @* Settings → Developer: remember a local HD2Runtime SDK (an unreleased Runtime build's sdk folder or SDK zip) and bind it from the next start.
    --sdk-path and HD2RUNTIME_SDK_PATH still win. A local SDK is never cached or packaged; exports require its version. *@
 <section class="panel" data-local-sdk-settings>
-    <div class="panel-heading"><h2>Developer · local HD2Runtime SDK</h2>
-        <span class="badge @(Active.Choice != null ? "amber" : "")" data-local-sdk-mode>@(Active.Choice != null ? "Local SDK this run" : "Published SDKs")</span></div>
-    <p class="subtle">For testing ModBuilder against an unreleased HD2Runtime build. A local SDK is read from its folder at start-up and validated like a release,
-        but it is never cached, never offered as an update and never packaged: exports require its version, which players only get from a published
-        HD2Runtime release. Rebind projects to a published SDK before sharing them.</p>
+    <div class="panel-heading"><h2>@T["LocalSdk.Title"]</h2>
+        <span class="badge @(Active.Choice != null ? "amber" : "")" data-local-sdk-mode>@(Active.Choice != null ? T["LocalSdk.Mode.Local"] : T["LocalSdk.Mode.Published"])</span></div>
+    <p class="subtle">@T["LocalSdk.Help"]</p>
     @if (Active.Choice is { } active)
     {
-        <p data-local-sdk-active>This run uses <code>@active.Path</code> (from @(active.Source == LocalSdkChoice.Settings ? "this setting" : active.Source))@if (Commit is { } commit) { <span> · HD2Runtime commit <code data-local-sdk-commit>@commit</code></span> }.</p>
-        @if (active.Source != LocalSdkChoice.Settings) { <p class="subtle" data-local-sdk-override>@active.Source overrides this setting while it is set.</p> }
+        <p data-local-sdk-active>@T.Markup(Commit is null ? "LocalSdk.Active.Html" : "LocalSdk.ActiveWithCommit.Html", active.Path, Source(active.Source), Commit)</p>
+        @if (active.Source != LocalSdkChoice.Settings) { <p class="subtle" data-local-sdk-override>@T.Format("LocalSdk.Override", active.Source)</p> }
     }
-    <label>Local SDK folder or zip<input data-local-sdk-input @bind="Input" @bind:event="oninput" placeholder="…\HD2Runtime\sdk" /></label>
-    @if (Message != null) { <p class="@(Failed ? "notice warning" : "subtle")" data-local-sdk-message>@Message</p> }
+    <label>@T["LocalSdk.Input.Label"]<input data-local-sdk-input @bind="Input" @bind:event="oninput" placeholder="…\HD2Runtime\sdk" /></label>
+    @if (Message is { } message) { <p class="@(message.Failed ? "notice warning" : "subtle")" data-local-sdk-message>@message.Text(T)</p> }
     <div class="actions">
-        <button data-local-sdk-save @onclick="Save" disabled="@(Input.Trim().Length == 0)">Use from next start</button>
-        @if (Saved.LocalSdkPath != null) { <button data-local-sdk-clear @onclick="Clear">Use published SDKs from next start</button> }
-        @if (RestartNeeded) { <button class="primary" data-local-sdk-restart @onclick="Restart">Restart ModBuilder now</button> }
+        <button data-local-sdk-save @onclick="Save" disabled="@(Input.Trim().Length == 0)">@T["LocalSdk.UseNextStart"]</button>
+        @if (Saved.LocalSdkPath != null) { <button data-local-sdk-clear @onclick="Clear">@T["LocalSdk.UsePublished"]</button> }
+        @if (RestartNeeded) { <button class="primary" data-local-sdk-restart @onclick="Restart">@T["LocalSdk.Restart"]</button> }
     </div>
 </section>
 @code {
-    private DeveloperSettings Saved = new(); private string Input = ""; private string? Message, Commit; private bool Failed;
+    // A message is kept as its key and arguments (not as text), so it re-renders in a new UI language. Reasons from DeveloperSdk and
+    // exception messages are shown as they come.
+    private sealed record Note(bool Failed, string? Key, object?[] Args, string? Raw = null)
+    {
+        public string Text(IUiText t) => Raw ?? t.Format(Key!, Args);
+    }
+    private DeveloperSettings Saved = new(); private string Input = ""; private string? Commit; private Note? Message;
+    private string Source(string source) => source == LocalSdkChoice.Settings ? T["LocalSdk.Source.Settings"] : source;
     protected override void OnInitialized()
     {
         Saved = DeveloperSdk.Load(Paths); Input = Saved.LocalSdkPath ?? Active.Choice?.Path ?? "";
         Commit = Active.Choice is { } c ? DeveloperSdk.RuntimeCommit(c.Path) : null;
-        if (Saved.LocalSdkPath is { } remembered && DeveloperSdk.Normalize(remembered, out _) is { } problem) (Message, Failed) = ($"The remembered local SDK is not used: {problem}", true);
+        if (Saved.LocalSdkPath is { } remembered && DeveloperSdk.Normalize(remembered, out _) is { } problem) Message = new(true, "LocalSdk.RememberedUnused", [problem]);
     }
     // Restart is offered only when the next start would bind a different SDK than this run.
     private bool RestartNeeded => Active.Choice?.Source is not (LocalSdkChoice.CommandLine or LocalSdkChoice.Environment)
         && !string.Equals(Saved.LocalSdkPath is { } p && DeveloperSdk.Normalize(p, out var next) == null ? next : null, Active.Choice?.Path, StringComparison.OrdinalIgnoreCase);
     private async Task Save()
     {
-        if (DeveloperSdk.Normalize(Input, out var path) is { } problem) { (Message, Failed) = (problem, true); return; }
-        try { await DeveloperSdk.SaveAsync(Paths, Saved = new(path)); Input = path!; var commit = DeveloperSdk.RuntimeCommit(path!); (Message, Failed) = ($"Saved{(commit != null ? " (HD2Runtime commit " + commit + ")" : "")}. It is used from the next start.", false); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { (Message, Failed) = (e.Message, true); }
+        if (DeveloperSdk.Normalize(Input, out var path) is { } problem) { Message = new(true, null, [], problem); return; }
+        try
+        {
+            await DeveloperSdk.SaveAsync(Paths, Saved = new(path)); Input = path!;
+            Message = DeveloperSdk.RuntimeCommit(path!) is { } commit ? new(false, "LocalSdk.SavedWithCommit", [commit]) : new(false, "LocalSdk.Saved", []);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Message = new(true, null, [], e.Message); }
     }
     private async Task Clear()
     {
-        try { await DeveloperSdk.SaveAsync(Paths, Saved = new()); (Message, Failed) = ("Published SDKs are used from the next start.", false); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { (Message, Failed) = (e.Message, true); }
+        try { await DeveloperSdk.SaveAsync(Paths, Saved = new()); Message = new(false, "LocalSdk.Cleared", []); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Message = new(true, null, [], e.Message); }
     }
     private void Restart()
     {

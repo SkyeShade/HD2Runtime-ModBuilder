@@ -1,8 +1,8 @@
 @* Published support call-in delivery graph (reference composition: nodes point at existing views and never duplicate fields). *@
 <section class="panel category-panel cat-support" data-delivery-graph="@Link.Relationship.RelationshipId">
-    <div class="panel-heading"><h2>Call-in → weapon</h2><span class="badge">@Link.Relationship.Confidence</span></div>
-    <p class="subtle">Linked by HD2Runtime's structural call-in relationship. The call-in and the weapon remain separate write targets with their own guards.</p>
-    <div class="field-badges"><span class="badge">Delivers @Words(Link.Relationship.DeliveryObject)</span>
+    <div class="panel-heading"><h2>@T["Delivery.Title"]</h2><span class="badge">@Link.Relationship.Confidence</span></div>
+    <p class="subtle">@T["Delivery.Help"]</p>
+    <div class="field-badges"><span class="badge">@T.Format("Delivery.Delivers", Words(Link.Relationship.DeliveryObject))</span>
         @foreach (var companion in Link.Relationship.CompanionDeliveries) { <span class="badge" data-companion="@companion.Kind">+ @Words(companion.Kind)</span> }
         @if (Link.Relationship.Special != null) { <span class="badge amber">@Words(Link.Relationship.Special)</span> }</div>
     <ul class="delivery-tree">@Render(null)</ul>
@@ -18,10 +18,10 @@
             @if (Link.Relationship.DeliveryGraph.Nodes.Any(n => n.Parent == node.Node)) { <ul>@Render(node.Node)</ul> }
         </li>
     }</text>;
-    private static string Title(SupportDeliveryNode n) => n.Node switch
+    private string Title(SupportDeliveryNode n) => n.Node switch
     {
-        "call_in" => "Call-in · stratagem definition",
-        "delivery" => "Delivery · " + Words(n.Object ?? ""),
+        "call_in" => T["Delivery.Node.CallIn"],
+        "delivery" => T.Format("Delivery.Node.Delivery", Words(n.Object ?? "")),
         _ when n.CatalogBranch != null => n.CatalogBranch + " · " + Words(n.Object ?? n.TargetPath ?? ""),
         _ => Words(n.Node) + (n.Object != null ? " · " + Words(n.Object) : ""),
     };

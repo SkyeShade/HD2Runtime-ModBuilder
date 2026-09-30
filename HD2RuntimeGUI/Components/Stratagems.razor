@@ -2,11 +2,11 @@
 @* Stratagem browser. Each stratagem is one object: header, call-in, delivered object, then collapsed advanced/provenance.
    Support equipment is presented through its support call-in; equipment without a published structural link is listed as unlinked. *@
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Stratagems; }
-<div class="page-heading"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version</div><h1>Stratagems</h1><p>Call-in settings and everything a stratagem delivers: deployed entities, support equipment, mounted weapons and attacks.</p></div></div>
-@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
+<div class="page-heading"><div><div class="eyebrow">@T.Format("Stratagem.Page.Eyebrow", sdk?.Version)</div><h1>@T["Stratagem.Page.Title"]</h1><p>@T["Stratagem.Page.Description"]</p></div></div>
+@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">@T.Format("Stratagem.BuildReview", issue)</div> }
 @if (catalog?.Stratagems.Any(s => s.UiIcon != null) == true) { <IconImportPrompt /> }
-else if (catalog != null) { <p class="subtle" data-stratagem-icons-unpublished>HD2Runtime SDK @sdk?.Version does not publish stratagem icon identities, so stratagems show category glyphs. Icons appear once the bound SDK publishes each stratagem's icon identity.</p> }
-@if (catalog == null) { <section class="panel"><h2>Stratagem authoring requires SDK 0.21</h2><p>Install a compatible SDK in Settings. Existing projects stay pinned until you explicitly rebind from Overview.</p></section> }
+else if (catalog != null) { <p class="subtle" data-stratagem-icons-unpublished>@T.Format("Stratagem.IconsUnpublished", sdk?.Version)</p> }
+@if (catalog == null) { <section class="panel"><h2>@T["Stratagem.RequiresSdk.Title"]</h2><p>@T["Stratagem.RequiresSdk.Help"]</p></section> }
 else
 {
     // Support → Other / Standalone: equipment without a call-in (no_call_in or unlinked) and native-only vehicles/backpacks.
@@ -15,57 +15,57 @@ else
     var standalone = showOther ? SupportEquipment.Standalone(sdk).Where(w => w.Contains(Search, StringComparison.OrdinalIgnoreCase)).ToArray() : [];
     var nativeEntities = showOther ? StratagemCategories.EntitiesWithoutCallIn(sdk?.Entities).Where(e => e.Name.Contains(Search, StringComparison.OrdinalIgnoreCase)).ToArray() : [];
     var otherCount = SupportEquipment.Unlinked(sdk).Count + SupportEquipment.Standalone(sdk).Count + StratagemCategories.EntitiesWithoutCallIn(sdk?.Entities).Count;
-    <div class="category-pills" role="tablist" aria-label="Stratagem categories">
-        <button role="tab" class="category-pill @(Category == "" ? "active" : "")" aria-selected="@(Category == "")" data-category="all" @onclick='() => SelectCategory("")'>All <small>@catalog.Stratagems.Count(s => StratagemCategories.Listed(s, sdk?.Entities))</small></button>
+    <div class="category-pills" role="tablist" aria-label="@T["Stratagem.Categories.Label"]">
+        <button role="tab" class="category-pill @(Category == "" ? "active" : "")" aria-selected="@(Category == "")" data-category="all" @onclick='() => SelectCategory("")'>@T["Common.All"] <small>@catalog.Stratagems.Count(s => StratagemCategories.Listed(s, sdk?.Entities))</small></button>
         @foreach (var c in StratagemCategories.All)
         { <button role="tab" class="category-pill @c.CssClass @(Category == c.Key ? "active" : "")" aria-selected="@(Category == c.Key)" data-category="@c.Key" @onclick="() => SelectCategory(c.Key)"><span class="cat-dot" aria-hidden="true"></span>@c.Label <small>@StratagemCategories.Count(catalog, c, sdk?.Entities)</small></button> }
     </div>
-    <div class="family-tabs" role="tablist" aria-label="Stratagem families">
+    <div class="family-tabs" role="tablist" aria-label="@T["Stratagem.Families.Label"]">
         @foreach (var tab in StratagemBrowser.Tabs(catalog).Where(t => t.Family == "" || InCategory(t.Family) && catalog.Stratagems.Any(s => s.Family == t.Family && StratagemCategories.Listed(s, sdk?.Entities))))
-        { <button role="tab" class="family-tab @((tab.Family == "" ? StratagemCategories.Find(Category) : StratagemCategories.Of(tab.Family))?.CssClass) @(Family == tab.Family ? "active" : "")" aria-selected="@(Family == tab.Family)" data-family-tab="@(tab.Family == "" ? "all" : tab.Family)" @onclick="() => Family = tab.Family">@(tab.Family == "" ? "All " + (StratagemCategories.Find(Category)?.Label ?? "families") : tab.Label) <small>@(catalog.Stratagems.Count(s => (tab.Family == "" ? InCategory(s.Family) : s.Family == tab.Family) && StratagemCategories.Listed(s, sdk?.Entities)))</small></button> }
+        { <button role="tab" class="family-tab @((tab.Family == "" ? StratagemCategories.Find(Category) : StratagemCategories.Of(tab.Family))?.CssClass) @(Family == tab.Family ? "active" : "")" aria-selected="@(Family == tab.Family)" data-family-tab="@(tab.Family == "" ? "all" : tab.Family)" @onclick="() => Family = tab.Family">@(tab.Family != "" ? tab.Label : StratagemCategories.Find(Category) is { } tabCategory ? T.Format("Stratagem.FamilyTab.AllOf", tabCategory.Label) : T["Stratagem.FamilyTab.AllFamilies"]) <small>@(catalog.Stratagems.Count(s => (tab.Family == "" ? InCategory(s.Family) : s.Family == tab.Family) && StratagemCategories.Listed(s, sdk?.Entities)))</small></button> }
         @if (Category == "support" && otherCount > 0)
-        { <button role="tab" class="family-tab cat-support @(Family == StratagemCategories.OtherSupport ? "active" : "")" aria-selected="@(Family == StratagemCategories.OtherSupport)" data-family-tab="other" @onclick="() => Family = StratagemCategories.OtherSupport">Other / Standalone <small>@otherCount</small></button> }
+        { <button role="tab" class="family-tab cat-support @(Family == StratagemCategories.OtherSupport ? "active" : "")" aria-selected="@(Family == StratagemCategories.OtherSupport)" data-family-tab="other" @onclick="() => Family = StratagemCategories.OtherSupport">@T["Stratagem.FamilyTab.Standalone"] <small>@otherCount</small></button> }
     </div>
-    <div class="weapon-editor"><section class="panel weapon-browser">@{ var shown = catalog.Stratagems.Count(s => Visible(catalog, s)); }<h2>@shown @(shown == 1 ? "stratagem" : "stratagems")</h2>
-        <label>Search<input id="stratagem-search" @bind="Search" @bind:event="oninput" placeholder="Name, ID or type" /></label>
-        <label>System<select id="stratagem-system" @bind="System"><option value="">All systems</option><option value="cooldown">Cooldown</option>@foreach (var domain in catalog.FieldInstances.Select(f => f.Domain).Distinct().Order()) { <option value="@domain">@SupportAuthoringEditor.Label(domain)</option> }<option value="beam">Beam</option></select></label>
-        <label>Availability<select @bind="Availability"><option value="">All capabilities</option><option value="writable">Writable</option><option value="blocked">Read-only / blocked</option><option value="shared">Shared</option></select></label>
+    <div class="weapon-editor"><section class="panel weapon-browser">@{ var shown = catalog.Stratagems.Count(s => Visible(catalog, s)); }<h2>@T.Plural("Stratagem.List.Count", shown)</h2>
+        <label>@T["Common.Search"]<input id="stratagem-search" @bind="Search" @bind:event="oninput" placeholder="@T["Stratagem.Search.Placeholder"]" /></label>
+        <label>@T["Stratagem.Filter.System"]<select id="stratagem-system" @bind="System"><option value="">@T["Stratagem.Filter.AllSystems"]</option><option value="cooldown">@T["Stratagem.Filter.Cooldown"]</option>@foreach (var domain in catalog.FieldInstances.Select(f => f.Domain).Distinct().Order()) { <option value="@domain">@SupportAuthoringEditor.Label(T, domain)</option> }<option value="beam">@T["Stratagem.Group.Beam"]</option></select></label>
+        <label>@T["Stratagem.Filter.Availability"]<select @bind="Availability"><option value="">@T["Stratagem.Filter.AllCapabilities"]</option><option value="writable">@T["Stratagem.Filter.Writable"]</option><option value="blocked">@T["Stratagem.Filter.Blocked"]</option><option value="shared">@T["Common.Shared"]</option></select></label>
         <div class="weapon-list">
             @foreach (var root in catalog.Stratagems.Where(s => Visible(catalog, s)))
             {
                 var category = StratagemCategories.Of(root.Family);
                 <button class="resource-item with-icon @category?.CssClass @(Selected == root.Name ? "active" : "")" data-stratagem="@root.Name" data-family="@root.Family" @onclick="() => Selected = root.Name">
                     <GameIcon Kind="stratagem" Key="@GameIconStore.StratagemIconKey(root)" State="@root.UiIcon?.State" Reason="@IconReason(catalog, root)" Label="@root.Name" CssClass="@category?.CssClass" />
-                    <span class="resource-text"><strong>@root.Name@if (Warning(catalog, root) is { } warning) { <span class="warn-dot" title="@warning">●</span> }</strong><small>@FamilyLabel(root.Family) · @Summary(catalog, root)</small></span></button>
+                    <span class="resource-text"><strong>@root.Name@if (Warning(T, catalog, root) is { } warning) { <span class="warn-dot" title="@warning">●</span> }</strong><small>@FamilyLabel(root.Family) · @Summary(catalog, root)</small></span></button>
             }
             @if (unlinked.Length > 0)
             {
-                <div class="list-group-title" data-unlinked-support-group>@(sdk?.SupportLinks == null ? "Support equipment (not linked by this SDK)" : "Unlinked support equipment")</div>
+                <div class="list-group-title" data-unlinked-support-group>@(sdk?.SupportLinks == null ? T["Stratagem.Unlinked.GroupNoLinks"] : T["Stratagem.Unlinked.Title"])</div>
                 @foreach (var weapon in unlinked)
                 {
                     <button class="resource-item with-icon cat-support @(Selected == Equipment + weapon ? "active" : "")" data-unlinked-support="@weapon" @onclick="() => Selected = Equipment + weapon">
                         <GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" />
-                        <span class="resource-text"><strong>@weapon</strong><small>Support equipment · @(sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.Writable == true ? "writable" : "read-only") · no call-in link</small></span></button>
+                        <span class="resource-text"><strong>@weapon</strong><small>@T.Format("Stratagem.Unlinked.Summary", Writability(sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.Writable == true))</small></span></button>
                 }
             }
             @if (standalone.Length > 0)
             {
-                <div class="list-group-title" data-standalone-support-group>Standalone equipment · no call-in</div>
+                <div class="list-group-title" data-standalone-support-group>@T["Stratagem.Standalone.Group"]</div>
                 @foreach (var weapon in standalone)
                 {
                     <button class="resource-item with-icon cat-support @(Selected == Equipment + weapon ? "active" : "")" data-standalone-support="@weapon" @onclick="() => Selected = Equipment + weapon">
-                        <GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" State="no_native_root" Reason="@("No call-in stratagem: " + sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.LinkedStratagem?.NoCallIn?.Reason)" />
-                        <span class="resource-text"><strong>@weapon</strong><small>@AcquisitionLabel(sdk, weapon) · @(sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.Writable == true ? "writable" : "read-only")</small></span></button>
+                        <GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" State="no_native_root" Reason="@T.Format("Stratagem.NoCallInReason", sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.LinkedStratagem?.NoCallIn?.Reason)" />
+                        <span class="resource-text"><strong>@weapon</strong><small>@AcquisitionLabel(sdk, weapon) · @Writability(sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.Writable == true)</small></span></button>
                 }
             }
             @if (nativeEntities.Length > 0)
             {
-                <div class="list-group-title" data-native-entity-group>Vehicles &amp; backpacks without a call-in</div>
+                <div class="list-group-title" data-native-entity-group>@T["Stratagem.NativeOnly.Group"]</div>
                 @foreach (var (resource, name) in nativeEntities)
                 {
                     <button class="resource-item with-icon cat-support @(Selected == EntityKey(resource, name) ? "active" : "")" data-support-entity="@name" data-entity-resource="@resource" @onclick="() => Selected = EntityKey(resource, name)">
-                        <GameIcon Kind="stratagem" Label="@name" CssClass="cat-support" Reason="No call-in stratagem: the SDK publishes no call-in for this native-only item." />
-                        <span class="resource-text"><strong>@name</strong><small>@(resource == "vehicle" ? "Native-only vehicle" : "Native-only backpack") · no call-in</small></span></button>
+                        <GameIcon Kind="stratagem" Label="@name" CssClass="cat-support" Reason="@T["Stratagem.NativeOnly.Reason"]" />
+                        <span class="resource-text"><strong>@name</strong><small>@(resource == "vehicle" ? T["Stratagem.NativeOnly.Vehicle"] : T["Stratagem.NativeOnly.Backpack"])</small></span></button>
                 }
             }
         </div>
@@ -78,17 +78,17 @@ else
                 // Runtime proves the game defines no call-in for this equipment; it is standalone, not unresolved.
                 <section class="panel category-panel cat-support" data-standalone-support-detail="@weapon">
                     <div class="object-header"><GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" Size="md" />
-                        <div><h2>@weapon</h2><div class="field-badges"><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span><span class="badge" data-standalone-badge>No call-in · @AcquisitionLabel(sdk, weapon)</span></div></div></div>
+                        <div><h2>@weapon</h2><div class="field-badges"><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>@StratagemCategories.Support.Label</span><span class="badge" data-standalone-badge>@T.Format("Stratagem.Standalone.Badge", AcquisitionLabel(sdk, weapon))</span></div></div></div>
                     <p class="subtle" data-no-call-in-reason>@noCallIn.NoCallIn!.Reason</p>
-                    @if (noCallIn.NoCallIn.Acquisition?.Note is { } note) { <details class="subtle"><summary>Acquisition evidence</summary><p>@note</p></details> }
+                    @if (noCallIn.NoCallIn.Acquisition?.Note is { } note) { <details class="subtle"><summary>@T["Stratagem.AcquisitionEvidence"]</summary><p>@note</p></details> }
                 </section>
             }
             else
             {
                 <section class="panel category-panel cat-support" data-unlinked-support-detail="@weapon">
                     <div class="object-header"><GameIcon Kind="stratagem" Label="@weapon" CssClass="cat-support" Size="md" />
-                        <div><h2>@weapon</h2><div class="field-badges"><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span><span class="badge amber" data-unlinked-badge>Unlinked support equipment</span></div></div></div>
-                    <p class="subtle">@(descriptor?.LinkedStratagem?.Blocker ?? (sdk.SupportLinks == null ? $"HD2Runtime {sdk.Version} does not publish which call-in delivers this equipment, so it is not paired with a stratagem." : "HD2Runtime publishes no structural call-in link for this equipment, so it is not paired with a stratagem."))</p>
+                        <div><h2>@weapon</h2><div class="field-badges"><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>@StratagemCategories.Support.Label</span><span class="badge amber" data-unlinked-badge>@T["Stratagem.Unlinked.Title"]</span></div></div></div>
+                    <p class="subtle">@(descriptor?.LinkedStratagem?.Blocker ?? (sdk.SupportLinks == null ? T.Format("Stratagem.Unlinked.NoLinks", sdk.Version) : T["Stratagem.Unlinked.NoLink"]))</p>
                 </section>
             }
             <SupportWeaponDetail Weapon="@weapon" Changed="Refresh" @key="weapon" />
@@ -112,19 +112,19 @@ else
                         <div class="field-badges">@if (category != null) { <span class="category-pill static @category.CssClass"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }
                             <span class="badge">@FamilyLabel(stratagem.Family)</span>
                             @if (stratagem.DeployedEntity is { } entity) { <span class="badge">@EntityStats.KindLabel(entity)</span> }
-                            @if (delivered is { } del) { <span class="badge" data-delivers-entity="@del.Entity" title="Linked by HD2Runtime's published call-in relationship">Delivers @del.Entity</span> }
-                            @if (link != null) { <span class="badge" data-support-linked="@link.Weapon.Name" title="Linked by HD2Runtime's structural call-in relationship; call-in and weapon remain separate guarded targets.">Delivers @link.Weapon.Name</span> }
-                            <span class="badge @(stratagem.RootResolution == "UNIQUE" ? "green" : "")" title="Root identity: @stratagem.RootResolution">@(fields.Count(f => f.Editable) + equipment.Length) writable</span>
-                            @if (fields.Count(f => !f.Editable) + graph.Blocked.Length is var readOnly and > 0) { <span class="badge" title="See Advanced / provenance">@readOnly read-only</span> }
-                            @if (fields.Any(f => f.Shared)) { <span class="badge amber" data-flag="allow_shared" title="Some objects are shared with other stratagems and need acknowledgement">Shared objects</span> }</div></div></div>
+                            @if (delivered is { } del) { <span class="badge" data-delivers-entity="@del.Entity" title="@T["Stratagem.DeliversEntity.Tooltip"]">@T.Format("Stratagem.Delivers", del.Entity)</span> }
+                            @if (link != null) { <span class="badge" data-support-linked="@link.Weapon.Name" title="@T["Stratagem.DeliversWeapon.Tooltip"]">@T.Format("Stratagem.Delivers", link.Weapon.Name)</span> }
+                            <span class="badge @(stratagem.RootResolution == "UNIQUE" ? "green" : "")" title="@T.Format("Stratagem.RootIdentity.Tooltip", stratagem.RootResolution)">@T.Format("Stratagem.Badge.Writable", fields.Count(f => f.Editable) + equipment.Length)</span>
+                            @if (fields.Count(f => !f.Editable) + graph.Blocked.Length is var readOnly and > 0) { <span class="badge" title="@T["Stratagem.Badge.ReadOnly.Tooltip"]">@T.Format("Stratagem.Badge.ReadOnly", readOnly)</span> }
+                            @if (fields.Any(f => f.Shared)) { <span class="badge amber" data-flag="allow_shared" title="@T["Stratagem.Badge.Shared.Tooltip"]">@T["Stratagem.Badge.Shared"]</span> }</div></div></div>
                 @if (stratagem.BlockedReason != null) { <p class="notice warning">@stratagem.BlockedReason</p> }
                 @if (stratagem.Family == "support" && link == null)
                 {
-                    if (sdk?.SupportLinks == null) { <p class="notice cat-note cat-support" data-support-link-blocker>HD2Runtime @sdk?.Version does not publish which support equipment this call-in delivers. The equipment is listed under <strong>Support equipment</strong> at the end of the Support list.</p> }
-                    else if (stratagem.Delivers is { Known: false } unresolved) { <p class="notice cat-note cat-support" data-support-link-unresolved>No delivered equipment is linked to this call-in: @unresolved.Blocker</p> }
+                    if (sdk?.SupportLinks == null) { <p class="notice cat-note cat-support" data-support-link-blocker>@T.Markup("Stratagem.SupportLinkBlocker.Html", sdk?.Version)</p> }
+                    else if (stratagem.Delivers is { Known: false } unresolved) { <p class="notice cat-note cat-support" data-support-link-unresolved>@T.Format("Stratagem.SupportLinkUnresolved", unresolved.Blocker)</p> }
                 }
                 @if (stratagem.Family == "mine" && stratagem.MineInstanceResolved != true)
-                { <p class="notice" data-mine-scope>Runtime resolves this minefield's stratagem and deployment entity only. Individual mines, their triggers, distribution and attacks have no controls.</p> }
+                { <p class="notice" data-mine-scope>@T["Stratagem.MineScope"]</p> }
             </section>
             @if (delivered is { } d)
             {
@@ -135,43 +135,43 @@ else
             else { <StratagemEditor Name="@stratagem.Name" Changed="Refresh" @key="stratagem.Name" /> }
             @* 0.26.0: the hellpod rack this call-in delivers, joined by the published stratagem semantic ID. *@
             @foreach (var pod in sdk?.Entities?.Pods?.ForStratagem(stratagem.SemanticId) ?? [])
-            { <details class="ia-section" data-section="drop-pod" open><summary>Drop pod <small>contents and spawn count</small></summary><div class="ia-body"><PodPayloadEditor Rack="@pod.Name" Changed="Refresh" @key="pod.Name" /></div></details> }
-            <details class="ia-section advanced" data-section="advanced" open="@(fields.All(f => !f.Editable) && graph.Blocked.Length > 0)"><summary>Advanced / provenance <small>structure, read-only reasons and inspection</small></summary><div class="ia-body">
+            { <details class="ia-section" data-section="drop-pod" open><summary>@T["Stratagem.Section.DropPod"] <small>@T["Stratagem.Section.DropPod.Hint"]</small></summary><div class="ia-body"><PodPayloadEditor Rack="@pod.Name" Changed="Refresh" @key="pod.Name" /></div></details> }
+            <details class="ia-section advanced" data-section="advanced" open="@(fields.All(f => !f.Editable) && graph.Blocked.Length > 0)"><summary>@T["Stratagem.Section.Advanced"] <small>@T["Stratagem.Section.Advanced.Hint"]</small></summary><div class="ia-body">
                 @if (graph.Entities.Length > 0)
                 {
                     <ol class="graph-outline" data-stratagem-graph>
-                        <li>Stratagem</li>
+                        <li>@T["Stratagem.Graph.Stratagem"]</li>
                         @foreach (var e in graph.Entities)
                         {
-                            <li>Deployed Entity <small>@EntityStats.KindLabel(e.Identity)</small>
-                                @if (e.Weapons.Length > 0) { <ol>@foreach (var w in e.Weapons) { <li>Mounted Weapon · @w.Title <small>@string.Join(" · ", w.Groups.Select(g => g.Title).Concat(w.Attacks.Select(a => a.Title)))</small></li> }</ol> }
+                            <li>@T["Stratagem.Graph.DeployedEntity"] <small>@EntityStats.KindLabel(e.Identity)</small>
+                                @if (e.Weapons.Length > 0) { <ol>@foreach (var w in e.Weapons) { <li>@T.Format("Stratagem.Graph.MountedWeapon", w.Title) <small>@string.Join(" · ", w.Groups.Select(g => g.Title).Concat(w.Attacks.Select(a => a.Title)))</small></li> }</ol> }
                             </li>
                         }
                     </ol>
                 }
                 @if (link != null) { <DeliveryGraph Link="link" /> }
-                <div data-blocked-capabilities><h3 class="group-title">Not currently writable</h3>
-                    <p><strong>Call-In Time:</strong> @stratagem.CallInTime.Reason</p><p><strong>Max Uses:</strong> @stratagem.MaxUses.Reason</p>
-                    @if (stratagem.BarrageScheduling != null) { <p><strong>Barrage scheduling:</strong> @stratagem.BarrageScheduling.Reason</p> }
-                    @foreach (var blocked in graph.Blocked) { <p data-blocked-field="@blocked.Field"><strong>@BlockedLabel(blocked.Field):</strong> @blocked.Reason</p> }</div>
-                <p class="subtle">Root identity @stratagem.RootResolution · <code>@stratagem.SemanticId</code></p>
-                @if (IconReason(catalog, stratagem) is { } iconReason) { <p class="subtle" data-icon-reason="@stratagem.UiIcon!.State">Icon · @iconReason</p> }
-                else if (stratagem.UiIcon is { State: "resolved" } icon) { <p class="subtle" data-icon-reason="resolved">Icon · <code>@icon.IconKey</code> from the game icon library (native type @icon.NativeType)</p> }
+                <div data-blocked-capabilities><h3 class="group-title">@T["Stratagem.Blocked.Title"]</h3>
+                    <p><strong>@T["Stratagem.Blocked.CallInTime"]</strong> @stratagem.CallInTime.Reason</p><p><strong>@T["Stratagem.Blocked.MaxUses"]</strong> @stratagem.MaxUses.Reason</p>
+                    @if (stratagem.BarrageScheduling != null) { <p><strong>@T["Stratagem.Blocked.Barrage"]</strong> @stratagem.BarrageScheduling.Reason</p> }
+                    @foreach (var blocked in graph.Blocked) { <p data-blocked-field="@blocked.Field"><strong>@T.Format("Stratagem.Blocked.Field", BlockedLabel(T, blocked.Field))</strong> @blocked.Reason</p> }</div>
+                <p class="subtle">@T.Markup("Stratagem.RootIdentity.Line.Html", stratagem.RootResolution, stratagem.SemanticId)</p>
+                @if (IconReason(catalog, stratagem) is { } iconReason) { <p class="subtle" data-icon-reason="@stratagem.UiIcon!.State">@T.Format("Stratagem.Icon.Reason", iconReason)</p> }
+                else if (stratagem.UiIcon is { State: "resolved" } icon) { <p class="subtle" data-icon-reason="resolved">@T.Markup("Stratagem.Icon.Resolved.Html", icon.IconKey, icon.NativeType)</p> }
                 @if (catalog.SemanticBranches.Any(b => b.Stratagem == stratagem.Name))
                 {
-                    <h3 class="group-title">Delivery graph / inspection</h3>
+                    <h3 class="group-title">@T["Stratagem.DeliveryInspection.Title"]</h3>
                     @foreach (var branch in catalog.SemanticBranches.Where(b => b.Stratagem == stratagem.Name))
                     {
                         <div class="graph-node"><strong>@branch.Name</strong> <span class="badge">@branch.KindLabel</span>
                             @if (branch.SemanticRoles is { Length: > 0 } roles) { <p>@string.Join(" / ", roles)</p> }
                             @if (branch.SourcePath != null) { <p>@branch.SourcePath</p> }
-                            @if (branch.RelationshipEvidence != null) { <small>@branch.RelationshipEvidence@(branch.RelationshipVerified == false ? " · relationship not verified" : "")</small> }
+                            @if (branch.RelationshipEvidence != null) { <small>@branch.RelationshipEvidence@(branch.RelationshipVerified == false ? " · " + T["Stratagem.Branch.RelationshipNotVerified"] : "")</small> }
                             <small>@branch.Correlation</small></div>
                     }
                 }
             </div></details>
         }
-        else { <section class="panel"><h2>Choose a stratagem</h2><p>Each stratagem shows its call-in settings together with what it delivers. Changes save automatically in your active project.</p><p>@catalog.Summary.WritableFieldInstances writable instances · @catalog.Summary.SharedConsumerScopeCount reviewed shared scopes@(catalog.DeployedEntities is { } entities ? $" · {entities.Length} deployed entities" : "")</p></section> }
+        else { <section class="panel"><h2>@T["Stratagem.Empty.Title"]</h2><p>@T["Stratagem.Empty.Help"]</p><p>@(catalog.DeployedEntities is { } entities ? T.Format("Stratagem.Empty.StatsWithEntities", catalog.Summary.WritableFieldInstances, catalog.Summary.SharedConsumerScopeCount, entities.Length) : T.Format("Stratagem.Empty.Stats", catalog.Summary.WritableFieldInstances, catalog.Summary.SharedConsumerScopeCount))</p></section> }
     </div></div>
 }
 @code {
@@ -195,29 +195,37 @@ else
     private string Search = "", Family = "", System = "", Availability = "", Selected = "";
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     public static string FamilyLabel(string family) => StratagemBrowser.FamilyLabel(family);
+    private string Writability(bool writable) => writable ? T["Stratagem.Summary.Writable"] : T["Stratagem.Summary.ReadOnly"];
     // Why a stratagem shows a glyph instead of its game icon, from Runtime's published uiIcon (never inferred from names).
-    public static string? IconReason(StratagemCatalog c, StratagemDefinition s) => s.UiIcon is null ? null : s.UiIcon.FallbackReason(c.UiIconContract) is { } reason
-        ? (s.UiIcon.State switch { "empty_template" => "No icon artwork", "unbound" => "No game icon", "no_native_root" => "No call-in stratagem", _ => "No icon" }) + ": " + reason : null;
+    private string? IconReason(StratagemCatalog c, StratagemDefinition s) => s.UiIcon is null ? null : s.UiIcon.FallbackReason(c.UiIconContract) is { } reason
+        ? s.UiIcon.State switch
+        {
+            "empty_template" => T.Format("Stratagem.IconReason.NoArtwork", reason), "unbound" => T.Format("Stratagem.IconReason.NoGameIcon", reason),
+            "no_native_root" => T.Format("Stratagem.NoCallInReason", reason), _ => T.Format("Stratagem.IconReason.NoIcon", reason),
+        } : null;
     // Runtime's published acquisition kind for no-call-in equipment (e.g. world_pickup → "World pickup").
-    private static string AcquisitionLabel(SdkMetadata? sdk, string weapon) => sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.LinkedStratagem?.NoCallIn?.Acquisition?.Kind is { } kind
-        ? FieldPresentation.EnumLabel(kind) : "No call-in";
+    private string AcquisitionLabel(SdkMetadata? sdk, string weapon) => sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.LinkedStratagem?.NoCallIn?.Acquisition?.Kind is { } kind
+        ? (kind == "world_pickup" ? T["Stratagem.Acquisition.WorldPickup"] : FieldPresentation.EnumLabel(kind)) : T["Stratagem.NoCallIn"];
     private string Summary(StratagemCatalog c, StratagemDefinition s)
     {
         var writable = c.FieldInstances.Any(f => f.Target.Stratagem == s.Name && f.Editable);
         var link = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.SupportLinks?.ForStratagem(s.Name);
         var delivered = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.CallIns.GetValueOrDefault(s.Name);
-        var what = link != null ? "call-in + " + (link.Weapon.Writable ? "equipment" : "read-only equipment")
-            : delivered is { Resource: { } resource } ? "call-in + " + resource
-            : s.DeployedEntity is { } e ? EntityStats.KindLabel(e).ToLowerInvariant() + (e.WeaponBranches.Length > 0 ? " + weapon" : "")
-            : s.AttackRoles.Length == 0 ? "call-in" : s.AttackRoles.Length + " attacks";
-        return what + " · " + (writable ? "writable" : "read-only");
+        var what = link != null ? (link.Weapon.Writable ? T["Stratagem.Summary.CallInEquipment"] : T["Stratagem.Summary.CallInReadOnlyEquipment"])
+            : delivered is { Resource: { } resource } ? resource switch
+            {
+                "vehicle" => T["Stratagem.Summary.CallInVehicle"], "backpack" => T["Stratagem.Summary.CallInBackpack"], _ => T.Format("Stratagem.Summary.CallInResource", resource),
+            }
+            : s.DeployedEntity is { } e ? (e.WeaponBranches.Length > 0 ? T.Format("Stratagem.Summary.EntityWithWeapon", EntityStats.KindLabel(e).ToLowerInvariant()) : EntityStats.KindLabel(e).ToLowerInvariant())
+            : s.AttackRoles.Length == 0 ? T["Stratagem.Summary.CallIn"] : T.Plural("Stratagem.Summary.Attacks", s.AttackRoles.Length);
+        return what + " · " + Writability(writable);
     }
     // One short list indicator: shared objects need acknowledgement; a non-unique root is read-only.
-    private static string? Warning(StratagemCatalog c, StratagemDefinition s) =>
-        s.RootResolution != "UNIQUE" ? "Root identity not unique: read-only" : c.FieldInstances.Any(f => f.Target.Stratagem == s.Name && f.Shared) ? "Includes shared objects (edits also affect other users)" : null;
-    private static string BlockedLabel(string field) => field switch
+    private static string? Warning(IUiText t, StratagemCatalog c, StratagemDefinition s) =>
+        s.RootResolution != "UNIQUE" ? t["Stratagem.Warning.RootNotUnique"] : c.FieldInstances.Any(f => f.Target.Stratagem == s.Name && f.Shared) ? t["Stratagem.Warning.Shared"] : null;
+    private static string BlockedLabel(IUiText t, string field) => field switch
     {
-        "targeting.*" => "Targeting (range, traverse, tracking, firing arc)",
+        "targeting.*" => t["Stratagem.Blocked.Targeting"],
         _ => char.ToUpperInvariant(field[0]) + field[1..].Replace('.', ' ').Replace('_', ' '),
     };
 }

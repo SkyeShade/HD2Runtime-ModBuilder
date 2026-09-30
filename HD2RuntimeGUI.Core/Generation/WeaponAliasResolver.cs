@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -9,11 +10,11 @@ public sealed record WeaponChangeGroup(string Weapon, string FieldId, WeaponCapa
     public WeaponChange Representative => Sources.OrderBy(c => c.SemanticFieldId != FieldId).ThenBy(c => c.Id).First();
     public bool Enabled => Sources.Any(c => c.Enabled);
     public string? Conflict => Sources.Select(c => c.SemanticFieldId).Distinct().Count() != Sources.Count
-        ? "Migration conflict: duplicate saved field records. Choose which change to keep."
+        ? CoreText.Get("Messages.Build.Weapon.DuplicateRecords")
         : Sources.Skip(1).Any(c => Field == null || !WeaponScalar.Equal(Field, Sources[0].DesiredValue, c.DesiredValue))
-            ? "Migration conflict: an alias and its canonical field have different desired values. Choose which change to keep."
+            ? CoreText.Get("Messages.Build.Weapon.AliasValuesDiffer")
             : Sources.Skip(1).Any(c => Field != null && !WeaponScalar.Equal(Field, Sources[0].ExpectedValue, c.ExpectedValue))
-                ? "Migration conflict: saved alias baselines differ. Choose which change to keep; its baseline will still be reviewed against the SDK."
+                ? CoreText.Get("Messages.Build.Weapon.AliasBaselinesDiffer")
                 : null;
 }
 

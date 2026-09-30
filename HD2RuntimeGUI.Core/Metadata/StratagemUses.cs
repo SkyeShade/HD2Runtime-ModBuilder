@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core.Localization;
 using System.Text.Json;
 
 namespace HD2RuntimeGUI.Core.Metadata;
@@ -32,9 +33,9 @@ public static class StratagemUses
         if (f.Transitions?.Contains(transition) != true)
             throw new InvalidDataException(transition switch
             {
-                FiniteToUnlimited => "Runtime does not allow making this stratagem unlimited.",
-                UnlimitedToFinite => "Runtime does not allow limiting this stratagem's uses.",
-                _ => "Runtime does not allow changing this stratagem's use count.",
+                FiniteToUnlimited => CoreText.Get("Messages.Stratagem.Uses.NoUnlimited"),
+                UnlimitedToFinite => CoreText.Get("Messages.Stratagem.Uses.NoLimit"),
+                _ => CoreText.Get("Messages.Stratagem.Uses.NoChange"),
             });
     }
     // allow_unverified_effect is required unless the desired value is one Runtime lists as gameplay-proven (Exosuit 3 -> unlimited).

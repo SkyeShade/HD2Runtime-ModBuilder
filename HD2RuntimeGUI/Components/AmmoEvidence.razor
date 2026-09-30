@@ -3,19 +3,19 @@
     @if (ammo.DefaultMagazineOption is { } preset)
     {
         <section class="panel ammo-evidence" data-ammo-preset>
-            <div class="panel-heading"><h3>Default magazine preset</h3><span class="badge">Read-only</span>@if (preset.Shared) { <span class="badge amber">Shared preset</span> }</div>
+            <div class="panel-heading"><h3>@T["Ammo.Preset.Title"]</h3><span class="badge">@T["Common.ReadOnly"]</span>@if (preset.Shared) { <span class="badge amber">@T["Ammo.Preset.Shared"]</span> }</div>
             <p><strong>@preset.Name.Trim()</strong></p>
-            <p>The default preset is known, but guarded write ownership is not yet proven. Its resolved values below are read-only.</p>
+            <p>@T["Ammo.Preset.Help"]</p>
             <p class="subtle">@preset.Reason</p>
-            @if (preset.SharedWithWeapons.Count > 0) { <p>Also used by @string.Join(", ", preset.SharedWithWeapons).</p> }
-            <details class="provenance"><summary>Advanced / preset evidence</summary><p>Option @preset.OptionId · AddPath @preset.AddPath</p><p>@Catalog.OwnershipFindings.DefaultCustomization</p></details>
+            @if (preset.SharedWithWeapons.Count > 0) { <p>@T.Format("Ammo.Preset.AlsoUsedBy", string.Join(", ", preset.SharedWithWeapons))</p> }
+            <details class="provenance"><summary>@T["Ammo.Preset.Evidence"]</summary><p>@T.Format("Ammo.Preset.Ids", preset.OptionId, preset.AddPath)</p><p>@Catalog.OwnershipFindings.DefaultCustomization</p></details>
         </section>
     }
     @foreach (var diagnostic in ammo.Diagnostics)
     { <div class="notice warning"><p>@diagnostic</p></div> }
     @foreach (var discrepancy in Catalog.Discrepancies.Where(d => d.Weapon == WeaponName))
     {
-        <div class="notice warning" data-ammo-discrepancy><p>SDK evidence disagreement for @discrepancy.Field: runtime @discrepancy.Runtime, catalog @discrepancy.Catalog. The editor retains the authoritative SDK capability baseline.</p></div>
+        <div class="notice warning" data-ammo-discrepancy><p>@T.Format("Ammo.Discrepancy", discrepancy.Field, discrepancy.Runtime.ToString(), discrepancy.Catalog.ToString())</p></div>
     }
 }
 @code {

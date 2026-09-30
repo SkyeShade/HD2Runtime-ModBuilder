@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using HD2RuntimeGUI.Core.Localization;
 
 namespace HD2RuntimeGUI.Core.Models;
 
@@ -6,12 +7,12 @@ public sealed record SemVersion(int Major, int Minor, int Patch, string? Prerele
 {
     public static SemVersion Parse(string value)
     {
-        if (value.Length > 128) throw new FormatException("Version is too long.");
+        if (value.Length > 128) throw new FormatException(CoreText.Get("Messages.Model.Version.TooLong"));
         var m = Regex.Match(value, @"\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z", RegexOptions.CultureInvariant);
-        if (!m.Success) throw new FormatException("Use a semantic version such as 0.1.0.");
+        if (!m.Success) throw new FormatException(CoreText.Get("Messages.Model.Version.Format"));
         string? pre = m.Groups[4].Success ? m.Groups[4].Value : null;
         if (pre?.Split('.').Any(p => p.All(char.IsAsciiDigit) && p.Length > 1 && p[0] == '0') == true)
-            throw new FormatException("Numeric prerelease identifiers cannot have leading zeroes.");
+            throw new FormatException(CoreText.Get("Messages.Model.Version.LeadingZeroes"));
         return new(int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value), int.Parse(m.Groups[3].Value), pre);
     }
 

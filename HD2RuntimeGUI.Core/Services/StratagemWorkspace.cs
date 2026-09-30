@@ -1,4 +1,5 @@
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Models;
 
 namespace HD2RuntimeGUI.Core.Services;
@@ -19,7 +20,7 @@ public sealed partial class BuilderWorkspace
         var project = Project; await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var previous = project.StratagemChanges.ToList(); var approvals = new Dictionary<string, string>(project.StratagemApprovals); var format = project.FormatVersion;
             try
             {
@@ -67,7 +68,7 @@ public sealed partial class BuilderWorkspace
     public Task SetStratagemEffectAcknowledgedAsync(string instance, bool acknowledged) => EditStratagemAsync(p =>
     {
         var catalog = StratagemChangeService.Catalog(Metadata!); var f = catalog.Field(instance);
-        var old = StratagemChangeService.Saved(p, catalog, f) ?? throw new InvalidDataException("Change the value before acknowledging.");
+        var old = StratagemChangeService.Saved(p, catalog, f) ?? throw new InvalidDataException(CoreText.Get("Messages.Workspace.ChangeBeforeAcknowledging"));
         p.StratagemChanges[p.StratagemChanges.IndexOf(old)] = old with { EffectAcknowledgement = acknowledged ? StratagemChangeService.EffectEvidence(f) : null };
     });
     public Task ToggleStratagemAsync(string instance) => EditStratagemAsync(p =>

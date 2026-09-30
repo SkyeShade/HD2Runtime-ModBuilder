@@ -4,13 +4,13 @@
    modes and Runtime's reason, with no controls. Burst length and rate of fire are weapon-wide, not per mode. *@
 <div class="fire-mode-editor @(Model.Modified ? "modified" : "")" data-fire-modes="@Model.Weapon" data-fire-mode-state="@Model.State">
     <div class="fire-mode-head">
-        <strong>Fire modes</strong>
-        <span class="badge" data-fire-mode-selector>@(Model.State == "selectable" ? "Selector bound · up to " + Model.MaxModes + " modes" : Model.State == "single_mode" ? "No selector · one mode" : Model.State == "absent" ? "No weapon data" : "Read-only")</span>
-        @if (Model.Modified) { <span class="badge modified-badge">Modified</span> }
-        @if (Model.AckRequired) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Model.AckReason">Effect unverified</span> }
-        @if (Model.Modified && Model.Writable) { <button class="reset-action small" data-fire-mode-reset @onclick="() => Run(() => Reset.InvokeAsync())">Reset modes</button> }
-        <details class="field-info"><summary title="How fire modes work">ⓘ</summary><div class="field-info-body">
-            <p>Fire modes are one ordered list in the weapon's own data: the first slot is the default, the rest are cycled with the fire-mode selector. Enabling a mode writes it into an empty slot; there is no per-mode rate of fire.</p>
+        <strong>@T["FireMode.Title"]</strong>
+        <span class="badge" data-fire-mode-selector>@(Model.State == "selectable" ? T.Plural("FireMode.State.Selectable", Model.MaxModes) : Model.State == "single_mode" ? T["FireMode.State.SingleMode"] : Model.State == "absent" ? T["FireMode.State.Absent"] : T["Common.ReadOnly"])</span>
+        @if (Model.Modified) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+        @if (Model.AckRequired) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Model.AckReason">@T["FireMode.EffectUnverified"]</span> }
+        @if (Model.Modified && Model.Writable) { <button class="reset-action small" data-fire-mode-reset @onclick="() => Run(() => Reset.InvokeAsync())">@T["FireMode.ResetModes"]</button> }
+        <details class="field-info"><summary title="@T["FireMode.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+            <p>@T["FireMode.Info.Help"]</p>
             @if (Model.Evidence != null) { <p>@Model.Evidence</p> }
             @if (Model.AckReason != null) { <p>@Model.AckReason</p> }
         </div></details>
@@ -29,38 +29,38 @@
             {
                 var index = i; var mode = i < current.Count ? current[i] : null; var usable = i < Model.MaxModes;
                 <li class="fire-mode-slot @(mode == null ? "empty" : "") @(usable ? "" : "unavailable")" data-fire-mode-slot="@(i + 1)" data-mode="@(mode ?? "")">
-                    <span class="slot-label">Slot @(i + 1)@(i == 0 ? " · default" : "")</span>
+                    <span class="slot-label">@T.Format(i == 0 ? "FireMode.Slot.Default" : "FireMode.Slot", i + 1)</span>
                     @if (mode != null)
                     {
                         @if (Model.State == "single_mode")
                         {
-                            <select aria-label="Fire mode" data-fire-mode-replace value="@mode" @onchange="e => Run(() => Set([e.Value!.ToString()!]))">
-                                @foreach (var option in Model.Allowed) { <option value="@option">@FireModes.Label(option)</option> }</select>
+                            <select aria-label="@T["FireMode.Select.Aria"]" data-fire-mode-replace value="@mode" @onchange="e => Run(() => Set([e.Value!.ToString()!]))">
+                                @foreach (var option in Model.Allowed) { <option value="@option">@FireModes.DisplayLabel(option)</option> }</select>
                         }
                         else
                         {
-                            <strong>@FireModes.Label(mode)</strong>
+                            <strong>@FireModes.DisplayLabel(mode)</strong>
                             <span class="slot-actions">
-                                <button class="small" title="Move earlier" aria-label="Move @FireModes.Label(mode) earlier" disabled="@(index == 0)" data-fire-mode-up="@mode" @onclick="() => Run(() => Set(Move(current, index, -1)))">↑</button>
-                                <button class="small" title="Move later" aria-label="Move @FireModes.Label(mode) later" disabled="@(index == current.Count - 1)" data-fire-mode-down="@mode" @onclick="() => Run(() => Set(Move(current, index, 1)))">↓</button>
-                                <button class="small reset-action" title="Remove this mode" aria-label="Remove @FireModes.Label(mode)" disabled="@(current.Count == 1)" data-fire-mode-remove="@mode" @onclick="() => Run(() => Set(current.Where((_, j) => j != index).ToArray()))">✕</button>
+                                <button class="small" title="@T["FireMode.MoveEarlier"]" aria-label="@T.Format("FireMode.MoveEarlier.Aria", FireModes.DisplayLabel(mode))" disabled="@(index == 0)" data-fire-mode-up="@mode" @onclick="() => Run(() => Set(Move(current, index, -1)))">↑</button>
+                                <button class="small" title="@T["FireMode.MoveLater"]" aria-label="@T.Format("FireMode.MoveLater.Aria", FireModes.DisplayLabel(mode))" disabled="@(index == current.Count - 1)" data-fire-mode-down="@mode" @onclick="() => Run(() => Set(Move(current, index, 1)))">↓</button>
+                                <button class="small reset-action" title="@T["FireMode.Remove"]" aria-label="@T.Format("FireMode.Remove.Aria", FireModes.DisplayLabel(mode))" disabled="@(current.Count == 1)" data-fire-mode-remove="@mode" @onclick="() => Run(() => Set(current.Where((_, j) => j != index).ToArray()))">✕</button>
                             </span>
                         }
                     }
-                    else { <span class="subtle">@(usable ? "Empty" : "Not available")</span> }
+                    else { <span class="subtle">@(usable ? T["Common.Empty"] : T["FireMode.Slot.Unavailable"])</span> }
                 </li>
             }
         </ol>
         @if (Model.State == "selectable" && current.Count < Model.MaxModes && Model.Allowed.Except(current).ToArray() is { Length: > 0 } addable)
         {
-            <div class="fire-mode-add"><span class="subtle">Add mode:</span>
-                @foreach (var mode in addable) { <button class="small" data-fire-mode-add="@mode" @onclick="() => Run(() => Set([.. current, mode]))">+ @FireModes.Label(mode)</button> }</div>
+            <div class="fire-mode-add"><span class="subtle">@T["FireMode.AddMode"]</span>
+                @foreach (var mode in addable) { <button class="small" data-fire-mode-add="@mode" @onclick="() => Run(() => Set([.. current, mode]))">+ @FireModes.DisplayLabel(mode)</button> }</div>
         }
-        @if (Model.Modified) { <p class="field-baseline modified-value" data-fire-mode-baseline>Base @string.Join(", ", Model.Baseline.Select(FireModes.Label)) → <strong>@string.Join(", ", current.Select(FireModes.Label))</strong></p> }
-        else { <p class="field-baseline subtle" data-fire-mode-baseline>Base @string.Join(", ", Model.Baseline.Select(FireModes.Label))</p> }
+        @if (Model.Modified) { <p class="field-baseline modified-value" data-fire-mode-baseline>@T.Markup("FireMode.BaselineToCurrent.Html", string.Join(", ", Model.Baseline.Select(FireModes.DisplayLabel)), string.Join(", ", current.Select(FireModes.DisplayLabel)))</p> }
+        else { <p class="field-baseline subtle" data-fire-mode-baseline>@T.Format("FireMode.Baseline", string.Join(", ", Model.Baseline.Select(FireModes.DisplayLabel)))</p> }
         @if (Model.Modified && Model.AckRequired)
         {
-            <AckPanel Title="Fire modes · effect not gameplay-confirmed" Kind="unverified" Description="@Model.AckReason" />
+            <AckPanel Title="@T["FireMode.UnverifiedEffect.Title"]" Kind="unverified" Description="@Model.AckReason" />
         }
     }
     @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }

@@ -18,7 +18,7 @@
         var saved = f == null ? null : Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);
         var baseline = writable ? FireModes.Modes(f!.Value.Baseline) : [];
         var current = writable && saved != null ? FireModes.Modes(saved.DesiredValue) : baseline;
-        return new(Weapon, f?.FireMode?.FireModeState ?? entry?.State ?? "blocked", writable && Workspace.Project != null, f?.BlockedReason ?? entry?.Reason ?? "Create or open a project to author fire modes.",
+        return new(Weapon, f?.FireMode?.FireModeState ?? entry?.State ?? "blocked", writable && Workspace.Project != null, f?.BlockedReason ?? entry?.Reason ?? T["Support.FireModes.NoProject"],
             baseline, current, f?.FireMode?.AllowedModes ?? [], f?.FireMode?.MaxModes ?? 0, f?.Operation.Acknowledgement == "allow_unverified_effect",
             f?.Operation.AcknowledgementReason,
             f?.FireMode?.Evidence?.NativeOwner, writable ? [] : entry?.ModeLabels.ToArray() ?? []);

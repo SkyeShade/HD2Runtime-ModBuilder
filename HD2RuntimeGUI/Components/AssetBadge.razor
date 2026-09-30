@@ -5,16 +5,16 @@
     <div class="asset-status @(v.Warning ? "warning" : "")" data-asset-state="@v.State.ToString().ToLowerInvariant()">
         <span class="badge @(v.State switch { AssetState.LiveVerified => "green", AssetState.Unknown => "amber", _ => "blue" })" title="@v.Description" data-asset-badge>@v.Label</span>
         @if (v.Warning && !Compact) { <span class="asset-note" data-asset-warning>@v.Description</span> }
-        <details class="asset-details" data-asset-details><summary>Asset dependency</summary>
+        <details class="asset-details" data-asset-details><summary>@T["Asset.Details.Title"]</summary>
             <dl>
-                <dt>Dependency</dt><dd>@(v.State == AssetState.Unknown ? "Unknown" : v.State == AssetState.AlwaysResident ? "Always loaded" : "Known")</dd>
-                <dt>Loaded automatically</dt><dd>@(v.State is AssetState.LiveVerified or AssetState.AutoLoaded ? "Yes" : "No")</dd>
-                @if (v.Package != null) { <dt>Package</dt><dd><code>@v.Package</code></dd> }
-                else if (v.PackageNamed == false) { <dt>Package</dt><dd>Proven, name not recovered</dd> }
-                <dt>Live-tested</dt><dd>@(v.LiveTested ? "Yes: this object in a passing live test" : v.PackageLiveLoaded ? "Its package was loaded in a passing live test" : "No")</dd>
-                @if (v.Derivation != null) { <dt>Source</dt><dd>@FieldPresentation.EnumLabel(v.Derivation)</dd> }
-                @if (v.FamilyProofText is { } proof) { <dt>Loader</dt><dd>@proof</dd> }
-                @if (v.Blocker != null) { <dt>Blocker</dt><dd>@v.Blocker</dd> }
+                <dt>@T["Asset.Details.Dependency"]</dt><dd>@(v.State == AssetState.Unknown ? T["Common.Unknown"] : v.State == AssetState.AlwaysResident ? T["Asset.Details.AlwaysLoaded"] : T["Asset.Details.Known"])</dd>
+                <dt>@T["Asset.Details.AutoLoaded"]</dt><dd>@(v.State is AssetState.LiveVerified or AssetState.AutoLoaded ? T["Asset.Yes"] : T["Asset.No"])</dd>
+                @if (v.Package != null) { <dt>@T["Asset.Details.Package"]</dt><dd><code>@v.Package</code></dd> }
+                else if (v.PackageNamed == false) { <dt>@T["Asset.Details.Package"]</dt><dd>@T["Asset.Details.PackageUnnamed"]</dd> }
+                <dt>@T["Asset.Details.LiveTested"]</dt><dd>@(v.LiveTested ? T["Asset.Details.LiveTested.Object"] : v.PackageLiveLoaded ? T["Asset.Details.LiveTested.Package"] : T["Asset.No"])</dd>
+                @if (v.Derivation != null) { <dt>@T["Asset.Details.Source"]</dt><dd>@FieldPresentation.EnumLabel(v.Derivation)</dd> }
+                @if (v.FamilyProofText is { } proof) { <dt>@T["Asset.Details.Loader"]</dt><dd>@proof</dd> }
+                @if (v.Blocker != null) { <dt>@T["Asset.Details.Blocker"]</dt><dd>@v.Blocker</dd> }
             </dl>
             <p>@v.Description</p>
             @if (v.InGame is { } inGame) { <p class="subtle" data-asset-ingame>@inGame</p> }

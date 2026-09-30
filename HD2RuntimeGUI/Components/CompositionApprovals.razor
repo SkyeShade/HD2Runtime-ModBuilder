@@ -8,13 +8,13 @@
         var change = scope.First();
         var field = Field(change);
         if (field == null || !field.AffectsMultipleWeapons || Domains != null && !Domains.Contains(field.Domain)) { continue; }
-        var label = field.Domain switch { "damage" => "Shared projectile damage", "terminal" => "Shared terminal actions", "explosion" => field.SemanticFieldId.Contains(".damage.") ? "Shared explosion damage" : "Shared explosion settings", _ => "Shared projectile definition" };
+        var label = field.Domain switch { "damage" => T["Composition.Shared.ProjectileDamage"], "terminal" => T["Composition.Shared.TerminalActions"], "explosion" => field.SemanticFieldId.Contains(".damage.") ? T["Composition.Shared.ExplosionDamage"] : T["Composition.Shared.ExplosionSettings"], _ => T["Composition.Shared.ProjectileDefinition"] };
         <AckPanel Title="@label" Kind="shared"
-            Description="@($"{(scope.Count() == 1 ? "This edit changes" : $"These {scope.Count()} edits change")} one definition that other weapons also use.{(field.DynamicConsumersPossible == true ? " Other and future consumers may also use it." : "")}")"
-            Items="@field.SharedWithWeapons.Append(change.Target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="Affected weapons:"
+            Description="@(T.Plural(field.DynamicConsumersPossible == true ? "Composition.Shared.DescriptionDynamic" : "Composition.Shared.Description", scope.Count()))"
+            Items="@field.SharedWithWeapons.Append(change.Target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="@T["Composition.AffectedWeapons"]"
             PanelAttributes="@(new() { ["data-shared-scope"] = field.Backing?.Settings ?? "", ["data-scope-domain"] = field.Domain })">
             @if (field.SharedWithResources is { Count: > 0 } resources)
-            { <details class="subtle"><summary>@resources.Count resource consumers (some unnamed)</summary><p>@string.Join(", ", resources)</p><p>Scope: @field.WriteScope</p></details> }
+            { <details class="subtle"><summary>@T.Plural("Composition.ResourceConsumers", resources.Count)</summary><p>@string.Join(", ", resources)</p><p>@T.Format("Composition.Scope", field.WriteScope)</p></details> }
         </AckPanel>
     }
 }

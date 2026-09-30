@@ -6,8 +6,8 @@
        && (!ModifiedOnly || StratagemChangeService.Saved(Workspace.Project, catalog, f) != null)).ToArray() ?? []; }
 @if (fields.Length > 0)
 {
-    <section class="panel" data-callin="@Stratagem"><div class="panel-heading"><h2>Call-in</h2><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Stratagem</span></div>
-        <p class="subtle">@Stratagem call-in definition, linked by HD2Runtime's structural call-in relationship.</p>
+    <section class="panel" data-callin="@Stratagem"><div class="panel-heading"><h2>@T["CallIn.Title"]</h2><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>@T["CallIn.Pill"]</span></div>
+        <p class="subtle">@T.Format("CallIn.Help", Stratagem)</p>
         <div class="stat-grid">@foreach (var f in fields) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Changed" /> }</div>
     </section>
 }

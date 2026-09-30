@@ -6,14 +6,14 @@
     var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Entities?.Enemies;
     var structures = Kind == EnemyAuthoringReader.Structure; var css = structures ? "cat-structure" : "cat-enemy";
 }
-<div class="page-heading @css"><div><div class="eyebrow">GUARDED AUTHORING · SDK @sdk?.Version@(Workspace.SdkStatus?.LocalSource != null ? " · LOCAL DEVELOPMENT SDK" : "")</div>
-    <h1>@(structures ? "Structures" : "Enemies")</h1>
-    <p>@(structures ? "Fabricators, emplacements, nests and objective buildings" : "Terminid, Automaton and Illuminate units") from <code>@(structures ? "hd2.structure" : "hd2.enemy")</code>: health, damage zones and the attacks Runtime reaches through each class's mounted weapons. Shared attack rows are written with <code>allow_shared</code>; unconfirmed effects with <code>allow_unverified_effect</code>.</p></div></div>
-@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">Build requires review: @issue</div> }
+<div class="page-heading @css"><div><div class="eyebrow">@T.Format(Workspace.SdkStatus?.LocalSource != null ? "Enemy.Page.EyebrowLocal" : "EntityPanel.GuardedEyebrow", sdk?.Version)</div>
+    <h1>@(structures ? T["Enemy.Page.TitleStructures"] : T["Enemy.Page.TitleEnemies"])</h1>
+    <p>@T.Markup(structures ? "Enemy.Page.HelpStructures.Html" : "Enemy.Page.HelpEnemies.Html")</p></div></div>
+@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">@T.Format("EntityPanel.BuildReview", issue)</div> }
 @if (catalog == null)
 {
-    <section class="panel" data-enemy-unavailable><h2>@(structures ? "Structure" : "Enemy") authoring needs a newer HD2Runtime SDK</h2>
-        <p>This project is bound to SDK @sdk?.Version, which does not publish <code>@EnemyAuthoringReader.FileName</code>. Enemy and structure authoring comes with HD2Runtime 0.28.0; until it is released, start ModBuilder with <code>--sdk-path &lt;HD2Runtime&gt;\sdk</code> (or <code>HD2RUNTIME_SDK_PATH</code>) to use a local development SDK.</p></section>
+    <section class="panel" data-enemy-unavailable><h2>@(structures ? T["Enemy.Unavailable.TitleStructures"] : T["Enemy.Unavailable.TitleEnemies"])</h2>
+        <p>@T.Markup("Enemy.Unavailable.Help.Html", sdk?.Version, EnemyAuthoringReader.FileName, "--sdk-path <HD2Runtime>\\sdk")</p></section>
 }
 else
 {
@@ -21,34 +21,34 @@ else
     var modified = Workspace.Project?.EntityChanges.Where(c => c.Resource == Kind).Select(c => c.Entity).ToHashSet(StringComparer.Ordinal) ?? [];
     var list = all.Where(c => (Faction.Length == 0 || c.Faction == Faction) && catalog.Matches(c, Search.Trim())
         && Show switch { "named" => c.Named, "native" => !c.Named, "attacks" => c.Attacks.Length > 0, "modified" => modified.Contains(c.SemanticId), _ => true }).ToArray();
-    <div class="weapon-editor"><section class="panel weapon-browser enemy-browser" data-enemy-browser="@Kind"><h2>@list.Length of @all.Length @(structures ? "structures" : "enemies")</h2>
-        <label>Search<input id="enemy-search" data-enemy-search @bind="Search" @bind:event="oninput" placeholder="Name, native class, wiki page, attack or ID" /></label>
+    <div class="weapon-editor"><section class="panel weapon-browser enemy-browser" data-enemy-browser="@Kind"><h2>@T.Format(structures ? "Enemy.List.CountStructures" : "Enemy.List.CountEnemies", list.Length, all.Length)</h2>
+        <label>@T["Common.Search"]<input id="enemy-search" data-enemy-search @bind="Search" @bind:event="oninput" placeholder="@T["Enemy.Search.Placeholder"]" /></label>
         <div class="filter-grid">
-            <label>Faction<select data-enemy-faction-filter @bind="Faction"><option value="">All factions</option>@foreach (var f in all.Select(c => c.Faction).Distinct().OrderBy(FactionOrder)) { <option value="@f">@FactionLabel(f)</option> }</select></label>
-            <label>Show<select data-enemy-show @bind="Show"><option value="">All</option><option value="named">Wiki-named</option><option value="native">Native names</option><option value="attacks">With attacks</option><option value="modified">Modified</option></select></label>
+            <label>@T["Enemy.Faction.Label"]<select data-enemy-faction-filter @bind="Faction"><option value="">@T["Enemy.Faction.All"]</option>@foreach (var f in all.Select(c => c.Faction).Distinct().OrderBy(FactionOrder)) { <option value="@f">@FactionLabel(T, f)</option> }</select></label>
+            <label>@T["Enemy.Show.Label"]<select data-enemy-show @bind="Show"><option value="">@T["Common.All"]</option><option value="named">@T["Enemy.Show.Named"]</option><option value="native">@T["Enemy.Show.Native"]</option><option value="attacks">@T["Enemy.Show.Attacks"]</option><option value="modified">@T["Common.Modified"]</option></select></label>
         </div>
         <div class="weapon-list">
             @foreach (var group in list.GroupBy(c => c.Faction).OrderBy(g => FactionOrder(g.Key)))
             {
-                <h3 class="group-title enemy-faction" data-enemy-faction="@group.Key">@FactionLabel(group.Key) <small class="subtle">@group.Count()</small></h3>
+                <h3 class="group-title enemy-faction" data-enemy-faction="@group.Key">@FactionLabel(T, group.Key) <small class="subtle">@group.Count()</small></h3>
                 @foreach (var c in group.OrderBy(c => c.Named ? 0 : 1).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
                 {
                     <button @key="c.SemanticId" class="resource-item @css @(Selected == c.SemanticId ? "active" : "")" data-enemy-item="@c.SemanticId" @onclick="() => Selected = c.SemanticId">
                         <strong class="@(c.Named ? "" : "native-name")">@c.Name</strong>
-                        <small>@Identity(c) · @c.Zones.Length @(c.Zones.Length == 1 ? "zone" : "zones")@(c.Attacks.Length > 0 ? " · " + c.Attacks.Length + (c.Attacks.Length == 1 ? " attack" : " attacks") : "")@(modified.Contains(c.SemanticId) ? " · modified" : "")</small></button>
+                        <small>@Identity(c) · @T.Plural("Enemy.ZoneCount", c.Zones.Length)@(c.Attacks.Length > 0 ? " · " + T.Plural("Enemy.AttackCount", c.Attacks.Length) : "")@(modified.Contains(c.SemanticId) ? " · " + T["EntityPanel.ListModified"] : "")</small></button>
                 }
             }
-            @if (list.Length == 0) { <p class="subtle" data-enemy-empty>No @(structures ? "structure" : "enemy") matches this search.</p> }
+            @if (list.Length == 0) { <p class="subtle" data-enemy-empty>@(structures ? T["Enemy.List.EmptyStructures"] : T["Enemy.List.EmptyEnemies"])</p> }
         </div>
     </section><div class="weapon-detail">
         @if (catalog.Find(Selected) is { } selected && selected.Kind == Kind) { <EnemyEditor SemanticId="@Selected" Changed="Refresh" @key="Selected" /> }
         else
         {
             var fields = all.Sum(c => catalog.Fields(c.SemanticId).Count(f => f.Editable));
-            <section class="panel category-panel @css" data-enemy-summary="@Kind"><h2>Choose @(structures ? "a structure" : "an enemy")</h2>
-                <p>@all.Length classes · @all.Count(c => c.Named) with a proven wiki name · @all.Sum(c => c.Zones.Length).ToString("N0", System.Globalization.CultureInfo.InvariantCulture) damage zones · @all.Sum(c => c.Attacks.Length) attacks · @fields.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) writable fields</p>
-                <p class="subtle" data-applies-to>Applies to @catalog.Model.AppliesTo.</p>
-                <p class="subtle">Names are Runtime's: a wiki name only where the class's anatomy proves it, otherwise the native class name. Wiki pages a native class resembles are listed as candidates.</p>
+            <section class="panel category-panel @css" data-enemy-summary="@Kind"><h2>@(structures ? T["Enemy.Choose.TitleStructures"] : T["Enemy.Choose.TitleEnemies"])</h2>
+                <p>@T.Format("Enemy.Choose.Summary", all.Length, all.Count(c => c.Named), all.Sum(c => c.Zones.Length).ToString("N0", System.Globalization.CultureInfo.InvariantCulture), all.Sum(c => c.Attacks.Length), fields.ToString("N0", System.Globalization.CultureInfo.InvariantCulture))</p>
+                <p class="subtle" data-applies-to>@T.Format("Enemy.AppliesTo", catalog.Model.AppliesTo)</p>
+                <p class="subtle">@T["Enemy.Choose.NamesHelp"]</p>
             </section>
         }
     </div></div>
@@ -59,9 +59,13 @@ else
     private string Search = "", Selected = "", Faction = "", Show = "";
     private string LastKind = "";
     protected override void OnParametersSet() { if (Kind != LastKind) { LastKind = Kind; Search = Selected = Faction = Show = ""; } }
-    // Faction keys are Runtime's; the display is the key capitalized. Known factions sort first, anything new after them.
-    public static string FactionLabel(string faction) => faction.Length == 0 ? faction : char.ToUpperInvariant(faction[0]) + faction[1..];
+    // Faction keys are Runtime's; known factions get ModBuilder's name, anything new shows as the key capitalized. Known factions sort first.
+    public static string FactionLabel(IUiText t, string faction) => faction switch
+    {
+        "terminids" => t["Enemy.Faction.Terminids"], "automatons" => t["Enemy.Faction.Automatons"], "illuminate" => t["Enemy.Faction.Illuminate"], "neutral" => t["Enemy.Faction.Neutral"],
+        _ => faction.Length == 0 ? faction : char.ToUpperInvariant(faction[0]) + faction[1..],
+    };
     private static int FactionOrder(string faction) => Array.IndexOf(["terminids", "automatons", "illuminate", "neutral"], faction) is var i and >= 0 ? i : 99;
-    private static string Identity(EnemyClass c) => c.Named ? "Wiki name" : c.WikiCandidates.Length > 0 ? "Native · like " + string.Join(", ", c.WikiCandidates.Take(2)) + (c.WikiCandidates.Length > 2 ? "…" : "") : "Native class";
+    private string Identity(EnemyClass c) => c.Named ? T["Enemy.Identity.Wiki"] : c.WikiCandidates.Length > 0 ? T.Format("Enemy.Identity.NativeLike", string.Join(", ", c.WikiCandidates.Take(2)) + (c.WikiCandidates.Length > 2 ? "…" : "")) : T["Enemy.Identity.Native"];
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
 }

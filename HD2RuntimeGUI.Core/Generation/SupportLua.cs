@@ -1,4 +1,5 @@
 using System.Text;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -19,7 +20,7 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
             var first = same.First();
             if (same.Any(r => !SupportScalar.Equal(first.Field, first.Change.ExpectedValue, r.Change.ExpectedValue)
                 || !SupportScalar.Equal(first.Field, first.Change.DesiredValue, r.Change.DesiredValue)))
-                throw new InvalidDataException("Conflicting support changes target the same published backing object and field. Resolve their values before building.");
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Support.SharedConflict"));
         }
         // Published scope keys also connect branches that share a native object. Never run their plans concurrently.
         var plans = rows.GroupBy(r => r.Field.Operation.PlanGroupingKey).OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
@@ -31,18 +32,18 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
         foreach (var connected in Enumerable.Range(0, plans.Length).GroupBy(Root))
         {
             var entries = connected.SelectMany(i => plans[i]).ToArray();
-            if (entries.Select(r => r.Change.EnsureEnabled).Distinct().Count() != 1) throw new InvalidDataException("Related support objects must use the same persistence setting.");
+            if (entries.Select(r => r.Change.EnsureEnabled).Distinct().Count() != 1) throw new InvalidDataException(CoreText.Get("Messages.Build.Support.MixedPersistence"));
             var groups = entries.GroupBy(r => r.Field.Operation.TransactionGroupingKey).OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
             var usePlan = groups.Length > 1 || entries.Any(r => r.Field.Operation.PlanRequired);
             if (groups.Length > (sdk.Plans?.Limits.Operations ?? 0) || entries.Length > sdk.Plans!.Limits.PhysicalChangesPerPhase)
-                throw new InvalidDataException("Support edit exceeds published plan limits.");
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Support.PlanLimits"));
             var operations = new List<string>();
             foreach (var group in groups)
             {
                 var f = group.First().Field; var contract = catalog.OperationGroups.Single(g => g.OperationGroupingKey == group.Key);
-                if (group.Select(r => r.Field.Backing.ObjectKey).Distinct().Count() != 1 || group.Count() > 32) throw new InvalidDataException("Unsupported support transaction size or backing object.");
+                if (group.Select(r => r.Field.Backing.ObjectKey).Distinct().Count() != 1 || group.Count() > 32) throw new InvalidDataException(CoreText.Get("Messages.Build.Support.UnsupportedTransaction"));
                 // Current schema explicitly has phase 1, no dependencies, and no target_from. Reader rejects unknown future sequencing.
-                if (contract.Phase != 1 || contract.Dependencies.Length != 0) throw new InvalidDataException("Unsupported support dependency contract.");
+                if (contract.Phase != 1 || contract.Dependencies.Length != 0) throw new InvalidDataException(CoreText.Get("Messages.Build.Support.UnsupportedDependency"));
                 var target = "hd2.support_weapon(" + LuaGenerator.Quote(f.SupportWeapon) + ")";
                 foreach (var accessor in contract.Target.Accessor.Skip(1)) target += accessor == "attack"
                     ? ":attack(" + LuaGenerator.Quote(contract.Target.AttackRole!) + ")" : ":" + accessor + "()";

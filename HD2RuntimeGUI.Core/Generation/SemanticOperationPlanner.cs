@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -13,12 +14,12 @@ public sealed record SemanticBackingObject(string Kind, string Identity)
 {
     public static SemanticBackingObject For(SdkMetadata sdk, string weapon, WeaponCapability field)
     {
-        var b = field.Backing ?? throw new InvalidDataException("Missing semantic backing owner.");
+        var b = field.Backing ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.MissingOwner"));
         if (b.Kind == "component" && b.Component != null)
             return new(b.Component, string.Join("|", sdk.PlayerWeapons!.Weapon(weapon).Resources.Order(StringComparer.Ordinal)));
         if (b.Kind == "settings" && b.SettingsType != null && b.Group != null && b.RecordType != null)
             return new(b.SettingsType, $"{b.Group}:{b.RecordType}");
-        throw new InvalidDataException("SDK does not identify a supported backing object for " + field.SemanticFieldId);
+        throw new InvalidDataException(CoreText.Format("Messages.Build.Plan.UnsupportedOwner", field.SemanticFieldId));
     }
 }
 
@@ -107,7 +108,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
         var swaps = project.ProjectileChanges.Where(c => c.Enabled).ToArray();
         if (sdk.Plans != null)
         {
-            if (project.ProjectileChanges.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)) throw new InvalidDataException("Conflicting projectile overrides for one attack.");
+            if (project.ProjectileChanges.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)) throw new InvalidDataException(CoreText.Get("Messages.Build.Projectile.Conflicting"));
             var service = new ProjectileChangeService();
             foreach (var swap in swaps)
             {
@@ -132,13 +133,13 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                 // them in Lua statement order does not establish a completion dependency.
                 if (edits.Any(e => sourceOwners.Contains(e.Owner)) || project.CompositionChanges.Any(c => c.Enabled && (c.Weapon == swap.Weapon && c.AttackRole == swap.AttackRole || c.Target == swap.ReplacementProjectile))
                     || project.WeaponChanges.Any(c => c.Enabled && c.Weapon == swap.ReplacementProjectile.Weapon && CompositionChangeService.ProjectileOwned(sdk.PlayerWeapons!.Field(c.Weapon, c.SemanticFieldId))))
-                    throw new InvalidDataException("Composition dependency: This Runtime SDK has no public write-completion dependency API. A projectile replacement and dependent object edits cannot be scheduled safely in one mod; keep the replacement or the object edits enabled, not both.");
+                    throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.NoDependencyApi"));
                 var f = sdk.PlayerWeapons!.Weapon(swap.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == swap.AttackRole);
                 if (edits.Any(e => e.Owner == SemanticBackingObject.For(sdk, swap.Weapon, f)))
-                    throw new InvalidDataException("Composition dependency: projectile replacement and another edit share the selector's backing object. This Runtime SDK cannot combine these target kinds safely.");
+                    throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.SharedSelectorOwner"));
             }
             if (swaps.GroupBy(s => SemanticBackingObject.For(sdk, s.Weapon, sdk.PlayerWeapons!.Weapon(s.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == s.AttackRole))).Any(g => g.Count() > 1))
-                throw new InvalidDataException("Composition conflict: multiple projectile selectors share a backing object but this Runtime SDK supports only one attack target per transaction.");
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.SharedSelectors"));
         }
         var result = new List<PlannedSemanticOperation>();
         // Terminal phases need distinct typed targets even when their native owner is
@@ -146,10 +147,10 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
         foreach (var group in edits.GroupBy(e => (e.Owner, Family: sdk.Plans == null ? "" : e.Family)).OrderBy(g => g.Key.Owner.Kind, StringComparer.Ordinal).ThenBy(g => g.Key.Owner.Identity, StringComparer.Ordinal).ThenBy(g => g.Key.Family, StringComparer.Ordinal))
         {
             if (group.Select(e => e.Ensure).Distinct().Count() != 1)
-                throw new InvalidDataException("One backing object has mixed persistence settings. Use the same persistence setting for all its fields; splitting them would race Runtime guards.");
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.MixedPersistence"));
             if (group.Select(e => e.Family).Distinct().Count() != 1)
-                throw new InvalidDataException("Composition conflict: edits share one backing object but require different semantic targets. Transactions in this Runtime SDK have one target. Impact + expiry, or terminal + scalar edits on the same ProjectileSettings, cannot be exported together safely.");
-            if (group.Select(e => e.Semantic).Distinct().Count() > 32) throw new InvalidDataException("A backing object exceeds Runtime's 32-change transaction limit. Remove edits; splitting this object into separate jobs is unsafe.");
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.DifferentTargets"));
+            if (group.Select(e => e.Semantic).Distinct().Count() > 32) throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.TransactionLimit"));
             // Multiple weapon handles may reach a shared record. Select a handle only
             // if its published catalog accepts every requested semantic field.
             var candidate = group.OrderBy(e => e.Target, StringComparer.Ordinal).FirstOrDefault(e => group.All(request =>
@@ -157,12 +158,12 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                     && SemanticBackingObject.For(sdk, e.Weapon, f) == e.Owner
                     && (e.Family.StartsWith("terminal:", StringComparison.Ordinal) ? f.Domain == "terminal" && "terminal:" + f.ReferencePhase == e.Family
                         : (e.Family == "weapon" ? f.SemanticFieldId : Generic(f.SemanticFieldId)) == request.Semantic))));
-            if (candidate == null) throw new InvalidDataException("No published semantic target accepts all fields on this shared backing object. Separate jobs would race; review these changes.");
+            if (candidate == null) throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.NoTarget"));
             var values = new List<PlannedSemanticChange>();
             foreach (var fields in group.GroupBy(e => e.Semantic).OrderBy(g => g.Key, StringComparer.Ordinal))
             {
                 if (fields.Select(e => (e.Expected, e.Desired)).Distinct().Count() != 1)
-                    throw new InvalidDataException("Conflicting baselines or values for one shared semantic object field.");
+                    throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.ConflictingValues"));
                 var e = fields.First(); values.Add(new(BranchConstant(sdk, candidate, e) ?? e.Field, e.Expected, e.Desired) { Keys = fields.Select(x => x.Key).ToArray() });
             }
             result.Add(new(group.Key.Owner, candidate.Target, group.First().Ensure, group.Any(e => e.Shared), values)

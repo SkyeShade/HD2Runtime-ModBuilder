@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -27,12 +28,12 @@ public sealed class CompositionChangeService : ICompositionChangeService
     public ProjectileReference EffectiveProjectile(ModProject project, string weapon, string role) => project.ProjectileChanges.SingleOrDefault(c => c.Enabled && c.Weapon == weapon && c.AttackRole == role)?.ReplacementProjectile ?? new(weapon, role);
     public static bool ProjectileOwned(WeaponCapability f) => f.Domain is "projectile" or "damage" && f.Backing?.Branch != null;
     private static string Branch(string role) => role.StartsWith("feed_", StringComparison.Ordinal) ? role[5..] : role;
-    public static TerminalAction Terminal(SdkMetadata sdk, ProjectileReference target, string phase) => sdk.Composition?.TerminalActions.Weapons.SingleOrDefault(w => w.Weapon == target.Weapon)?.Attacks.SingleOrDefault(a => a.Role == target.AttackRole)?.Actions.SingleOrDefault(a => a.Phase == phase) ?? throw new InvalidDataException("Terminal slot is unavailable.");
+    public static TerminalAction Terminal(SdkMetadata sdk, ProjectileReference target, string phase) => sdk.Composition?.TerminalActions.Weapons.SingleOrDefault(w => w.Weapon == target.Weapon)?.Attacks.SingleOrDefault(a => a.Role == target.AttackRole)?.Actions.SingleOrDefault(a => a.Phase == phase) ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.TerminalSlotUnavailable"));
     private static ExplosionDescriptor Explosion(SdkMetadata sdk, ExplosionReference r)
     {
-        if (r.IsNone) throw new InvalidDataException("None has no explosion fields.");
+        if (r.IsNone) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.NoneHasNoFields"));
         var type = Terminal(sdk, r.Projectile!, r.Phase!).ReferenceType;
-        return sdk.Advanced?.Explosions.Explosions.SingleOrDefault(e => e.ExplosionType == type) ?? throw new InvalidDataException("Typed explosion source is no longer available.");
+        return sdk.Advanced?.Explosions.Explosions.SingleOrDefault(e => e.ExplosionType == type) ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ExplosionSourceUnavailable"));
     }
     public IReadOnlyList<ExplosionReference> ExplosionSources(SdkMetadata sdk) => [ExplosionReference.None, .. sdk.Advanced!.Explosions.Explosions
         .SelectMany(e => e.PlayerConsumers.Where(p => !sdk.PlayerWeapons!.Weapon(p.Weapon).OrdinaryWritesBlocked).SelectMany(p => sdk.Composition!.TerminalActions.Weapons.Single(w => w.Weapon == p.Weapon).Attacks.Where(a => a.Role == p.Role)
@@ -116,12 +117,21 @@ public sealed class CompositionChangeService : ICompositionChangeService
         }
         return copy;
     }
-    public static WeaponCapability TerminalField(SdkMetadata sdk, ProjectileReference target, string phase) => sdk.PlayerWeapons!.Weapon(target.Weapon).Fields.SingleOrDefault(f => f.Domain == "terminal" && f.ReferenceRole == target.AttackRole && f.ReferencePhase == phase) ?? throw new InvalidDataException("Terminal authoring capability missing.");
-    private static void RequireModern(SdkMetadata sdk) { if (sdk.Advanced == null) throw new InvalidDataException("This operation requires the published 0.17 capability contracts."); }
+    public static WeaponCapability TerminalField(SdkMetadata sdk, ProjectileReference target, string phase) => sdk.PlayerWeapons!.Weapon(target.Weapon).Fields.SingleOrDefault(f => f.Domain == "terminal" && f.ReferenceRole == target.AttackRole && f.ReferencePhase == phase) ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.TerminalCapabilityMissing"));
+    // A field the target object does not have. Tagged (not recognised by its text, which follows the UI language) so a projectile swap
+    // can report such an edit as "no such value on the new projectile".
+    public const string ReasonKey = "ModBuilder.Reason", FieldNotOnTargetReason = "FieldNotOnTarget";
+    private static InvalidDataException FieldNotOnTarget()
+    {
+        var e = new InvalidDataException(CoreText.Get("Messages.Build.Composition.FieldNotOnTarget"));
+        e.Data[ReasonKey] = FieldNotOnTargetReason; return e;
+    }
+    public static bool IsFieldNotOnTarget(Exception e) => e.Data[ReasonKey] as string == FieldNotOnTargetReason;
+    private static void RequireModern(SdkMetadata sdk) { if (sdk.Advanced == null) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.SdkTooOld")); }
     public CompositionChange CreateScalar(ModProject project, SdkMetadata sdk, string weapon, string role, string kind, string? phase, string field, string value, bool acknowledge)
     {
         RequireModern(sdk); var target = EffectiveProjectile(project, weapon, role);
-        var f = Fields(project, sdk, weapon, role, kind, phase).SingleOrDefault(f => f.SemanticFieldId == field) ?? throw new InvalidDataException("Field does not belong to the selected composition object.");
+        var f = Fields(project, sdk, weapon, role, kind, phase).SingleOrDefault(f => f.SemanticFieldId == field) ?? throw FieldNotOnTarget();
         var explosion = kind == "explosion" ? EffectiveExplosion(project, sdk, weapon, role, phase!) : null;
         var source = explosion?.Projectile ?? target;
         var scalar = scalars.Create(sdk, source.Weapon, field, value, acknowledge);
@@ -132,9 +142,9 @@ public sealed class CompositionChangeService : ICompositionChangeService
     public CompositionChange CreateTerminal(ModProject project, SdkMetadata sdk, string weapon, string role, string phase, ExplosionReference desired, bool acknowledge)
     {
         RequireModern(sdk); var target = EffectiveProjectile(project, weapon, role); var f = TerminalField(sdk, target, phase);
-        if (!f.Editable || !f.WriteAccepted || !Terminal(sdk, target, phase).Writable || sdk.PlayerWeapons!.Weapon(target.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException(f.Reason ?? "Terminal action is read-only.");
-        if (!desired.IsNone && sdk.PlayerWeapons.Weapon(desired.Projectile!.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException("Ambiguous explosion source identity.");
-        if (!desired.IsNone && !ExplosionSources(sdk).Any(r => !r.IsNone && Explosion(sdk, r).ExplosionType == Explosion(sdk, desired).ExplosionType)) throw new InvalidDataException("Explosion source is not permitted.");
+        if (!f.Editable || !f.WriteAccepted || !Terminal(sdk, target, phase).Writable || sdk.PlayerWeapons!.Weapon(target.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException(f.Reason ?? CoreText.Get("Messages.Build.Composition.TerminalReadOnly"));
+        if (!desired.IsNone && sdk.PlayerWeapons.Weapon(desired.Projectile!.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.AmbiguousExplosionSource"));
+        if (!desired.IsNone && !ExplosionSources(sdk).Any(r => !r.IsNone && Explosion(sdk, r).ExplosionType == Explosion(sdk, desired).ExplosionType)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ExplosionSourceNotPermitted"));
         var expected = BaselineExplosion(sdk, target, phase);
         return new() { Weapon = weapon, AttackRole = role, Kind = "terminal", Phase = phase, Target = target, ExpectedExplosion = expected, DesiredExplosion = desired,
             TargetEvidence = ProjectileChangeService.Evidence(sdk, target), ReferenceEvidence = ExplosionEvidence(sdk, expected), DesiredReferenceEvidence = ExplosionEvidence(sdk, desired),
@@ -150,22 +160,22 @@ public sealed class CompositionChangeService : ICompositionChangeService
     {
         RequireModern(sdk);
         if (FiresOutput(project, c.Weapon, c.AttackRole) is { } output)
-            throw new InvalidDataException($"{c.Weapon} fires the {output.OutputName} output now, so its projectile and explosion edits no longer apply. Discard them in its Projectile section, or reset the output.");
-        if (EffectiveProjectile(project, c.Weapon, c.AttackRole) != c.Target) throw new InvalidDataException($"{c.Weapon} has edits on the {c.Target.Label}, which it no longer fires. Keep or discard them in its Projectile section.");
-        if (c.TargetEvidence != ProjectileChangeService.Evidence(sdk, c.Target)) throw new InvalidDataException("Projectile object identity/residency changed. Review and reset or explicitly accept the new baseline.");
+            throw new InvalidDataException(CoreText.Format("Messages.Build.Composition.FiresOutput", c.Weapon, output.OutputName));
+        if (EffectiveProjectile(project, c.Weapon, c.AttackRole) != c.Target) throw new InvalidDataException(CoreText.Format("Messages.Build.Composition.StaleTarget", c.Weapon, c.Target.Label));
+        if (c.TargetEvidence != ProjectileChangeService.Evidence(sdk, c.Target)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.TargetEvidenceChanged"));
         WeaponCapability f;
         if (c.Kind == "terminal")
         {
             f = TerminalField(sdk, c.Target, c.Phase!);
-            if (!f.Editable || !f.WriteAccepted || !Terminal(sdk, c.Target, c.Phase!).Writable || sdk.PlayerWeapons!.Weapon(c.Target.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException("Terminal action is no longer writable.");
-            if (!c.DesiredExplosion!.IsNone && sdk.PlayerWeapons.Weapon(c.DesiredExplosion.Projectile!.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException("Ambiguous explosion source identity.");
-            if (c.ExpectedExplosion != BaselineExplosion(sdk, c.Target, c.Phase!) || c.ReferenceEvidence != ExplosionEvidence(sdk, c.ExpectedExplosion!) || c.DesiredReferenceEvidence != ExplosionEvidence(sdk, c.DesiredExplosion!)) throw new InvalidDataException("Terminal reference baseline/source changed; review this change.");
+            if (!f.Editable || !f.WriteAccepted || !Terminal(sdk, c.Target, c.Phase!).Writable || sdk.PlayerWeapons!.Weapon(c.Target.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.TerminalNoLongerWritable"));
+            if (!c.DesiredExplosion!.IsNone && sdk.PlayerWeapons.Weapon(c.DesiredExplosion.Projectile!.Weapon).OrdinaryWritesBlocked) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.AmbiguousExplosionSource"));
+            if (c.ExpectedExplosion != BaselineExplosion(sdk, c.Target, c.Phase!) || c.ReferenceEvidence != ExplosionEvidence(sdk, c.ExpectedExplosion!) || c.DesiredReferenceEvidence != ExplosionEvidence(sdk, c.DesiredExplosion!)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.TerminalReferenceChanged"));
         }
         else
         {
-            f = Fields(project, sdk, c.Weapon, c.AttackRole, c.Kind, c.Phase).SingleOrDefault(f => f.SemanticFieldId == c.Scalar!.SemanticFieldId) ?? throw new InvalidDataException("Object field is no longer available.");
+            f = Fields(project, sdk, c.Weapon, c.AttackRole, c.Kind, c.Phase).SingleOrDefault(f => f.SemanticFieldId == c.Scalar!.SemanticFieldId) ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.FieldUnavailable"));
             var source = c.Kind == "explosion" ? EffectiveExplosion(project, sdk, c.Weapon, c.AttackRole, c.Phase!) : null;
-            if (c.Scalar!.Weapon != (source?.Projectile ?? c.Target).Weapon || c.ExplosionTarget != source || source != null && c.ReferenceEvidence != ExplosionEvidence(sdk, source)) throw new InvalidDataException("Explosion/object target changed. Reset and edit the newly selected object.");
+            if (c.Scalar!.Weapon != (source?.Projectile ?? c.Target).Weapon || c.ExplosionTarget != source || source != null && c.ReferenceEvidence != ExplosionEvidence(sdk, source)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ObjectTargetChanged"));
             var approved = HasObjectApproval(project, sdk, c.Scalar.Weapon, f);
             scalars.Validate(sdk, approved ? WithApproval(sdk, c, true).Scalar! : c.Scalar);
         }
@@ -176,26 +186,26 @@ public sealed class CompositionChangeService : ICompositionChangeService
         var swaps = project.ProjectileChanges.Where(c => c.Enabled).ToArray();
         foreach (var swap in swaps)
         {
-            if (swaps.Any(s => s.Weapon == swap.ReplacementProjectile.Weapon && s.AttackRole == swap.ReplacementProjectile.AttackRole)) throw new InvalidDataException("Composition conflict: a replacement source is itself replaced by this project.");
-            if (project.WeaponChanges.Any(c => c.Enabled && c.Weapon == swap.Weapon && sdk.PlayerWeapons?.FindCanonicalField(c.Weapon, c.SemanticFieldId) is { } f && ProjectileOwned(f))) throw new InvalidDataException("Composition target changed: remove the old weapon-level projectile overrides and edit the replacement object in Composition.");
+            if (swaps.Any(s => s.Weapon == swap.ReplacementProjectile.Weapon && s.AttackRole == swap.ReplacementProjectile.AttackRole)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ReplacedSource"));
+            if (project.WeaponChanges.Any(c => c.Enabled && c.Weapon == swap.Weapon && sdk.PlayerWeapons?.FindCanonicalField(c.Weapon, c.SemanticFieldId) is { } f && ProjectileOwned(f))) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.WeaponLevelOverrides"));
         }
         foreach (var c in project.CompositionChanges.Where(c => c.Enabled))
         {
             Validate(project, sdk, c);
-            if (c.Scalar != null && project.WeaponChanges.Any(w => w.Enabled && w.Weapon == c.Scalar.Weapon && sdk.PlayerWeapons!.FindCanonicalField(w.Weapon, w.SemanticFieldId)?.SemanticFieldId == c.Scalar.SemanticFieldId)) throw new InvalidDataException("An older weapon-level override also edits this object field. Remove it before using the Composition edit.");
+            if (c.Scalar != null && project.WeaponChanges.Any(w => w.Enabled && w.Weapon == c.Scalar.Weapon && sdk.PlayerWeapons!.FindCanonicalField(w.Weapon, w.SemanticFieldId)?.SemanticFieldId == c.Scalar.SemanticFieldId)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.OlderOverride"));
             // Semantic handles follow live references. Do not generate a stale source chain.
             var source = c.Kind == "terminal" ? c.DesiredExplosion : c.ExplosionTarget;
             if (source?.Projectile is { } p && (swaps.Any(s => s.Weapon == p.Weapon && s.AttackRole == p.AttackRole)
-                || project.CompositionChanges.Any(t => t.Enabled && t.Kind == "terminal" && t.Target == p && t.Phase == source.Phase))) throw new InvalidDataException("Composition conflict: the selected explosion source is modified by this project. Choose a stable source or separate these mods.");
+                || project.CompositionChanges.Any(t => t.Enabled && t.Kind == "terminal" && t.Target == p && t.Phase == source.Phase))) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ModifiedExplosionSource"));
         }
-        if (project.CompositionChanges.GroupBy(c => (c.Weapon, c.AttackRole, c.Kind, c.Phase, c.Scalar?.SemanticFieldId)).Any(g => g.Count() > 1)) throw new InvalidDataException("Duplicate composition overrides.");
+        if (project.CompositionChanges.GroupBy(c => (c.Weapon, c.AttackRole, c.Kind, c.Phase, c.Scalar?.SemanticFieldId)).Any(g => g.Count() > 1)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.Duplicate"));
         foreach (var group in project.CompositionChanges.Where(c => c.Enabled && c.Scalar != null).GroupBy(c => {
             var f = sdk.PlayerWeapons!.Field(c.Scalar!.Weapon, c.Scalar.SemanticFieldId);
             return (f.Backing?.SettingsType, f.Backing?.Group, f.Backing?.RecordType, f.SemanticTarget);
         }))
-            if (group.Select(c => sdk.PlayerWeapons!.Field(c.Scalar!.Weapon, c.Scalar.SemanticFieldId).Format(c.Scalar.DesiredValue)).Distinct().Count() > 1) throw new InvalidDataException("Conflicting changes to the same shared object field.");
+            if (group.Select(c => sdk.PlayerWeapons!.Field(c.Scalar!.Weapon, c.Scalar.SemanticFieldId).Format(c.Scalar.DesiredValue)).Distinct().Count() > 1) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.SharedFieldConflict"));
         foreach (var group in project.CompositionChanges.Where(c => c.Enabled && c.Kind == "terminal").GroupBy(c => (sdk.Composition!.Attack(c.Target.Weapon, c.Target.AttackRole).ProjectileType, c.Phase)))
-            if (group.Select(c => c.DesiredExplosion!.IsNone ? 0 : Explosion(sdk, c.DesiredExplosion).ExplosionType).Distinct().Count() > 1) throw new InvalidDataException("Conflicting changes to a shared terminal slot.");
+            if (group.Select(c => c.DesiredExplosion!.IsNone ? 0 : Explosion(sdk, c.DesiredExplosion).ExplosionType).Distinct().Count() > 1) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.SharedTerminalConflict"));
     }
     public static string ProjectileLua(ProjectileReference p) => "hd2.weapon(" + LuaGenerator.Quote(p.Weapon) + "):attack(" + LuaGenerator.Quote(p.AttackRole) + "):projectile()";
     private static string TerminalLua(ProjectileReference p, string phase) => ProjectileLua(p) + ":terminal_action(" + LuaGenerator.Quote(phase) + ")";

@@ -3,9 +3,9 @@
    always carries the flags Runtime requires, and this panel only explains the risk. *@
 <div class="ack-panel ack-@Kind warning-only" data-ack-panel="@Kind" @attributes="PanelAttributes">
     <div class="ack-head"><span class="ack-icon" aria-hidden="true">⚠</span><strong>@Title</strong>
-        <span class="badge amber" data-ack-state>@(Kind == "shared" ? "Shared" : "Unverified")</span></div>
+        <span class="badge amber" data-ack-state>@(Kind == "shared" ? T["Common.Shared"] : T["Common.Unverified"])</span></div>
     @if (Description != null) { <p>@Description</p> }
-    @if (Items is { Count: > 0 }) { <p class="ack-items"><span class="subtle">@ItemsLabel</span> @string.Join(" · ", Items)</p> }
+    @if (Items is { Count: > 0 }) { <p class="ack-items"><span class="subtle">@(ItemsLabel ?? T["Ack.Affects"])</span> @string.Join(" · ", Items)</p> }
     @ChildContent
 </div>
 @code {
@@ -13,7 +13,8 @@
     [Parameter] public string Kind { get; set; } = "shared";
     [Parameter] public string? Description { get; set; }
     [Parameter] public IReadOnlyList<string>? Items { get; set; }
-    [Parameter] public string ItemsLabel { get; set; } = "Affects:";
+    // The label before Items; "Affects:" when not set.
+    [Parameter] public string? ItemsLabel { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public Dictionary<string, object>? PanelAttributes { get; set; }
 }

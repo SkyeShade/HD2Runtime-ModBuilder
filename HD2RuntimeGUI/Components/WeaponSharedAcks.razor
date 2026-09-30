@@ -4,8 +4,8 @@
 @foreach (var group in Workspace.WeaponSharedGroups(Weapon).Where(g => FieldIds == null || FieldIds.Contains(g.FieldIds[0])))
 {
     <AckPanel Title="@group.Title" Kind="shared"
-        Description="@($"{string.Join(", ", group.FieldNames)} {(group.FieldNames.Count == 1 ? "changes" : "change")} a definition that other weapons also use.")"
-        Items="group.AffectedWeapons" ItemsLabel="Affected weapons:" PanelAttributes="@(new() { ["data-weapon-shared-scope"] = group.Key })" />
+        Description="@T.Plural("WeaponEditor.SharedAck.Description", group.FieldNames.Count, string.Join(", ", group.FieldNames))"
+        Items="group.AffectedWeapons" ItemsLabel="@T["WeaponEditor.SharedAck.Affected"]" PanelAttributes="@(new() { ["data-weapon-shared-scope"] = group.Key })" />
 }
 @code {
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";

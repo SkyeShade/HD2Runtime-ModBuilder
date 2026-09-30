@@ -5,41 +5,41 @@
 <div class="field-row @(saved != null ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
         <span class="field-flags"><EvidenceBadge Evidence="Field.Evidence" Tiers="Tiers" Compact="true" />
-            @if (saved != null) { <span class="badge modified-badge">Modified</span> }
-            @if (Field.Effect is { ActiveSource: FieldEffect.Dormant }) { <span class="badge amber" data-field-dormant title="@Field.Reason">Not active</span> }
-            else if (Field.Effect is { ActiveSourceProven: false }) { <span class="badge amber" data-field-effect-unproven title="Runtime has not proven which value the game reads here">Effect unproven</span> }</span></div>
+            @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (Field.Effect is { ActiveSource: FieldEffect.Dormant }) { <span class="badge amber" data-field-dormant title="@Field.Reason">@T["EntityField.NotActive"]</span> }
+            else if (Field.Effect is { ActiveSourceProven: false }) { <span class="badge amber" data-field-effect-unproven title="@T["EntityField.EffectUnproven.Tooltip"]">@T["EntityField.EffectUnproven"]</span> }</span></div>
     <div class="field-value">
-        @if (!Field.Editable) { <span class="badge" title="@Field.Reason">Read-only</span> }
+        @if (!Field.Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.EffectiveRange?.Min)" max="@Bound(Field.EffectiveRange?.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
-    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong></div> }
-    else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">Base @Format(Field.CurrentDefault)</div> }
+    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("EntityField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
+    else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">@T.Format("EntityField.Base", Format(Field.CurrentDefault))</div> }
     <div class="field-tools">
         @if (saved != null) { <OptionToggle Key="@ModOptionsService.EntityKey(Field.InstanceKey)" Changed="Changed" /> }
         @if (saved != null)
         {
-            <label class="field-toggle" title="Include this change in the build"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> On</label>
-            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: Field.InstanceKey))">Reset field</button>
+            <label class="field-toggle" title="@T["EntityField.Include.Tooltip"]"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> @T["Common.On"]</label>
+            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: Field.InstanceKey))">@T["EntityField.Reset"]</button>
         }
-        <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
-            @if (!Field.Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }
-            @if (Field.EffectiveRange is { } range) { <p data-field-range><strong>Allowed range:</strong> @(Bound(range.Min) ?? "−∞") – @(Bound(range.Max) ?? "∞")@(string.IsNullOrWhiteSpace(range.Reason) ? "" : " · " + range.Reason)</p> }
+        <details class="field-info"><summary title="@T["EntityField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+            @if (!Field.Editable) { <p>@T.Markup("EntityField.NotWritable.Html", Field.Reason)</p> }
+            @if (Field.EffectiveRange is { } range) { <p data-field-range>@(string.IsNullOrWhiteSpace(range.Reason) ? T.Markup("EntityField.Range.Html", Bound(range.Min) ?? "−∞", Bound(range.Max) ?? "∞") : T.Markup("EntityField.RangeWithReason.Html", Bound(range.Min) ?? "−∞", Bound(range.Max) ?? "∞", range.Reason))</p> }
             @if (Field.Effect is { } effect)
             {
-                <p data-field-effect><strong>Takes effect:</strong> @(effect.ActiveSource?.Replace('_', ' ').ToLowerInvariant() ?? "unknown")@(effect.ActiveSourceProven == true ? " (proven)" : effect.ActiveSourceProven == false ? " (not proven)" : "")@(effect.InstantiationOnly == true ? " · only on newly spawned " + (effect.AppliesWhen?.Replace('_', ' ') ?? "entities") : effect.AppliesWhen != null ? " · " + effect.AppliesWhen.Replace('_', ' ') : "")</p>
-                @if (effect.DamageRule != null) { <p><strong>Damage rule:</strong> @effect.DamageRule</p> }
+                <p data-field-effect>@Effect(effect)</p>
+                @if (effect.DamageRule != null) { <p>@T.Markup("EntityField.DamageRule.Html", effect.DamageRule)</p> }
                 @if (effect.Reason != null) { <p>@effect.Reason</p> }
             }
-            <p><strong>Evidence:</strong> @EvidenceBadge.Label(Field.Evidence.Tier)@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? " — " + tier : "")</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
+            <p>@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? T.Markup("EntityField.EvidenceTier.Html", EvidenceBadge.Label(Field.Evidence.Tier), tier) : T.Markup("EntityField.Evidence.Html", EvidenceBadge.Label(Field.Evidence.Tier)))</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
     @* A dormant member (0.28.0 development SDKs): the game reads another field, so point at the one that takes effect. *@
     @if (Field.Effect is { ActiveSource: FieldEffect.Dormant } dormant && dormant.ActiveField != null)
-    { <p class="field-wide subtle" data-field-active-instead>The game does not use this value; <strong>@dormant.ActiveField</strong> is the one that takes effect.</p> }
+    { <p class="field-wide subtle" data-field-active-instead>@T.Markup("EntityField.ActiveInstead.Html", dormant.ActiveField)</p> }
     @if (saved != null && Workspace.EntityIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>
             @if (Field.Editable && (saved.CapabilityEvidence != EntityChangeService.Evidence(Field) || !EntityScalar.Equal(Field, saved.ExpectedValue, Field.CurrentDefault)))
-            { <button @onclick="() => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }</div>
+            { <button @onclick="() => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, Value, true))">@T["EntityField.AcceptCurrent"]</button> }</div>
     }
     @if (Error != null) { <p class="field-wide notice warning" role="alert">@Error</p> }
 </div>
@@ -54,5 +54,13 @@
     private string Value => Format(Saved?.DesiredValue ?? Field.CurrentDefault);
     private static string? Bound(double? v) => v is double d && double.IsFinite(d) ? d.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
     private string Format(System.Text.Json.JsonElement v) { try { return EntityScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    // "Takes effect: <source> (proven) · <when>". The active source and the when-token are Runtime's, shown as published; the words around them are ModBuilder's.
+    private MarkupString Effect(FieldEffect e)
+    {
+        var source = e.ActiveSource?.Replace('_', ' ').ToLowerInvariant() ?? T["EntityField.Effect.UnknownSource"];
+        source = e.ActiveSourceProven switch { true => T.Format("EntityField.Effect.Proven", source), false => T.Format("EntityField.Effect.NotProven", source), _ => source };
+        var when = e.InstantiationOnly == true ? T.Format("EntityField.Effect.NewlySpawned", e.AppliesWhen?.Replace('_', ' ') ?? T["EntityField.Effect.Entities"]) : e.AppliesWhen?.Replace('_', ' ');
+        return when == null ? T.Markup("EntityField.Effect.Html", source) : T.Markup("EntityField.EffectWhen.Html", source, when);
+    }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

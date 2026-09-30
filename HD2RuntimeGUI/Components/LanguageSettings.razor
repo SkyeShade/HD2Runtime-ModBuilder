@@ -1,0 +1,27 @@
+@inject LanguageService Language
+@* Settings → Language. Stored in preferences.json (system / en / zh-Hans) and applied immediately: every component re-renders in the
+   new language in place, so the open project, unsaved drafts and the bound SDK are untouched. *@
+<section class="panel language-settings" data-language-settings>
+    <div class="panel-heading"><h2>@T["Settings.Language.Title"]</h2><span class="badge" data-language-current="@Language.Language.Id">@Language.Language.NativeName</span></div>
+    <p class="subtle">@T["Settings.Language.Help"]</p>
+    <label for="ui-language">@T["Settings.Language.Label"]</label>
+    <select id="ui-language" data-language-select value="@Language.Preference" disabled="@Busy" @onchange="e => Choose(e.Value?.ToString())">
+        <option value="@UiLanguages.System" selected="@(Language.Preference == UiLanguages.System)">@T.Format("Settings.Language.System", Name(UiLanguages.Resolve(UiLanguages.System, Language.SystemCulture)))</option>
+        @foreach (var language in UiLanguages.Supported)
+        { <option value="@language.Id" lang="@language.Id" selected="@(Language.Preference == language.Id)">@Name(language)</option> }
+    </select>
+    <p class="subtle">@T["Settings.Language.Fallback"]</p>
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+</section>
+@code {
+    private bool Busy; private string? Error;
+    // Each language by its own name, with the English name alongside when they differ (简体中文 · Simplified Chinese).
+    private static string Name(UiLanguage language) => language.NativeName == language.EnglishName ? language.NativeName : language.NativeName + " · " + language.EnglishName;
+    private async Task Choose(string? preference)
+    {
+        Busy = true; Error = null;
+        try { await Language.SetPreferenceAsync(preference ?? UiLanguages.System); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

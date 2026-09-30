@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core.Localization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -42,6 +43,14 @@ public sealed record EnemyAttack(string Id, int MountSlot, string Role, string[]
         ["explosion_settings_expiry"] = ("ExplosionSettings", "explosion", "Expiry explosion"),
     };
     [JsonIgnore] public string RoleLabel => Roles.TryGetValue(Role, out var r) ? r.Label : Role;
+    // The role in the UI language (RoleLabel stays English: Describe() also names mod option targets, which are mod content).
+    [JsonIgnore] public string RoleDisplay => Role switch
+    {
+        "projectile" => CoreText.Get("Enemy.Role.Projectile"), "spray" => CoreText.Get("Enemy.Role.Spray"),
+        "explosion_impact" => CoreText.Get("Enemy.Role.ExplosionImpact"), "explosion_expiry" => CoreText.Get("Enemy.Role.ExplosionExpiry"),
+        "projectile_settings" => CoreText.Get("Enemy.Role.ProjectileSettings"), "explosion_settings_impact" => CoreText.Get("Enemy.Role.ExplosionSettingsImpact"),
+        "explosion_settings_expiry" => CoreText.Get("Enemy.Role.ExplosionSettingsExpiry"), _ => RoleLabel,
+    };
     [JsonIgnore] public string Row => Roles.TryGetValue(Role, out var r) ? r.Row : Role;
     // A wiki attack name only when Runtime matched all nine published values on the class's own page; otherwise the published ID.
     [JsonIgnore] public string Title => WikiAttacks.Length > 0 ? string.Join(" / ", WikiAttacks) : Id;

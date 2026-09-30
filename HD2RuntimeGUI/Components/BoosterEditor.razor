@@ -11,26 +11,26 @@
     {
         <section class="panel category-panel cat-booster" data-booster="@booster.Name" data-booster-status="@booster.Identity.Status">
             <div class="object-header"><GameIcon Kind="booster" Booster="booster" Label="@booster.Name" CssClass="cat-booster" Size="md" /><div>
-            <div class="eyebrow">BOOSTER@(booster.Identity.NativeName is { } native ? " · " + native : "")</div><h2>@booster.Name</h2>
-            <div class="field-badges"><span class="badge" data-booster-identity>@Status(booster.Identity.Status)</span>
-                <span class="badge">@(booster.Writable ? fields.Length + " writable" : "Read-only")</span>
-                <span class="badge" title="Native Booster enum value">@(booster.Identity.EnumValue is { } v ? "Enum " + v : booster.Identity.EnumValueCandidates.Length > 0 ? "Candidates " + string.Join(", ", booster.Identity.EnumValueCandidates) : "No enum value")</span></div></div></div>
+            <div class="eyebrow">@T["Booster.Eyebrow"]@(booster.Identity.NativeName is { } native ? " · " + native : "")</div><h2>@booster.Name</h2>
+            <div class="field-badges"><span class="badge" data-booster-identity>@Status(T, booster.Identity.Status)</span>
+                <span class="badge">@(booster.Writable ? T.Format("EntityPanel.WritableCount", fields.Length) : T["Common.ReadOnly"])</span>
+                <span class="badge" title="@T["Booster.Enum.Tooltip"]">@(booster.Identity.EnumValue is { } v ? T.Format("Booster.Enum.Value", v) : booster.Identity.EnumValueCandidates.Length > 0 ? T.Format("Booster.Enum.Candidates", string.Join(", ", booster.Identity.EnumValueCandidates)) : T["Booster.Enum.None"])</span></div></div></div>
             <p class="subtle"><code data-semantic-id>@booster.SemanticId</code></p>
-            <details><summary>Identity evidence</summary><ul>@foreach (var e in booster.Identity.Evidence) { <li>@e</li> }</ul></details>
-            @if (!booster.Writable) { <p class="notice" data-booster-readonly>Runtime knows this booster but exposes no writable values.</p> }
+            <details><summary>@T["EntityPanel.IdentityEvidence"]</summary><ul>@foreach (var e in booster.Identity.Evidence) { <li>@e</li> }</ul></details>
+            @if (!booster.Writable) { <p class="notice" data-booster-readonly>@T["Booster.ReadOnlyNotice"]</p> }
         </section>
         @if (booster.Relationships.Length > 0)
         {
-            <section class="panel" data-booster-relationships><h3>Published relationships</h3>
+            <section class="panel" data-booster-relationships><h3>@T["Booster.Relationships.Title"]</h3>
             @foreach (var r in booster.Relationships)
             {
                 <div class="graph-node" data-booster-relationship="@r.Kind"><strong>@r.Kind.Replace('_', ' ')</strong>@if (r.Stratagem != null) { <span> · @r.Stratagem</span> }@if (r.Owner != null) { <span> · @r.Owner</span> }
                     @if (r.Effect != null) { <p>@r.Effect</p> }
-                    @if (r.Evidence != null) { <p class="subtle">Evidence: @r.Evidence</p> }
+                    @if (r.Evidence != null) { <p class="subtle">@T.Format("Booster.Relationship.Evidence", r.Evidence)</p> }
                     @if (r.StratagemAuthoring != null) { <p class="subtle">@r.StratagemAuthoring</p> }
-                    @if (r.GatedSusceptibilities is { } gated) { <p class="subtle">@gated gated susceptibilities</p> }
-                    @if (r.TurretProjectileShared == true) { <p class="subtle">The turret's projectile is shared with player weapons and is not edited here.</p> }
-                    @if (r.SharedScope != null) { <p class="subtle">Scope: @r.SharedScope</p> }</div>
+                    @if (r.GatedSusceptibilities is { } gated) { <p class="subtle">@T.Plural("Booster.Relationship.GatedSusceptibilities", gated)</p> }
+                    @if (r.TurretProjectileShared == true) { <p class="subtle">@T["Booster.Relationship.TurretProjectileShared"]</p> }
+                    @if (r.SharedScope != null) { <p class="subtle">@T.Format("Booster.Relationship.Scope", r.SharedScope)</p> }</div>
             }
             </section>
         }
@@ -41,7 +41,7 @@
         var raw = target.Select(f => catalog.Raw(f.InstanceKey)!).ToArray();
         @if (shown.Length > 0)
         {
-            <section class="panel" data-booster-target="@target.Key"><h2>@TargetTitle(booster, target.Key)</h2>
+            <section class="panel" data-booster-target="@target.Key"><h2>@TargetTitle(T, booster, target.Key)</h2>
                 <div class="field-badges">@foreach (var ack in raw.SelectMany(r => r.Acknowledgements).Distinct().OrderBy(a => a, StringComparer.Ordinal))
                     { <span class="badge amber" data-flag="@ack" title="@catalog.Acknowledgements.GetValueOrDefault(ack)">@ack</span> }</div>
                 @if (!ModifiedOnly) { <p class="subtle">@raw[0].SharedScope.Note</p> }
@@ -52,18 +52,19 @@
     @* 0.26.0: the drop pod of the stratagem this booster grants (for Surplus EAT: the EAT-17 rack, shared with the normal call-in). *@
     @foreach (var pod in (ModifiedOnly ? null : entities.Pods?.ForBooster(Name)) ?? [])
     {
-        <section class="panel" data-booster-pod="@pod.Name"><h2>Granted stratagem · drop pod</h2><p class="subtle">@string.Join(" · ", pod.Consumers.Where(c => c.Booster == Name).Select(c => c.Name))</p>
+        <section class="panel" data-booster-pod="@pod.Name"><h2>@T["Booster.Pod.Title"]</h2><p class="subtle">@string.Join(" · ", pod.Consumers.Where(c => c.Booster == Name).Select(c => c.Name))</p>
             <PodPayloadEditor Rack="@pod.Name" Changed="Refresh" /></section>
     }
     @if (edited && Workspace.Project != null)
     {
-        <AckPanel Title="@(fields.Any(f => f.AllowSharedRequired) ? "Unverified booster effect · shared status effect" : "Unverified booster effect")" Kind="unverified"
-            Description="@($"No booster edit is gameplay-proven yet (allow_unverified_effect).{(fields.Any(f => f.AllowSharedRequired) ? " This status effect may have other consumers (allow_shared)." : "")}")" />
-        <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("booster", Name))'>Reset booster</button>
+        var sharedStatus = fields.Any(f => f.AllowSharedRequired);
+        <AckPanel Title="@(sharedStatus ? T["Booster.Unverified.TitleShared"] : T["Booster.Unverified.Title"])" Kind="unverified"
+            Description="@(sharedStatus ? T["Booster.Unverified.DescriptionShared"] : T["Booster.Unverified.Description"])" />
+        <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("booster", Name))'>@T["Booster.Reset"]</button>
     }
     @if (!ModifiedOnly && booster.BlockedFields.Length > 0)
     {
-        <details class="panel" data-blocked-capabilities open="@(!booster.Writable)"><summary>Not currently writable</summary>@foreach (var b in booster.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@b.Field:</strong> @b.Reason</p> }</details>
+        <details class="panel" data-blocked-capabilities open="@(!booster.Writable)"><summary>@T["EntityPanel.Blocked.Title"]</summary>@foreach (var b in booster.BlockedFields) { <p data-blocked-field="@b.Field">@T.Markup("EntityPanel.Blocked.Field.Html", b.Field, b.Reason)</p> }</details>
     }
     @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
 }
@@ -72,17 +73,18 @@
     [Parameter] public bool ModifiedOnly { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
-    public static string Status(string status) => status switch
+    // Identity status tokens are Runtime's; known ones get ModBuilder's wording, anything new shows as published.
+    public static string Status(IUiText t, string status) => status switch
     {
-        "RESOLVED" => "Resolved identity", "CANDIDATES" => "Candidate values (not guessed)", "EFFECT_CATEGORY" => "Identified by effect category",
-        "ELIMINATION" => "Identified by elimination", "UNRESOLVED" => "Unresolved", _ => status.Replace('_', ' '),
+        "RESOLVED" => t["Booster.Status.Resolved"], "CANDIDATES" => t["Booster.Status.Candidates"], "EFFECT_CATEGORY" => t["Booster.Status.EffectCategory"],
+        "ELIMINATION" => t["Booster.Status.Elimination"], "UNRESOLVED" => t["Booster.Status.Unresolved"], _ => status.Replace('_', ' '),
     };
-    private static string TargetTitle(Booster b, string path) => path switch
+    private static string TargetTitle(IUiText t, Booster b, string path) => path switch
     {
-        "deployed_entity" => "Deployed entity" + (b.Relationships.Any(r => r.TurretProjectileShared != null) ? " · turret" : ""),
-        "status_effect" => "Status effect",
+        "deployed_entity" => b.Relationships.Any(r => r.TurretProjectileShared != null) ? t["Booster.Target.DeployedTurret"] : t["Booster.Target.DeployedEntity"],
+        "status_effect" => t["Booster.Target.StatusEffect"],
         // 0.25.0 natively traced targets.
-        "tuning" => "Booster tuning", "explosion" => "Hellpod impact explosion", "status_damage" => "Status damage", "granted_stratagem" => "Granted stratagem",
+        "tuning" => t["Booster.Target.Tuning"], "explosion" => t["Booster.Target.HellpodExplosion"], "status_damage" => t["Booster.Target.StatusDamage"], "granted_stratagem" => t["Booster.Target.GrantedStratagem"],
         _ => path.Replace('_', ' '),
     };
     // Re-render this editor too: acknowledgement and reset controls depend on the saved changes.

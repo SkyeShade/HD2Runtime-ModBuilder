@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using HD2RuntimeGUI.Core.Localization;
 
 namespace HD2RuntimeGUI.Core.GameAssets;
 
@@ -28,7 +29,7 @@ public sealed class GameDataReader
 
     public static GameDataReader Open(string dataDir)
     {
-        if (!Directory.Exists(dataDir)) throw new DirectoryNotFoundException("Game data folder not found: " + dataDir);
+        if (!Directory.Exists(dataDir)) throw new DirectoryNotFoundException(CoreText.Format("Messages.Icons.GameDataMissing", dataDir));
         // The fat edition ships the boot archive as a plain file; the slim edition packs it into bundles.nxa.
         var reader = new GameDataReader(dataDir, !File.Exists(Path.Combine(dataDir, "9ba626afa44a3aa3")));
         if (reader.slim) reader.LoadSlimIndex();

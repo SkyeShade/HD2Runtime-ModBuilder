@@ -10,18 +10,18 @@
     var selected = resolved.FirstOrDefault(r => r.Attachment.SemanticId == Selected);
     if (selected.Attachment == null && resolved.Count > 0) selected = resolved[0];
     <div class="magazine-attachments" data-magazine-attachments="@Weapon">
-        <p class="ownership-note" data-ammo-owned-by-attachment>Magazine values belong to each magazine definition. Editing one never changes which magazine is equipped.</p>
-        @if (resolved.Count == 0) { <p class="notice" data-no-resolved>No magazine attachment definition is resolved for this weapon.</p> }
+        <p class="ownership-note" data-ammo-owned-by-attachment>@T["Magazine.Ownership"]</p>
+        @if (resolved.Count == 0) { <p class="notice" data-no-resolved>@T["Magazine.NoneResolved"]</p> }
         else
         {
-            <div class="variant-picker" role="tablist" aria-label="Magazine definitions" data-magazine-variants="@resolved.Count">
+            <div class="variant-picker" role="tablist" aria-label="@T["Magazine.Definitions.Aria"]" data-magazine-variants="@resolved.Count">
                 @foreach (var (attachment, option, relationship) in resolved)
                 {
                     var edited = attachment.FieldInstanceKeys.Any(k => Workspace.Project?.EntityChanges.Any(c => c.InstanceKey == k) == true);
                     var active = attachment.SemanticId == selected.Attachment.SemanticId;
                     <button type="button" role="tab" aria-selected="@(active ? "true" : "false")" class="variant-chip @(active ? "active" : "") @(edited ? "modified" : "")"
                         data-magazine-variant="@attachment.SemanticId" title="@RelationshipText(catalog, relationship)" @onclick="() => Selected = attachment.SemanticId">
-                        @(option?.Label ?? attachment.Name)@if (relationship == "native_resource_default") { <span class="chip-flag" data-default-flag>Default</span> }@if (edited) { <span class="chip-dot" aria-label="modified">●</span> }
+                        @(option?.Label ?? attachment.Name)@if (relationship == "native_resource_default") { <span class="chip-flag" data-default-flag>@T["Magazine.DefaultFlag"]</span> }@if (edited) { <span class="chip-dot" aria-label="@T["Magazine.Modified.Aria"]">●</span> }
                     </button>
                 }
             </div>
@@ -29,20 +29,20 @@
                 RelationshipDescription="@RelationshipText(catalog, selected.Relationship)" Weapon="@Weapon" Changed="Changed" />
         }
         <details class="collapsed-group" data-other-magazines>
-            <summary><strong>Selection and unresolved options</strong> <span class="subtle">@entry.MagazineSlot.Options.Length options · @resolved.Count resolved</span>
-                @if (unresolved.Length > 0) { <span class="badge" data-unresolved-count>@unresolved.Length unresolved</span> }</summary>
+            <summary><strong>@T["Magazine.Selection.Title"]</strong> <span class="subtle">@T.Plural("Attachment.OptionSummary", entry.MagazineSlot.Options.Length, resolved.Count)</span>
+                @if (unresolved.Length > 0) { <span class="badge" data-unresolved-count>@T.Format("Magazine.UnresolvedCount", unresolved.Length)</span> }</summary>
             @foreach (var o in unresolved)
             {
-                <div class="unresolved-option" data-unresolved-option="@o.Label"><strong>@o.Label</strong> <span class="badge">@(o.Relationship is "catalog_effect_fingerprint_ambiguous" or "catalog_effects_ambiguous" ? "Ambiguous" : "No native match")</span>
-                    @if (o.Default) { <span class="badge">Catalog default</span> }
-                    <span class="subtle">@(o.PublishedEffects?.Capacity?.ToString() ?? "—") rounds · @(o.PublishedEffects?.StartingMagazines?.ToString() ?? "—") starting · @(o.PublishedEffects?.MaxMagazines?.ToString() ?? "—") max magazines</span>
-                    <details class="field-info"><summary title="Why unresolved?">ⓘ</summary><div class="field-info-body"><p>@o.Blocker</p>
-                        @if (o.Candidates.Length > 0) { <p>Candidates (not chosen):</p><ul>@foreach (var c in o.Candidates) { <li><code>@c</code> @catalog.Attachment(c)?.Name</li> }</ul> }</div></details>
+                <div class="unresolved-option" data-unresolved-option="@o.Label"><strong>@o.Label</strong> <span class="badge">@(o.Relationship is "catalog_effect_fingerprint_ambiguous" or "catalog_effects_ambiguous" ? T["Magazine.Ambiguous"] : T["Magazine.NoNativeMatch"])</span>
+                    @if (o.Default) { <span class="badge">@T["Magazine.CatalogDefault"]</span> }
+                    <span class="subtle">@T.Format("Magazine.PublishedEffects", o.PublishedEffects?.Capacity?.ToString() ?? "—", o.PublishedEffects?.StartingMagazines?.ToString() ?? "—", o.PublishedEffects?.MaxMagazines?.ToString() ?? "—")</span>
+                    <details class="field-info"><summary title="@T["Magazine.WhyUnresolved"]">ⓘ</summary><div class="field-info-body"><p>@o.Blocker</p>
+                        @if (o.Candidates.Length > 0) { <p>@T["Magazine.Candidates"]</p><ul>@foreach (var c in o.Candidates) { <li><code>@c</code> @catalog.Attachment(c)?.Name</li> }</ul> }</div></details>
                 </div>
             }
-            <p class="subtle" data-selection-blocked>Which magazine a player equips (presets and selection) is read-only: @catalog.Selection.Reason</p>
+            <p class="subtle" data-selection-blocked>@T.Format("Magazine.SelectionReadOnly", catalog.Selection.Reason)</p>
             @if (entry.MagazineSlot.BaseRecordCapacityIsPlaceholder)
-            { <p class="subtle" data-placeholder-capacity>The weapon record's own capacity is a placeholder; it is listed read-only under Advanced / Read-only.</p> }
+            { <p class="subtle" data-placeholder-capacity>@T["Magazine.PlaceholderCapacity"]</p> }
             <p class="subtle">@catalog.OwnershipModel.WriteScope</p>
         </details>
     </div>
@@ -52,10 +52,10 @@
     [Parameter] public EventCallback Changed { get; set; }
     private string? Selected;
     // Runtime's own description of how the option was tied to this weapon (strongest evidence first).
-    private static string RelationshipText(MagazineAttachmentCatalog catalog, string relationship) => catalog.OptionRelationships?.GetValueOrDefault(relationship) ?? relationship switch
+    private string RelationshipText(MagazineAttachmentCatalog catalog, string relationship) => catalog.OptionRelationships?.GetValueOrDefault(relationship) ?? relationship switch
     {
-        "native_resource_default" => "The weapon resource names this magazine as its default.",
-        "catalog_effect_fingerprint_unique" => "The catalog option's published capacity and magazines match exactly one native attachment.",
+        "native_resource_default" => T["Magazine.Relationship.NativeDefault"],
+        "catalog_effect_fingerprint_unique" => T["Magazine.Relationship.FingerprintUnique"],
         _ => relationship.Replace('_', ' '),
     };
 }

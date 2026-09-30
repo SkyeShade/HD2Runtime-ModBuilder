@@ -1,11 +1,17 @@
 using System.Text.Json.Serialization;
+using HD2RuntimeGUI.Core.Localization;
 namespace HD2RuntimeGUI.Core.Models;
 
 public sealed record ExplosionReference(ProjectileReference? Projectile, string? Phase)
 {
     public static ExplosionReference None => new(null, null);
     [JsonIgnore] public bool IsNone => Projectile == null;
-    [JsonIgnore] public string Label => IsNone ? "None" : Projectile!.Weapon + " · " + Phase + " explosion";
+    [JsonIgnore] public string Label => IsNone ? CoreText.Get("Common.None") : Phase switch
+    {
+        "impact" => CoreText.Format("Messages.Model.Explosion.Impact", Projectile!.Weapon),
+        "expiry" => CoreText.Format("Messages.Model.Explosion.Expiry", Projectile!.Weapon),
+        _ => CoreText.Format("Messages.Model.Explosion.Phase", Projectile!.Weapon, Phase),
+    };
 }
 public sealed class CompositionChange
 {

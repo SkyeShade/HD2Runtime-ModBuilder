@@ -13,30 +13,30 @@
     var locked = (a.Effects ?? []).Where(e => !e.Writable).ToArray();
     <article class="magazine-attachment @(edited ? "modified" : "")" data-attachment-id="@a.SemanticId" data-relationship="@Relationship">
         <div class="attachment-head"><strong>@(Option ?? a.Name)</strong>
-            @if (Relationship == "native_resource_default") { <span class="badge green" data-default-magazine>Default magazine</span> }
+            @if (Relationship == "native_resource_default") { <span class="badge green" data-default-magazine>@T["Magazine.DefaultMagazine"]</span> }
             else if (Relationship != null) { <span class="badge" data-relationship-badge title="@RelationshipDescription">@RelationshipLabel(Relationship)</span> }
-            @if (edited) { <span class="badge modified-badge">Modified</span> }
-            <span class="badge amber" data-flag="allow_shared" title="@catalog.Acknowledgements["allow_shared"]">Shared</span>
-            <span class="badge amber" data-flag="allow_unverified_effect" title="@catalog.Acknowledgements["allow_unverified_effect"]">Effect unverified</span>
+            @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            <span class="badge amber" data-flag="allow_shared" title="@catalog.Acknowledgements["allow_shared"]">@T["Common.Shared"]</span>
+            <span class="badge amber" data-flag="allow_unverified_effect" title="@catalog.Acknowledgements["allow_unverified_effect"]">@T["Magazine.EffectUnverified"]</span>
             <EvidenceBadge Evidence="new EntityEvidence(a.Evidence.Tier)" />
-            <details class="field-info"><summary title="Definition and consumers">ⓘ</summary><div class="field-info-body">
+            <details class="field-info"><summary title="@T["Magazine.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
                 <p>@a.Name</p>
-                @if (RelationshipDescription != null) { <p><strong>Why it belongs to @(Weapon ?? "this weapon"):</strong> @RelationshipDescription</p> }
+                @if (RelationshipDescription != null) { <p>@(Weapon != null ? T.Markup("Magazine.WhyBelongs.Html", Weapon, RelationshipDescription) : T.Markup("Magazine.WhyBelongsThisWeapon.Html", RelationshipDescription))</p> }
                 <p>@a.Consumers.ScopeNote</p>
-                @if ((a.OtherPatchedEffects ?? []).Length > 0) { <p>This definition also patches @string.Join(", ", a.OtherPatchedEffects!) (not editable).</p> }
+                @if ((a.OtherPatchedEffects ?? []).Length > 0) { <p>@T.Format("Magazine.AlsoPatches", string.Join(", ", a.OtherPatchedEffects!))</p> }
             </div></details>
-            @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("weapon_attachment", a.SemanticId))'>Reset magazine</button> }
+            @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("weapon_attachment", a.SemanticId))'>@T["Magazine.Reset"]</button> }
         </div>
         <p class="attachment-meta subtle"><code data-semantic-id>@a.SemanticId</code>
-            @if (consumers.Length > 0) { <span data-compatible-weapons> · Shared by @string.Join(", ", consumers)@(a.Consumers.ScopeComplete ? "" : " (may be incomplete)")</span> }</p>
+            @if (consumers.Length > 0) { <span data-compatible-weapons> @T.Format(a.Consumers.ScopeComplete ? "Magazine.SharedBy" : "Magazine.SharedByIncomplete", string.Join(", ", consumers))</span> }</p>
         <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Changed="FieldChanged" /> }</div>
         @if (locked.Length > 0 && !ModifiedOnly)
-        { <p class="subtle locked-effects" data-locked-effects>Not editable: @string.Join(" · ", locked.Select(e => e.Effect.Replace('_', ' ') + (e.Blocker != null ? " (" + e.Blocker + ")" : "")))</p> }
+        { <p class="subtle locked-effects" data-locked-effects>@T.Format("Magazine.NotEditable", string.Join(" · ", locked.Select(e => e.Effect.Replace('_', ' ') + (e.Blocker != null ? " (" + e.Blocker + ")" : ""))))</p> }
         @if (edited && Workspace.Project != null)
         {
-            <AckPanel Title="Shared magazine definition · unverified effect" Kind="unverified"
-                Description="This edits the magazine definition itself: every weapon that fits it changes, the consumer list may be incomplete, and in-game re-application is unproven (allow_shared + allow_unverified_effect)."
-                Items="@(consumers.Length > 0 ? consumers : null)" ItemsLabel="Known consumers:" />
+            <AckPanel Title="@T["Magazine.Ack.Title"]" Kind="unverified"
+                Description="@T["Magazine.Ack.Description"]"
+                Items="@(consumers.Length > 0 ? consumers : null)" ItemsLabel="@T["Magazine.Ack.Consumers"]" />
         }
         @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
     </article>
@@ -52,11 +52,11 @@
     private string? Error;
     private static readonly string[] FieldOrder = ["attachment.magazine_capacity", "attachment.starting_magazines", "attachment.magazines_from_supply",
         "attachment.spare_magazines", "attachment.reload_duration", "attachment.ergonomics_modifier"];
-    private static string RelationshipLabel(string relationship) => relationship switch
+    private string RelationshipLabel(string relationship) => relationship switch
     {
-        "catalog_effect_fingerprint_unique" or "catalog_effects_unique" => "Unique catalog match",
-        "catalog_effects_unlock_list" => "Catalog + unlock list",
-        "unlock_listed" => "Unlock list",
+        "catalog_effect_fingerprint_unique" or "catalog_effects_unique" => T["Magazine.Relationship.UniqueMatch"],
+        "catalog_effects_unlock_list" => T["Magazine.Relationship.CatalogUnlockList"],
+        "unlock_listed" => T["Magazine.Relationship.UnlockList"],
         _ => relationship.Replace('_', ' '),
     };
     // Handled here (not passed straight through) so this card re-renders its modified / acknowledgement state after a field edit.

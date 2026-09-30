@@ -2,13 +2,13 @@
 <div class="swap-result" role="status" data-swap-result>
     <span>@Text</span>
     @if (Result.NotKept.Count > 0) { <ul class="swap-edits">@foreach (var item in Result.NotKept) { <li data-swap-not-kept>@item</li> }</ul> }
-    <button class="link-button" aria-label="Dismiss" @onclick="() => Dismiss.InvokeAsync()">×</button>
+    <button class="link-button" aria-label="@T["Projectile.Result.Dismiss"]" @onclick="() => Dismiss.InvokeAsync()">×</button>
 </div>
 @code {
     [Parameter, EditorRequired] public ObjectEditCarryResult Result { get; set; } = default!;
     [Parameter] public EventCallback Dismiss { get; set; }
-    private string Text => Result.Kept + Result.AtBaseline + Result.NotKept.Count == 0 ? "Edits discarded."
-        : string.Join(" ", new[] { Result.Kept > 0 ? $"Kept {Result.Kept} {(Result.Kept == 1 ? "value" : "values")} on the new projectile." : null,
-            Result.AtBaseline > 0 ? $"{Result.AtBaseline} already {(Result.AtBaseline == 1 ? "matches" : "match")} its base value." : null,
-            Result.NotKept.Count > 0 ? $"Could not keep {Result.NotKept.Count}:" : null }.Where(s => s != null));
+    private string Text => Result.Kept + Result.AtBaseline + Result.NotKept.Count == 0 ? T["Projectile.Result.Discarded"]
+        : string.Join(" ", new[] { Result.Kept > 0 ? T.Plural("Projectile.Result.Kept", Result.Kept) : null,
+            Result.AtBaseline > 0 ? T.Plural("Projectile.Result.AtBaseline", Result.AtBaseline) : null,
+            Result.NotKept.Count > 0 ? T.Format("Projectile.Result.NotKept", Result.NotKept.Count) : null }.Where(s => s != null));
 }

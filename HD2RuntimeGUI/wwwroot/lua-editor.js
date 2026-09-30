@@ -174,11 +174,13 @@ window.hd2LuaEditor = (() => {
     }
     function mount(host, dotnet, text, data) {
         host.innerHTML = '<div class="lua-gutter" aria-hidden="true"></div><div class="lua-surface"><pre class="lua-highlight" aria-hidden="true"><code></code></pre>'
-            + '<textarea class="lua-input" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="Custom Lua (src/addon.lua)" data-lua-input></textarea>'
+            + '<textarea class="lua-input" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" data-lua-input></textarea>'
             + '<div class="lua-mirror" aria-hidden="true"></div></div><div class="lua-popup" role="listbox" hidden></div>';
         const ed = { host, dotnet, data: data || { classes: {}, aliases: {}, strings: {}, root: '' }, diagnostics: [], items: [], selected: 0, prefix: '', lineCount: 0,
             gutter: host.querySelector('.lua-gutter'), highlight: host.querySelector('.lua-highlight'), code: host.querySelector('.lua-highlight code'),
             textarea: host.querySelector('.lua-input'), mirror: host.querySelector('.lua-mirror'), popup: host.querySelector('.lua-popup') };
+        // The textarea's accessible name is UI text: the host's data-editor-label at mount, then setLabel on a language change.
+        ed.textarea.setAttribute('aria-label', host.dataset.editorLabel || 'Custom Lua (src/addon.lua)');
         ed.textarea.value = text;
         ed.textarea.addEventListener('input', e => { if (ed.quiet) return; changed(ed); if (e.inputType !== 'deleteContentBackward' && /[.:'"\w]$/.test(ed.textarea.value.slice(0, ed.textarea.selectionStart))) openPopup(ed, false); else closePopup(ed); });
         ed.textarea.addEventListener('scroll', () => { sync(ed); closePopup(ed); });
@@ -207,6 +209,7 @@ window.hd2LuaEditor = (() => {
         setText(host, text) { const ed = editors.get(host); if (!ed) return; const top = ed.textarea.scrollTop; ed.textarea.value = text; render(ed); ed.textarea.scrollTop = top; sync(ed); },
         getText(host) { return editors.get(host)?.textarea.value ?? ''; },
         setData(host, data) { const ed = editors.get(host); if (ed) ed.data = data; },
+        setLabel(host, label) { const ed = editors.get(host); if (ed && label) ed.textarea.setAttribute('aria-label', label); },
         setDiagnostics(host, diagnostics) { const ed = editors.get(host); if (ed) { ed.diagnostics = diagnostics || []; markers(ed); } },
         insert(host, snippet) {
             const ed = editors.get(host); if (!ed) return;

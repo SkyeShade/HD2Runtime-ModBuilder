@@ -2,22 +2,22 @@
 @using HD2RuntimeGUI.Core.Generation
 @{ var target = Workspace.EffectiveProjectile(Weapon, Role); var field = CompositionChangeService.TerminalField(Workspace.Metadata!, target, Phase); var baseline = CompositionChangeService.BaselineExplosion(Workspace.Metadata!, target, Phase); }
 <div class="composition-control @(Saved != null ? "modified" : "")" data-terminal="@Phase">
-    <div class="panel-heading"><h3>@FieldPresentation.EnumLabel(Phase) Explosion</h3><span class="badge @(Saved != null ? "modified-badge" : "")">@(Saved != null ? "Modified" : field.Editable ? "Guarded" : "Read-only")</span></div>
+    <div class="panel-heading"><h3>@T.Format("Terminal.Title", FieldPresentation.EnumLabel(Phase))</h3><span class="badge @(Saved != null ? "modified-badge" : "")">@(Saved != null ? T["Common.Modified"] : field.Editable ? T["Composition.Guarded"] : T["Common.ReadOnly"])</span></div>
     <p class="@(Saved != null ? "modified-value" : "subtle")">@baseline.Label @if (Saved != null) { <span> → <strong>@Saved.DesiredExplosion!.Label</strong></span> }</p>
     @if (field.Editable)
     {
-        <label>Explosion<select aria-label="@Phase explosion" value="@Selected" @onchange="Select" disabled="@Busy">
-            <option value="baseline">Original · @baseline.Label</option>
+        <label>@T["Terminal.Explosion.Label"]<select aria-label="@T.Format("Terminal.Explosion.AriaLabel", Phase)" value="@Selected" @onchange="Select" disabled="@Busy">
+            <option value="baseline">@T.Format("Composition.Original", baseline.Label)</option>
             @foreach (var source in Workspace.ExplosionSources) { <option value="@Key(source)">@source.Label</option> }
         </select></label>
         @* 0.27.0+: an explosion taken from another weapon uses that weapon's package, which Runtime loads automatically when known. *@
         @if (Saved?.DesiredExplosion is { IsNone: false, Projectile: { } donor } && Workspace.Metadata?.Assets != null)
         { <AssetBadge View="AssetStatus.ProjectileSource(Workspace.Metadata, donor.Weapon, donor.AttackRole, donor.Weapon == target.Weapon, explosion: true)" /> }
         @if (field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
-        { <AckPanel Title="Shared terminal setting" Items="@field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="Affected weapons:" /> }
+        { <AckPanel Title="@T["Terminal.Shared.Title"]" Items="@field.SharedWithWeapons.Append(target.Weapon).Append(Weapon).Distinct().ToArray()" ItemsLabel="@T["Composition.AffectedWeapons"]" /> }
     }
     else { <p>@field.Reason</p> }
-    @if (Saved != null) { <button class="reset-action" @onclick="() => Run(() => Workspace.RemoveCompositionAsync(Saved.Id))">Reset terminal action</button> }
+    @if (Saved != null) { <button class="reset-action" @onclick="() => Run(() => Workspace.RemoveCompositionAsync(Saved.Id))">@T["Terminal.Reset"]</button> }
     @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
 </div>
 @code {

@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core.Localization;
 using System.Text.Json.Serialization;
 using HD2RuntimeGUI.Core.Storage;
 
@@ -62,7 +63,7 @@ public sealed class AttackOutputCatalog
     public AttackOutputHost? Host(PlayerWeaponCatalog weapons, string weapon, string role, out string reason)
     {
         var source = Source(weapon, role);
-        reason = source?.Reason ?? "Runtime publishes no active projectile source for this attack.";
+        reason = source?.Reason ?? CoreText.Get("Messages.Output.NoActiveSource");
         if (source == null) return null;
         if (source.Status == AttackProjectileSource.ActiveDirect && source.DirectWritable)
         {

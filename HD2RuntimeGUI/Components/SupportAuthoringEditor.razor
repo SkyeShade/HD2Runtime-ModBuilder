@@ -2,25 +2,25 @@
 @{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.SupportAuthoring; var fields = catalog?.FieldInstances.Where(f => f.SupportWeapon == Weapon).ToArray() ?? []; }
 @if (fields.Length > 0)
 {
-    @if (Workspace.Project == null) { <p class="notice">Create or open a project to author these capabilities.</p> }
-    else if (Workspace.Project.SupportChanges.Any(c => c.Weapon == Weapon)) { <button class="reset-action" @onclick="Reset">Reset support weapon</button> }
+    @if (Workspace.Project == null) { <p class="notice">@T["Support.Editor.NoProject"]</p> }
+    else if (Workspace.Project.SupportChanges.Any(c => c.Weapon == Weapon)) { <button class="reset-action" @onclick="Reset">@T["Support.Editor.Reset"]</button> }
     @foreach (var scope in fields.Where(f => f.SharedScope.RequiresAcknowledgement).GroupBy(f => f.SharedScope.ScopeKey))
     {
         var f = scope.First();
         @if (Workspace.Project != null && scope.Any(f => Workspace.Project.SupportChanges.Any(c => c.InstanceKey == f.InstanceKey)))
         {
-            <AckPanel Title="@($"Shared {f.Backing.SemanticType}")" Kind="shared"
-                Description="@($"Changing this object may affect these consumers.{(f.SharedScope.DynamicConsumersPossible ? " Additional runtime consumers are possible." : "")}")"
-                Items="@f.SharedScope.AffectedSemanticConsumers.Select(c => $"{c.Weapon} · {c.AttackRole}").ToArray()" ItemsLabel="Affected:"
+            <AckPanel Title="@T.Format("Support.Shared.Title", f.Backing.SemanticType)" Kind="shared"
+                Description="@(T["Support.Shared.Affects"] + (f.SharedScope.DynamicConsumersPossible ? " " + T["Support.Shared.Dynamic"] : ""))"
+                Items="@f.SharedScope.AffectedSemanticConsumers.Select(c => $"{c.Weapon} · {c.AttackRole}").ToArray()" ItemsLabel="@T["Support.Shared.ItemsLabel"]"
                 PanelAttributes="@(new() { ["data-support-scope"] = scope.Key })" />
         }
     }
     @foreach (var branch in fields.Where(f => !ModifiedOnly || Workspace.Project!.SupportChanges.Any(c => c.InstanceKey == f.InstanceKey)).GroupBy(f => (f.Target.Path, f.Target.AttackRole)))
     {
-        <section class="panel" data-support-authoring-branch="@(branch.Key.AttackRole ?? "weapon")"><h3>@(branch.Key.AttackRole == null ? "Weapon" : "Attack · " + string.Join(" / ", branch.First().Target.WritableCatalogBranches.Select(b => b.Name)))</h3>
+        <section class="panel" data-support-authoring-branch="@(branch.Key.AttackRole ?? "weapon")"><h3>@(branch.Key.AttackRole == null ? T["Support.Branch.Weapon"] : T.Format("Support.Branch.Attack", string.Join(" / ", branch.First().Target.WritableCatalogBranches.Select(b => b.Name))))</h3>
             @foreach (var domain in FieldGroups.Group(branch, f => f.SemanticFieldId, f => f.Display.Domain))
             {
-                <h3 class="group-title">@domain.Key</h3>
+                <h3 class="group-title">@GroupLabel(T, domain.Key)</h3>
                 @* 0.26.0 fire modes: the native mode list has its own editor (and its own acknowledgement); burst length stays a row. *@
                 @if (domain.Any(f => f.SemanticFieldId == FireModes.ModesField) && !ModifiedOnly) { <SupportFireModes Weapon="@Weapon" Changed="Refresh" /> }
                 <div class="stat-grid">@foreach (var f in domain.Where(f => f.SemanticFieldId != FireModes.ModesField || ModifiedOnly)) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
@@ -28,8 +28,8 @@
             @{ var unverified = branch.Where(f => f.Operation.Acknowledgement == "allow_unverified_effect" && Saved(f) != null && (f.SemanticFieldId != FireModes.ModesField || ModifiedOnly)).ToArray(); }
             @if (unverified.Length > 0)
             {
-                <AckPanel Title="Unverified effects" Kind="unverified" Items="@unverified.Select(f => f.Display.Name).ToArray()" ItemsLabel="Edited:"
-                    Description="The gameplay effect of these edits is not proven in game (allow_unverified_effect)." />
+                <AckPanel Title="@T["Support.Unverified.Title"]" Kind="unverified" Items="@unverified.Select(f => f.Display.Name).ToArray()" ItemsLabel="@T["Support.Unverified.ItemsLabel"]"
+                    Description="@T["Support.Unverified.Description"]" />
             }
         </section>
     }
@@ -42,7 +42,7 @@
     var blocked = sdk026.SupportAuthoring?.Weapons.FirstOrDefault(w => w.Name == Weapon)?.BlockedFields.Where(b => b.Field is FireModes.ReticleField or FireModes.ModesField).ToArray() ?? [];
     @if (fields.All(f => f.SemanticFieldId != FireModes.ModesField) && sdk026.FireModes?.Find("support", Weapon) is { Writable: false }) { <SupportFireModes Weapon="@Weapon" Changed="Refresh" /> }
     @foreach (var b in blocked.Where(b => b.Field == FireModes.ReticleField && fields.All(f => f.SemanticFieldId != FireModes.ReticleField)))
-    { <p class="subtle field-blocker" data-reticle-blocked="@Weapon"><strong>Third-person reticle:</strong> read-only · @b.Reason</p> }
+    { <p class="subtle field-blocker" data-reticle-blocked="@Weapon"><strong>@T["Support.Reticle.Label"]</strong> @T.Format("Support.Reticle.Blocked", b.Reason)</p> }
 }
 <SupportBackpackAmmo Weapon="@Weapon" ModifiedOnly="ModifiedOnly" Changed="Refresh" />
 @code {
@@ -51,7 +51,23 @@
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
-    public static string Label(string domain) => domain switch { "magazine" => "Magazine ammo", "rounds" => "Rounds feed", "heatsink" => "Heatsinks", _ => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(domain) };
+    // Display labels only: published domains stay the filter values and FieldGroups names stay the group keys. Unknown SDK domains show as published.
+    public static string Label(IUiText t, string domain) => domain switch
+    {
+        "magazine" => t["Support.Domain.Magazine"], "rounds" => t["Support.Domain.Rounds"], "heatsink" => t["Stratagem.Group.Heatsinks"],
+        _ => GroupLabel(t, System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(domain)),
+    };
+    public static string GroupLabel(IUiText t, string group) => group switch
+    {
+        "Ammo" => t["Stratagem.Group.Ammo"], "Handling" => t["Stratagem.Group.Handling"], "Firing" => t["Stratagem.Group.Firing"], "Fire Mode" => t["Stratagem.Group.FireMode"],
+        "Weapon" => t["Stratagem.Group.Weapon"], "Projectile" => t["Stratagem.Group.Projectile"], "Damage" => t["Stratagem.Group.Damage"], "Explosion" => t["Stratagem.Group.Explosion"],
+        "Arc" => t["Stratagem.Group.Arc"], "Beam" => t["Stratagem.Group.Beam"], "Status" => t["Stratagem.Group.Status"], "Heat" => t["Stratagem.Group.Heat"],
+        "Heatsinks" => t["Stratagem.Group.Heatsinks"], "Charge" => t["Stratagem.Group.Charge"], "Reload" => t["Stratagem.Group.Reload"], "Windup" => t["Stratagem.Group.Windup"],
+        "Stratagem" => t["Stratagem.Group.Stratagem"], "Orbital" => t["Stratagem.Group.Orbital"], "Eagle" => t["Stratagem.Group.Eagle"], "Entity" => t["Stratagem.Group.Entity"],
+        "Zone" => t["Stratagem.Group.Zone"], "Turret" => t["Stratagem.Group.Turret"], "Targeting" => t["Stratagem.Group.Targeting"], "Payload" => t["Stratagem.Group.Payload"],
+        "Minefield" => t["Stratagem.Group.Minefield"], "Shield" => t["Stratagem.Group.Shield"],
+        _ => group,
+    };
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }
     private Task Reset() => Run(() => Workspace.ResetSupportAsync(Weapon));
     private SupportChange? Saved(SupportField f) => Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);

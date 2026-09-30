@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Models;
 using HD2RuntimeGUI.Core.Storage;
 
@@ -33,8 +34,8 @@ public sealed partial class BuilderWorkspace
         var project = Project; await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
-            if (!ModOptionsService.Supported(Metadata)) throw new InvalidDataException("In-game options need HD2Runtime SDK 0.25.0 or newer. Rebind the project first.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
+            if (!ModOptionsService.Supported(Metadata)) throw new InvalidDataException(CoreText.Get("Messages.Options.NeedsSdk"));
             var previous = project.ModOptions == null ? null : JsonSerializer.Deserialize<ModOptionsSettings>(JsonSerializer.Serialize(project.ModOptions, JsonStorage.Options), JsonStorage.Options);
             var format = project.FormatVersion;
             try
@@ -60,17 +61,17 @@ public sealed partial class BuilderWorkspace
     // Adds or replaces the option of one edited field after validating it against Runtime's limits and the field's own rules.
     public Task SaveOptionRowAsync(ModOptionRow row) => EditOptionsAsync(s =>
     {
-        var target = OptionTarget(row.Key) ?? throw new InvalidDataException("This edit no longer exists.");
+        var target = OptionTarget(row.Key) ?? throw new InvalidDataException(CoreText.Get("Messages.Options.EditMissing"));
         if (!target.Eligible) throw new InvalidDataException(target.Blocker!);
         row.Label = row.Label.Trim(); row.Id = row.Id.Trim(); row.Description = string.IsNullOrWhiteSpace(row.Description) ? null : row.Description.Trim();
-        if (s.Rows.Any(r => r.Key != row.Key && r.Id == row.Id)) throw new InvalidDataException($"Option id '{row.Id}' is already used.");
+        if (s.Rows.Any(r => r.Key != row.Key && r.Id == row.Id)) throw new InvalidDataException(CoreText.Format("Messages.Options.IdInUse", row.Id));
         if (ModOptionsService.RowIssues(s, row, target).FirstOrDefault() is { } issue) throw new InvalidDataException(issue);
         var index = s.Rows.FindIndex(r => r.Key == row.Key);
         if (index >= 0) s.Rows[index] = row;
         else
         {
             if (s.Rows.Count(r => OptionTarget(r.Key) is { Eligible: true, Active: true }) + 2 > ModOptionsService.MaxRows)
-                throw new InvalidDataException($"Mod Options Menu shows at most {ModOptionsService.MaxRows} options per mod, including the master toggle.");
+                throw new InvalidDataException(CoreText.Format("Messages.Options.TooMany", ModOptionsService.MaxRows));
             s.Rows.Add(row);
         }
     });
@@ -78,7 +79,7 @@ public sealed partial class BuilderWorkspace
     public Task SetOptionsFallbackAsync(string fallback) => EditOptionsAsync(s =>
     {
         if (fallback is not (ModOptionsService.FallbackDefault or ModOptionsService.FallbackDisable)) throw new InvalidDataException("Unknown fallback.");
-        if (fallback == ModOptionsService.FallbackDisable && !ModOptionsService.FallbackSupported(Metadata)) throw new InvalidDataException("fallback='disable' needs HD2Runtime SDK 0.25.1 or newer.");
+        if (fallback == ModOptionsService.FallbackDisable && !ModOptionsService.FallbackSupported(Metadata)) throw new InvalidDataException(CoreText.Get("Messages.Options.DisableFallbackNeedsSdk"));
         s.Fallback = fallback;
     });
     public Task RemoveOptionRowAsync(string key) => EditOptionsAsync(s => s.Rows.RemoveAll(r => r.Key == key));

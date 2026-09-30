@@ -4,28 +4,28 @@
 <div class="field-row @(Saved != null ? "modified" : "") @(Editable ? "" : "readonly")" data-object-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@Field.DisplayName</span>@if (FieldPresentation.Unit(Field) is { Length: > 0 } unit) { <small class="field-unit">@unit</small> }
         <span class="field-flags">
-            @if (Saved != null) { <span class="badge modified-badge">Modified</span> }
-            @if (Field.AffectsMultipleWeapons) { <span class="badge amber" data-flag="allow_shared" title="Shared object: other weapons use it">Shared</span> }
-            @if (!Editable) { <span class="badge" title="@Field.Reason">Read-only</span> }
+            @if (Saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (Field.AffectsMultipleWeapons) { <span class="badge amber" data-flag="allow_shared" title="@T["ObjectField.Shared.Tooltip"]">@T["Common.Shared"]</span> }
+            @if (!Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
         </span></div>
     <div class="field-value">
         @if (Editable) { <input aria-label="@Field.DisplayName" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" /> }
-        else { <span class="readonly-value">@FieldPresentation.Value(Field, Current)</span> }
+        else { <span class="readonly-value">@FieldPresentation.DisplayValue(T, Field, Current)</span> }
     </div>
-    <div class="field-baseline @(Saved != null ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">Base @FieldPresentation.Value(Field, Field.CurrentDefault)@if (Saved != null) { <span> → <strong>@FieldPresentation.Value(Field, Current)</strong></span> }</div>
+    <div class="field-baseline @(Saved != null ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("ObjectField.Base", FieldPresentation.DisplayValue(T, Field, Field.CurrentDefault))@if (Saved != null) { <span> → <strong>@FieldPresentation.DisplayValue(T, Field, Current)</strong></span> }</div>
     <div class="field-tools">
         @if (Saved?.Scalar != null) { <OptionToggle Key="@ModOptionsService.ObjectKey(Saved)" Changed="Changed" /> }
-        @if (Saved != null) { <button class="reset-action small" @onclick="Reset">Reset field</button> }
-        <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
-            @if (!Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }
-            @if (Field.AffectsMultipleWeapons) { <p><strong>Shared with:</strong> @string.Join(", ", Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct())</p>
-                @if (Field.DynamicConsumersPossible == true) { <p>Other and future consumers may also use this object. No weapon-local clone is proven.</p> } }
-            <p><span class="badge">@Field.Provenance.Label</span> @(Field.Backing?.Settings ?? "Read-only evidence")</p><code>@Field.SemanticFieldId</code>
+        @if (Saved != null) { <button class="reset-action small" @onclick="Reset">@T["ObjectField.Reset"]</button> }
+        <details class="field-info"><summary title="@T["ObjectField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+            @if (!Editable) { <p>@T.Markup("ObjectField.NotWritable.Html", Field.Reason)</p> }
+            @if (Field.AffectsMultipleWeapons) { <p>@T.Markup("ObjectField.SharedWith.Html", string.Join(", ", Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct()))</p>
+                @if (Field.DynamicConsumersPossible == true) { <p>@T["ObjectField.DynamicConsumers"]</p> } }
+            <p><span class="badge">@Field.Provenance.Label</span> @(Field.Backing?.Settings ?? T["ObjectField.ReadOnlyEvidence"])</p><code>@Field.SemanticFieldId</code>
         </div></details>
     </div>
     @if (Editable && Field.AffectsMultipleWeapons && Workspace.Metadata?.Plans == null)
     {
-        <div class="field-wide"><AckPanel Title="Shared definition" Description="This edits a shared object; no weapon-local clone is proven." Items="@Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct().ToArray()" /></div>
+        <div class="field-wide"><AckPanel Title="@OptInWarnings.Title(T, "allow_shared")" Description="@T["ObjectField.Shared.Description"]" Items="@Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct().ToArray()" /></div>
     }
     @if (Saved != null && Workspace.CompositionIssue(Saved) is { } issue) { <p class="field-wide notice warning">@issue</p> }
     @if (Error != null) { <p class="field-wide dialog-error" role="alert">@Error</p> }

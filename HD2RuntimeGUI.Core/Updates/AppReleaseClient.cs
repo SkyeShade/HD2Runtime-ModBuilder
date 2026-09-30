@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using HD2RuntimeGUI.Core.GitHub;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Models;
 
 namespace HD2RuntimeGUI.Core.Updates;
@@ -44,14 +45,14 @@ public sealed class AppReleaseClient(HttpClient http) : IAppReleaseClient
     {
         HttpResponseMessage response;
         try { response = await http.SendAsync(GitHubHttp.Request(ReleasesUrl), HttpCompletionOption.ResponseHeadersRead, ct); }
-        catch (HttpRequestException e) { throw new AppUpdateCheckException(AppUpdateStatus.Offline, "GitHub could not be reached.", e); }
-        catch (TaskCanceledException e) when (!ct.IsCancellationRequested) { throw new AppUpdateCheckException(AppUpdateStatus.Offline, "GitHub did not respond in time.", e); }
+        catch (HttpRequestException e) { throw new AppUpdateCheckException(AppUpdateStatus.Offline, CoreText.Get("Messages.Update.Unreachable"), e); }
+        catch (TaskCanceledException e) when (!ct.IsCancellationRequested) { throw new AppUpdateCheckException(AppUpdateStatus.Offline, CoreText.Get("Messages.Update.Timeout"), e); }
         using (response)
         {
             if (response.StatusCode == HttpStatusCode.TooManyRequests || response.StatusCode == HttpStatusCode.Forbidden && response.Headers.TryGetValues("x-ratelimit-remaining", out var left) && left.FirstOrDefault() == "0")
-                throw new AppUpdateCheckException(AppUpdateStatus.RateLimited, "GitHub's rate limit for update checks was reached. Try again later.");
-            if (response.StatusCode == HttpStatusCode.NotFound) throw new AppUpdateCheckException(AppUpdateStatus.CheckFailed, "The HD2Runtime ModBuilder release list was not found.");
-            if (!response.IsSuccessStatusCode) throw new AppUpdateCheckException(AppUpdateStatus.CheckFailed, $"GitHub answered {(int)response.StatusCode}.");
+                throw new AppUpdateCheckException(AppUpdateStatus.RateLimited, CoreText.Get("Messages.Update.RateLimited"));
+            if (response.StatusCode == HttpStatusCode.NotFound) throw new AppUpdateCheckException(AppUpdateStatus.CheckFailed, CoreText.Get("Messages.Update.ReleaseListNotFound"));
+            if (!response.IsSuccessStatusCode) throw new AppUpdateCheckException(AppUpdateStatus.CheckFailed, CoreText.Format("Messages.Update.HttpStatus", (int)response.StatusCode));
             using var buffer = new MemoryStream();
             try
             {
@@ -59,8 +60,8 @@ public sealed class AppReleaseClient(HttpClient http) : IAppReleaseClient
                 return ParseLatest(buffer.ToArray());
             }
             catch (Exception e) when (e is JsonException or InvalidDataException or InvalidOperationException or KeyNotFoundException or FormatException)
-            { throw new AppUpdateCheckException(AppUpdateStatus.CheckFailed, "GitHub returned an unexpected release list.", e); }
-            catch (HttpRequestException e) { throw new AppUpdateCheckException(AppUpdateStatus.Offline, "The connection to GitHub was interrupted.", e); }
+            { throw new AppUpdateCheckException(AppUpdateStatus.CheckFailed, CoreText.Get("Messages.Update.UnexpectedReleaseList"), e); }
+            catch (HttpRequestException e) { throw new AppUpdateCheckException(AppUpdateStatus.Offline, CoreText.Get("Messages.Update.Interrupted"), e); }
         }
     }
 
@@ -116,18 +117,18 @@ public sealed class AppReleaseClient(HttpClient http) : IAppReleaseClient
     private async Task DownloadAsync(AppReleaseAsset asset, Stream output, IProgress<long>? progress, CancellationToken ct)
     {
         using var response = await GitHubHttp.SendDownloadAsync(http, new Uri(asset.DownloadUrl), "update", ct);
-        if (response.StatusCode == HttpStatusCode.NotFound) throw new InvalidDataException($"{asset.Name} is no longer available on GitHub.");
+        if (response.StatusCode == HttpStatusCode.NotFound) throw new InvalidDataException(CoreText.Format("Messages.Update.AssetGone", asset.Name));
         response.EnsureSuccessStatusCode();
-        if (response.Content.Headers.ContentLength is long length && length != asset.Size) throw new InvalidDataException($"{asset.Name} has an unexpected size.");
+        if (response.Content.Headers.ContentLength is long length && length != asset.Size) throw new InvalidDataException(CoreText.Format("Messages.Update.AssetUnexpectedSize", asset.Name));
         await using var input = await response.Content.ReadAsStreamAsync(ct);
         var buffer = new byte[81920]; long total = 0; int read;
         while ((read = await input.ReadAsync(buffer, ct)) != 0)
         {
             total += read;
-            if (total > asset.Size) throw new InvalidDataException($"{asset.Name} is larger than GitHub reported.");
+            if (total > asset.Size) throw new InvalidDataException(CoreText.Format("Messages.Update.AssetTooLarge", asset.Name));
             await output.WriteAsync(buffer.AsMemory(0, read), ct);
             progress?.Report(total);
         }
-        if (total != asset.Size) throw new InvalidDataException($"{asset.Name} download is incomplete.");
+        if (total != asset.Size) throw new InvalidDataException(CoreText.Format("Messages.Update.AssetIncomplete", asset.Name));
     }
 }

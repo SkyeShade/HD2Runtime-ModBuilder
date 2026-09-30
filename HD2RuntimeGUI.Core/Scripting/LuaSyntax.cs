@@ -1,11 +1,13 @@
 using System.Globalization;
 using System.Text;
+using HD2RuntimeGUI.Core.Localization;
 
 namespace HD2RuntimeGUI.Core.Scripting;
 
 // Syntax checking for hand-written mod Lua: a Lua 5.1 lexer and recursive-descent parser (with LuaJIT's goto and labels). It reports the
 // first syntax error the game's Lua would report, with its line and column, and never executes anything. Semantic checks against the SDK
-// (event names, action names) live in LuaScriptAnalyzer.
+// (event names, action names) live in LuaScriptAnalyzer. Error messages are UI text (LuaCheck.Syntax.*); the Lua tokens in them
+// ('end', '<eof>', the source near the error) are arguments.
 public enum LuaTokenKind { Name, Keyword, Number, String, Symbol, Eof }
 public sealed record LuaToken(LuaTokenKind Kind, string Text, int Line, int Column, string? Value = null)
 {
@@ -62,7 +64,7 @@ public static class LuaLexer
                     i += 2; var digits = i;
                     while (i < s.Length && (Uri.IsHexDigit(s[i]) || s[i] == '.')) i++;
                     if (i < s.Length && (s[i] is 'p' or 'P')) { i++; if (i < s.Length && (s[i] is '+' or '-')) i++; while (i < s.Length && char.IsDigit(s[i])) i++; }
-                    if (i == digits) throw Fail("malformed number near '" + s[start..i] + "'", start);
+                    if (i == digits) throw Fail(CoreText.Format("LuaCheck.Syntax.MalformedNumber", s[start..i]), start);
                 }
                 else
                 {
@@ -71,8 +73,8 @@ public static class LuaLexer
                 }
                 // LuaJIT 64-bit integer and imaginary suffixes.
                 while (i < s.Length && (s[i] is 'u' or 'U' or 'l' or 'L' or 'i' or 'I')) i++;
-                if (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] == '_')) { while (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] == '_' || s[i] == '.')) i++; throw Fail("malformed number near '" + s[start..i] + "'", start); }
-                if (s[start..i].Count(x => x == '.') > 1) throw Fail("malformed number near '" + s[start..i] + "'", start);
+                if (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] == '_')) { while (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] == '_' || s[i] == '.')) i++; throw Fail(CoreText.Format("LuaCheck.Syntax.MalformedNumber", s[start..i]), start); }
+                if (s[start..i].Count(x => x == '.') > 1) throw Fail(CoreText.Format("LuaCheck.Syntax.MalformedNumber", s[start..i]), start);
                 tokens.Add(new(LuaTokenKind.Number, s[start..i], startLine, col));
                 continue;
             }
@@ -81,11 +83,11 @@ public static class LuaLexer
                 i++; var value = new StringBuilder();
                 while (true)
                 {
-                    if (i >= s.Length || s[i] == '\n') throw Fail("unfinished string near '" + Near(s[start..Math.Min(i, s.Length)]) + "'", start);
+                    if (i >= s.Length || s[i] == '\n') throw Fail(CoreText.Format("LuaCheck.Syntax.UnfinishedStringNear", Near(s[start..Math.Min(i, s.Length)])), start);
                     if (s[i] == c) { i++; break; }
                     if (s[i] == '\\')
                     {
-                        i++; if (i >= s.Length) throw Fail("unfinished string", start);
+                        i++; if (i >= s.Length) throw Fail(CoreText.Get("LuaCheck.Syntax.UnfinishedString"), start);
                         var e = s[i];
                         switch (e)
                         {
@@ -101,17 +103,17 @@ public static class LuaLexer
                             case '\r': value.Append('\n'); i++; if (i < s.Length && s[i] == '\n') { NewLine(i); i++; } break;
                             case 'x':
                                 if (i + 2 < s.Length && Uri.IsHexDigit(s[i + 1]) && Uri.IsHexDigit(s[i + 2])) { value.Append((char)int.Parse(s.AsSpan(i + 1, 2), NumberStyles.HexNumber)); i += 3; }
-                                else throw Fail("invalid escape sequence '\\x'", i - 1);
+                                else throw Fail(CoreText.Format("LuaCheck.Syntax.InvalidEscape", "\\x"), i - 1);
                                 break;
                             case 'z':
                                 i++; while (i < s.Length && char.IsWhiteSpace(s[i])) { if (s[i] == '\n') NewLine(i); i++; }
                                 break;
                             case 'u' when i + 1 < s.Length && s[i + 1] == '{':
-                                var close = s.IndexOf('}', i + 2); if (close < 0) throw Fail("invalid escape sequence '\\u'", i - 1);
+                                var close = s.IndexOf('}', i + 2); if (close < 0) throw Fail(CoreText.Format("LuaCheck.Syntax.InvalidEscape", "\\u"), i - 1);
                                 i = close + 1; break;
                             default:
-                                if (char.IsDigit(e)) { var n = 0; var k = 0; while (k < 3 && i < s.Length && char.IsDigit(s[i])) { n = n * 10 + (s[i] - '0'); i++; k++; } if (n > 255) throw Fail("escape sequence too large", i - k - 1); value.Append((char)n); }
-                                else throw Fail("invalid escape sequence '\\" + e + "'", i - 1);
+                                if (char.IsDigit(e)) { var n = 0; var k = 0; while (k < 3 && i < s.Length && char.IsDigit(s[i])) { n = n * 10 + (s[i] - '0'); i++; k++; } if (n > 255) throw Fail(CoreText.Get("LuaCheck.Syntax.EscapeTooLarge"), i - k - 1); value.Append((char)n); }
+                                else throw Fail(CoreText.Format("LuaCheck.Syntax.InvalidEscape", "\\" + e), i - 1);
                                 break;
                         }
                         continue;
@@ -130,7 +132,7 @@ public static class LuaLexer
                 continue;
             }
             var symbol = Symbols.FirstOrDefault(x => string.CompareOrdinal(s, i, x, 0, x.Length) == 0);
-            if (symbol == null) throw Fail("unexpected symbol near '" + c + "'", i);
+            if (symbol == null) throw Fail(CoreText.Format("LuaCheck.Syntax.UnexpectedSymbol", c.ToString()), i);
             tokens.Add(new(LuaTokenKind.Symbol, symbol, startLine, col)); i += symbol.Length;
         }
         tokens.Add(new(LuaTokenKind.Eof, "<eof>", line, i - lineStart + 1));
@@ -152,7 +154,7 @@ public static class LuaLexer
             if (string.CompareOrdinal(s, j, close, 0, close.Length) == 0) return j + close.Length;
             j++;
         }
-        throw new LuaSyntaxException(startLine, col, "unfinished long " + what + " (starting at line " + startLine + ") near '<eof>'");
+        throw new LuaSyntaxException(startLine, col, CoreText.Format(what == "comment" ? "LuaCheck.Syntax.UnfinishedLongComment" : "LuaCheck.Syntax.UnfinishedLongString", startLine, "<eof>"));
     }
     private static string Near(string text) => text.Length > 40 ? text[..40] : text;
 }
@@ -165,7 +167,7 @@ public sealed class LuaParser
     public static List<LuaToken> Check(string source)
     {
         var tokens = LuaLexer.Tokenize(source); var parser = new LuaParser(tokens);
-        parser.varargs.Push(true); parser.Block(); parser.Expect("<eof>", "'<eof>' expected");
+        parser.varargs.Push(true); parser.Block(); parser.Expect("<eof>");
         return tokens;
     }
     // The first syntax error as a diagnostic, or none.
@@ -178,21 +180,26 @@ public sealed class LuaParser
     private LuaToken Next() => tokens[p++];
     private bool At(string text) => T.Is(text) || T.Kind == LuaTokenKind.Eof && text == "<eof>";
     private bool Accept(string text) { if (!At(text)) return false; p++; return true; }
-    private LuaSyntaxException Error(string message, LuaToken? at = null) { var t = at ?? T; return new(t.Line, t.Column, message + " near '" + (t.Kind == LuaTokenKind.Eof ? "<eof>" : t.Text) + "'"); }
-    private void Expect(string text, string? message = null) { if (!Accept(text)) throw Error(message ?? "'" + text + "' expected"); }
+    // A LuaCheck.Syntax.* message whose last placeholder is the token the error is near ('<eof>' at the end).
+    private LuaSyntaxException Error(string key, LuaToken? at = null, params object?[] args)
+    {
+        var t = at ?? T;
+        return new(t.Line, t.Column, CoreText.Format(key, [.. args, t.Kind == LuaTokenKind.Eof ? "<eof>" : t.Text]));
+    }
+    private void Expect(string text, string? key = null) { if (!Accept(text)) throw key == null ? Error("LuaCheck.Syntax.Expected", null, text) : Error(key); }
     private void Match(string close, string open, LuaToken opener)
     {
         if (Accept(close)) return;
-        throw Error(opener.Line == T.Line ? "'" + close + "' expected" : "'" + close + "' expected (to close '" + open + "' at line " + opener.Line + ")");
+        throw opener.Line == T.Line ? Error("LuaCheck.Syntax.Expected", null, close) : Error("LuaCheck.Syntax.ExpectedToClose", null, close, open, opener.Line);
     }
-    private string Name() { if (T.Kind != LuaTokenKind.Name) throw Error("<name> expected"); return Next().Text; }
+    private string Name() { if (T.Kind != LuaTokenKind.Name) throw Error("LuaCheck.Syntax.NameExpected", null, "<name>"); return Next().Text; }
     private static bool BlockEnd(LuaToken t) => t.Kind == LuaTokenKind.Eof || t.Kind == LuaTokenKind.Keyword && t.Text is "end" or "else" or "elseif" or "until";
 
     private void Block()
     {
         while (!BlockEnd(T))
         {
-            if (At("return")) { Next(); if (!BlockEnd(T) && !At(";")) ExpList(); Accept(";"); if (!BlockEnd(T)) throw Error("'<eof>' expected"); return; }
+            if (At("return")) { Next(); if (!BlockEnd(T) && !At(";")) ExpList(); Accept(";"); if (!BlockEnd(T)) throw Error("LuaCheck.Syntax.Expected", null, "<eof>"); return; }
             Statement();
         }
     }
@@ -212,7 +219,7 @@ public sealed class LuaParser
             case "for":
                 Next(); Name();
                 if (Accept("=")) { Expr(); Expect(","); Expr(); if (Accept(",")) Expr(); }
-                else { while (Accept(",")) Name(); Expect("in", "'=' or 'in' expected"); ExpList(); }
+                else { while (Accept(",")) Name(); Expect("in", "LuaCheck.Syntax.AssignOrInExpected"); ExpList(); }
                 Expect("do"); loops++; Block(); loops--; Match("end", "for", t); return;
             case "repeat": Next(); loops++; Block(); loops--; Match("until", "repeat", t); Expr(); return;
             case "function":
@@ -225,8 +232,8 @@ public sealed class LuaParser
                 do Name(); while (Accept(","));
                 if (Accept("=")) ExpList();
                 return;
-            case "return": throw Error("'<eof>' expected");
-            case "break": Next(); if (loops == 0) throw Error("no loop to break", t); return;
+            case "return": throw Error("LuaCheck.Syntax.Expected", null, "<eof>");
+            case "break": Next(); if (loops == 0) throw Error("LuaCheck.Syntax.NoLoop", t); return;
             case "goto": Next(); Name(); return;
             case "::": Next(); Name(); Expect("::"); return;
         }
@@ -234,11 +241,11 @@ public sealed class LuaParser
         var callable = SuffixedExpr(out var lastIsCall, out var assignable);
         if (At("=") || At(","))
         {
-            if (!assignable) throw Error("syntax error");
-            while (Accept(",")) { SuffixedExpr(out _, out var ok); if (!ok) throw Error("syntax error"); }
+            if (!assignable) throw Error("LuaCheck.Syntax.Error");
+            while (Accept(",")) { SuffixedExpr(out _, out var ok); if (!ok) throw Error("LuaCheck.Syntax.Error"); }
             Expect("="); ExpList(); return;
         }
-        if (!lastIsCall || !callable) throw Error("syntax error");
+        if (!lastIsCall || !callable) throw Error("LuaCheck.Syntax.Error");
     }
     private void FunctionBody(LuaToken opener)
     {
@@ -273,7 +280,7 @@ public sealed class LuaParser
         var t = T;
         if (t.Kind is LuaTokenKind.Number or LuaTokenKind.String) { Next(); return; }
         if (t.Kind == LuaTokenKind.Keyword && t.Text is "nil" or "true" or "false") { Next(); return; }
-        if (t.Is("...")) { if (!varargs.Peek()) throw Error("cannot use '...' outside a vararg function"); Next(); return; }
+        if (t.Is("...")) { if (!varargs.Peek()) throw Error("LuaCheck.Syntax.Vararg"); Next(); return; }
         if (t.Is("{")) { Table(); return; }
         if (t.Is("function")) { Next(); FunctionBody(t); return; }
         SuffixedExpr(out _, out _);
@@ -285,7 +292,7 @@ public sealed class LuaParser
         lastIsCall = false; assignable = false;
         if (T.Kind == LuaTokenKind.Name) { Next(); assignable = true; }
         else if (At("(")) { var open = Next(); Expr(); Match(")", "(", open); }
-        else throw Error("unexpected symbol");
+        else throw Error("LuaCheck.Syntax.UnexpectedSymbol");
         while (true)
         {
             if (Accept(".")) { Name(); assignable = true; lastIsCall = false; }
@@ -299,7 +306,7 @@ public sealed class LuaParser
     {
         if (T.Kind == LuaTokenKind.String) { Next(); return; }
         if (At("{")) { Table(); return; }
-        var open = T; Expect("(", "function arguments expected");
+        var open = T; Expect("(", "LuaCheck.Syntax.FunctionArgs");
         if (!At(")")) ExpList();
         Match(")", "(", open);
     }

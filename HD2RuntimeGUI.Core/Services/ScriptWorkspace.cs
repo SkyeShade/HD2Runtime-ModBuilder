@@ -1,13 +1,14 @@
+using System.Globalization;
 using System.Text;
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Models;
 using HD2RuntimeGUI.Core.Scripting;
 
 namespace HD2RuntimeGUI.Core.Services;
 
 /// <summary>ModBuilder saved a different text than the working copy now holds: src/addon.lua was changed outside ModBuilder.</summary>
-public sealed class CustomLuaConflictException(string disk) : IOException(
-    CustomLuaSettings.RelativePath + " changed outside ModBuilder since it was last saved. Reload it from disk, or overwrite it with ModBuilder's text.")
+public sealed class CustomLuaConflictException(string disk) : IOException(CoreText.Format("CustomLua.Conflict.Error", CustomLuaSettings.RelativePath))
 {
     public string DiskText { get; } = disk;
 }
@@ -43,7 +44,7 @@ public sealed partial class BuilderWorkspace
     }
     // Why the working copy blocks an export (changed outside ModBuilder and not reloaded or overwritten), or null.
     public string? CustomLuaSyncIssue() => CustomLuaDisk() is { Exists: true, InSync: false }
-        ? CustomLuaSettings.RelativePath + " changed outside ModBuilder since it was last saved. Reload it, or overwrite it with ModBuilder's text, before exporting." : null;
+        ? CoreText.Format("CustomLua.SyncIssue", CustomLuaSettings.RelativePath) : null;
     public IReadOnlyList<LuaDiagnostic> CustomLuaDiagnostics(string? text = null) =>
         (text ?? Project?.CustomLua?.Source) is { } source ? LuaScriptAnalyzer.Analyze(source, Metadata?.Events, Metadata?.Entities?.Enemies) : [];
 
@@ -57,16 +58,16 @@ public sealed partial class BuilderWorkspace
     /// changed outside ModBuilder, unless the user chose to overwrite it.</summary>
     public async Task SaveCustomLuaAsync(string text, bool overwriteExternal = false)
     {
-        if (text.Length > CustomLuaSettings.MaxLength) throw new InvalidDataException("Custom Lua is limited to 1,000,000 characters.");
+        if (text.Length > CustomLuaSettings.MaxLength) throw new InvalidDataException(CoreText.Format("CustomLua.TooLong", CustomLuaSettings.MaxLength.ToString("N0", CultureInfo.InvariantCulture)));
         if (CustomLuaDisk() is { Exists: true, InSync: false, Text: { } disk } && disk != text && !overwriteExternal) throw new CustomLuaConflictException(disk);
         await EditCustomLuaAsync(p => p.CustomLua = (p.CustomLua ?? new()) with { Source = text }, write: true);
     }
     /// <summary>Takes the working copy's text (changed in an external editor) into the project.</summary>
     public async Task ReloadCustomLuaAsync()
     {
-        var disk = CustomLuaDisk() ?? throw new InvalidOperationException("This project has no custom Lua.");
+        var disk = CustomLuaDisk() ?? throw new InvalidOperationException(CoreText.Get("CustomLua.Missing"));
         if (!disk.Exists) { await EditCustomLuaAsync(_ => { }, write: true); return; }
-        if (disk.Text!.Length > CustomLuaSettings.MaxLength || disk.Text.Contains('\0')) throw new InvalidDataException(CustomLuaSettings.RelativePath + " is not a Lua text file ModBuilder can keep.");
+        if (disk.Text!.Length > CustomLuaSettings.MaxLength || disk.Text.Contains('\0')) throw new InvalidDataException(CoreText.Format("CustomLua.NotText", CustomLuaSettings.RelativePath));
         await EditCustomLuaAsync(p => p.CustomLua = p.CustomLua! with { Source = disk.Text }, write: false);
     }
     public async Task OpenCustomLuaExternallyAsync()

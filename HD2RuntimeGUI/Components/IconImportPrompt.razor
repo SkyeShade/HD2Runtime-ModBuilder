@@ -5,14 +5,14 @@
 @if (Icons.Manifest == null)
 {
     <div class="notice cat-note icon-import-prompt" data-icon-import-prompt>
-        @if (Icons.Importing) { <strong data-icons-importing>Importing game icons from your Helldivers 2 install…</strong><span> Lists update as soon as they are ready.</span> }
+        @if (Icons.Importing) { <strong data-icons-importing>@T["Icons.Prompt.Importing"]</strong><span>@(" ")@T["Icons.Prompt.ListsUpdate"]</span> }
         else
         {
-            <strong>Game icons are not imported.</strong>@(" ")
+            <strong>@T["Icons.Prompt.NotImported"]</strong>@(" ")
             @if (GamePath is { } path)
-            { <span>Lists show letter glyphs until the icons are read from your Helldivers 2 install.</span>
-              <button class="primary" data-import-icons-inline disabled="@Busy" @onclick="() => Import(path)">@(Busy ? "Importing…" : "Import game icons")</button> }
-            else { <span>No Helldivers 2 install was found automatically. Choose its data folder in Settings → Game icons.</span> }
+            { <span>@T["Icons.Prompt.LetterGlyphs"]</span>
+              <button class="primary" data-import-icons-inline disabled="@Busy" @onclick="() => Import(path)">@(Busy ? T["Icons.Importing"] : T["Icons.Prompt.Import"])</button> }
+            else { <span>@T["Icons.Prompt.NoInstall"]</span> }
         }
         @if ((Error ?? Icons.LastError) is { } error) { <p class="notice warning" data-icon-import-failed>@error</p> }
     </div>

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -83,7 +84,7 @@ public static class ModOptionsService
             foreach (var c in p.EntityChanges)
             {
                 EntityField f; try { f = EntityChangeService.Resolve(sdk.Entities, c); } catch (InvalidDataException) { continue; }
-                var blocker = f.IsReference ? "Reference swaps cannot be bound to in-game options." : f.IsPickup ? "Drop-pod contents are pickup references and cannot be in-game options." : Scalar(f.Type);
+                var blocker = f.IsReference ? CoreText.Get("Messages.Build.Options.ReferenceBlocked") : f.IsPickup ? CoreText.Get("Messages.Build.Options.PickupBlocked") : Scalar(f.Type);
                 // Magazine attachments are identified by semantic ID; show their published name.
                 var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Enemy != null ? EntityLua.Describe(sdk.Entities, f.Target) : f.Target.Entity;
                 result.Add(Numeric(EntityKey(c.InstanceKey), "entity", owner, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
@@ -106,7 +107,7 @@ public static class ModOptionsService
                 {
                     var finite = !StratagemUses.IsUnlimited(c.ExpectedValue) && !StratagemUses.IsUnlimited(c.DesiredValue) && f.Transitions?.Contains(StratagemUses.FiniteToFinite) == true;
                     result.Add(Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, "integer", f.Unit, c.ExpectedValue, c.DesiredValue,
-                        c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), finite ? null : "Unlimited mission uses are a token, not a number, so only a finite-to-finite use count can be an in-game option.",
+                        c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), finite ? null : CoreText.Get("Messages.Build.Options.UnlimitedBlocked"),
                         v => StratagemUses.CheckTransition(f, c.ExpectedValue, StratagemUses.Normalize(f, Json(v)))));
                     continue;
                 }
@@ -120,9 +121,9 @@ public static class ModOptionsService
     private static string? Scalar(string type) => type switch
     {
         "integer" or "number" => null,
-        "boolean" => "Runtime binds toggle options only to an operation's enabled state, never to a field value, so boolean edits cannot be in-game options.",
-        WeaponCapability.FireModeSet => "A fire-mode list is not a number, so it cannot be an in-game option.",
-        _ => "Only numeric and enum fields can be in-game options.",
+        "boolean" => CoreText.Get("Messages.Build.Options.BooleanBlocked"),
+        WeaponCapability.FireModeSet => CoreText.Get("Messages.Build.Options.FireModeBlocked"),
+        _ => CoreText.Get("Messages.Build.Options.TypeBlocked"),
     };
     private static JsonElement Json(double v) => JsonSerializer.SerializeToElement(v);
     private static double Number(JsonElement v) => v.ValueKind == JsonValueKind.Number ? v.GetDouble() : double.NaN;
@@ -139,10 +140,10 @@ public static class ModOptionsService
             var values = f.EnumValues?.Where(p => p.Value.ValueKind == JsonValueKind.Number && (f.AllowedValues == null || f.AllowedValues.Contains(p.Value.GetInt32())))
                 .Select(p => new OptionEnumValue(Label(p.Key), p.Value.GetDouble())).ToArray() ?? [];
             return new(key, domain, owner, f.DisplayName, "enum", f.Unit, Number(expected), Number(desired), active, ensure, null, null, values,
-                values.Length >= MinChoices ? null : "This field publishes fewer than two selectable values.", v => WeaponChangeService.ValidateValue(f, Json(v)));
+                values.Length >= MinChoices ? null : CoreText.Get("Messages.Build.Options.FewChoices"), v => WeaponChangeService.ValidateValue(f, Json(v)));
         }
         return Numeric(key, domain, owner, f.DisplayName, f.Type, f.Unit, expected, desired, active, ensure, f.Min, f.Max,
-            f.Type is "projectile_reference" or "explosion_reference" ? "Reference swaps cannot be bound to in-game options." : Scalar(f.Type),
+            f.Type is "projectile_reference" or "explosion_reference" ? CoreText.Get("Messages.Build.Options.ReferenceBlocked") : Scalar(f.Type),
             v => WeaponChangeService.ValidateValue(f, Json(v)));
     }
     private static string Label(string name) => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(name.Replace('_', ' '));
@@ -204,67 +205,68 @@ public static class ModOptionsService
     {
         var issues = new List<string>();
         if (p.ModOptions is not { Enabled: true } s || s.Rows.Count == 0) return issues;
-        if (!Supported(sdk)) { issues.Add($"In-game options need HD2Runtime SDK 0.25.0 or newer; this project is bound to {sdk.Version}."); return issues; }
+        if (!Supported(sdk)) { issues.Add(CoreText.Format("Messages.Build.Options.SdkTooOld", sdk.Version)); return issues; }
         issues.AddRange(PageIssues(s));
-        if (s.Fallback is not (FallbackDefault or FallbackDisable)) issues.Add($"Unknown fallback '{s.Fallback}'.");
-        else if (s.Fallback == FallbackDisable && !FallbackSupported(sdk)) issues.Add($"Keeping option-bound edits inactive without Mod Options Menu (fallback='disable') needs HD2Runtime SDK 0.25.1; SDK {sdk.Version} already keeps them inactive. Rebind to 0.25.1 or choose the default.");
-        foreach (var dup in s.Rows.GroupBy(r => r.Id, StringComparer.Ordinal).Where(g => g.Count() > 1)) issues.Add($"Option id '{dup.Key}' is used more than once.");
-        foreach (var dup in s.Rows.GroupBy(r => r.Key, StringComparer.Ordinal).Where(g => g.Count() > 1)) issues.Add("One edited field has more than one in-game option.");
+        if (s.Fallback is not (FallbackDefault or FallbackDisable)) issues.Add(CoreText.Format("Messages.Build.Options.UnknownFallback", s.Fallback));
+        else if (s.Fallback == FallbackDisable && !FallbackSupported(sdk)) issues.Add(CoreText.Format("Messages.Build.Options.FallbackNeedsSdk", sdk.Version));
+        foreach (var dup in s.Rows.GroupBy(r => r.Id, StringComparer.Ordinal).Where(g => g.Count() > 1)) issues.Add(CoreText.Format("Messages.Build.Options.DuplicateId", dup.Key));
+        foreach (var dup in s.Rows.GroupBy(r => r.Key, StringComparer.Ordinal).Where(g => g.Count() > 1)) issues.Add(CoreText.Get("Messages.Build.Options.DuplicateField"));
         var active = ActiveRows(p, sdk);
-        if (active.Count + 1 > MaxRows) issues.Add($"Mod Options Menu shows at most {MaxRows} options per mod (the master toggle is one); this project has {active.Count + 1}.");
+        if (active.Count + 1 > MaxRows) issues.Add(CoreText.Format("Messages.Build.Options.TooManyRows", MaxRows, active.Count + 1));
         foreach (var (row, t) in active) Row(issues, s, row, t);
         return issues;
     }
     public static IReadOnlyList<string> PageIssues(ModOptionsSettings s)
     {
         var issues = new List<string>();
-        if (!OptionId.IsMatch(s.PageId) || s.PageId.Length > MaxPageIdLength) issues.Add($"Options page id must be 1 to {MaxPageIdLength} letters, digits, _ or -.");
-        Plain(issues, "Options page title", s.Title, MaxTitleBytes);
-        Plain(issues, "Master toggle label", s.MasterLabel, MaxLabelBytes);
-        if (s.MasterDescription != null) Plain(issues, "Master toggle description", s.MasterDescription, MaxDescriptionBytes);
+        if (!OptionId.IsMatch(s.PageId) || s.PageId.Length > MaxPageIdLength) issues.Add(CoreText.Format("Messages.Build.Options.PageId", MaxPageIdLength));
+        Plain(issues, s.Title, MaxTitleBytes, "Messages.Build.Options.PageTitlePlain");
+        Plain(issues, s.MasterLabel, MaxLabelBytes, "Messages.Build.Options.MasterLabelPlain");
+        if (s.MasterDescription != null) Plain(issues, s.MasterDescription, MaxDescriptionBytes, "Messages.Build.Options.MasterDescriptionPlain");
         return issues;
     }
     public static IReadOnlyList<string> RowIssues(ModOptionsSettings s, ModOptionRow row, OptionTarget t) { var issues = new List<string>(); Row(issues, s, row, t); return issues; }
     private static void Row(List<string> issues, ModOptionsSettings s, ModOptionRow row, OptionTarget t)
     {
-        var name = "Option '" + (string.IsNullOrWhiteSpace(row.Label) ? row.Id : row.Label) + "'";
+        var name = string.IsNullOrWhiteSpace(row.Label) ? row.Id : row.Label;
         if (!OptionId.IsMatch(row.Id) || row.Id == MasterId || s.PageId.Length + 1 + row.Id.Length > MaxIdLength)
-            issues.Add($"{name}: id must use letters, digits, _ or - (not '{MasterId}'), at most {MaxIdLength - s.PageId.Length - 1} characters.");
-        Plain(issues, name + " label", row.Label, MaxLabelBytes);
-        if (row.Description != null) Plain(issues, name + " description", row.Description, MaxDescriptionBytes);
-        if (!t.Ensure) issues.Add($"{name}: in-game options need Ensure; this edit is set to apply once.");
+            issues.Add(CoreText.Format("Messages.Build.Options.Row.Id", name, MasterId, MaxIdLength - s.PageId.Length - 1));
+        Plain(issues, row.Label, MaxLabelBytes, "Messages.Build.Options.Row.LabelPlain", name);
+        if (row.Description != null) Plain(issues, row.Description, MaxDescriptionBytes, "Messages.Build.Options.Row.DescriptionPlain", name);
+        if (!t.Ensure) issues.Add(CoreText.Format("Messages.Build.Options.Row.NeedsEnsure", name));
         void Sample(double v)
         {
             // The published safe range first (clearer), then the field's own validation, as Runtime validates every sample at declaration.
-            if (t.RangeMin is double lo && v < lo || t.RangeMax is double hi && v > hi) { issues.Add($"{name}: value {Format(v)} is outside the Runtime-published safe range {Format(t.RangeMin)}–{Format(t.RangeMax)}."); return; }
-            try { t.Check(v); } catch (InvalidDataException e) { issues.Add($"{name}: value {Format(v)} is not accepted by {t.DisplayName}: {e.Message}"); }
+            if (t.RangeMin is double lo && v < lo || t.RangeMax is double hi && v > hi) { issues.Add(CoreText.Format("Messages.Build.Options.Row.OutsideRange", name, Format(v), Format(t.RangeMin), Format(t.RangeMax))); return; }
+            try { t.Check(v); } catch (InvalidDataException e) { issues.Add(CoreText.Format("Messages.Build.Options.Row.NotAccepted", name, Format(v), t.DisplayName, e.Message)); }
         }
         if (row.Kind == Slider)
         {
-            if (t.EnumValues != null) { issues.Add($"{name}: enum fields use a choice control."); return; }
-            if (!double.IsFinite(row.Min) || !double.IsFinite(row.Max) || !double.IsFinite(row.Step) || !double.IsFinite(row.Default)) { issues.Add($"{name}: slider values must be finite numbers."); return; }
-            if (!(row.Min < row.Max && row.Step > 0 && row.Step <= row.Max - row.Min)) { issues.Add($"{name}: slider needs min < max and 0 < step ≤ max − min."); return; }
-            if (Decimals(row.Step) is not int decimals) { issues.Add($"{name}: slider step may have at most {MaxDecimals} decimal places."); return; }
-            if (t.Integer && new[] { row.Min, row.Max, row.Step, row.Default }.Any(v => v != Math.Truncate(v))) issues.Add($"{name}: {t.DisplayName} is an integer field; min, max, step and default must be whole numbers.");
-            if (row.Default < row.Min || row.Default > row.Max) issues.Add($"{name}: default must lie between min and max.");
-            else if (Snap(row, decimals) != row.Default) issues.Add($"{name}: default must sit on a step (min + n × step).");
+            if (t.EnumValues != null) { issues.Add(CoreText.Format("Messages.Build.Options.Row.EnumNeedsChoice", name)); return; }
+            if (!double.IsFinite(row.Min) || !double.IsFinite(row.Max) || !double.IsFinite(row.Step) || !double.IsFinite(row.Default)) { issues.Add(CoreText.Format("Messages.Build.Options.Row.SliderFinite", name)); return; }
+            if (!(row.Min < row.Max && row.Step > 0 && row.Step <= row.Max - row.Min)) { issues.Add(CoreText.Format("Messages.Build.Options.Row.SliderBounds", name)); return; }
+            if (Decimals(row.Step) is not int decimals) { issues.Add(CoreText.Format("Messages.Build.Options.Row.StepDecimals", name, MaxDecimals)); return; }
+            if (t.Integer && new[] { row.Min, row.Max, row.Step, row.Default }.Any(v => v != Math.Truncate(v))) issues.Add(CoreText.Format("Messages.Build.Options.Row.IntegerField", name, t.DisplayName));
+            if (row.Default < row.Min || row.Default > row.Max) issues.Add(CoreText.Format("Messages.Build.Options.Row.DefaultRange", name));
+            else if (Snap(row, decimals) != row.Default) issues.Add(CoreText.Format("Messages.Build.Options.Row.DefaultStep", name));
             foreach (var v in new[] { row.Min, row.Max, row.Default }.Concat(row.Min + row.Step < row.Max ? [Snap(row, decimals, row.Min + row.Step)] : []).Distinct()) Sample(v);
         }
         else if (row.Kind == Choice)
         {
-            if (row.Choices.Count < MinChoices || row.Choices.Count > MaxChoices) issues.Add($"{name}: a choice needs {MinChoices} to {MaxChoices} entries.");
-            if (row.Values.Count != row.Choices.Count) { issues.Add($"{name}: every choice needs exactly one value."); return; }
-            foreach (var c in row.Choices) Plain(issues, name + " choice", c, MaxChoiceBytes);
-            if (row.DefaultIndex < 1 || row.DefaultIndex > row.Choices.Count) issues.Add($"{name}: default must be one of the choices.");
-            foreach (var v in row.Values) if (!double.IsFinite(v)) issues.Add($"{name}: choice values must be finite numbers."); else Sample(v);
-            if (t.EnumValues != null && row.Values.Any(v => t.EnumValues.All(e => e.Value != v))) issues.Add($"{name}: choose only values this field allows.");
+            if (row.Choices.Count < MinChoices || row.Choices.Count > MaxChoices) issues.Add(CoreText.Format("Messages.Build.Options.Row.ChoiceCount", name, MinChoices, MaxChoices));
+            if (row.Values.Count != row.Choices.Count) { issues.Add(CoreText.Format("Messages.Build.Options.Row.ChoiceValues", name)); return; }
+            foreach (var c in row.Choices) Plain(issues, c, MaxChoiceBytes, "Messages.Build.Options.Row.ChoicePlain", name);
+            if (row.DefaultIndex < 1 || row.DefaultIndex > row.Choices.Count) issues.Add(CoreText.Format("Messages.Build.Options.Row.DefaultChoice", name));
+            foreach (var v in row.Values) if (!double.IsFinite(v)) issues.Add(CoreText.Format("Messages.Build.Options.Row.ChoiceFinite", name)); else Sample(v);
+            if (t.EnumValues != null && row.Values.Any(v => t.EnumValues.All(e => e.Value != v))) issues.Add(CoreText.Format("Messages.Build.Options.Row.ChoiceAllowed", name));
         }
-        else issues.Add($"{name}: unknown control '{row.Kind}'.");
+        else issues.Add(CoreText.Format("Messages.Build.Options.Row.UnknownControl", name, row.Kind));
     }
-    private static void Plain(List<string> issues, string name, string? text, int maxBytes)
+    // key: the message for this text; its placeholders are the given names, then the byte limit.
+    private static void Plain(List<string> issues, string? text, int maxBytes, string key, params object?[] names)
     {
         if (string.IsNullOrWhiteSpace(text) || Encoding.UTF8.GetByteCount(text) > maxBytes || text.Any(char.IsControl))
-            issues.Add($"{name} must be plain text of 1 to {maxBytes} bytes on one line.");
+            issues.Add(CoreText.Format(key, [.. names, maxBytes]));
     }
     // Same step precision and snapping as HD2Runtime / Mod Options Menu.
     public static int? Decimals(double step)
@@ -284,7 +286,7 @@ public static class ModOptionsService
     public static OptionBindings? Bindings(ModProject p, SdkMetadata sdk)
     {
         if (p.ModOptions is not { Enabled: true } s || s.Rows.Count == 0) return null;
-        if (Issues(p, sdk) is { Count: > 0 } issues) throw new InvalidDataException("In-game options: " + issues[0]);
+        if (Issues(p, sdk) is { Count: > 0 } issues) throw new InvalidDataException(CoreText.Format("Messages.Build.Options.Blocked", issues[0]));
         var active = ActiveRows(p, sdk);
         if (active.Count == 0) return null;
         var lua = new StringBuilder();
@@ -321,7 +323,7 @@ public sealed class OptionBindings(string header, IReadOnlyDictionary<string, st
     public string Value(IEnumerable<string?> keys, string literal)
     {
         var bound = keys.Where(k => k != null && Variables.ContainsKey(k)).Select(k => Variables[k!]).Distinct().ToArray();
-        if (bound.Length > 1) throw new InvalidDataException("In-game options: two options control one shared Runtime value. Keep one of them.");
+        if (bound.Length > 1) throw new InvalidDataException(CoreText.Get("Messages.Build.Options.SharedValue"));
         return bound.Length == 1 ? bound[0] : literal;
     }
     public string Value(string? key, string literal) => Value([key], literal);
@@ -332,7 +334,7 @@ public sealed class OptionBindings(string header, IReadOnlyDictionary<string, st
         var body = request.Replace("\n", "\n    ");
         if (options != null && options.Bound(keys))
         {
-            if (!ensure) throw new InvalidDataException("In-game options need Ensure: an option-bound edit shares its Runtime operation with an edit set to apply once.");
+            if (!ensure) throw new InvalidDataException(CoreText.Get("Messages.Build.Options.SharedOperationEnsure"));
             return "hd2.ensure({\n    enabled=" + Master + ",\n    " + kind + "=" + body + "\n})";
         }
         return ensure ? "hd2.ensure({\n    " + kind + "=" + body + "\n})" : "hd2." + kind + "(" + request + ")";

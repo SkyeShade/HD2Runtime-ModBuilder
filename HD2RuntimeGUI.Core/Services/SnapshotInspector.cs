@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Storage;
 
@@ -27,8 +28,8 @@ public sealed class SnapshotReader : ISnapshotReader
         {
             using var file = File.OpenRead(path); using var input = new BinaryReader(file, new UTF8Encoding(false, true));
             void Require(bool valid, string message) { if (!valid) throw new InvalidDataException(message); }
-            Require(input.ReadBytes(8).AsSpan().SequenceEqual("HD2SNAP\0"u8), "Not an HD2SNAP file.");
-            Require(input.ReadUInt32() == 1, "Unsupported snapshot schema.");
+            Require(input.ReadBytes(8).AsSpan().SequenceEqual("HD2SNAP\0"u8), CoreText.Get("Messages.Snapshot.NotSnapshot"));
+            Require(input.ReadUInt32() == 1, CoreText.Get("Messages.Snapshot.UnsupportedSchema"));
             var headerLength = input.ReadUInt32(); var reserve = input.ReadUInt32();
             Require(reserve == HeaderReserve && headerLength is >= 200 and <= HeaderReserve && file.Length >= reserve, "Invalid snapshot header bounds.");
             var regionCount = input.ReadUInt32(); var moduleCount = input.ReadUInt32();
@@ -61,14 +62,14 @@ public sealed class SnapshotReader : ISnapshotReader
             Require(file.Position == headerLength && totalVirtual == virtualBytes && totalCaptured == capturedBytes && cursor == (ulong)file.Length, "Snapshot totals or file size differ.");
             return new(System.IO.Path.GetFullPath(path), file.Length, File.GetLastWriteTimeUtc(path), runtime, game, captured, unix, architecture, page, fingerprints, virtualBytes, capturedBytes, modules, regions);
         }
-        catch (Exception e) when (e is EndOfStreamException or OverflowException or DecoderFallbackException) { throw new InvalidDataException("Malformed or truncated snapshot.", e); }
+        catch (Exception e) when (e is EndOfStreamException or OverflowException or DecoderFallbackException) { throw new InvalidDataException(CoreText.Get("Messages.Snapshot.Malformed"), e); }
     }
     public byte[] ReadBytes(SnapshotInfo snapshot, ulong address, int count)
     {
-        if (count is < 1 or > 4096) throw new InvalidDataException("Raw inspection is limited to 4096 bytes per read.");
+        if (count is < 1 or > 4096) throw new InvalidDataException(CoreText.Get("Messages.Snapshot.ReadLimit"));
         var fileInfo = new FileInfo(snapshot.Path);
-        if (fileInfo.Length != snapshot.FileLength || fileInfo.LastWriteTimeUtc != snapshot.LastWriteUtc) throw new InvalidDataException("Snapshot changed; relink it before inspecting.");
-        var region = snapshot.Regions.FirstOrDefault(r => r.Status == 1 && address >= r.Base && address - r.Base < r.Size && (ulong)count <= r.Size - (address - r.Base)) ?? throw new InvalidDataException("Address range is not fully captured in this snapshot.");
+        if (fileInfo.Length != snapshot.FileLength || fileInfo.LastWriteTimeUtc != snapshot.LastWriteUtc) throw new InvalidDataException(CoreText.Get("Messages.Snapshot.Changed"));
+        var region = snapshot.Regions.FirstOrDefault(r => r.Status == 1 && address >= r.Base && address - r.Base < r.Size && (ulong)count <= r.Size - (address - r.Base)) ?? throw new InvalidDataException(CoreText.Get("Messages.Snapshot.NotCaptured"));
         using var file = File.OpenRead(snapshot.Path); file.Position = checked((long)(region.DataOffset + address - region.Base));
         var bytes = new byte[count]; file.ReadExactly(bytes); return bytes;
     }
@@ -93,14 +94,14 @@ public sealed class SnapshotWorkspace(ISnapshotReader reader, IResearchFilePicke
         var file = System.IO.Path.Combine(paths.Root, "research.json");
         if (!File.Exists(file)) return;
         try { await LoadAsync((await JsonStorage.ReadAsync<Link>(file)).SnapshotPath); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { Status = "Relink snapshot: " + e.Message; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { Status = CoreText.Format("Messages.Snapshot.Relink", e.Message); }
     }
     public async Task PickSnapshotAsync() { var file = await picker.PickAsync(false); if (file != null) await LoadAsync(file); }
     public async Task LoadAsync(string file)
     {
         var next = await Task.Run(() => reader.Open(file));
         await JsonStorage.WriteAtomicAsync(System.IO.Path.Combine(paths.Root, "research.json"), new Link(next.Path));
-        Snapshot = next; Map = null; RawText = ""; Status = "Read-only snapshot loaded.";
+        Snapshot = next; Map = null; RawText = ""; Status = CoreText.Get("Messages.Snapshot.Loaded");
     }
     public async Task PickReportAsync()
     {
@@ -108,17 +109,17 @@ public sealed class SnapshotWorkspace(ISnapshotReader reader, IResearchFilePicke
     }
     public async Task LoadReportAsync(string file)
     {
-        if (Snapshot == null) throw new InvalidOperationException("Load a snapshot first.");
-        if (new FileInfo(file).Length > 32 * 1024 * 1024) throw new InvalidDataException("Mapper report exceeds 32 MiB.");
+        if (Snapshot == null) throw new InvalidOperationException(CoreText.Get("Messages.Snapshot.LoadFirst"));
+        if (new FileInfo(file).Length > 32 * 1024 * 1024) throw new InvalidDataException(CoreText.Get("Messages.Snapshot.ReportTooLarge"));
         await using var stream = File.OpenRead(file);
         var map = await JsonSerializer.DeserializeAsync<SnapshotMap>(stream, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, MaxDepth = 48 });
-        if (map == null || map.SchemaVersion != 2 || map.GameFingerprints != Snapshot.Fingerprints || map.Writes != 0 || map.ProtectionChanges != 0 || map.FixtureFallback != "disabled" || map.Mode != "snapshot" || map.RuntimeCandidates == null || map.RuntimeCandidates.Count > 10000 || map.RuntimeCandidates.Any(r => r.Ownership == null || r.ResolvedFields == null || r.Attacks == null || r.CredibleWikiIdentities == null || !Regex.IsMatch(r.ResourceHash, "\\A0x[A-Fa-f0-9]{16}\\z"))) throw new InvalidDataException("Mapper report is invalid or does not match the snapshot's build fingerprints.");
-        Map = map; Status = "Read-only mapper report linked by build fingerprints. Confirm it came from this capture; matching builds alone do not establish capture identity.";
+        if (map == null || map.SchemaVersion != 2 || map.GameFingerprints != Snapshot.Fingerprints || map.Writes != 0 || map.ProtectionChanges != 0 || map.FixtureFallback != "disabled" || map.Mode != "snapshot" || map.RuntimeCandidates == null || map.RuntimeCandidates.Count > 10000 || map.RuntimeCandidates.Any(r => r.Ownership == null || r.ResolvedFields == null || r.Attacks == null || r.CredibleWikiIdentities == null || !Regex.IsMatch(r.ResourceHash, "\\A0x[A-Fa-f0-9]{16}\\z"))) throw new InvalidDataException(CoreText.Get("Messages.Snapshot.ReportInvalid"));
+        Map = map; Status = CoreText.Get("Messages.Snapshot.ReportLinked");
     }
     public async Task InspectAsync(string hex)
     {
-        if (Snapshot == null) throw new InvalidOperationException("Load a snapshot first.");
-        if (!ulong.TryParse(hex.Replace("0x", "", StringComparison.OrdinalIgnoreCase), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var address)) throw new InvalidDataException("Enter a hexadecimal snapshot address.");
+        if (Snapshot == null) throw new InvalidOperationException(CoreText.Get("Messages.Snapshot.LoadFirst"));
+        if (!ulong.TryParse(hex.Replace("0x", "", StringComparison.OrdinalIgnoreCase), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var address)) throw new InvalidDataException(CoreText.Get("Messages.Snapshot.EnterAddress"));
         var bytes = await Task.Run(() => reader.ReadBytes(Snapshot, address, 256));
         RawText = string.Join('\n', bytes.Chunk(16).Select((row, i) => $"{address + (ulong)(i * 16):X16}  {string.Join(' ', row.Select(b => b.ToString("X2")))}"));
     }

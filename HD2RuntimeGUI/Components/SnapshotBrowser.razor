@@ -1,29 +1,29 @@
 @inject SnapshotWorkspace Research
 @inject BuilderWorkspace Workspace
-<div class="page-heading"><div><div class="eyebrow">READ-ONLY RESEARCH</div><h1>Snapshot Browser</h1><p>Inspect a selected capture independently of mod authoring.</p></div><button class="primary" @onclick="() => Run(Research.PickSnapshotAsync)">Load / relink .hd2snap</button></div>
-@if (Busy) { <p role="status">Reading snapshot…</p> }
+<div class="page-heading"><div><div class="eyebrow">@T["Snapshot.Eyebrow"]</div><h1>@T["Snapshot.Title"]</h1><p>@T["Snapshot.Tagline"]</p></div><button class="primary" @onclick="() => Run(Research.PickSnapshotAsync)">@T["Snapshot.Load"]</button></div>
+@if (Busy) { <p role="status">@T["Snapshot.Reading"]</p> }
 @if (Error != null) { <div class="notice error" role="alert">@Error</div> }
 @if (Research.Status != null) { <p>@Research.Status</p> }
 @if (Research.Snapshot is { } snapshot)
 {
-    <section class="panel"><h2>Capture metadata</h2><code class="path">@snapshot.Path</code><p>@snapshot.CapturedAt · Runtime @snapshot.RuntimeVersion · Game @snapshot.GameVersion</p><p>@snapshot.Regions.Count regions · @snapshot.CapturedBytes.ToString("N0") captured bytes · architecture 0x@snapshot.Architecture.ToString("X")</p>
-        <div class="metadata-row"><span>Executable SHA-256</span><code class="path">@snapshot.Fingerprints.Exe</code></div><div class="metadata-row"><span>game.dll SHA-256</span><code class="path">@snapshot.Fingerprints.Dll</code></div>
-        <span class="badge">@(snapshot.Fingerprints == Workspace.SdkStatus?.Installed.PlayerWeapons?.BuildFingerprints ? "Matches selected SDK build" : "Historical / different SDK build")</span>
+    <section class="panel"><h2>@T["Snapshot.Capture.Title"]</h2><code class="path">@snapshot.Path</code><p>@T.Format("Snapshot.Capture.Versions", snapshot.CapturedAt, snapshot.RuntimeVersion, snapshot.GameVersion)</p><p>@T.Format("Snapshot.Capture.Stats", snapshot.Regions.Count, snapshot.CapturedBytes.ToString("N0"), snapshot.Architecture.ToString("X"))</p>
+        <div class="metadata-row"><span>@T["Snapshot.Capture.ExeHash"]</span><code class="path">@snapshot.Fingerprints.Exe</code></div><div class="metadata-row"><span>game.dll SHA-256</span><code class="path">@snapshot.Fingerprints.Dll</code></div>
+        <span class="badge">@(snapshot.Fingerprints == Workspace.SdkStatus?.Installed.PlayerWeapons?.BuildFingerprints ? T["Snapshot.Capture.MatchesSdk"] : T["Snapshot.Capture.DifferentSdk"])</span>
     </section>
-    <section class="panel"><div class="panel-heading"><h2>Resources → components → fields</h2><button @onclick="() => Run(Research.PickReportAsync)">Link Runtime weapon-map.json</button></div><p class="subtle">Link an existing read-only report from HD2Runtime's snapshot scanner. This GUI does not execute downloaded tools.</p>
+    <section class="panel"><div class="panel-heading"><h2>@T["Snapshot.Resources.Title"]</h2><button @onclick="() => Run(Research.PickReportAsync)">@T["Snapshot.Resources.Link"]</button></div><p class="subtle">@T["Snapshot.Resources.Help"]</p>
         @if (Research.Map is { } map)
         {
-            <input aria-label="Search snapshot resources" placeholder="Resource hash, weapon name or component…" @bind="Search" @bind:event="oninput" />
+            <input aria-label="@T["Snapshot.Resources.Search.Aria"]" placeholder="@T["Snapshot.Resources.Search.Placeholder"]" @bind="Search" @bind:event="oninput" />
             @foreach (var resource in map.RuntimeCandidates.Where(r => r.ResourceHash.Contains(Search, StringComparison.OrdinalIgnoreCase) || r.CredibleWikiIdentities.Any(n => n.Contains(Search, StringComparison.OrdinalIgnoreCase)) || r.Ownership.Keys.Any(n => n.Contains(Search, StringComparison.OrdinalIgnoreCase))).Take(100))
-            { <details class="provenance"><summary>@resource.ResourceHash · @string.Join(", ", resource.CredibleWikiIdentities)</summary><p>Entity row @resource.EntityRow</p>
+            { <details class="provenance"><summary>@resource.ResourceHash · @string.Join(", ", resource.CredibleWikiIdentities)</summary><p>@T.Format("Snapshot.Resources.EntityRow", resource.EntityRow)</p>
                 @foreach (var component in resource.Ownership) { <details><summary>@component.Key</summary><pre>@component.Value.ToString()</pre></details> }
-                <details><summary>Resolved fields</summary>@foreach (var field in resource.ResolvedFields) { <p><strong>@field.Key</strong> <code>@field.Value.ToString()</code></p> }</details>
-                <details><summary>Attack settings</summary>@foreach (var attack in resource.Attacks) { <pre>@attack.ToString()</pre> }</details>
+                <details><summary>@T["Snapshot.Resources.ResolvedFields"]</summary>@foreach (var field in resource.ResolvedFields) { <p><strong>@field.Key</strong> <code>@field.Value.ToString()</code></p> }</details>
+                <details><summary>@T["Snapshot.Resources.Attacks"]</summary>@foreach (var attack in resource.Attacks) { <pre>@attack.ToString()</pre> }</details>
             </details> }
         }
     </section>
-    <section class="panel"><h2>Raw captured bytes</h2><p>Read-only, 256 bytes per view. The published semantic report contains record identities, not addresses; automatic field-to-byte navigation is unavailable.</p><label for="snapshot-address">Snapshot address (hexadecimal)</label><div class="input-action"><input id="snapshot-address" @bind="Address" /><button @onclick="() => Run(() => Research.InspectAsync(Address))">Inspect bytes</button></div>
-        <details><summary>Captured regions</summary>@foreach (var region in snapshot.Regions.Where(r => r.Status == 1 && r.Size >= 256).Take(100)) { <button @onclick="() => Region(region)">0x@region.Base.ToString("X") · @region.Size bytes</button> }</details>
+    <section class="panel"><h2>@T["Snapshot.Raw.Title"]</h2><p>@T["Snapshot.Raw.Help"]</p><label for="snapshot-address">@T["Snapshot.Raw.Address"]</label><div class="input-action"><input id="snapshot-address" @bind="Address" /><button @onclick="() => Run(() => Research.InspectAsync(Address))">@T["Snapshot.Raw.Inspect"]</button></div>
+        <details><summary>@T["Snapshot.Raw.Regions"]</summary>@foreach (var region in snapshot.Regions.Where(r => r.Status == 1 && r.Size >= 256).Take(100)) { <button @onclick="() => Region(region)">@T.Format("Snapshot.Raw.Region", region.Base.ToString("X"), region.Size)</button> }</details>
         <pre>@Research.RawText</pre>
     </section>
 }

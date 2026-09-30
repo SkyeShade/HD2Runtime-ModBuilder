@@ -1,4 +1,5 @@
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -15,7 +16,7 @@ public sealed partial class BuilderWorkspace
         var project = Project; await weaponEditGate.WaitAsync();
         try
         {
-            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException("Active project changed.");
+            if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var previous = project.EntityChanges.ToList(); var approvals = new Dictionary<string, string>(project.EntityApprovals); var format = project.FormatVersion;
             try
             {
@@ -30,7 +31,7 @@ public sealed partial class BuilderWorkspace
     }
     public Task SetEntityAsync(string instance, string value, bool acceptBaseline = false) => EditEntityAsync(p =>
     {
-        var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException("Vehicle/backpack capability is missing.");
+        var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.VehicleCapabilityMissing"));
         var next = entityChanges.Create(Metadata!, instance, value);
         if (EntityChangeService.Saved(p, f) is { } old)
         {
@@ -50,24 +51,23 @@ public sealed partial class BuilderWorkspace
         var catalog = EntityChangeService.Catalog(Metadata!);
         if (p.EntityChanges.FirstOrDefault(c => c.InstanceKey != f.InstanceKey && catalog.Field(c.InstanceKey) is { } other && other.BackingObjectId == f.BackingObjectId
                 && other.ApiFieldConstant == f.ApiFieldConstant && other.Target != f.Target) is { } clash)
-            throw new InvalidDataException(f.DisplayName + " is one shared value, already edited through " + EntityLua.Describe(catalog, catalog.Field(clash.InstanceKey)!.Target)
-                + ". Change it there, or reset that edit first.");
+            throw new InvalidDataException(CoreText.Format("Messages.Entity.SharedValueEditedElsewhere", f.DisplayName, EntityLua.Describe(catalog, catalog.Field(clash.InstanceKey)!.Target)));
         p.EntityChanges.Add(next);
     });
     public Task SetEntityReferenceAcknowledgedAsync(string instance, bool acknowledged) => EditEntityAsync(p =>
     {
-        var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException("Vehicle/backpack capability is missing.");
-        var old = EntityChangeService.Saved(p, f) ?? throw new InvalidDataException("Choose a replacement weapon before acknowledging.");
-        if (!f.IsReference) throw new InvalidDataException("Only mount references need this acknowledgement.");
+        var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.VehicleCapabilityMissing"));
+        var old = EntityChangeService.Saved(p, f) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.ChooseReplacementFirst"));
+        if (!f.IsReference) throw new InvalidDataException(CoreText.Get("Messages.Entity.OnlyMountReferences"));
         p.EntityChanges[p.EntityChanges.IndexOf(old)] = old with { ReferenceAcknowledgement = acknowledged ? EntityChangeService.ReferenceEvidence(f, old.DesiredValue) : null };
     });
     // One acknowledgement per magazine attachment definition: records the shared-scope approval (allow_shared) and the
     // unverified-effect acknowledgement (allow_unverified_effect) for every edited field of that definition.
     public Task SetAttachmentAcknowledgedAsync(string attachment, bool acknowledged) => EditEntityAsync(p =>
     {
-        var catalog = EntityChangeService.Catalog(Metadata!).Attachments ?? throw new InvalidDataException("Rebind to SDK 0.23.1 or newer for magazine attachments.");
+        var catalog = EntityChangeService.Catalog(Metadata!).Attachments ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.AttachmentsNeedSdk"));
         var fields = catalog.FieldInstances.Where(f => f.Target.Attachment == attachment).ToArray();
-        if (fields.Length == 0) throw new InvalidDataException("Unknown magazine attachment.");
+        if (fields.Length == 0) throw new InvalidDataException(CoreText.Get("Messages.Entity.UnknownAttachment"));
         if (acknowledged) p.EntityApprovals[fields[0].SharedScopeKey] = EntityChangeService.ApprovalEvidence(fields[0]); else p.EntityApprovals.Remove(fields[0].SharedScopeKey);
         p.EntityChanges = p.EntityChanges.Select(c => fields.FirstOrDefault(f => f.InstanceKey == c.InstanceKey) is { } f
             ? c with { ReferenceAcknowledgement = acknowledged ? EntityChangeService.ReferenceEvidence(f, c.DesiredValue) : null } : c).ToList();
@@ -97,8 +97,8 @@ public sealed partial class BuilderWorkspace
     }
     private static EntityField[] BoosterFields(EntityAuthoring catalog, string booster)
     {
-        var fields = (catalog.Boosters ?? throw new InvalidDataException("Rebind to SDK 0.24.0 or newer for booster authoring.")).FieldInstances.Where(f => f.Target.Booster == booster).ToArray();
-        return fields.Length > 0 ? fields : throw new InvalidDataException("This booster has no published writable fields.");
+        var fields = (catalog.Boosters ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.BoostersNeedSdk"))).FieldInstances.Where(f => f.Target.Booster == booster).ToArray();
+        return fields.Length > 0 ? fields : throw new InvalidDataException(CoreText.Get("Messages.Entity.BoosterNoFields"));
     }
     // 0.26.0 groups (backpack ammo, vehicle weapons, drop-pod racks): one checkbox acknowledges Runtime's published opt-in
     // (allow_unverified_effect / allow_unverified_reference) for every saved edit that currently requires it.
@@ -114,7 +114,7 @@ public sealed partial class BuilderWorkspace
     // allow_shared for one published shared scope (a shared rack, projectile row or mounted weapon), recorded with its current evidence.
     public Task SetEntityApprovalAsync(string instance, bool approved) => EditEntityAsync(p =>
     {
-        var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException("Capability is missing.");
+        var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.CapabilityMissing"));
         if (approved && f.AllowSharedRequired) p.EntityApprovals[f.SharedScopeKey] = EntityChangeService.ApprovalEvidence(f); else p.EntityApprovals.Remove(f.SharedScopeKey);
     });
     public Task ResetEntityAsync(string? resource = null, string? entity = null, string? instance = null) => EditEntityAsync(p =>

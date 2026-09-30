@@ -1,19 +1,24 @@
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 
 namespace HD2RuntimeGUI.Core.Services;
 
 // Stratagem categories of the public authoring model. Membership comes from published SDK families;
 // a family this build does not know is still browsable under "All", never forced into a category.
-public sealed record StratagemCategory(string Key, string Label, string CssClass, string[] Families);
+public sealed record StratagemCategory(string Key, string LabelKey, string CssClass, string[] Families)
+{
+    // The display label in the current UI language; Key, CssClass and Families are ids.
+    public string Label => CoreText.Get(LabelKey);
+}
 public static class StratagemCategories
 {
     // Vehicles and backpacks are support stratagems (SDK families "vehicle" / "backpack"). They are listed once, under Support,
     // and a call-in Runtime links to a vehicle or backpack opens that vehicle/backpack editor together with its call-in settings.
-    public static readonly StratagemCategory Support = new("support", "Support", "cat-support", ["support", "vehicle", "backpack"]);
-    public static readonly StratagemCategory Offensive = new("offensive", "Offensive", "cat-offensive", ["orbital", "eagle"]);
-    public static readonly StratagemCategory Defensive = new("defensive", "Defensive", "cat-defensive", ["sentry", "emplacement", "mine"]);
+    public static readonly StratagemCategory Support = new("support", "Nav.Category.Support", "cat-support", ["support", "vehicle", "backpack"]);
+    public static readonly StratagemCategory Offensive = new("offensive", "Nav.Category.Offensive", "cat-offensive", ["orbital", "eagle"]);
+    public static readonly StratagemCategory Defensive = new("defensive", "Nav.Category.Defensive", "cat-defensive", ["sentry", "emplacement", "mine"]);
     // Mission stratagems (Resupply, family "mission" in 0.28.0 development SDKs); listed only when the SDK publishes one.
-    public static readonly StratagemCategory Mission = new("mission", "Mission", "cat-mission", ["mission"]);
+    public static readonly StratagemCategory Mission = new("mission", "Nav.Category.Mission", "cat-mission", ["mission"]);
     public static readonly IReadOnlyList<StratagemCategory> All = [Support, Offensive, Defensive, Mission];
     public static StratagemCategory? Of(string family) => All.FirstOrDefault(c => c.Families.Contains(family));
     public static StratagemCategory? Find(string key) => All.FirstOrDefault(c => c.Key == key);
@@ -37,6 +42,7 @@ public static class StratagemCategories
 
 // Sidebar model. Only public authoring destinations appear; legacy mapped-resource categories
 // (legacy vehicles, equipment, legacy stratagems) are deliberately absent. Destinations stay visible without a project.
+// Labels are in the current UI language; Page and Section are ids.
 public sealed record NavItem(string Page, string Label, string Section, int? Count = null, string? CssClass = null, bool Child = false,
     bool RequiresProject = true);
 public static class Navigation
@@ -47,14 +53,14 @@ public static class Navigation
         var entities = sdk?.Entities;
         var items = new List<NavItem>
         {
-            new("overview", "Overview", Workspace),
-            new("player-weapons", "Player Weapons", Workspace, sdk?.PlayerWeapons?.Weapons.Count),
-            new("stratagems", "Stratagems", Workspace, sdk?.Stratagems?.Stratagems.Count(s => StratagemCategories.Listed(s, entities))),
+            new("overview", CoreText.Get("Nav.Overview"), Workspace),
+            new("player-weapons", CoreText.Get("Nav.PlayerWeapons"), Workspace, sdk?.PlayerWeapons?.Weapons.Count),
+            new("stratagems", CoreText.Get("Nav.Stratagems"), Workspace, sdk?.Stratagems?.Stratagems.Count(s => StratagemCategories.Listed(s, entities))),
         };
         // hd2.throwable authoring (grenades, knife, mines, shield) appears after Player Weapons when the bound SDK publishes
         // ThrowableAuthoringCapabilities.json (0.27.0+).
         if (entities?.Throwables is { } throwables)
-            items.Insert(items.FindIndex(i => i.Page == "player-weapons") + 1, new("throwables", "Throwables", Workspace, throwables.Throwables.Length, StratagemCategories.ThrowableCssClass));
+            items.Insert(items.FindIndex(i => i.Page == "player-weapons") + 1, new("throwables", CoreText.Get("Nav.Throwables"), Workspace, throwables.Throwables.Length, StratagemCategories.ThrowableCssClass));
         if (sdk?.Stratagems is { } catalog)
             items.AddRange(StratagemCategories.All.Select(c => new NavItem("stratagems:" + c.Key, c.Label, Workspace, StratagemCategories.Count(catalog, c, entities), c.CssClass, true))
                 .Where(i => i.Page != "stratagems:" + StratagemCategories.Mission.Key || i.Count > 0));
@@ -63,23 +69,23 @@ public static class Navigation
         // Support equipment lives in Stratagems → Support: linked weapons inside their call-in, unlinked ones in its
         // "Unlinked support equipment" group. Only SDKs without a stratagem catalog (0.17–0.20.x) keep a separate destination.
         if (sdk?.Stratagems == null && sdk?.Advanced?.Support is { } support)
-            items.Add(new("support", "Support equipment", Workspace, support.Weapons.Count, StratagemCategories.Support.CssClass));
+            items.Add(new("support", CoreText.Get("Nav.SupportEquipment"), Workspace, support.Weapons.Count, StratagemCategories.Support.CssClass));
         // hd2.booster authoring appears only when the bound SDK publishes BoosterAuthoringCapabilities.json (0.24.0+).
-        if (entities?.Boosters is { } boosters) items.Add(new("boosters", "Boosters", Workspace, boosters.Boosters.Length, StratagemCategories.BoosterCssClass));
+        if (entities?.Boosters is { } boosters) items.Add(new("boosters", CoreText.Get("Nav.Boosters"), Workspace, boosters.Boosters.Length, StratagemCategories.BoosterCssClass));
         // hd2.enemy / hd2.structure authoring appears when the bound SDK publishes EnemyAuthoringCapabilities.json (unreleased Runtime 0.28.0
         // development SDKs today). Structures are their own destination, as Runtime publishes them with their own accessor.
         if (entities?.Enemies is { } enemies)
         {
-            items.Add(new("enemies", "Enemies", Workspace, enemies.Of(EnemyAuthoringReader.Enemy).Count(), StratagemCategories.EnemyCssClass));
-            items.Add(new("structures", "Structures", Workspace, enemies.Of(EnemyAuthoringReader.Structure).Count(), StratagemCategories.StructureCssClass));
+            items.Add(new("enemies", CoreText.Get("Nav.Enemies"), Workspace, enemies.Of(EnemyAuthoringReader.Enemy).Count(), StratagemCategories.EnemyCssClass));
+            items.Add(new("structures", CoreText.Get("Nav.Structures"), Workspace, enemies.Of(EnemyAuthoringReader.Structure).Count(), StratagemCategories.StructureCssClass));
         }
-        items.Add(new("changes", "Changes", Workspace, project == null ? null : modifications));
+        items.Add(new("changes", CoreText.Get("Nav.Changes"), Workspace, project == null ? null : modifications));
         // Hand-written Runtime Lua (src/addon.lua): events, timers, keybinds and gameplay actions. Works with every SDK; the event reference
         // and snippets need an SDK that publishes EventCatalog.json.
-        items.Add(new("scripting", "Custom Lua", Workspace));
-        items.Add(new("lua", "Lua Preview", Workspace));
-        items.Add(new("export", "Build / Export", Workspace));
-        items.Add(new("research", "Snapshot Research", Research, RequiresProject: false));
+        items.Add(new("scripting", CoreText.Get("Nav.CustomLua"), Workspace));
+        items.Add(new("lua", CoreText.Get("Nav.LuaPreview"), Workspace));
+        items.Add(new("export", CoreText.Get("Nav.BuildExport"), Workspace));
+        items.Add(new("research", CoreText.Get("Nav.SnapshotResearch"), Research, RequiresProject: false));
         return items;
     }
 }

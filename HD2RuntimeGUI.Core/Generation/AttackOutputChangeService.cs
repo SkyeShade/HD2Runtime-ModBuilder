@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -12,13 +13,13 @@ public static class AttackOutputChangeService
 {
     public static readonly string[] FlagOrder = ["allow_shared", "allow_unverified_effect", "allow_unverified_reference"];
     public static AttackOutputCatalog Catalog(SdkMetadata sdk) => sdk.AttackOutputs
-        ?? throw new InvalidDataException("Attack outputs need an SDK that publishes " + AttackOutputReader.FileName + " (a local HD2Runtime development SDK until 0.28.0).");
+        ?? throw new InvalidDataException(CoreText.Format("Messages.Build.Output.SdkMissing", AttackOutputReader.FileName));
     public static (AttackOutputHost Host, AttackOutputDonor Donor) Resolve(SdkMetadata sdk, string weapon, string role, string output)
     {
         var catalog = Catalog(sdk);
         var host = catalog.Host(sdk.PlayerWeapons!, weapon, role, out var reason) ?? throw new InvalidDataException(weapon + " · " + role.Replace('_', ' ') + ": " + reason);
         var donor = catalog.Donors(host).FirstOrDefault(d => d.Output.SemanticId == output)
-            ?? throw new InvalidDataException("The attack output is no longer selectable for " + weapon + ": " + output + ". Review or reset this change.");
+            ?? throw new InvalidDataException(CoreText.Format("Messages.Build.Output.NoLongerSelectable", weapon, output));
         if (!donor.Allowed) throw new InvalidDataException(donor.Refusal);
         return (host, donor);
     }
@@ -38,19 +39,19 @@ public static class AttackOutputChangeService
     {
         var (host, donor) = Resolve(sdk, c.Weapon, c.AttackRole, c.Output);
         if (c.Mechanism != host.Mechanism || c.Evidence != Evidence(host, donor) || !c.Acknowledgements.Order(StringComparer.Ordinal).SequenceEqual(donor.Acknowledgements))
-            throw new InvalidDataException(c.Weapon + " → " + c.OutputName + ": the active projectile source, output or opt-ins changed. Choose the output again to review it, or reset the change.");
+            throw new InvalidDataException(CoreText.Format("Messages.Build.Output.Changed", c.Weapon, c.OutputName));
     }
     public static IReadOnlyList<string> Operations(ModProject project, SdkMetadata sdk)
     {
         var active = (project.AttackOutputChanges ?? []).Where(c => c.Enabled).OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal).ToArray();
         if (active.Length == 0) return [];
-        if (active.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)) throw new InvalidDataException("An attack can fire only one output.");
+        if (active.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)) throw new InvalidDataException(CoreText.Get("Messages.Build.Output.OnePerAttack"));
         var output = new List<string>();
         foreach (var c in active)
         {
             Validate(sdk, c);
             if (project.ProjectileChanges.Any(p => p.Enabled && p.Weapon == c.Weapon && p.AttackRole == c.AttackRole))
-                throw new InvalidDataException(c.Weapon + " has both a projectile swap and an attack output. Keep one of them.");
+                throw new InvalidDataException(CoreText.Format("Messages.Build.Output.SwapConflict", c.Weapon));
             var weapon = "hd2.weapon(" + LuaGenerator.Quote(c.Weapon) + ")";
             var target = c.Mechanism == AttackOutputHost.Component ? weapon + ":attack(" + LuaGenerator.Quote(c.AttackRole) + ")" : weapon + ":ammunition()";
             var field = c.Mechanism == AttackOutputHost.Component ? "hd2.fields.attack.projectile" : "hd2.fields.ammunition.projectile";

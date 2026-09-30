@@ -3,22 +3,22 @@
 @inject AppUpdateService Updates
 @* Settings → Application updates: the ModBuilder itself, from GitHub Releases. HD2Runtime SDK updates have their own panel. *@
 <section class="panel app-update-settings" data-app-updates>
-    <div class="panel-heading"><h2>Application updates</h2><span class="badge @BadgeClass" data-app-update-status="@Updates.Status">@StatusLabel</span></div>
+    <div class="panel-heading"><h2>@T["AppUpdate.Settings.Title"]</h2><span class="badge @BadgeClass" data-app-update-status="@Updates.Status">@StatusLabel</span></div>
     <div class="stats">
         <div><small>HD2RUNTIME MODBUILDER</small><strong data-app-current-version>@Updates.CurrentVersion</strong></div>
-        <div><small>LATEST RELEASE</small><strong data-app-latest-version>@(Updates.Latest?.Version ?? "Unknown")</strong></div>
-        <div><small>LAST CHECKED</small><strong>@(Updates.LastChecked?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not yet")</strong></div>
+        <div><small>@T["AppUpdate.Settings.LatestRelease"]</small><strong data-app-latest-version>@(Updates.Latest?.Version ?? T["Common.Unknown"])</strong></div>
+        <div><small>@T["AppUpdate.Settings.LastChecked"]</small><strong>@(Updates.LastChecked?.ToLocalTime().ToString(T["Common.DateTime.Format"], T.Culture) ?? T["Common.NotYet"])</strong></div>
     </div>
     @if (Updates.CheckMessage is { } message && Updates.Status is not (AppUpdateStatus.UpToDate or AppUpdateStatus.UpdateAvailable)) { <p class="subtle" data-app-update-message>@message</p> }
     @if (Updates.InstallError is { } error) { <p class="notice warning" data-app-update-settings-error>@error</p> }
-    <p class="subtle">Source: github.com/@BuildInfo.Repository · checked when the app starts and every 10 minutes while it runs. Updates replace only the application files; projects, SDKs, icons and settings in <code>%LOCALAPPDATA%\HD2RuntimeGUI</code> are kept.</p>
+    <p class="subtle">@T.Markup("AppUpdate.Settings.Source.Html", BuildInfo.Repository, "%LOCALAPPDATA%\\HD2RuntimeGUI")</p>
     <div class="actions">
-        <button @onclick="() => Updates.CheckAsync()" disabled="@(Updates.Status == AppUpdateStatus.Checking || Updates.Installing)" data-app-update-check>@(Updates.Status == AppUpdateStatus.Checking ? "Checking…" : "Check for updates")</button>
+        <button @onclick="() => Updates.CheckAsync()" disabled="@(Updates.Status == AppUpdateStatus.Checking || Updates.Installing)" data-app-update-check>@(Updates.Status == AppUpdateStatus.Checking ? T["AppUpdate.Checking"] : T["AppUpdate.Check"])</button>
         @if (Updates.UpdateAvailable)
         {
-            @if (Updates.InstallNeedsManualDownload) { <button class="primary" @onclick="OpenNotes">Open release page</button> }
-            else { <button class="primary" @onclick="() => Updates.InstallAsync()" disabled="@Updates.Installing" data-app-update-settings-install>@(Updates.Installing ? Updates.InstallStage : "Install update " + Updates.Latest!.Version)</button> }
-            <button @onclick="OpenNotes">View release notes</button>
+            @if (Updates.InstallNeedsManualDownload) { <button class="primary" @onclick="OpenNotes">@T["AppUpdate.OpenReleasePage"]</button> }
+            else { <button class="primary" @onclick="() => Updates.InstallAsync()" disabled="@Updates.Installing" data-app-update-settings-install>@(Updates.Installing ? Updates.InstallStage : T.Format("AppUpdate.InstallVersion", Updates.Latest!.Version))</button> }
+            <button @onclick="OpenNotes">@T["AppUpdate.ViewReleaseNotes"]</button>
         }
     </div>
 </section>
@@ -28,8 +28,9 @@
     private void Refresh() => _ = InvokeAsync(StateHasChanged);
     private string StatusLabel => Updates.Status switch
     {
-        AppUpdateStatus.UpToDate => "Up to date", AppUpdateStatus.UpdateAvailable => "Update available", AppUpdateStatus.Offline => "Offline",
-        AppUpdateStatus.RateLimited => "Rate limited", AppUpdateStatus.CheckFailed => "Check failed", AppUpdateStatus.Checking => "Checking", _ => "Not checked"
+        AppUpdateStatus.UpToDate => T["AppUpdate.Status.UpToDate"], AppUpdateStatus.UpdateAvailable => T["AppUpdate.Status.UpdateAvailable"], AppUpdateStatus.Offline => T["AppUpdate.Status.Offline"],
+        AppUpdateStatus.RateLimited => T["AppUpdate.Status.RateLimited"], AppUpdateStatus.CheckFailed => T["AppUpdate.Status.CheckFailed"], AppUpdateStatus.Checking => T["AppUpdate.Status.Checking"],
+        _ => T["AppUpdate.Status.NotChecked"]
     };
     private string BadgeClass => Updates.Status switch { AppUpdateStatus.UpToDate => "green", AppUpdateStatus.UpdateAvailable => "brand", AppUpdateStatus.NotChecked or AppUpdateStatus.Checking => "", _ => "amber" };
     private async Task OpenNotes() { try { await Updates.OpenReleaseNotesAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException) { } }

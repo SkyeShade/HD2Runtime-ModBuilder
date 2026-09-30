@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Storage;
 
@@ -162,7 +163,7 @@ public sealed class GameIconStore(AppPaths paths)
         var type = GameDataReader.Hash("xaml");
         var ids = new[] { XamlIcons.StratagemLibrary, XamlIcons.BoosterLibrary }.ToDictionary(n => n, n => new GameDataReader.ResourceId(GameDataReader.Hash(n), type));
         var data = await Task.Run(() => GameDataReader.Open(gameDataPath).ReadMain(ids.Values.ToArray(), ct), ct);
-        foreach (var (name, id) in ids) if (!data.ContainsKey(id)) throw new InvalidDataException("Icon library not found in the game data: " + name);
+        foreach (var (name, id) in ids) if (!data.ContainsKey(id)) throw new InvalidDataException(CoreText.Format("Messages.Icons.LibraryMissing", name));
         var stage = Folder + ".staging-" + Guid.NewGuid().ToString("N");
         try
         {
@@ -217,11 +218,11 @@ public sealed class GameIconStore(AppPaths paths)
     // Why the cache for this install needs (re)importing, or null when it is current.
     public string? RefreshReason(string gameDataPath)
     {
-        if (Manifest is not { } m) return "No game icons are imported yet.";
-        if (m.FormatVersion < ManifestFormat || m.GameSignature == null) return "The icon cache predates game-change detection.";
-        if (GameSignature(gameDataPath) != m.GameSignature) return "The game files changed since the icons were imported.";
+        if (Manifest is not { } m) return CoreText.Get("Messages.Icons.Reason.NotImported");
+        if (m.FormatVersion < ManifestFormat || m.GameSignature == null) return CoreText.Get("Messages.Icons.Reason.CacheOutdated");
+        if (GameSignature(gameDataPath) != m.GameSignature) return CoreText.Get("Messages.Icons.Reason.GameChanged");
         foreach (var (source, kind) in m.Sources.Select(s => (s, s.Resource == XamlIcons.BoosterLibrary ? Booster : Stratagem)))
-            if (Count(kind) < source.Icons) return "Imported icon files are missing.";
+            if (Count(kind) < source.Icons) return CoreText.Get("Messages.Icons.Reason.FilesMissing");
         return null;
     }
     public (string Path, string Reason)? AutoImportPlan()

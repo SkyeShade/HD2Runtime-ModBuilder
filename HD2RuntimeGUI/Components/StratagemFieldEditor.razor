@@ -5,57 +5,57 @@
     <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
         @if (Field.Type == StratagemUses.Type && Field.Editable && Field.Caveat != null) { <span class="uses-caveat" tabindex="0" title="@Field.Caveat" aria-label="@Field.Caveat" data-uses-caveat>ⓘ</span> }
         <span class="field-flags">
-            @if (Field.Shared) { <span class="badge amber" data-flag="allow_shared" title="Shared object: the edit also changes every listed consumer">Shared · @Field.SharedConsumers.Length</span> }
-            @if (saved != null) { <span class="badge modified-badge">Modified</span> }
-            @if (saved != null && Field.Type == StratagemUses.Type && !StratagemChangeService.EffectRequired(Field, saved.DesiredValue)) { <span class="badge green" data-gameplay-proven>Gameplay-proven</span> }
+            @if (Field.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["StratagemField.Shared.Tooltip"]">@T.Format("StratagemField.Shared.Badge", Field.SharedConsumers.Length)</span> }
+            @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (saved != null && Field.Type == StratagemUses.Type && !StratagemChangeService.EffectRequired(Field, saved.DesiredValue)) { <span class="badge green" data-gameplay-proven>@T["StratagemField.GameplayProven"]</span> }
         </span></div>
     <div class="field-value">
-        @if (!Field.Editable) { <span class="badge" title="@Field.Reason">Read-only</span> }
+        @if (!Field.Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
         else if (Field.Type == StratagemUses.Type)
         {
             @* 0.26.0 mission uses: [Unlimited ▼] or [Limited ▼] [N]. Unlimited is Runtime's own 'unlimited' token; only the modes the
                stratagem's published transitions allow are offered, and the count is editable only where Runtime allows that change. *@
             var uses = StratagemUses.Control(Field, saved?.DesiredValue ?? Field.CurrentDefault);
             <div class="mission-uses" data-mission-uses="@Field.Target.Stratagem" data-uses-mode="@(uses.Unlimited ? "unlimited" : "limited")">
-                <select data-uses-select aria-label="Mission uses mode" disabled="@(Workspace.Project == null || !uses.CanUnlimited || !uses.CanLimited)"
-                    title="@(uses.CanUnlimited && uses.CanLimited ? null : "The bound SDK publishes no other mission-use mode for this stratagem.")"
+                <select data-uses-select aria-label="@T["StratagemField.Uses.Mode"]" disabled="@(Workspace.Project == null || !uses.CanUnlimited || !uses.CanLimited)"
+                    title="@(uses.CanUnlimited && uses.CanLimited ? null : T["StratagemField.Uses.NoOtherMode"])"
                     @onchange='e => Commit(e.Value?.ToString() == "unlimited" ? "\"unlimited\"" : uses.Count.ToString(System.Globalization.CultureInfo.InvariantCulture))'>
-                    @if (uses.CanUnlimited) { <option value="unlimited" selected="@uses.Unlimited">Unlimited</option> }
-                    @if (uses.CanLimited) { <option value="limited" selected="@(!uses.Unlimited)">Limited</option> }
+                    @if (uses.CanUnlimited) { <option value="unlimited" selected="@uses.Unlimited">@T["StratagemField.Uses.Unlimited"]</option> }
+                    @if (uses.CanLimited) { <option value="limited" selected="@(!uses.Unlimited)">@T["StratagemField.Uses.Limited"]</option> }
                 </select>
                 @if (!uses.Unlimited)
                 {
                     <input type="number" step="1" min="@(Field.Min ?? 1)" max="@(Field.Max ?? 100)" value="@uses.Count" disabled="@(Workspace.Project == null || !uses.CountEditable)"
-                        data-uses-count aria-label="Limited mission uses" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" />
+                        data-uses-count aria-label="@T["StratagemField.Uses.Count"]" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" />
                 }
             </div>
         }
         else if (Field.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange='e => Commit((bool)e.Value! ? "true" : "false")' aria-label="@(Label ?? Field.DisplayName)" /> }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
-    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">Base @Format(saved.ExpectedValue) → <strong>@Format(saved.DesiredValue)</strong></div> }
-    else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">Base @Format(Field.CurrentDefault)</div> }
+    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("StratagemField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
+    else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">@T.Format("StratagemField.Base", Format(Field.CurrentDefault))</div> }
     <div class="field-tools">
         @if (saved != null) { <OptionToggle Key="@ModOptionsService.StratagemKey(Field.InstanceKey)" Changed="Changed" /> }
         @if (saved != null)
         {
-            <label class="field-toggle" title="Include this change in the build"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleStratagemAsync(saved.InstanceKey))" /> On</label>
-            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetStratagemAsync(instance: Field.InstanceKey))">Reset field</button>
+            <label class="field-toggle" title="@T["StratagemField.Include.Tooltip"]"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleStratagemAsync(saved.InstanceKey))" /> @T["Common.On"]</label>
+            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetStratagemAsync(instance: Field.InstanceKey))">@T["StratagemField.Reset"]</button>
         }
-        <details class="field-info"><summary title="Why? / provenance">ⓘ</summary><div class="field-info-body">
-            @if (!Field.Editable) { <p><strong>Not writable:</strong> @Field.Reason</p> }
+        <details class="field-info"><summary title="@T["StratagemField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+            @if (!Field.Editable) { <p><strong>@T["StratagemField.NotWritable"]</strong> @Field.Reason</p> }
             @if (Field.Caveat != null) { <p>@Field.Caveat</p> }
             <p>@Field.Provenance</p><p>@Field.BackingObjectKind · @(Field.Target.Attack ?? Field.Target.Weapon ?? Field.Target.Entity ?? Field.Target.Path)</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
     @if (Field.Type == StratagemUses.Type && Field.Editable && saved != null && StratagemChangeService.EffectRequired(Field, saved.DesiredValue))
     {
-        <div class="field-wide"><AckPanel Title="Mission uses · effect not gameplay-confirmed" Kind="unverified"
+        <div class="field-wide"><AckPanel Title="@T["StratagemField.Uses.Unverified"]" Kind="unverified"
             Description="@Field.AcknowledgementReason" /></div>
     }
     @if (saved != null && Workspace.StratagemIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>
-            @if (Field.Editable && NeedsReview(saved)) { <button @onclick="() => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, Value, true))">Accept current capability / baseline</button> }</div>
+            @if (Field.Editable && NeedsReview(saved)) { <button @onclick="() => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, Value, true))">@T["StratagemField.AcceptBaseline"]</button> }</div>
     }
     @if (Error != null) { <p class="field-wide notice warning" role="alert">@Error</p> }
 </div>

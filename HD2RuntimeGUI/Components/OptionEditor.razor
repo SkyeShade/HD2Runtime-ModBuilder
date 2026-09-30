@@ -4,54 +4,55 @@
    Mod Options Menu limits, then every sampled value through the field's own Runtime rules and published safe range. *@
 <div class="modal-backdrop" @onclick="Close" data-option-editor-backdrop>
     <section class="dialog option-editor" role="dialog" aria-modal="true" aria-labelledby="option-editor-title" @onclick:stopPropagation data-option-editor="@Target.Key">
-        <div class="eyebrow">IN-GAME OPTION · MOD OPTIONS MENU</div>
+        <div class="eyebrow">@T["Option.Editor.Eyebrow"]</div>
         <h2 id="option-editor-title">@Target.Title</h2>
-        <p class="subtle">Edit @FieldPresentationLabel(Target.Baseline) → <strong>@FieldPresentationLabel(Target.Desired)</strong>@(Target.Unit is { } unit ? " " + unit.Replace('_', ' ') : "") ·
-            @(Target.PublishedRange ? $"Runtime-published safe range {ModOptionsService.Format(Target.RangeMin)}–{ModOptionsService.Format(Target.RangeMax)}" : "No Runtime-published safe range; values are limited by the field's type")</p>
+        <p class="subtle">@T.Markup("Option.Editor.Edit.Html", FieldPresentationLabel(Target.Baseline), FieldPresentationLabel(Target.Desired), Target.Unit != null ? " " + Target.Unit.Replace('_', ' ') : "") ·
+            @(Target.PublishedRange ? T.Format("Option.Editor.Range", ModOptionsService.Format(Target.RangeMin), ModOptionsService.Format(Target.RangeMax)) : T["Option.Editor.NoRange"])</p>
         <div class="form-grid">
-            <label>Control
+            <label>@T["Option.Editor.Control"]
                 <select @bind="Row.Kind" data-option-kind disabled="@(Target.EnumValues != null)">
-                    <option value="slider">Slider</option><option value="choice">Choice</option>
+                    <option value="slider">@T["Option.Kind.Slider"]</option><option value="choice">@T["Option.Kind.Choice"]</option>
                 </select></label>
-            <label>Option id<input @bind="Row.Id" data-option-id maxlength="64" /></label>
+            <label>@T["Option.Editor.Id"]<input @bind="Row.Id" data-option-id maxlength="64" /></label>
         </div>
-        <label>Label<input @bind="Row.Label" @bind:event="oninput" data-option-label maxlength="64" /></label>
-        <label>Description <small class="subtle">optional · shown in the game's description box</small><textarea @bind="Row.Description" @bind:event="oninput" data-option-description maxlength="400" rows="2"></textarea></label>
+        <label>@T["Option.Editor.Label"]<input @bind="Row.Label" @bind:event="oninput" data-option-label maxlength="64" /></label>
+        <label>@T["Option.Editor.Description"] <small class="subtle">@T["Option.Editor.Description.Help"]</small><textarea @bind="Row.Description" @bind:event="oninput" data-option-description maxlength="400" rows="2"></textarea></label>
         @if (Row.Kind == ModOptionsService.Slider)
         {
             <div class="form-grid option-numbers">
-                <label>Min<input type="number" step="any" @bind="Row.Min" @bind:event="oninput" data-option-min /></label>
-                <label>Max<input type="number" step="any" @bind="Row.Max" @bind:event="oninput" data-option-max /></label>
-                <label>Step<input type="number" step="any" @bind="Row.Step" @bind:event="oninput" data-option-step /></label>
-                <label>Default<input type="number" step="any" @bind="Row.Default" @bind:event="oninput" data-option-default /></label>
+                <label>@T["Option.Editor.Min"]<input type="number" step="any" @bind="Row.Min" @bind:event="oninput" data-option-min /></label>
+                <label>@T["Option.Editor.Max"]<input type="number" step="any" @bind="Row.Max" @bind:event="oninput" data-option-max /></label>
+                <label>@T["Option.Editor.Step"]<input type="number" step="any" @bind="Row.Step" @bind:event="oninput" data-option-step /></label>
+                <label>@T["Option.Editor.Default"]<input type="number" step="any" @bind="Row.Default" @bind:event="oninput" data-option-default /></label>
             </div>
         }
         else
         {
-            <table class="option-choices" data-option-choices><thead><tr><th>Default</th><th>Name</th><th>Value</th><th></th></tr></thead><tbody>
+            <table class="option-choices" data-option-choices><thead><tr><th>@T["Option.Editor.Default"]</th><th>@T["Option.Editor.Name"]</th><th>@T["Option.Editor.Value"]</th><th></th></tr></thead><tbody>
             @for (var i = 0; i < Row.Choices.Count; i++)
             {
                 var index = i;
-                <tr><td><input type="radio" name="option-default" checked="@(Row.DefaultIndex == index + 1)" @onchange="() => Row.DefaultIndex = index + 1" aria-label="Default choice" /></td>
-                    <td><input value="@Row.Choices[index]" @onchange="e => Row.Choices[index] = e.Value?.ToString() ?? string.Empty" maxlength="48" aria-label="Choice name" /></td>
+                <tr><td><input type="radio" name="option-default" checked="@(Row.DefaultIndex == index + 1)" @onchange="() => Row.DefaultIndex = index + 1" aria-label="@T["Option.Editor.DefaultChoice"]" /></td>
+                    <td><input value="@Row.Choices[index]" @onchange="e => Row.Choices[index] = e.Value?.ToString() ?? string.Empty" maxlength="48" aria-label="@T["Option.Editor.ChoiceName"]" /></td>
                     <td>@if (Target.EnumValues != null) { <span>@ModOptionsService.Format(Row.Values[index])</span> }
-                        else { <input type="number" step="any" value="@ModOptionsService.Format(Row.Values[index])" @onchange="e => SetValue(index, e.Value)" aria-label="Choice value" /> }</td>
-                    <td>@if (Target.EnumValues == null && Row.Choices.Count > ModOptionsService.MinChoices) { <button class="small" @onclick="() => RemoveChoice(index)">Remove</button> }</td></tr>
+                        else { <input type="number" step="any" value="@ModOptionsService.Format(Row.Values[index])" @onchange="e => SetValue(index, e.Value)" aria-label="@T["Option.Editor.ChoiceValue"]" /> }</td>
+                    <td>@if (Target.EnumValues == null && Row.Choices.Count > ModOptionsService.MinChoices) { <button class="small" @onclick="() => RemoveChoice(index)">@T["Common.Remove"]</button> }</td></tr>
             }
             </tbody></table>
-            @if (Target.EnumValues == null && Row.Choices.Count < ModOptionsService.MaxChoices) { <button class="small" @onclick="AddChoice">Add choice</button> }
+            @if (Target.EnumValues == null && Row.Choices.Count < ModOptionsService.MaxChoices) { <button class="small" @onclick="AddChoice">@T["Option.Editor.AddChoice"]</button> }
         }
-        <label class="switch-label"><input type="checkbox" @bind="Row.Gap" />Add space above this row</label>
-        <p class="subtle">The project's master toggle (@(Workspace.Project?.ModOptions?.MasterLabel ?? "Enabled")) turns this Runtime operation on and off; off restores the reviewed baseline.
-            Its shared and unverified-effect flags still apply.
-            @if (Workspace.Project?.ModOptions is { } s && ModOptionsService.UsesDefaultsWithoutMenu(Workspace.Metadata!, s)) { <strong data-option-default-note>Without Mod Options Menu, the default is the value players get.</strong> }</p>
+        <label class="switch-label"><input type="checkbox" @bind="Row.Gap" />@T["Option.Editor.Gap"]</label>
+        @* The master toggle's label is the project's own in-game text (default "Enabled"), shown as written. *@
+        <p class="subtle">@T.Format("Option.Editor.MasterToggle", Workspace.Project?.ModOptions?.MasterLabel ?? "Enabled")
+            @T["Option.Editor.FlagsApply"]
+            @if (Workspace.Project?.ModOptions is { } s && ModOptionsService.UsesDefaultsWithoutMenu(Workspace.Metadata!, s)) { <strong data-option-default-note>@T["Option.Editor.DefaultNote"]</strong> }</p>
         @if (ModOptionsService.RowIssues(Workspace.Project!.ModOptions ?? ModOptionsService.Defaults(Workspace.Project), Row, Target) is { Count: > 0 } issues)
         { <ul class="notice warning option-issues" data-option-issues>@foreach (var issue in issues.Take(4)) { <li>@issue</li> }</ul> }
         @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
         <div class="actions">
-            <button class="primary" data-option-save @onclick="Save" disabled="@Busy">Save option</button>
-            @if (Existing) { <button class="reset-action" data-option-remove @onclick="Remove" disabled="@Busy">Stop exposing</button> }
-            <button @onclick="Close">Cancel</button>
+            <button class="primary" data-option-save @onclick="Save" disabled="@Busy">@T["Option.Editor.Save"]</button>
+            @if (Existing) { <button class="reset-action" data-option-remove @onclick="Remove" disabled="@Busy">@T["Option.Editor.Stop"]</button> }
+            <button @onclick="Close">@T["Common.Cancel"]</button>
         </div>
     </section>
 </div>
@@ -65,7 +66,8 @@
         var saved = Workspace.OptionRow(Target.Key); Existing = saved != null;
         Row = saved == null ? Workspace.SuggestOptionRow(Target) : new ModOptionRow { Key = saved.Key, Id = saved.Id, Kind = saved.Kind, Label = saved.Label, Description = saved.Description,
             Gap = saved.Gap, Min = saved.Min, Max = saved.Max, Step = saved.Step, Default = saved.Default, Choices = [.. saved.Choices], Values = [.. saved.Values], DefaultIndex = saved.DefaultIndex };
-        // A numeric field switched to a choice starts from its baseline and edited value.
+        // A numeric field switched to a choice starts from its baseline and edited value. Choice names are in-game text written into the
+        // generated mod, so they are not UI text and stay the same in every UI language.
         if (Row.Kind == ModOptionsService.Slider && Row.Choices.Count == 0) { Row.Choices = ["Default", "Modified"]; Row.Values = [Target.Baseline, Target.Desired]; Row.DefaultIndex = 2; }
     }
     private string FieldPresentationLabel(double v) => Target.EnumValues?.FirstOrDefault(e => e.Value == v)?.Name ?? ModOptionsService.Format(v);

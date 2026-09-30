@@ -5,15 +5,15 @@
    and never overwrites a working copy changed in an external editor without an explicit choice. The page watches the working copy while it
    is open, checks syntax and SDK-enumerated names as you type, and offers the event API reference, action pickers and snippets. *@
 @{ var project = Workspace.Project; var lua = project?.CustomLua; var sdk = Workspace.Metadata; }
-<div class="page-heading"><div><div class="eyebrow">EVENT SCRIPTING · SDK @sdk?.Version@(Workspace.SdkStatus?.LocalSource != null ? " · LOCAL DEVELOPMENT SDK" : "")</div><h1>Custom Lua</h1>
-    <p>Your own HD2Runtime Lua, kept with the project as <code>@CustomLuaSettings.RelativePath</code> and built into the mod after ModBuilder's generated modifications: events, timers, keybinds and gameplay actions.</p></div></div>
+<div class="page-heading"><div><div class="eyebrow">@T.Format(Workspace.SdkStatus?.LocalSource != null ? "CustomLua.EyebrowLocal" : "CustomLua.Eyebrow", sdk?.Version)</div><h1>@T["CustomLua.Title"]</h1>
+    <p>@T.Markup("CustomLua.Intro.Html", CustomLuaSettings.RelativePath)</p></div></div>
 @if (project == null) { }
 else if (lua == null)
 {
-    <section class="panel" data-custom-lua-empty><h2>Add custom Lua</h2>
-        <p>Write gameplay logic by hand: react to events (<code>hd2.events.on</code>), start timers (<code>hd2.after</code> / <code>hd2.every</code>), bind keys (<code>hd2.input.bind</code>) and request explosions, projectiles, statuses or healing. ModBuilder keeps the text exactly as you write it.</p>
-        @if (sdk?.Events == null) { <p class="notice warning">SDK @sdk?.Version publishes no event catalog, so the event reference, snippets and name checks are unavailable. Syntax is still checked.</p> }
-        <button class="primary" data-custom-lua-add @onclick="() => Run(Workspace.AddCustomLuaAsync)">Add src/addon.lua</button>
+    <section class="panel" data-custom-lua-empty><h2>@T["CustomLua.Add.Title"]</h2>
+        <p>@T.Markup("CustomLua.Add.Help.Html", "hd2.events.on", "hd2.after", "hd2.every", "hd2.input.bind")</p>
+        @if (sdk?.Events == null) { <p class="notice warning">@T.Format("CustomLua.NoCatalog", sdk?.Version)</p> }
+        <button class="primary" data-custom-lua-add @onclick="() => Run(Workspace.AddCustomLuaAsync)">@T.Format("CustomLua.Add.Button", CustomLuaSettings.RelativePath)</button>
     </section>
 }
 else
@@ -22,53 +22,53 @@ else
         <section class="panel custom-lua-main">
             <div class="custom-lua-toolbar">
                 <div class="custom-lua-file"><strong>@CustomLuaSettings.RelativePath</strong>
-                    <span class="badge @(Dirty ? "amber" : "green")" data-custom-lua-state>@(Dirty ? "Unsaved changes" : "Saved")</span>
-                    @if (!lua.Enabled) { <span class="badge" data-custom-lua-disabled>Not included in the build</span> }
+                    <span class="badge @(Dirty ? "amber" : "green")" data-custom-lua-state>@(Dirty ? T["CustomLua.State.Unsaved"] : T["CustomLua.State.Saved"])</span>
+                    @if (!lua.Enabled) { <span class="badge" data-custom-lua-disabled>@T["CustomLua.NotInBuild"]</span> }
                     <small class="subtle" title="@Workspace.CustomLuaPath">@Workspace.CustomLuaPath</small></div>
                 <div class="actions">
-                    <button class="primary" data-custom-lua-save disabled="@(!Dirty || Busy)" @onclick="() => Save(false)" title="Ctrl+S">Save</button>
-                    <button data-custom-lua-reload disabled="@Busy" @onclick="Reload">Reload from disk</button>
-                    <button data-custom-lua-open @onclick="() => Run(Workspace.OpenCustomLuaExternallyAsync)" title="Open in the program Windows uses for .lua files">Open in editor</button>
-                    <button data-custom-lua-folder @onclick="() => Run(Workspace.OpenCustomLuaFolderAsync)">Open folder</button>
-                    <button data-custom-lua-copy @onclick="CopyPath">@(Copied ? "Copied" : "Copy path")</button>
-                    <label class="switch-label" title="Include this Lua in the built mod"><input type="checkbox" data-custom-lua-enabled checked="@lua.Enabled" @onchange="e => Run(() => Workspace.SetCustomLuaEnabledAsync((bool)e.Value!))" /> Include in build</label>
+                    <button class="primary" data-custom-lua-save disabled="@(!Dirty || Busy)" @onclick="() => Save(false)" title="Ctrl+S">@T["Common.Save"]</button>
+                    <button data-custom-lua-reload disabled="@Busy" @onclick="Reload">@T["CustomLua.Reload"]</button>
+                    <button data-custom-lua-open @onclick="() => Run(Workspace.OpenCustomLuaExternallyAsync)" title="@T["CustomLua.OpenEditor.Tooltip"]">@T["CustomLua.OpenEditor.Button"]</button>
+                    <button data-custom-lua-folder @onclick="() => Run(Workspace.OpenCustomLuaFolderAsync)">@T["CustomLua.OpenFolder"]</button>
+                    <button data-custom-lua-copy @onclick="CopyPath">@(Copied ? T["Common.Copied"] : T["CustomLua.CopyPath"])</button>
+                    <label class="switch-label" title="@T["CustomLua.Include.Tooltip"]"><input type="checkbox" data-custom-lua-enabled checked="@lua.Enabled" @onchange="e => Run(() => Workspace.SetCustomLuaEnabledAsync((bool)e.Value!))" /> @T["CustomLua.Include.Label"]</label>
                 </div>
             </div>
             @if (Conflict != null)
             {
                 <div class="notice warning custom-lua-conflict" role="alert" data-custom-lua-conflict>
-                    <span><strong>@CustomLuaSettings.RelativePath changed outside ModBuilder@(Dirty ? " and you have unsaved edits here" : "").</strong>
-                        @(Dirty ? "Choose which text to keep; the other is discarded." : "Reload it to use the outside changes, or keep ModBuilder's saved text (this overwrites the file).")</span>
+                    <span><strong>@T.Format(Dirty ? "CustomLua.Conflict.TitleDirty" : "CustomLua.Conflict.Title", CustomLuaSettings.RelativePath)</strong>
+                        @(Dirty ? T["CustomLua.Conflict.HelpDirty"] : T["CustomLua.Conflict.Help"])</span>
                     <span class="actions">
-                        <button class="primary" data-custom-lua-take-disk @onclick="Reload">Reload from disk@(Dirty ? " (discard my edits)" : "")</button>
-                        <button data-custom-lua-overwrite @onclick="() => Save(true)">@(Dirty ? "Overwrite the file with my edits" : "Keep ModBuilder's text")</button>
+                        <button class="primary" data-custom-lua-take-disk @onclick="Reload">@(Dirty ? T["CustomLua.Conflict.ReloadDiscard"] : T["CustomLua.Reload"])</button>
+                        <button data-custom-lua-overwrite @onclick="() => Save(true)">@(Dirty ? T["CustomLua.Conflict.Overwrite"] : T["CustomLua.Conflict.Keep"])</button>
                     </span>
-                    <small class="subtle">On disk: @Lines(Conflict) lines · here: @Lines(Draft) lines</small>
+                    <small class="subtle">@T.Format("CustomLua.Conflict.Lines", Lines(Conflict), Lines(Draft))</small>
                 </div>
             }
-            <div class="lua-editor" @ref="EditorHost" data-lua-editor></div>
+            <div class="lua-editor" @ref="EditorHost" data-lua-editor data-editor-label="@(T.Format("CustomLua.Editor.Label", CustomLuaSettings.RelativePath))"></div>
             <div class="custom-lua-diagnostics" data-custom-lua-diagnostics>
-                @if (Diagnostics.Count == 0) { <p class="subtle" data-custom-lua-clean>No syntax errors@(sdk?.Events != null ? " and no unknown event, explosion, projectile or status names" : "").</p> }
+                @if (Diagnostics.Count == 0) { <p class="subtle" data-custom-lua-clean>@(sdk?.Events != null ? T["CustomLua.CleanWithNames"] : T["CustomLua.Clean"])</p> }
                 @foreach (var d in Diagnostics)
                 {
-                    <button class="lua-diagnostic @d.Severity" data-lua-diagnostic="@d.Severity" @onclick="() => Goto(d)"><span class="badge @(d.Severity == LuaDiagnostic.Error ? "red" : "amber")">@(d.Severity == LuaDiagnostic.Error ? "Error" : "Warning")</span>
+                    <button class="lua-diagnostic @d.Severity" data-lua-diagnostic="@d.Severity" @onclick="() => Goto(d)"><span class="badge @(d.Severity == LuaDiagnostic.Error ? "red" : "amber")">@(d.Severity == LuaDiagnostic.Error ? T["CustomLua.Diagnostic.Error"] : T["CustomLua.Diagnostic.Warning"])</span>
                         <code>@d.Line:@d.Column</code> @d.Message</button>
                 }
-                <p class="subtle">Checked: Lua syntax, and literal names passed straight to the event API. Nothing is executed; values computed at run time are not checked.</p>
+                <p class="subtle">@T["CustomLua.Checked"]</p>
             </div>
             @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
         </section>
         <aside class="panel custom-lua-side">
             <div class="custom-lua-tabs" role="tablist">
-                @foreach (var (key, label) in new[] { ("snippets", "Snippets"), ("reference", "Reference"), ("actions", "Actions") })
+                @foreach (var (key, label) in new[] { ("snippets", T["CustomLua.Tab.Snippets"]), ("reference", T["CustomLua.Tab.Reference"]), ("actions", T["CustomLua.Tab.Actions"]) })
                 { <button role="tab" class="@(Tab == key ? "active" : "")" aria-selected="@(Tab == key)" data-custom-lua-tab="@key" @onclick="() => Tab = key">@label</button> }
             </div>
-            @if (sdk?.Events == null) { <p class="notice warning">This SDK publishes no event catalog (sdk/EventCatalog.json): the event reference, action pickers and snippets need an HD2Runtime SDK with event scripting.</p> }
+            @if (sdk?.Events == null) { <p class="notice warning">@T.Format("CustomLua.NoCatalogSide", "sdk/EventCatalog.json")</p> }
             else if (Tab == "snippets")
             {
                 @foreach (var s in LuaSnippets.For(sdk, project.ResourceId))
                 {
-                    <div class="snippet" data-snippet="@s.Id"><div class="snippet-head"><strong>@s.Title</strong><button class="small" data-snippet-insert="@s.Id" @onclick="() => Insert(s.Code)">Insert</button></div>
+                    <div class="snippet" data-snippet="@s.Id"><div class="snippet-head"><strong>@s.Title</strong><button class="small" data-snippet-insert="@s.Id" @onclick="() => Insert(s.Code)">@T["Common.Insert"]</button></div>
                         <p class="subtle">@s.Description</p><small class="subtle">@string.Join(" · ", s.Uses)</small></div>
                 }
             }
@@ -83,11 +83,15 @@ else
     private string Draft = "", Saved = ""; private string? Conflict, Error; private bool Busy, Copied, Mounted; private string Tab = "snippets";
     private IReadOnlyList<LuaDiagnostic> Diagnostics = [];
     private Guid? ProjectId; private System.Threading.Timer? Watch;
+    // The UI language the mounted editor's label and diagnostics were last produced in.
+    private string? EditorLanguage;
     private bool Dirty => Draft != Saved;
     protected override void OnParametersSet()
     {
         if (Workspace.Project?.Id != ProjectId) { ProjectId = Workspace.Project?.Id; Mounted = false; Conflict = null; }
         Load();
+        // Diagnostic messages are UI text: after a language change the draft is checked again so they show in the new language.
+        if (Mounted && UiLanguage != EditorLanguage) Diagnostics = Workspace.CustomLuaDiagnostics(Draft);
     }
     // The editor text of this project: its unsaved draft if the user left the page with one, otherwise the saved text. Loaded before the
     // editor mounts, including right after "Add src/addon.lua" (which renders without new parameters).
@@ -97,8 +101,15 @@ else
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The editor reads its textarea label at mount (data-editor-label); a language change relabels it and the gutter's diagnostics.
+        if (Mounted && UiLanguage != EditorLanguage)
+        {
+            EditorLanguage = UiLanguage;
+            await JS.InvokeVoidAsync("hd2LuaEditor.setLabel", EditorHost, T.Format("CustomLua.Editor.Label", CustomLuaSettings.RelativePath));
+            await Markers();
+        }
         if (Workspace.Project?.CustomLua == null || Mounted) return;
-        Load(); Mounted = true; Self ??= DotNetObjectReference.Create(this);
+        Load(); Mounted = true; EditorLanguage = UiLanguage; Self ??= DotNetObjectReference.Create(this);
         StateHasChanged();
         await JS.InvokeVoidAsync("hd2LuaEditor.mount", EditorHost, Self, Draft, LuaCompletion.Build(Workspace.Metadata));
         await Markers();

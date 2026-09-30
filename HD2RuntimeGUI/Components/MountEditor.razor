@@ -6,38 +6,38 @@
 <article class="stat-card mount-slot @(saved != null ? "modified" : "")" data-mount="@Mount.MountId" data-mount-kind="@Mount.CurrentKind">
     <div class="panel-heading"><h3>@Title(Mount.Label)</h3><span class="badge">@Mount.MountId</span>
         @if (field != null) { <EvidenceBadge Evidence="field.Evidence" Tiers="catalog.EvidenceTiers" /> }
-        @if (saved != null) { <span class="badge modified-badge">Modified</span> }</div>
+        @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }</div>
     @if (!Mount.Swappable || field == null)
-    { <p class="subtle" data-mount-blocked>Not a weapon swap slot. @Mount.BlockedReason</p> }
+    { <p class="subtle" data-mount-blocked>@T["Mount.NotSwapSlot"] @Mount.BlockedReason</p> }
     else
     {
-        <p class="subtle">Current: <strong>@Describe(catalog.Weapon(Mount.Current!.SemanticId)!)</strong> · @Mount.Current.AttackFamily family</p>
-        @if (saved != null) { <p class="modified-value" data-desired="@saved.DesiredValue.GetString()">→ <strong>@Describe(catalog.Weapon(saved.DesiredValue.GetString()!)!)</strong></p> }
-        <label>Mounted weapon
+        <p class="subtle">@T.Markup("Mount.Current.Html", Describe(T, catalog.Weapon(Mount.Current!.SemanticId)!), Mount.Current.AttackFamily)</p>
+        @if (saved != null) { <p class="modified-value" data-desired="@saved.DesiredValue.GetString()">→ <strong>@Describe(T, catalog.Weapon(saved.DesiredValue.GetString()!)!)</strong></p> }
+        <label>@T["Mount.Weapon.Label"]
             <select data-mount-select disabled="@(Workspace.Project == null || !field.Editable)" @onchange="e => Run(() => Workspace.SetEntityAsync(field.InstanceKey, e.Value?.ToString() ?? string.Empty))">
-                <option value="@Mount.Current!.SemanticId" selected="@(saved == null)">@Describe(catalog.Weapon(Mount.Current.SemanticId)!) (vanilla)</option>
-                @foreach (var w in field.AllowedValues!.Where(v => v != Mount.Current.SemanticId).Select(v => catalog.Weapon(v)!).OrderBy(w => Describe(w), StringComparer.OrdinalIgnoreCase))
-                { <option value="@w.SemanticId" selected="@(saved?.DesiredValue.GetString() == w.SemanticId)">@Describe(w)@AssetHint(w.SemanticId)</option> }
+                <option value="@Mount.Current!.SemanticId" selected="@(saved == null)">@T.Format("Mount.Vanilla", Describe(T, catalog.Weapon(Mount.Current.SemanticId)!))</option>
+                @foreach (var w in field.AllowedValues!.Where(v => v != Mount.Current.SemanticId).Select(v => catalog.Weapon(v)!).OrderBy(w => Describe(T, w), StringComparer.OrdinalIgnoreCase))
+                { <option value="@w.SemanticId" selected="@(saved?.DesiredValue.GetString() == w.SemanticId)">@Describe(T, w)@AssetHint(w.SemanticId)</option> }
             </select>
         </label>
-        <p class="subtle">@field.AllowedValues!.Length published @Mount.Current.AttackFamily replacements · <span class="badge amber" title="Runtime requires this opt-in for mount reference swaps">allow_unverified_reference=true</span></p>
+        <p class="subtle">@T.Plural("Mount.Replacements", field.AllowedValues!.Length, Mount.Current.AttackFamily) · <span class="badge amber" title="@T["Mount.OptIn.Tooltip"]">allow_unverified_reference=true</span></p>
         @if (saved != null)
         {
             var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed;
             @if (sdk?.Assets != null)
             {
                 <AssetBadge View="AssetStatus.MountedWeapon(sdk, Mount.Current!.SemanticId, saved.DesiredValue.GetString()!)" />
-                <AckPanel Title="Gameplay compatibility unverified" Kind="unverified"
-                    Description="Loading its assets does not verify how this weapon fires or renders in this mount. HD2Runtime writes mount swaps with allow_unverified_reference."
+                <AckPanel Title="@T["Mount.Compatibility.Title"]" Kind="unverified"
+                    Description="@T["Mount.Compatibility.Description"]"
                     PanelAttributes='@(new() { ["data-residency-warning"] = "true", ["data-mount-compatibility-warning"] = "true" })' />
             }
             else
             {
-                <AckPanel Title="Unverified reference swap" Kind="unverified" Description="@field.ResidencyWarning"
+                <AckPanel Title="@T["Mount.UnverifiedSwap.Title"]" Kind="unverified" Description="@field.ResidencyWarning"
                     PanelAttributes='@(new() { ["data-residency-warning"] = "true" })' />
             }
-            <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> Enabled</label>
-            <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: field.InstanceKey))">Reset slot</button>
+            <label><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> @T["Common.Enabled"]</label>
+            <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: field.InstanceKey))">@T["Mount.ResetSlot"]</button>
             @if (Workspace.EntityIssue(saved) is { } issue) { <p class="notice warning">@issue</p> }
         }
     }
@@ -45,7 +45,7 @@
 </article>
 @code {
     private string AssetHint(string replacement) => (Workspace.Metadata ?? Workspace.SdkStatus?.Installed) is { } sdk
-        && AssetStatus.MountedWeapon(sdk, Mount.Current!.SemanticId, replacement) is { State: AssetState.Unknown } ? " · assets unknown" : "";
+        && AssetStatus.MountedWeapon(sdk, Mount.Current!.SemanticId, replacement) is { State: AssetState.Unknown } ? " · " + T["Mount.AssetsUnknown"] : "";
     [Parameter, EditorRequired] public VehicleMount Mount { get; set; } = null!;
     [Parameter, EditorRequired] public string Vehicle { get; set; } = "";
     [Parameter] public EventCallback Changed { get; set; }
@@ -55,11 +55,11 @@
     private static string Title(string s) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s);
     // Published display names repeat (for example several "unnamed mounted weapon" entities), so show the semantic-ID suffix
     // and who references the weapon to keep entries distinguishable. The value written is always the semantic ID.
-    public static string Describe(MountedWeapon w)
+    public static string Describe(IUiText t, MountedWeapon w)
     {
         var name = w.DisplayName.Replace('_', ' '); var suffix = w.SemanticId[(w.SemanticId.LastIndexOf('/') + 1)..][..6];
         var users = w.ReferencedBy.Select(r => r.Vehicle).Where(v => v != null).Distinct().Take(2).ToArray();
-        return $"{name}{(w.Turret ? " · turret" : "")} · {suffix}" + (users.Length > 0 ? " · on " + string.Join(", ", users) : "");
+        return $"{name}{(w.Turret ? " · " + t["Mount.Describe.Turret"] : "")} · {suffix}" + (users.Length > 0 ? " · " + t.Format("Mount.Describe.On", string.Join(", ", users)) : "");
     }
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

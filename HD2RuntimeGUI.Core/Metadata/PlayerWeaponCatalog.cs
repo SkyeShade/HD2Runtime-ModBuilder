@@ -1,3 +1,4 @@
+using HD2RuntimeGUI.Core.Localization;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -36,7 +37,7 @@ public sealed record FieldProvenance(
     [property: JsonPropertyName("native_consumer_proven")] bool NativeConsumerProven,
     [property: JsonPropertyName("pending_gameplay_confirmation")] bool PendingGameplayConfirmation, string Source)
 {
-    [JsonIgnore] public string Label => GameplayProven ? "Gameplay proven" : CurrentLiveOwnershipProven ? "Live ownership proven" : SchemaLabelled ? "Schema-labelled" : "Experimental";
+    [JsonIgnore] public string Label => GameplayProven ? CoreText.Get("Provenance.GameplayProven") : CurrentLiveOwnershipProven ? CoreText.Get("Provenance.LiveOwnershipProven") : SchemaLabelled ? CoreText.Get("Provenance.SchemaLabelled") : CoreText.Get("Provenance.Experimental");
 }
 public sealed record FieldBacking(string Kind, string? Component, int Offset, string Storage, int Width,
     int? RecordIndex, int? IndexRow, int? OwnerCount, bool? UniqueOwner, string? Settings,

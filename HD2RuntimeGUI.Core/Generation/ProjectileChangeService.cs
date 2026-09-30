@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 
@@ -14,14 +15,14 @@ public interface IProjectileChangeService
 }
 public sealed class ProjectileChangeService : IProjectileChangeService
 {
-    private static PlayerWeaponComposition Graph(SdkMetadata sdk) => sdk.Composition ?? throw new InvalidDataException("This pinned SDK has no projectile composition contract. Explicitly rebind to SDK 0.15 or newer.");
+    private static PlayerWeaponComposition Graph(SdkMetadata sdk) => sdk.Composition ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Projectile.SdkTooOld"));
     private static ProjectileAttack Target(SdkMetadata sdk, string weapon, string role)
     {
         var a = Graph(sdk).Attack(weapon, role); var w = sdk.PlayerWeapons!.Weapon(weapon);
         var f = w.Fields.SingleOrDefault(f => f.Domain == "attack" && f.ReferenceRole == role);
         if (w.OrdinaryWritesBlocked || !a.WritableReferenceSwap || !a.TargetOwnershipProven || a.TargetBacking?.UniqueOwner != true
             || f?.Editable != true || !f.WriteAccepted || f.AffectsMultipleWeapons || !(sdk.Advanced != null ? Graph(sdk).Projectiles.GuardPolicy?.ApprovedClasses?.Contains(a.CompatibilityClass) == true : a.CompatibilityClass == "conventional_plain"))
-            throw new InvalidDataException(a.Reason ?? "Projectile selector is read-only, shared or ambiguous.");
+            throw new InvalidDataException(a.Reason ?? CoreText.Get("Messages.Build.Projectile.SelectorReadOnly"));
         return a;
     }
     public IReadOnlyList<ProjectileReference> Sources(SdkMetadata sdk, string weapon, string role)
@@ -82,7 +83,7 @@ public sealed class ProjectileChangeService : IProjectileChangeService
     public ProjectileChange Create(SdkMetadata sdk, string weapon, string role, ProjectileReference replacement)
     {
         var a = Target(sdk, weapon, role);
-        if (!Sources(sdk, weapon, role).Contains(replacement)) throw new InvalidDataException("The SDK does not approve this projectile source for this selector.");
+        if (!Sources(sdk, weapon, role).Contains(replacement)) throw new InvalidDataException(CoreText.Get("Messages.Build.Projectile.SourceNotApproved"));
         var expected = new ProjectileReference(weapon, role);
         return new() { Weapon = weapon, AttackRole = role, ExpectedProjectile = expected, ReplacementProjectile = replacement,
             CompatibilityClass = a.CompatibilityClass, ExpectedEvidence = Evidence(sdk, expected), ReplacementEvidence = Evidence(sdk, replacement), BaselineSdkVersion = sdk.Version };
@@ -90,14 +91,14 @@ public sealed class ProjectileChangeService : IProjectileChangeService
     public void Validate(SdkMetadata sdk, ProjectileChange c)
     {
         var a = Target(sdk, c.Weapon, c.AttackRole);
-        if (c.SemanticFieldId != "attack.projectile" || c.ExpectedProjectile != new ProjectileReference(c.Weapon, c.AttackRole)) throw new InvalidDataException("Invalid semantic projectile selector.");
-        if (!Sources(sdk, c.Weapon, c.AttackRole).Contains(c.ReplacementProjectile)) throw new InvalidDataException("Replacement projectile is no longer compatible. Reset or select a supported source.");
+        if (c.SemanticFieldId != "attack.projectile" || c.ExpectedProjectile != new ProjectileReference(c.Weapon, c.AttackRole)) throw new InvalidDataException(CoreText.Get("Messages.Build.Projectile.InvalidSelector"));
+        if (!Sources(sdk, c.Weapon, c.AttackRole).Contains(c.ReplacementProjectile)) throw new InvalidDataException(CoreText.Get("Messages.Build.Projectile.NoLongerCompatible"));
         if (c.CompatibilityClass != a.CompatibilityClass || c.ExpectedEvidence != Evidence(sdk, c.ExpectedProjectile) || c.ReplacementEvidence != Evidence(sdk, c.ReplacementProjectile))
-            throw new InvalidDataException("Projectile baseline or compatibility evidence changed. Review and accept the current SDK baseline, or reset this replacement.");
+            throw new InvalidDataException(CoreText.Get("Messages.Build.Projectile.EvidenceChanged"));
     }
     public static IEnumerable<string> Operations(ModProject project, SdkMetadata sdk, IProjectileChangeService service)
     {
-        if (project.ProjectileChanges.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)) throw new InvalidDataException("Conflicting projectile overrides for one attack.");
+        if (project.ProjectileChanges.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)) throw new InvalidDataException(CoreText.Get("Messages.Build.Projectile.Conflicting"));
         foreach (var c in project.ProjectileChanges.Where(c => c.Enabled).OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal))
         {
             service.Validate(sdk, c);

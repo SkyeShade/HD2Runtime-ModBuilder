@@ -5,31 +5,32 @@
     var catalog = entities.Backpacks; var fields = catalog.FieldInstances.Where(f => f.Target.Backpack == Name).ToDictionary(f => f.InstanceKey);
     bool Show(EntityField f) => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null;
     var callIn = entities.CallInFor("backpack", Name);
-    // Published setting groups first; any remaining instances keep their own group so nothing is hidden.
-    var grouped = backpack.SettingGroups.Select(g => (Title: Title(g.Group), Fields: g.FieldInstanceKeys.Select(k => fields[k]).ToArray()))
-        .Append((Title: "Other", Fields: backpack.FieldInstanceKeys.Where(k => backpack.SettingGroups.All(g => !g.FieldInstanceKeys.Contains(k))).Select(k => fields[k]).ToArray()))
-        .Select(g => (g.Title, Fields: g.Fields.Where(Show).ToArray())).Where(g => g.Fields.Length > 0).ToArray();
+    // Published setting groups first; any remaining instances keep their own group so nothing is hidden. Title identifies the group
+    // (data-backpack-group); Label is what is shown (the published group name, or ModBuilder's "Other").
+    var grouped = backpack.SettingGroups.Select(g => (Title: Title(g.Group), Label: Title(g.Group), Fields: g.FieldInstanceKeys.Select(k => fields[k]).ToArray()))
+        .Append((Title: "Other", Label: T["Backpack.OtherGroup"], Fields: backpack.FieldInstanceKeys.Where(k => backpack.SettingGroups.All(g => !g.FieldInstanceKeys.Contains(k))).Select(k => fields[k]).ToArray()))
+        .Select(g => (g.Title, g.Label, Fields: g.Fields.Where(Show).ToArray())).Where(g => g.Fields.Length > 0).ToArray();
     @if (!ModifiedOnly)
     {
         <section class="panel @(Embedded ? "delivered-panel" : "category-panel cat-support")" data-backpack="@backpack.Name">
-            <div class="eyebrow">@(Embedded ? "DELIVERED " : "")BACKPACK@(backpack.Components.Any(c => c != "Backpack") ? " · " + string.Join(" · ", backpack.Components.Where(c => c != "Backpack")).ToUpperInvariant() : "")</div>@if (Embedded) { <h3>@backpack.Name</h3> } else { <h2>@backpack.Name</h2> }
-            <div class="field-badges"><span class="badge">@fields.Values.Count(f => f.Editable) writable</span><span class="badge">@fields.Values.Count(f => !f.Editable) read-only</span>
-                <span class="badge" title="Structural delivery chain published by Runtime">@string.Join(" → ", backpack.DeliveryChain).Replace('_', ' ')</span></div>
-            @if (fields.Count == 0) { <p class="notice" data-backpack-empty>Runtime publishes no behavior fields for this backpack.</p> }
+            <div class="eyebrow">@(Embedded ? T["Backpack.Eyebrow.Delivered"] : T["Backpack.Eyebrow"])@(backpack.Components.Any(c => c != "Backpack") ? " · " + string.Join(" · ", backpack.Components.Where(c => c != "Backpack")).ToUpperInvariant() : "")</div>@if (Embedded) { <h3>@backpack.Name</h3> } else { <h2>@backpack.Name</h2> }
+            <div class="field-badges"><span class="badge">@T.Format("EntityPanel.WritableCount", fields.Values.Count(f => f.Editable))</span><span class="badge">@T.Format("EntityPanel.ReadOnlyCount", fields.Values.Count(f => !f.Editable))</span>
+                <span class="badge" title="@T["Backpack.DeliveryChain.Tooltip"]">@string.Join(" → ", backpack.DeliveryChain).Replace('_', ' ')</span></div>
+            @if (fields.Count == 0) { <p class="notice" data-backpack-empty>@T["Backpack.Empty"]</p> }
             @if (Workspace.Project != null && Workspace.Project.EntityChanges.Any(c => c.Resource == "backpack" && c.Entity == Name))
-            { <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", Name))'>Reset backpack</button> }
+            { <button class="reset-action" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", Name))'>@T["Backpack.Reset"]</button> }
         </section>
     }
     @if (callIn != null) { <CallInFields Stratagem="@callIn" ModifiedOnly="ModifiedOnly" Changed="Changed" /> }
     @foreach (var group in grouped)
     {
-        <section class="panel" data-backpack-group="@group.Title"><h2>@group.Title</h2>
+        <section class="panel" data-backpack-group="@group.Title"><h2>@group.Label</h2>
             <div class="stat-grid">@foreach (var f in group.Fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@Label(backpack, f)" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
         </section>
     }
     @if (!ModifiedOnly && backpack.BlockedFields.Length > 0)
     {
-        <details class="panel" data-blocked-capabilities open="@(fields.Values.All(f => !f.Editable))"><summary>Not currently writable</summary>@foreach (var b in backpack.BlockedFields) { <p data-blocked-field="@b.Field"><strong>@b.Field:</strong> @b.Reason</p> }</details>
+        <details class="panel" data-blocked-capabilities open="@(fields.Values.All(f => !f.Editable))"><summary>@T["EntityPanel.Blocked.Title"]</summary>@foreach (var b in backpack.BlockedFields) { <p data-blocked-field="@b.Field">@T.Markup("EntityPanel.Blocked.Field.Html", b.Field, b.Reason)</p> }</details>
     }
     @if (Error != null) { <p class="notice warning">@Error</p> }
 }
@@ -41,11 +42,11 @@
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
     // A damage-zone field names its zone (the SH-20's "shield" plate armor), so it never reads as the backpack's default-zone armor.
-    private static string? Label(Backpack backpack, EntityField f)
+    private string? Label(Backpack backpack, EntityField f)
     {
         if (f.Target.Path != "damage_zone" || backpack.DamageZones?.FirstOrDefault(z => z.ZoneId == f.Target.Zone) is not { } zone) return EntityStats.Label(f.SemanticFieldId);
         var name = f.DisplayName.StartsWith("Zone ", StringComparison.OrdinalIgnoreCase) ? char.ToUpperInvariant(f.DisplayName[5]) + f.DisplayName[6..] : f.DisplayName;
-        return Title(zone.Name ?? zone.ZoneId) + " zone · " + name;
+        return T.Format("Backpack.ZoneField", Title(zone.Name ?? zone.ZoneId), name);
     }
     private static string Title(string s) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.Replace('_', ' '));
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) { Error = e.Message; } }

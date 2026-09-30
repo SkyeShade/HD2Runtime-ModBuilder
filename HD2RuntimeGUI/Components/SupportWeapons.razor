@@ -1,21 +1,21 @@
 @inject BuilderWorkspace Workspace
 @using System.Text.Json
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Advanced?.Support; var authoring = sdk?.SupportAuthoring; var links = sdk?.SupportLinks; }
-<div class="page-heading"><div><div class="eyebrow">@(authoring == null ? "READ-ONLY CATALOG" : "GUARDED AUTHORING") · SDK @sdk?.Version</div><h1>Support Weapons</h1><p><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>Support</span>@(links == null ? "Weapon equipment for support stratagems. HD2Runtime " + sdk?.Version + " does not publish which call-in delivers each weapon, so call-ins (Stratagems → Support) and weapons are edited separately." : "Support weapons without a resolved call-in link. Linked weapons are edited inside their support stratagem under Stratagems → Support.")</p></div></div>
-@if (links != null) { <p class="notice cat-note cat-support" data-linked-support-count="@links.ByWeapon.Count">@links.ByWeapon.Count linked support weapons are edited together with their call-in under Stratagems → Support. The weapons listed here have no link published by HD2Runtime, so they are not paired with a stratagem.</p> }
-@if (Workspace.Project is { } active) { <p class="subtle">@active.DisplayName / Changes save automatically / SDK @active.SdkVersion</p> }
-@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert"><strong>Build requires review</strong><p>@issue</p></div> }
+<div class="page-heading"><div><div class="eyebrow">@T.Format(authoring == null ? "Support.Page.EyebrowReadOnly" : "Support.Page.Eyebrow", sdk?.Version)</div><h1>@T["Support.Page.Title"]</h1><p><span class="category-pill static cat-support"><span class="cat-dot" aria-hidden="true"></span>@StratagemCategories.Support.Label</span>@(links == null ? T.Format("Support.Page.DescriptionNoLinks", sdk?.Version) : T["Support.Page.Description"])</p></div></div>
+@if (links != null) { <p class="notice cat-note cat-support" data-linked-support-count="@links.ByWeapon.Count">@T.Plural("Support.LinkedCount", links.ByWeapon.Count)</p> }
+@if (Workspace.Project is { } active) { <p class="subtle">@T.Format("Support.Page.ProjectLine", active.DisplayName, active.SdkVersion)</p> }
+@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert"><strong>@T["Support.BuildReview"]</strong><p>@issue</p></div> }
 @if (catalog == null)
-{ <section class="panel"><h2>No support catalog in this SDK</h2><p>Install SDK 0.17 or explicitly rebind the current project to inspect the published support catalog. Support authoring requires SDK 0.20.1 canonical capabilities.</p></section> }
+{ <section class="panel"><h2>@T["Support.NoCatalog.Title"]</h2><p>@T["Support.NoCatalog.Help"]</p></section> }
 else
 {
-    <div class="weapon-editor"><section class="panel weapon-browser"><h2>@Listed(catalog, authoring, links).Count() support weapons</h2><label>Search<input id="support-search" @bind="Search" @bind:event="oninput" placeholder="Name, family or trait" /></label>
-    @if (authoring != null) { <label>Family / system<select @bind="Family"><option value="">All families</option>@foreach (var family in authoring.Weapons.SelectMany(w => w.Family).Concat(authoring.FieldInstances.Select(f => f.Display.Domain)).Select(f => f.ToLowerInvariant()).Distinct().Order()) { <option value="@family">@SupportAuthoringEditor.Label(family)</option> }</select></label><label><input type="checkbox" @bind="WritableOnly" /> Writable only</label><label><input type="checkbox" @bind="SharedOnly" /> Shared settings</label><p>@authoring.Weapons.Count(w => w.Writable) writable identities</p> }
+    <div class="weapon-editor"><section class="panel weapon-browser"><h2>@T.Plural("Support.List.Count", Listed(catalog, authoring, links).Count())</h2><label>@T["Common.Search"]<input id="support-search" @bind="Search" @bind:event="oninput" placeholder="@T["Support.Search.Placeholder"]" /></label>
+    @if (authoring != null) { <label>@T["Support.Filter.Family"]<select @bind="Family"><option value="">@T["Support.Filter.AllFamilies"]</option>@foreach (var family in authoring.Weapons.SelectMany(w => w.Family).Concat(authoring.FieldInstances.Select(f => f.Display.Domain)).Select(f => f.ToLowerInvariant()).Distinct().Order()) { <option value="@family">@SupportAuthoringEditor.Label(T, family)</option> }</select></label><label><input type="checkbox" @bind="WritableOnly" /> @T["Support.Filter.WritableOnly"]</label><label><input type="checkbox" @bind="SharedOnly" /> @T["Support.Filter.SharedOnly"]</label><p>@T.Format("Support.WritableIdentities", authoring.Weapons.Count(w => w.Writable))</p> }
     <div class="weapon-list">@foreach (var w in Listed(catalog, authoring, links).Where(w => (w.CatalogIdentity + " " + w.WeaponType + " " + string.Join(" ", w.Traits)).Contains(Search, StringComparison.OrdinalIgnoreCase)))
     { <button class="resource-item @(Selected == w.CatalogIdentity ? "active" : "")" data-support="@w.CatalogIdentity" @onclick="() => Selected = w.CatalogIdentity"><strong>@w.CatalogIdentity</strong><small>@w.WeaponType · @w.IdentityResolution</small></button> }</div></section>
     <div class="weapon-detail">
     @if (catalog.Weapons.ContainsKey(Selected) && links?.ForWeapon(Selected) == null) { <SupportWeaponDetail Weapon="@Selected" Changed="Refresh" @key="Selected" /> }
-    else { <section class="panel"><h2>Choose a support weapon</h2><p>Inspect branches, family-specific settings, dependencies and unresolved evidence. Writable capabilities autosave into the active project.</p></section> }
+    else { <section class="panel"><h2>@T["Support.Empty.Title"]</h2><p>@T["Support.Empty.Help"]</p></section> }
     </div></div>
 }
 @code {

@@ -6,17 +6,17 @@
 @if (entry?.Categories is { Count: > 0 } categories)
 {
     <details class="semantic-section collapsed-section" data-section="Attachments">
-        <summary><h2>Attachments</h2><span class="section-summary" data-attachment-summary>@string.Join(" · ", categories.Select(c => $"{c.Category} {c.Options.Count} {(c.Options.Count == 1 ? "option" : "options")} · {c.Options.Count(o => o.OptionIdentityProven)} resolved"))</span><span class="badge">Read-only</span></summary>
-        <p class="subtle">Catalog compatibility is separate from proven native identity.@(Workspace.Metadata?.Entities?.Attachments is { } magazines ? "" : " No option-owned writable effects are published.")</p>
+        <summary><h2>@T["Attachment.Title"]</h2><span class="section-summary" data-attachment-summary>@string.Join(" · ", categories.Select(c => T.Plural("Attachment.CategorySummary", c.Options.Count, c.Category, c.Options.Count(o => o.OptionIdentityProven))))</span><span class="badge">@T["Common.ReadOnly"]</span></summary>
+        <p class="subtle">@(Workspace.Metadata?.Entities?.Attachments is { } magazines ? T["Attachment.Help"] : T["Attachment.HelpNoEffects"])</p>
         @if (Workspace.Metadata?.Entities?.Attachments is { } superseding && categories.Any(c => c.Category == "Magazine"))
-        { <p class="subtle" data-magazine-owner-superseded>Magazine ammo ownership from @superseding.Supersedes.File is superseded by the Ammo / Magazine section: @superseding.Supersedes.Note</p> }
+        { <p class="subtle" data-magazine-owner-superseded>@T.Format("Attachment.MagazineSuperseded", superseding.Supersedes.File, superseding.Supersedes.Note)</p> }
         @foreach (var category in categories)
         {
-            <details class="collapsed-group" data-attachment-category="@category.Category"><summary><strong>@category.Category</strong> <span class="subtle">@category.Options.Count options · @category.Options.Count(o => o.OptionIdentityProven) resolved</span></summary>
+            <details class="collapsed-group" data-attachment-category="@category.Category"><summary><strong>@category.Category</strong> <span class="subtle">@T.Plural("Attachment.OptionSummary", category.Options.Count, category.Options.Count(o => o.OptionIdentityProven))</span></summary>
             @foreach (var option in category.Options)
             {
-                <details class="attachment-option" data-attachment="@option.Name"><summary><strong>@option.Name</strong> <span class="badge">@(option.Default ? "Default" : "Optional")</span> <span class="subtle">@(option.OptionIdentityProven ? "Native identity proven" : "Unresolved")</span></summary>
-                    <p>Catalog compatible: @(option.CatalogAllowed ? "Yes" : "Unproven") · Native identity: @(option.OptionIdentityProven ? "Proven" : "Unresolved")</p>
+                <details class="attachment-option" data-attachment="@option.Name"><summary><strong>@option.Name</strong> <span class="badge">@(option.Default ? T["Attachment.Default"] : T["Attachment.Optional"])</span> <span class="subtle">@(option.OptionIdentityProven ? T["Attachment.IdentityProven"] : T["Attachment.Unresolved"])</span></summary>
+                    <p>@T.Format("Attachment.Compatibility", option.CatalogAllowed ? T["Attachment.Yes"] : T["Attachment.Unproven"], option.OptionIdentityProven ? T["Attachment.Proven"] : T["Attachment.Unresolved"])</p>
                     @if (option.NativeOption != null) { <p>@option.NativeOption.Name</p> }
                     <EvidenceTree Value="@JsonSerializer.SerializeToElement(option.Effects, EvidenceOptions)" />
                     <p class="subtle">@option.Reason</p>

@@ -9,17 +9,17 @@
 }
 @if (project != null && keys.Length > 0)
 {
-    <div class="panel-heading"><h2>Vehicle, backpack, magazine attachment, booster, throwable &amp; enemy changes</h2>@if (project.EntityChanges.Count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync())">Reset all vehicle, backpack, attachment, booster, throwable &amp; enemy changes</button> }</div>
+    <div class="panel-heading"><h2>@T["EntityChanges.Title"]</h2>@if (project.EntityChanges.Count > 0) { <button class="reset-action" @onclick="() => Run(() => Workspace.ResetEntityAsync())">@T["EntityChanges.ResetAll"]</button> }</div>
     @foreach (var (resource, entity) in keys)
     {
         var own = project.EntityChanges.Where(c => Group(c) == (resource, entity)).ToArray();
         var callIn = entities?.CallInFor(resource, entity); var callInChanges = callIn == null ? 0 : project.StratagemChanges.Count(c => c.Stratagem == callIn);
         var key = resource + ":" + entity;
-        <details class="panel" data-entity-change-group="@key"><summary><span class="category-pill static @(resource == "booster" ? StratagemCategories.BoosterCssClass : resource == "throwable" ? StratagemCategories.ThrowableCssClass : resource == "enemy" ? StratagemCategories.EnemyCssClass : resource == "structure" ? StratagemCategories.StructureCssClass : "cat-support")"><span class="cat-dot" aria-hidden="true"></span>@(resource switch { "vehicle" => "Vehicle", "backpack" => "Backpack", "booster" => "Booster", "throwable" => "Throwable", "pod_rack" => "Drop pod", "enemy" => "Enemy", "structure" => "Structure", _ => "Magazine attachment" })</span><strong>@Title(resource, entity)</strong>
-            <span class="badge">@(own.Length + callInChanges) @(own.Length + callInChanges == 1 ? "change" : "changes")</span>
-            <small class="subtle">@string.Join(" · ", new[] { callInChanges > 0 ? "Call-in" : null, own.Any(c => c.Path is "entity" or "backpack") ? (resource == "vehicle" ? "Durability" : "Settings") : null,
-                own.Any(c => c.Path == "damage_zone") ? own.Count(c => c.Path == "damage_zone") + " zone fields" : null, own.Any(c => c.Path == "mount") ? "Mounts" : null, own.Any(c => c.Resource == "vehicle_weapon") ? "Mounted weapons" : null, own.Any(c => c.Resource == "pod_rack") ? "Contents" : null, own.Any(c => c.Path == "magazine") ? "Magazine values" : null, own.Any(c => c.Path == "deployed_entity") ? "Deployed entity" : null, own.Any(c => c.Path == "status_effect") ? "Status effect" : null, own.Any(c => c.Path == "attack" && EntityChangeService.IsEnemy(c.Resource)) ? own.Where(c => c.Path == "attack").Select(c => c.Attack).Distinct().Count() + " attack rows" : null }.Where(s => s != null))</small></summary>
-            <label><input type="checkbox" checked="@ShowAll.Contains(key)" @onchange="e => Toggle(key, (bool)e.Value!)" /> Show all fields</label>
+        <details class="panel" data-entity-change-group="@key"><summary><span class="category-pill static @(resource == "booster" ? StratagemCategories.BoosterCssClass : resource == "throwable" ? StratagemCategories.ThrowableCssClass : resource == "enemy" ? StratagemCategories.EnemyCssClass : resource == "structure" ? StratagemCategories.StructureCssClass : "cat-support")"><span class="cat-dot" aria-hidden="true"></span>@KindLabel(resource)</span><strong>@Title(resource, entity)</strong>
+            <span class="badge">@T.Plural("EntityChanges.Count", own.Length + callInChanges)</span>
+            <small class="subtle">@string.Join(" · ", new[] { callInChanges > 0 ? T["EntityChanges.Part.CallIn"] : null, own.Any(c => c.Path is "entity" or "backpack") ? (resource == "vehicle" ? T["EntityChanges.Part.Durability"] : T["EntityChanges.Part.Settings"]) : null,
+                own.Any(c => c.Path == "damage_zone") ? T.Plural("EntityChanges.Part.ZoneFields", own.Count(c => c.Path == "damage_zone")) : null, own.Any(c => c.Path == "mount") ? T["EntityChanges.Part.Mounts"] : null, own.Any(c => c.Resource == "vehicle_weapon") ? T["EntityChanges.Part.MountedWeapons"] : null, own.Any(c => c.Resource == "pod_rack") ? T["EntityChanges.Part.Contents"] : null, own.Any(c => c.Path == "magazine") ? T["EntityChanges.Part.MagazineValues"] : null, own.Any(c => c.Path == "deployed_entity") ? T["EntityChanges.Part.DeployedEntity"] : null, own.Any(c => c.Path == "status_effect") ? T["EntityChanges.Part.StatusEffect"] : null, own.Any(c => c.Path == "attack" && EntityChangeService.IsEnemy(c.Resource)) ? T.Plural("EntityChanges.Part.AttackRows", own.Where(c => c.Path == "attack").Select(c => c.Attack).Distinct().Count()) : null }.Where(s => s != null))</small></summary>
+            <label><input type="checkbox" checked="@ShowAll.Contains(key)" @onchange="e => Toggle(key, (bool)e.Value!)" /> @T["EntityChanges.ShowAllFields"]</label>
             @if (resource == "vehicle") { <VehicleEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (resource == "backpack") { <BackpackEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (resource == "booster") { <BoosterEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
@@ -28,7 +28,7 @@
             else if (resource == "pod_rack") { <PodPayloadEditor Rack="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else { <MagazineAttachmentCard Attachment="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             @foreach (var c in own.Where(c => entities?.Field(c.InstanceKey) == null))
-            { <p class="notice warning">Missing capability: @c.SemanticFieldId · @(c.Zone ?? c.Mount ?? c.Path)</p><button @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: c.InstanceKey))">Remove missing change</button> }
+            { <p class="notice warning">@T.Format("EntityChanges.MissingCapability", c.SemanticFieldId, c.Zone ?? c.Mount ?? c.Path)</p><button @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: c.InstanceKey))">@T["EntityChanges.RemoveMissing"]</button> }
         </details>
     }
     @if (Error != null) { <p class="notice warning">@Error</p> }
@@ -40,6 +40,12 @@
     private string Title(string resource, string entity) => EntityChangeService.IsEnemy(resource) ? Workspace.Metadata?.Entities?.Enemies?.Name(entity) ?? entity
         : resource != "weapon_attachment" ? entity
         : Workspace.Metadata?.Entities?.Attachments?.Attachment(entity) is { } a ? a.Name + (a.Consumers.NativeDefaultOf.Length > 0 ? " (" + string.Join(", ", a.Consumers.NativeDefaultOf) + ")" : "") : entity;
+    // Resource ids are the project's; each gets ModBuilder's category name (anything else is a magazine attachment).
+    private string KindLabel(string resource) => resource switch
+    {
+        "vehicle" => T["EntityChanges.Kind.Vehicle"], "backpack" => T["EntityChanges.Kind.Backpack"], "booster" => T["EntityChanges.Kind.Booster"], "throwable" => T["EntityChanges.Kind.Throwable"],
+        "pod_rack" => T["EntityChanges.Kind.DropPod"], "enemy" => T["EntityChanges.Kind.Enemy"], "structure" => T["EntityChanges.Kind.Structure"], _ => T["EntityChanges.Kind.MagazineAttachment"],
+    };
     private static (string Resource, string Entity) Group(EntityChange c) => c.Resource == "vehicle_weapon" ? ("vehicle", VehicleWeaponReader.Split(c.Entity).Vehicle) : (c.Resource, c.Entity);
     private void Toggle(string key, bool value) { if (value) ShowAll.Add(key); else ShowAll.Remove(key); }
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }

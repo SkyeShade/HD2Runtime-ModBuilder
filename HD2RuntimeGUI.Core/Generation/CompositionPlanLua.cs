@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using HD2RuntimeGUI.Core.Localization;
 using HD2RuntimeGUI.Core.Metadata;
 
 namespace HD2RuntimeGUI.Core.Generation;
@@ -10,7 +11,7 @@ public static class CompositionPlanLua
 {
     public static IReadOnlyList<string> Operations(string resourceId, SdkMetadata sdk, IReadOnlyList<PlannedSemanticOperation> operations, OptionBindings? options = null)
     {
-        var contract = sdk.Plans ?? throw new InvalidDataException("Composition plan capabilities are unavailable.");
+        var contract = sdk.Plans ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.PlansUnavailable"));
         var parent = Enumerable.Range(0, operations.Count).ToArray();
         int Root(int i) { while (parent[i] != i) i = parent[i]; return i; }
         void Join(int a, int b) => parent[Root(b)] = Root(a);
@@ -45,18 +46,18 @@ public static class CompositionPlanLua
             var indices = component.ToArray();
             if (indices.Length == 1) { output.Add(operations[indices[0]].Lua(resourceId, options)); continue; }
             if (indices.Select(i => operations[i].Ensure).Distinct().Count() != 1)
-                throw new InvalidDataException("Related composition objects have mixed persistence settings. Use the same persistence setting so they can share one guarded plan.");
-            if (indices.Length > contract.Limits.Operations) throw new InvalidDataException("Composition exceeds the SDK's plan operation limit.");
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.MixedPersistence"));
+            if (indices.Length > contract.Limits.Operations) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.OperationLimit"));
             string Id(int i) => "op-" + Hash(resourceId + "\n" + operations[i].Owner + "\n" + operations[i].Family);
             var phased = indices.Any(dependencies.ContainsKey);
             var phases = phased ? new[] { indices.Where(i => !dependencies.ContainsKey(i)).ToArray(), indices.Where(dependencies.ContainsKey).ToArray() } : [indices];
-            if (phases.Length > contract.Limits.Phases) throw new InvalidDataException("Composition exceeds the SDK's phase limit.");
+            if (phases.Length > contract.Limits.Phases) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.PhaseLimit"));
             foreach (var phase in phases)
             {
                 // Prior selector captures participate in a dependent phase's write set.
                 var captures = phase.Where(dependencies.ContainsKey).SelectMany(i => dependencies[i]).Distinct();
                 if (phase.Sum(i => operations[i].Changes.Count) + captures.Sum(i => operations[i].Changes.Count) > contract.Limits.PhysicalChangesPerPhase)
-                    throw new InvalidDataException("Composition exceeds the SDK's changes-per-phase limit.");
+                    throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ChangesPerPhaseLimit"));
             }
             string Operation(int index)
             {
@@ -64,7 +65,7 @@ public static class CompositionPlanLua
                 if (dependencies.TryGetValue(index, out var deps) && (op.Family == "projectile" || op.Family.StartsWith("terminal:", StringComparison.Ordinal)))
                 {
                     var path = op.Family == "projectile" ? "projectile" : "terminal." + op.Family[9..];
-                    if (!contract.TargetFromPaths.ContainsKey(path)) throw new InvalidDataException("SDK does not support this composition dependency path.");
+                    if (!contract.TargetFromPaths.ContainsKey(path)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.DependencyPath"));
                     var dependency = deps.OrderBy(Id, StringComparer.Ordinal).First();
                     body.Append("    target_from={operation=").Append(LuaGenerator.Quote(Id(dependency))).Append(",path=").Append(LuaGenerator.Quote(path)).Append("},\n");
                 }

@@ -3,15 +3,15 @@
 @foreach (var change in Workspace.Project!.ProjectileChanges.Where(c => c.Weapon == Weapon).OrderBy(c => c.AttackRole))
 {
     <div class="weapon-change modified" data-projectile-change="@change.AttackRole">
-        <div class="change-row"><div class="change-name"><strong>Projectile · @change.AttackRole.Replace('_', ' ')</strong><span class="badge modified-badge">Modified</span><small>@change.Group · @(change.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div>
+        <div class="change-row"><div class="change-name"><strong>@T.Format("Projectile.Title", change.AttackRole.Replace('_', ' '))</strong><span class="badge modified-badge">@T["Common.Modified"]</span><small>@change.Group · @(change.EnsureEnabled ? T["Composition.Ensure"] : T["Composition.ApplyOnce"])</small></div>
             <div class="modified-value">@change.ExpectedProjectile.Label → <strong>@change.ReplacementProjectile.Label</strong></div>
-            <label class="switch-label"><input type="checkbox" checked="@change.Enabled" @onchange="() => Run(() => Workspace.ToggleProjectileAsync(change.Id))" />Enabled</label>
-            <button class="reset-action" disabled="@(Pending?.Role == change.AttackRole)" @onclick="() => ResetProjectile(change)">Reset projectile</button>
+            <label class="switch-label"><input type="checkbox" checked="@change.Enabled" @onchange="() => Run(() => Workspace.ToggleProjectileAsync(change.Id))" />@T["Common.Enabled"]</label>
+            <button class="reset-action" disabled="@(Pending?.Role == change.AttackRole)" @onclick="() => ResetProjectile(change)">@T["Projectile.Reset"]</button>
         </div>
         @if (Pending is { } pending && pending.Role == change.AttackRole)
         { <ProjectileSwapPrompt Current="change.ReplacementProjectile" Target="change.ExpectedProjectile" Edits="pending.Edits" Reset="true" Decide="keep => Decide(change, keep)" Cancel="() => Pending = null" /> }
         @if (Workspace.ProjectileIssue(change) is { } issue)
-        { <div class="notice warning"><span>@issue</span><button @onclick="() => Run(() => Workspace.SetProjectileAsync(change.Weapon, change.AttackRole, change.ReplacementProjectile, true))">Review: accept current SDK baseline</button></div> }
+        { <div class="notice warning"><span>@issue</span><button @onclick="() => Run(() => Workspace.SetProjectileAsync(change.Weapon, change.AttackRole, change.ReplacementProjectile, true))">@T["Composition.AcceptBaseline"]</button></div> }
         @if (change.Notes != null) { <p>@change.Notes</p> }
     </div>
 }
@@ -19,14 +19,14 @@
 @foreach (var output in (Workspace.Project!.AttackOutputChanges ?? []).Where(c => c.Weapon == Weapon).OrderBy(c => c.AttackRole))
 {
     <div class="weapon-change modified" data-attack-output-change="@output.AttackRole">
-        <div class="change-row"><div class="change-name"><strong>Projectile · @output.AttackRole.Replace('_', ' ')</strong><span class="badge modified-badge">Modified</span><small>@output.Group · @(output.Mechanism == AttackOutputHost.AmmunitionMechanism ? "through its ammunition" : "attack output") · @(output.EnsureEnabled ? "Ensure · 60 s" : "Apply once")</small></div>
-            <div class="modified-value">Fires <strong>@output.OutputName</strong></div>
-            <label class="switch-label"><input type="checkbox" checked="@output.Enabled" @onchange="() => Run(() => Workspace.ToggleAttackOutputAsync(output.Id))" />Enabled</label>
-            <button class="reset-action" @onclick="() => Run(() => Workspace.SetAttackOutputAsync(output.Weapon, output.AttackRole, null))">Reset projectile</button>
+        <div class="change-row"><div class="change-name"><strong>@T.Format("Projectile.Title", output.AttackRole.Replace('_', ' '))</strong><span class="badge modified-badge">@T["Common.Modified"]</span><small>@output.Group · @(output.Mechanism == AttackOutputHost.AmmunitionMechanism ? T["AttackOutput.Via.Ammunition"] : T["AttackOutput.Via.Output"]) · @(output.EnsureEnabled ? T["Composition.Ensure"] : T["Composition.ApplyOnce"])</small></div>
+            <div class="modified-value">@T.Markup("AttackOutput.FiresChange.Html", output.OutputName)</div>
+            <label class="switch-label"><input type="checkbox" checked="@output.Enabled" @onchange="() => Run(() => Workspace.ToggleAttackOutputAsync(output.Id))" />@T["Common.Enabled"]</label>
+            <button class="reset-action" @onclick="() => Run(() => Workspace.SetAttackOutputAsync(output.Weapon, output.AttackRole, null))">@T["Projectile.Reset"]</button>
         </div>
         @if (Workspace.AttackOutputIssue(output) is { } outputIssue)
-        { <div class="notice warning"><span>@outputIssue</span><button @onclick="() => Run(() => Workspace.SetAttackOutputAsync(output.Weapon, output.AttackRole, output.Output))">Review: accept current SDK</button></div> }
-        @if (output.Acknowledgements.Length > 0) { <p class="subtle" data-attack-output-flags>Written with @string.Join(", ", output.Acknowledgements.Select(a => a + "=true")).</p> }
+        { <div class="notice warning"><span>@outputIssue</span><button @onclick="() => Run(() => Workspace.SetAttackOutputAsync(output.Weapon, output.AttackRole, output.Output))">@T["AttackOutput.AcceptCurrent"]</button></div> }
+        @if (output.Acknowledgements.Length > 0) { <p class="subtle" data-attack-output-flags>@T.Format("AttackOutput.WrittenWith", string.Join(", ", output.Acknowledgements.Select(a => a + "=true")))</p> }
     </div>
 }
 @if (Result is { } result) { <ProjectileSwapResult Result="result" Dismiss="() => Result = null" /> }
