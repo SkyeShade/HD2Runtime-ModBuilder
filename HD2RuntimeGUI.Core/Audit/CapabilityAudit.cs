@@ -48,6 +48,7 @@ public static class CapabilitySurfaces
         [("vehicle", EntityField.ReferenceType)] = "Stratagems › Support › vehicle mounts",
         [("backpack", "number")] = "Stratagems › Support › backpack", [("backpack", "integer")] = "Stratagems › Support › backpack",
         [("vehicle_weapon", "number")] = "Stratagems › Support › vehicle weapons", [("vehicle_weapon", "integer")] = "Stratagems › Support › vehicle weapons",
+        [("vehicle_weapon", WeaponCapability.StatusReference)] = "Stratagems › Support › vehicle weapons (status slots)",
         [("weapon_attachment", "number")] = "Player Weapons › magazine attachments", [("weapon_attachment", "integer")] = "Player Weapons › magazine attachments",
         [("booster", "number")] = "Boosters", [("booster", "integer")] = "Boosters",
         [("pod_rack", "integer")] = "Stratagems › drop-pod contents", [("pod_rack", EntityField.PickupType)] = "Stratagems › drop-pod contents",
