@@ -13,6 +13,6 @@ HD2Runtime ModBuilder ([SkyeShade/HD2Runtime-ModBuilder](https://github.com/Skye
   - supplied the initial zh-Hans translation resource set;
   - supplied the English/Chinese review material that became the translation baseline.
 
-  In `HD2RuntimeGUI.Core/Resources/Strings/Strings.zh-Hans.resx`, entries whose comment is `issue #1` or `issue #1 (adapted)` come from that material. The ModBuilder 1.4.0 interface has 2,233 keys: strings added or reworded since v1.3.0 were translated or adapted during implementation and are marked `new: needs native review`. See [docs/localization.md](docs/localization.md).
+  In `HD2RuntimeGUI.Core/Resources/Strings/Strings.zh-Hans.resx`, entries whose comment is `issue #1` or `issue #1 (adapted)` come from that material. The ModBuilder 1.4.0 interface has 2,252 keys: strings added or reworded since v1.3.0 were translated or adapted during implementation and are marked `new: needs native review`. See [docs/localization.md](docs/localization.md).
 
 No HD2Runtime memory safety engine, resolver, scanner, runtime Lua implementation, SDK scripts, game addresses or game process access code was copied into the ModBuilder's application services or generated mods.

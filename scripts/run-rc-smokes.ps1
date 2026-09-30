@@ -2,7 +2,7 @@
 param(
     # The packaged executable to test (default: the release candidate built by build-rc.ps1).
     [string]$App,
-    [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'projectile-builder', 'export', 'old-project'),
+    [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'programmable-ammo', 'projectile-builder', 'export', 'old-project'),
     [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.0'),
     [int]$BasePort = 9260
 )
@@ -12,6 +12,7 @@ param(
 #   scripting    custom Lua / event scripting and the developer SDK panel (--sdk-path: the pinned SDK extracted from the fixture)
 #   language     English <-> 简体中文 with an open project and an unsaved edit
 #   runtime028   underbarrel, programmable ammo, mounted projectile host, event/action and localization (+ Runtime validation of its export)
+#   programmable-ammo  base / alternate mode cards: add, donor, labels, reopen, remove, support + native weapons, narrow layout, zh-Hans (+ export validation)
 #   projectile-builder  hosts (player, support, mounted), read-only reasons, donor rows, slots, mode presentation, LAS-98 beam
 #   export       export in both languages (byte-identical) + HD2Runtime 0.28.0 validation of the export
 #   old-project  a ModBuilder 1.3.1 user's data folder: projects stay on 0.27.0, rebind and export
@@ -76,7 +77,7 @@ foreach ($smoke in $Smokes) {
     }
     $result = if ($exit -eq 0) { 'PASS' } else { 'FAIL' }
     # The export smoke's ZIP is validated by HD2Runtime 0.28.0 itself.
-    if ($smoke -in @('export', 'runtime028') -and $exit -eq 0) {
+    if ($smoke -in @('export', 'runtime028', 'programmable-ammo') -and $exit -eq 0) {
         $zip = ((Get-Content -LiteralPath $log -Raw) | Select-String -Pattern '"export":\s*"([^"]+)"').Matches[0].Groups[1].Value -replace '\\\\', '\'
         & py -3 -B (Join-Path $repoRoot 'tools\validate-exports.py') --isolation --runtime $RuntimeTree --output (Join-Path $out "$smoke-export-validation.json") $zip *>> $log
         if ($LASTEXITCODE -ne 0) { $result = 'FAIL (export validation)' }

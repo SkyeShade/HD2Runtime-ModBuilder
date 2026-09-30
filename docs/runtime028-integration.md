@@ -219,8 +219,12 @@ The local SDK is still validated in memory and never cached. Exports require its
 
 - **Rate-of-fire slots, weapon functions and programmable ammunition** (`WeaponFunctionsPanel`): X / Y / Z rates, the default slot and selector
   order, input bindings resolved inline, the function projectile from the one donor pool (spare twins and function-ammo-only rows included),
-  written with its binding in one `weapon_selector` transaction. Mode labels and icons for the base and alternate rows are edited in place
-  (`ModePresentationEditor`).
+  written with its binding in one `weapon_selector` transaction. Programmable ammunition is edited as two mode cards (`ProgrammableAmmoEditor`,
+  built from `BuilderWorkspace.AmmoModes`, the same for player and support weapons). Base is the row the weapon fires, which a projectile swap
+  can change. Alternate is `none`, `native` or a donor, with the input that switches it, its donor list and its opt-in warnings. Each card
+  edits its own row's mode label and icon (`ModePresentationEditor`, compact). Removing a donor that has label edits on its row asks whether
+  they go too (`ResetModePresentationAsync`). The opt-ins of the group's one transaction are shown with the part that needs them
+  (`WeaponSelector.RatesOptIns` / `AmmoOptIns`).
 - **Armory presentation** (`WeaponPresentationPanel`): traits and the penetration label, presentation only.
 - **Underbarrels** (`SubweaponSection`): a nested section on the parent weapon, written to `hd2.weapon(parent):underbarrel()`.
 - **Unified projectile hosts** (`ProjectileHostSwaps`): support weapons, vehicle mounts and the Guard Dog gun, with read-only hosts and refused

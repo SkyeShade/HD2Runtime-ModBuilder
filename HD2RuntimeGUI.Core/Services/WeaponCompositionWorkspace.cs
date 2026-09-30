@@ -36,10 +36,17 @@ public sealed record SelectorProjectile(bool Writable, string State, string? Rea
 {
     public bool Modified => Baseline != Current;
 }
-// One weapon's weapon_selector group. OptIns: the Runtime opt-ins the saved group is written with (warnings only), each with its reason.
-public sealed record WeaponSelector(string Kind, string Weapon, SelectorRates? Rates, IReadOnlyList<SelectorInput> Inputs, SelectorProjectile? Projectile,
-    IReadOnlyList<string> OptIns, IReadOnlyDictionary<string, string> OptInReasons, bool Enabled, bool Saved, string? Issue)
+// The Runtime opt-ins one part of a saved group is written with (warnings only), each with its reason.
+public sealed record SelectorOptIns(IReadOnlyList<string> Flags, IReadOnlyDictionary<string, string> Reasons)
 {
+    public static readonly SelectorOptIns None = new([], new Dictionary<string, string>());
+}
+// One weapon's weapon_selector group. RatesOptIns / AmmoOptIns: the opt-ins its rates and its programmable ammunition (each with the binding
+// it needs) are written with, shown next to that part; the group's one transaction carries all of them (OptIns).
+public sealed record WeaponSelector(string Kind, string Weapon, SelectorRates? Rates, IReadOnlyList<SelectorInput> Inputs, SelectorProjectile? Projectile,
+    SelectorOptIns RatesOptIns, SelectorOptIns AmmoOptIns, bool Enabled, bool Saved, string? Issue)
+{
+    public IReadOnlyList<string> OptIns => [.. CompositionOptIns.Order.Where(f => RatesOptIns.Flags.Contains(f) || AmmoOptIns.Flags.Contains(f))];
     public bool Writable => Rates?.Writable == true || Projectile?.Writable == true;
     public bool Modified => Rates?.Modified == true || Projectile?.Modified == true || Inputs.Any(i => i.Modified);
     // Inputs that can take a selector this weapon hosts: unbound, editable, and published as bindable for it.
@@ -47,6 +54,10 @@ public sealed record WeaponSelector(string Kind, string Weapon, SelectorRates? R
         && (function == WeaponFunctions.RateOfFire ? Rates?.BindableInputs : Projectile?.BindableInputs)?.Contains(i.Input) == true).Select(i => i.Input).ToArray();
     // The edited input bound to a function, if any.
     public string? BoundInput(string function) => Inputs.FirstOrDefault(i => i.Modified && i.Current == function)?.Input;
+    // The input one selector holds in the saved group when the other would need it (null when it holds none): the rate-of-fire selector
+    // this project binds for extra rates, or the programmable-ammunition selector it binds for a donor projectile.
+    public string? RatesHold => Rates is { SelectorBound: false } r && r.Filled > 1 ? BoundInput(WeaponFunctions.RateOfFire) : null;
+    public string? AmmoHolds => Projectile is { SelectorBound: false } a && FunctionProjectile.IsOutput(a.Current) ? BoundInput(WeaponFunctions.ProgrammableAmmo) : null;
 }
 // A desired selector state: rates (null = the published slots), a function projectile token (null = the published one), and the inputs to
 // bind (null = the first free input that can take the selector).
@@ -111,13 +122,13 @@ public sealed partial class BuilderWorkspace
             projectile = new(Writable(pf), pf.FunctionAmmoState ?? "blocked", Reason(pf), FunctionProjectile.Token(pf.CurrentDefault),
                 FunctionProjectile.Token(change?.DesiredValue ?? pf.CurrentDefault), pf.SelectorBound == true, pf.SelectorInput, pf.BindableInputs ?? [],
                 Metadata.AttackOutputs?.Own(name), Writable(pf) ? FunctionProjectile.Donors(Metadata, name, live) : [],
-                pf.AcknowledgementReason, Metadata.Feeds?.Of(CompositionKind.Player, name)?.Feeds.FirstOrDefault(f => f.Mechanism == AttackOutputHost.ProgrammableAmmo),
-                Nonempty(Effect(pf.Effect)), live);
+                pf.Acknowledgement == CompositionOptIns.Effect ? pf.AcknowledgementReason : null,
+                Metadata.Feeds?.Of(CompositionKind.Player, name)?.Feeds.FirstOrDefault(f => f.Mechanism == AttackOutputHost.ProgrammableAmmo), Nonempty(Effect(pf.Effect)), live);
         }
         if (rates == null && inputs.Count == 0 && projectile == null) return null;
-        var effect = saved.Where(s => CompositionOptIns.EffectFor(s.Field, s.Change.DesiredValue)).Select(s => s.Field.AcknowledgementReason ?? "").Distinct().ToArray();
-        var reference = saved.Where(s => CompositionOptIns.ReferenceFor(s.Field, s.Change.DesiredValue)).ToArray();
-        return Finish(CompositionKind.Player, name, rates, inputs, projectile, effect, reference.Length > 0,
+        var needs = saved.Select(s => new SelectorNeed(IsAmmoPart(s.Field.SemanticFieldId, s.Change.DesiredValue),
+            CompositionOptIns.EffectFor(s.Field, s.Change.DesiredValue) ? s.Field.AcknowledgementReason ?? "" : null, CompositionOptIns.ReferenceFor(s.Field, s.Change.DesiredValue))).ToArray();
+        return Finish(CompositionKind.Player, name, rates, inputs, projectile, needs,
             saved.Select(s => s.Change.Enabled).DefaultIfEmpty(true).All(e => e), saved.Count > 0, Issue(saved.Select(s => s.Change.Id)));
     }
     private WeaponSelector? SupportSelector(string name)
@@ -149,22 +160,31 @@ public sealed partial class BuilderWorkspace
             var live = CompositionOptIns.LiveValues(pf) ?? [];
             projectile = new(Writable(pf), fa.FunctionAmmoState, pf.BlockedReason, FunctionProjectile.Token(pf.Value.Baseline), FunctionProjectile.Token(change?.DesiredValue ?? pf.Value.Baseline),
                 fa.SelectorBound, fa.SelectorInput, fa.BindableInputs, Metadata.AttackOutputs?.Own(name), Writable(pf) ? FunctionProjectile.Donors(Metadata, name, live) : [],
-                pf.Operation.AcknowledgementReason, Metadata.Feeds?.Of(CompositionKind.Support, name)?.Feeds.FirstOrDefault(f => f.Mechanism == AttackOutputHost.ProgrammableAmmo),
-                Nonempty(Effect(pf.Effect)), live);
+                pf.Operation.Acknowledgement == CompositionOptIns.Effect ? pf.Operation.AcknowledgementReason : null,
+                Metadata.Feeds?.Of(CompositionKind.Support, name)?.Feeds.FirstOrDefault(f => f.Mechanism == AttackOutputHost.ProgrammableAmmo), Nonempty(Effect(pf.Effect)), live);
         }
         if (rates == null && inputs.Count == 0 && projectile == null) return null;
-        var effect = saved.Where(s => CompositionOptIns.EffectFor(s.Field, s.Change.DesiredValue)).Select(s => s.Field.Operation.AcknowledgementReason ?? "").Distinct().ToArray();
-        var reference = saved.Where(s => CompositionOptIns.ReferenceFor(s.Field, s.Change.DesiredValue)).ToArray();
-        return Finish(CompositionKind.Support, name, rates, inputs, projectile, effect, reference.Length > 0,
+        var needs = saved.Select(s => new SelectorNeed(IsAmmoPart(s.Field.SemanticFieldId, s.Change.DesiredValue),
+            CompositionOptIns.EffectFor(s.Field, s.Change.DesiredValue) ? s.Field.Operation.AcknowledgementReason ?? "" : null, CompositionOptIns.ReferenceFor(s.Field, s.Change.DesiredValue))).ToArray();
+        return Finish(CompositionKind.Support, name, rates, inputs, projectile, needs,
             saved.Select(s => s.Change.Enabled).DefaultIfEmpty(true).All(e => e), saved.Count > 0, SupportSelectorIssue(saved.Select(s => s.Change.Id)));
     }
+    // One saved field of a selector group and the opt-ins it is written with (Effect: the reason when it needs allow_unverified_effect).
+    private sealed record SelectorNeed(bool Ammo, string? Effect, bool Reference);
+    // A field belongs to the programmable ammunition when it is the function projectile or the binding that selects it; else to the rates.
+    private static bool IsAmmoPart(string field, JsonElement value) => field == FunctionProjectile.Field || NameOf(value) == WeaponFunctions.ProgrammableAmmo;
     private static WeaponSelector Finish(string kind, string weapon, SelectorRates? rates, IReadOnlyList<SelectorInput> inputs, SelectorProjectile? projectile,
-        IReadOnlyList<string> effectReasons, bool reference, bool enabled, bool saved, string? issue)
+        IReadOnlyList<SelectorNeed> needs, bool enabled, bool saved, string? issue)
     {
-        var optIns = new List<string>(); var reasons = new Dictionary<string, string>();
-        if (effectReasons.Count > 0) { optIns.Add(CompositionOptIns.Effect); reasons[CompositionOptIns.Effect] = string.Join(" ", effectReasons.Where(r => r.Length > 0)); }
-        if (reference) { optIns.Add(CompositionOptIns.Reference); reasons[CompositionOptIns.Reference] = CoreText.Get("Composition.Selector.ReferenceReason"); }
-        return new(kind, weapon, rates, inputs, projectile, optIns, reasons, enabled, saved, issue);
+        static SelectorOptIns OptIns(IEnumerable<SelectorNeed> part)
+        {
+            var list = part.ToArray(); var flags = new List<string>(); var reasons = new Dictionary<string, string>();
+            if (list.Where(n => n.Effect != null).Select(n => n.Effect!).Distinct().ToArray() is { Length: > 0 } effect)
+            { flags.Add(CompositionOptIns.Effect); reasons[CompositionOptIns.Effect] = string.Join(" ", effect.Where(r => r.Length > 0)); }
+            if (list.Any(n => n.Reference)) { flags.Add(CompositionOptIns.Reference); reasons[CompositionOptIns.Reference] = CoreText.Get("Composition.Selector.ReferenceReason"); }
+            return flags.Count == 0 ? SelectorOptIns.None : new(flags, reasons);
+        }
+        return new(kind, weapon, rates, inputs, projectile, OptIns(needs.Where(n => !n.Ammo)), OptIns(needs.Where(n => n.Ammo)), enabled, saved, issue);
     }
     private string? Issue(IEnumerable<Guid> ids)
     {

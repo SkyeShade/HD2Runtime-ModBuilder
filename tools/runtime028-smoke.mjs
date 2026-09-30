@@ -27,9 +27,10 @@ await run('runtime028', async (ui, report) => {
     await waitFor(q(fx), 'MG-206 rate of fire & functions');
     await fill(`${fx} [data-rate-slot="z"] input`, '900');
     await waitFor(q(`${fx} [data-rate-slot="z"][data-rate="900"]`), 'Z rate saved');
+    await click(`${fx} [data-ammo-add]`);
     await fill(`${fx} [data-function-ammo-search]`, 'Hyena'); await click(`${fx} [data-function-donor="${out('r-4-hyena')}"]`);
     await waitFor(q(`${fx} [data-feed-alternate="${out('r-4-hyena')}"]`), 'Hyena as the function projectile');
-    await waitFor(q(`${fx} [data-mode-labels-slot] [data-mode-presentation="${out('r-4-hyena')}"]`), 'alternate mode label editor');
+    await waitFor(q(`${fx} [data-ammo-mode="alternate"] [data-mode-presentation="${out('r-4-hyena')}"]`), 'alternate mode label editor');
     report.hmgOptIns = await count(`${fx} [data-flag]`);
     await screenshot('runtime028-programmable-ammo');
 

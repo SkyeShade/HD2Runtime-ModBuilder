@@ -1,0 +1,242 @@
+@inject BuilderWorkspace Workspace
+@* The programmable-ammunition editor of one player or support weapon (function_ammo.projectile), as two mode cards built from
+   BuilderWorkspace.AmmoModes. Base: what the weapon fires while programmable ammunition is off, with its own mode label and HUD icon. Alternate:
+   what it fires while it is on (nothing yet, the native programmable projectile or a donor row), the input that switches it, its label and
+   icon, its donor picker and the warnings its write carries. Choosing a donor binds a free input in the same weapon_selector transaction; a
+   conflict with the rate-of-fire selector, and label edits a donor leaves on its row, are resolved here. Opt-ins are warnings only. *@
+@if (Workspace.AmmoModes(Kind, Weapon) is { } modes && Workspace.Selector(Kind, Weapon) is { } view)
+{
+    var b = modes.Base; var alt = modes.Alternate; var open = Adding && modes.CanAdd || alt.Configured;
+    <section class="programmable-ammo ammo-modes" data-programmable-ammo data-function-ammo-state="@modes.Source.State" data-alternate-mode="@(Adding && !alt.Configured ? "adding" : alt.Mode)">
+        <div class="fire-mode-head"><strong>@T["WeaponFunctions.Ammo.Title"]</strong>
+            <details class="field-info"><summary title="@T["AmmoModes.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+                <p>@T["AmmoModes.Info.Body"]</p>
+                @if (modes.Source.EffectReason is { } effect) { <p>@effect</p> }
+            </div></details>
+        </div>
+        <div class="ammo-mode-cards">
+            <article class="ammo-mode base" data-ammo-mode="base" data-mode-output="@b.Row?.SemanticId" data-base-vanilla="@(b.Vanilla ? "true" : "false")">
+                <header class="ammo-mode-head">
+                    <span class="ammo-mode-title">@T["AmmoModes.Base.Title"]</span>
+                    @if (b.Vanilla) { <span class="badge" data-base-vanilla-badge>@T["AmmoModes.Base.Vanilla"]</span> }
+                    else { <span class="badge modified-badge" data-base-swapped>@T["AmmoModes.Base.Swapped"]</span> }
+                    <span class="ammo-mode-when">@T["AmmoModes.Base.When"]</span>
+                </header>
+                <div class="ammo-mode-output"><strong data-mode-output-label>@(b.Row?.Label ?? Weapon)</strong>
+                    @if (b.Row != null) { <small class="subtle">@Describe(b.Row, false)</small> }</div>
+                <p class="ammo-mode-summary" data-mode-summary>@T.Format("AmmoModes.Base.Summary", b.Row?.Label ?? Weapon)</p>
+                @if (!b.Vanilla && b.Own != null) { <p class="subtle" data-base-swap-note>@T.Format("AmmoModes.Base.SwapNote", b.Own.Label)</p> }
+                @if (b.Row != null) { <ModePresentationEditor @key="b.Row.SemanticId" Output="@b.Row.SemanticId" Compact="true" Changed="Changed" /> }
+            </article>
+
+            <article class="ammo-mode alternate @(open ? "" : "empty") @(modes.Source.Modified ? "modified" : "")" data-ammo-mode="alternate" data-feed-alternate="@alt.Token" data-mode-output="@alt.Row?.SemanticId">
+                <header class="ammo-mode-head">
+                    <span class="ammo-mode-title">@T["AmmoModes.Alternate.Title"]</span>
+                    @if (alt.Mode == AlternateAmmoMode.NativeMode) { <span class="badge" data-alternate-native>@T["WeaponFunctions.Ammo.State.Native"]</span> }
+                    @if (alt.Mode == AlternateAmmoMode.DonorMode && alt.LiveProven)
+                    { <span class="badge green" data-live-proven title="@T.Format("AttackOutput.Badge.ProvenOnHost", Weapon)">@T["WeaponFunctions.LiveProven"]</span> }
+                    else if (alt.Mode == AlternateAmmoMode.DonorMode && alt.Donor is { } unproven && modes.DonorOptIns(unproven).Count > 0)
+                    { <span class="badge amber" data-alternate-unverified>@T["AmmoModes.Unverified"]</span> }
+                    @if (modes.Source.Modified) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+                    @* The card's own action, next to its name: remove an added mode, restore a replaced native one, or cancel adding. *@
+                    <span class="ammo-mode-actions">
+                        @if (modes.CanRemove) { <button class="reset-action small" data-ammo-remove disabled="@Busy" @onclick="() => Remove(modes, view)">@T["AmmoModes.Alternate.Remove"]</button> }
+                        @if (modes.CanRestoreNative) { <button class="reset-action small" data-function-ammo-native disabled="@Busy" @onclick="() => Restore(modes, view)">@T["WeaponFunctions.Ammo.Restore"]</button> }
+                        @if (open && !alt.Configured) { <button class="link-button" data-ammo-add-cancel @onclick="() => { Adding = false; Picking = false; Pending = null; }">@T["Common.Cancel"]</button> }
+                    </span>
+                    <span class="ammo-mode-when">@T["AmmoModes.Alternate.When"]</span>
+                </header>
+                @if (!open)
+                {
+                    <div class="ammo-mode-empty" data-alternate-empty>
+                        <p>@T["AmmoModes.Alternate.Empty"]</p>
+                        @if (modes.CanAdd) { <button class="primary" data-ammo-add disabled="@Busy" @onclick="() => { Adding = true; Picking = true; Pending = null; }">@T["AmmoModes.Alternate.Add"]</button> }
+                        else { <p class="fire-mode-blocked" data-function-ammo-blocked>@(modes.Reason ?? T["Messages.Build.FunctionAmmo.ReadOnly"])</p> }
+                    </div>
+                    @if (modes.CanAdd) { @InputLine(modes) }
+                }
+                else
+                {
+                    <div class="ammo-mode-identity">
+                        @if (alt.Mode == AlternateAmmoMode.DonorMode)
+                        {
+                            <div class="ammo-mode-output"><strong data-mode-output-label>@(alt.Row?.Label ?? alt.Token)</strong>
+                                @if (alt.Row != null) { <small class="subtle">@Describe(alt.Row, true)</small> }</div>
+                        }
+                        else if (alt.Mode == AlternateAmmoMode.NativeMode)
+                        {
+                            <div class="ammo-mode-output"><strong data-mode-output-label>@(alt.Native?.DisplayName ?? T["WeaponFunctions.Ammo.Native"])</strong>
+                                <small class="subtle">@T["WeaponFunctions.Ammo.Native"]</small></div>
+                        }
+                        @if (modes.Writable && alt.Configured)
+                        { <button class="small" data-ammo-change aria-expanded="@(Picking ? "true" : "false")" @onclick="() => Picking = !Picking">@(Picking ? T["AmmoModes.Donor.Hide"] : T["AmmoModes.Donor.Change"])</button> }
+                    </div>
+                    <p class="ammo-mode-summary" data-mode-summary>@(alt.Mode switch
+                    {
+                        AlternateAmmoMode.DonorMode => T.Format("AmmoModes.Alternate.Summary", alt.Row?.Label ?? alt.Token),
+                        AlternateAmmoMode.NativeMode => alt.Native?.DisplayName is { } name ? T.Format("AmmoModes.Alternate.NativeSummary", name) : T["AmmoModes.Alternate.NativeSummary.Unnamed"],
+                        _ => T["AmmoModes.Alternate.Choose"],
+                    })</p>
+                    @InputLine(modes)
+                    @if (Pending is { } pending)
+                    {
+                        <div class="swap-prompt" role="group" data-selector-conflict>
+                            <p><strong>@pending.Message</strong></p>
+                            <div class="swap-actions">
+                                @foreach (var (label, action) in pending.Options) { <button class="primary" data-selector-resolve disabled="@Busy" @onclick="action">@label</button> }
+                                <button class="link-button" data-selector-cancel @onclick="() => Pending = null">@T["Common.Cancel"]</button>
+                            </div>
+                        </div>
+                    }
+                    @if (modes.Writable && Picking)
+                    {
+                        var shown = modes.Donors.Where(d => Search.Length == 0 || $"{d.Output.Label} {d.Output.KindLabel} {d.Output.CompatibilityClass} {d.Output.SemanticId}".Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+                        <div class="ammo-donor-picker" data-ammo-donor-picker>
+                            <span class="ammo-mode-label">@T["AmmoModes.Donor.Title"]</span>
+                            <label class="ammo-donor-search">@T["AttackOutput.Search.Label"]<input data-function-ammo-search @bind="Search" @bind:event="oninput" placeholder="@T["WeaponFunctions.Ammo.Search.Placeholder"]" /></label>
+                            <div class="donor-list" role="listbox" aria-label="@T["WeaponFunctions.Ammo.Donors.Label"]" data-function-ammo-donors>
+                                @foreach (var d in shown)
+                                {
+                                    var selected = modes.Source.Current == d.Output.SemanticId;
+                                    <button class="donor ammo-donor @(selected ? "active" : "")" role="option" aria-selected="@(selected ? "true" : "false")" disabled="@Busy" data-function-donor="@d.Output.SemanticId"
+                                            title="@d.Output.SemanticId" @onclick="() => Choose(modes, view, d.Output.SemanticId)">
+                                        <span class="donor-name"><strong>@d.Output.Label</strong><small class="subtle">@Describe(d.Output, true)</small></span>
+                                        <span class="donor-badges">@Badges(modes, d, false)</span>
+                                    </button>
+                                }
+                                @if (shown.Length == 0) { <p class="subtle">@T["AttackOutput.Donors.Empty"]</p> }
+                            </div>
+                        </div>
+                    }
+
+                    @if (alt.Mode == AlternateAmmoMode.DonorMode && alt.Row is { } donorRow)
+                    {
+                        <div class="ammo-donor-detail" data-selected-donor="@donorRow.SemanticId">
+                            @if (alt.Donor is { } d) { <span class="donor-badges">@Badges(modes, d, true)</span> }
+                            <p class="subtle" data-donor-package>@(donorRow.Package.Known ? T.Format("AttackOutput.Badge.AutoLoad.Tooltip", donorRow.Package.Name ?? "") : T["AttackOutput.Badge.AssetsUnknown.Tooltip"])</p>
+                            @if (donorRow.SpareTwin is { } twin) { <p class="subtle">@twin.Reason</p> }
+                            @if (FieldEffect(donorRow) is { } field) { <p class="subtle">@field</p> }
+                        </div>
+                        @if (modes.OptIns.Flags.Count > 0) { <OptInWarnings Acknowledgements="modes.OptIns.Flags" Reasons="modes.OptIns.Reasons" /> }
+                        <ModePresentationEditor @key="donorRow.SemanticId" Output="@donorRow.SemanticId" Compact="true" Changed="Changed" />
+                    }
+                    else if (alt.Mode == AlternateAmmoMode.NativeMode)
+                    {
+                        <div class="mode-presentation compact readonly" data-mode-presentation-native>
+                            <div class="mode-presentation-head"><span class="ammo-mode-label">@T["ModePresentation.Title"]</span><span class="badge">@T["WeaponFunctions.Ammo.State.Native"]</span></div>
+                            @if (alt.Native is { } np) { <p><strong>@(np.DisplayName ?? np.Label)</strong> <small class="subtle">· @np.Icon</small></p> }
+                            <p class="subtle">@T["AmmoModes.Presentation.Native"]</p>
+                        </div>
+                        @if (!modes.Writable) { <p class="fire-mode-blocked" data-function-ammo-blocked>@(modes.Reason ?? T["Messages.Build.FunctionAmmo.ReadOnly"])</p> }
+                        else if (!modes.CanRestoreNative) { <p class="subtle" data-native-kept>@T["AmmoModes.Alternate.NativeKept"]</p> }
+                    }
+                }
+                @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+            </article>
+        </div>
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public string Kind { get; set; } = CompositionKind.Player;
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    // A choice asked where the edit happens: a rate-of-fire selector holding the only input, or label edits a donor leaves on its row.
+    private sealed record Prompt(string Message, IReadOnlyList<(string Label, Func<Task> Action)> Options);
+    // Adding: the alternate card is open before a donor is chosen (nothing is saved until then). Picking: the donor list is shown.
+    private bool Adding, Picking, Busy; private Prompt? Pending; private string Search = ""; private string? Error, AmmoInput;
+
+    private string InputLabel(string input) => FieldPresentation.InputLabel(T, input);
+    // Owner, kind and compatibility class as the catalog publishes them (the owner is omitted for the weapon's own row).
+    private string Describe(AttackOutput o, bool owner) => string.Join(" · ", new[] { owner ? ProjectileDonorList.OwnerKind(T, o.Owner.Kind) : null, o.KindLabel,
+        o.CompatibilityClass?.Replace('_', ' ') }.OfType<string>());
+    // A donor's lingering field (the EMS Mortar shell's StaticField), as the catalog publishes it.
+    private string? FieldEffect(AttackOutput output) => output.FieldEffect is { ValueKind: System.Text.Json.JsonValueKind.Object } f && f.TryGetProperty("volume", out var volume)
+        ? T.Format("WeaponFunctions.Ammo.FieldEffect", volume.GetString(), f.TryGetProperty("seconds", out var s) ? s.GetRawText() : "?", f.TryGetProperty("radius", out var r) ? r.GetRawText() : "?") : null;
+
+    // One donor's badges, always in this order: proof (live-proven, or one compact badge for the opt-ins it would be written with), scope,
+    // twin, class, assets. The selected donor's detail leaves proof out: the card's header badge and its warnings say it in full.
+    private RenderFragment Badges(AmmoModes modes, FunctionDonor d, bool detail) => @<text>
+        @if (detail) { }
+        else if (d.LiveProven) { <span class="badge green" data-donor-proven title="@T.Format("AttackOutput.Badge.ProvenOnHost", Weapon)">@T["WeaponFunctions.LiveProven"]</span> }
+        else if (modes.DonorOptIns(d) is { Count: > 0 } flags)
+        { <span class="badge amber" data-flags="@string.Join(" ", flags)" title="@T.Format("AmmoModes.Unverified.Tooltip", string.Join(", ", flags))">@T["Common.Unverified"]</span> }
+        @if (d.Output.ReferenceScope != null) { <span class="badge blue" data-donor-scoped title="@T["WeaponFunctions.Ammo.Scoped.Tooltip"]">@T["WeaponFunctions.Ammo.Scoped"]</span> }
+        @if (d.Output.SpareTwin is { } twin) { <span class="badge" data-donor-twin title="@twin.Reason">@T["WeaponFunctions.Ammo.SpareTwin"]</span> }
+        @if (d.CrossClass) { <span class="badge amber" data-donor-cross title="@T["WeaponFunctions.Ammo.OtherClass.Tooltip"]">@T["WeaponFunctions.Ammo.OtherClass"]</span> }
+        @if (!d.Output.Package.Known) { <span class="badge amber" data-donor-assets="unknown" title="@T["AttackOutput.Badge.AssetsUnknown.Tooltip"]">@T["Asset.Label.Unknown"]</span> }
+        else if (d.Output.Package.AutoLoad) { <span class="badge" data-donor-assets="auto" title="@T.Format("AttackOutput.Badge.AutoLoad.Tooltip", d.Output.Package.Name ?? "")">@T["AttackOutput.Badge.AutoLoad"]</span> }
+    </text>;
+
+    // The input that switches the alternate mode on: the weapon's own, the one this mod binds, or the one adding it binds (a choice when there
+    // are several free inputs); a rate-of-fire selector holding the only one is resolved when a projectile is chosen.
+    private RenderFragment InputLine(AmmoModes modes) => @<text>
+        @{ var input = modes.Input; var chosen = AmmoInput != null && input.Choices.Contains(AmmoInput) ? AmmoInput : input.Input; }
+        @if (input.State != AmmoSelectorInput.Unavailable && chosen != null)
+        {
+            <div class="ammo-input" data-ammo-input="@input.State" data-input="@chosen">
+                <span class="subtle">@(input.State switch
+                {
+                    AmmoSelectorInput.Native => T.Format("AmmoModes.Input.Native", InputLabel(chosen)),
+                    AmmoSelectorInput.Bound => T.Format("AmmoModes.Input.Bound", InputLabel(chosen)),
+                    AmmoSelectorInput.Held => T.Format("AmmoModes.Input.Held", InputLabel(chosen)),
+                    _ => T.Format("AmmoModes.Input.Pending", InputLabel(chosen)),
+                })</span>
+                @if (input.Choices.Count > 1 && modes.Writable)
+                {
+                    <label>@T["WeaponFunctions.Ammo.InputChoice"]
+                        <select data-function-ammo-input disabled="@Busy" @onchange="e => ChooseInput(modes, e.Value?.ToString())">
+                            @foreach (var i in input.Choices) { <option value="@i" selected="@(i == chosen)">@InputLabel(i)</option> }
+                        </select></label>
+                }
+            </div>
+        }
+    </text>;
+
+    private static IReadOnlyList<float>? SavedRates(WeaponSelector view) => view.Rates is { Modified: true } r ? r.Current : null;
+    private Task ChooseInput(AmmoModes modes, string? input)
+    {
+        AmmoInput = input;
+        return modes.Alternate.Mode == AlternateAmmoMode.DonorMode && Workspace.Selector(Kind, Weapon) is { } view ? Choose(modes, view, modes.Alternate.Token) : Task.CompletedTask;
+    }
+    // A donor needs the ProgrammableAmmo function on a free input; when the only one holds the rate-of-fire selector, ask here.
+    private async Task Choose(AmmoModes modes, WeaponSelector view, string token)
+    {
+        var rates = SavedRates(view); var held = view.RatesHold; string? input = null;
+        if (FunctionProjectile.IsOutput(token) && !modes.Source.SelectorBound)
+        {
+            var candidates = view.Candidates(WeaponFunctions.ProgrammableAmmo); var free = candidates.Where(i => i != held).ToArray();
+            if (free.Length == 0 && held != null && candidates.Contains(held))
+            {
+                var single = rates is { } r ? new float[] { 0, r[1], 0 } : null;
+                var options = new List<(string, Func<Task>)> { (T["WeaponFunctions.Conflict.DropRates"], () => Leave(modes, new(single, null, token, held))) };
+                if (view.Candidates(WeaponFunctions.RateOfFire).FirstOrDefault(i => i != held) is { } other)
+                    options.Add((T.Format("WeaponFunctions.Conflict.MoveRates", InputLabel(other)), () => Leave(modes, new(rates, other, token, held))));
+                Pending = new(T.Format("WeaponFunctions.Conflict.AmmoNeedsInput", InputLabel(held)), options); return;
+            }
+            input = AmmoInput != null && free.Contains(AmmoInput) ? AmmoInput : view.BoundInput(WeaponFunctions.ProgrammableAmmo) is { } current && free.Contains(current) ? current : free.FirstOrDefault();
+        }
+        await Leave(modes, new(rates, held, token, input));
+    }
+    private Task Remove(AmmoModes modes, WeaponSelector view) => Leave(modes, new(SavedRates(view), view.RatesHold, FunctionProjectile.None, null));
+    private Task Restore(AmmoModes modes, WeaponSelector view) => Leave(modes, new(SavedRates(view), view.RatesHold, FunctionProjectile.Native, null));
+    // An edit that moves the alternate off a donor row carrying mode label / icon edits asks here whether they go too: they are on the row,
+    // so otherwise they stay in the build.
+    private async Task Leave(AmmoModes modes, SelectorEdit edit)
+    {
+        if (modes.Alternate is { Mode: AlternateAmmoMode.DonorMode, Row: { } row } && edit.Projectile != row.SemanticId && Workspace.ModePresentationChanges(row.SemanticId).Count > 0)
+        {
+            Pending = new(T.Format("AmmoModes.Leave.Prompt", row.Label), [
+                (T["AmmoModes.Leave.Drop"], () => Run(async () => { await Workspace.SetSelectorAsync(Kind, Weapon, edit); await Workspace.ResetModePresentationAsync(row.SemanticId); })),
+                (T["AmmoModes.Leave.Keep"], () => Run(() => Workspace.SetSelectorAsync(Kind, Weapon, edit)))]);
+            return;
+        }
+        await Run(() => Workspace.SetSelectorAsync(Kind, Weapon, edit));
+    }
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); Pending = null; Adding = false; Picking = false; await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

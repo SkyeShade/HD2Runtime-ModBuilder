@@ -81,6 +81,115 @@
   <data name="Ammo.Preset.Title" xml:space="preserve">
     <value>Default magazine preset</value>
   </data>
+  <data name="AmmoModes.Alternate.Add" xml:space="preserve">
+    <value>Add alternate mode</value>
+  </data>
+  <data name="AmmoModes.Alternate.Choose" xml:space="preserve">
+    <value>Choose the projectile the alternate mode fires.</value>
+  </data>
+  <data name="AmmoModes.Alternate.Empty" xml:space="preserve">
+    <value>No alternate mode configured.</value>
+  </data>
+  <data name="AmmoModes.Alternate.NativeKept" xml:space="preserve">
+    <value>A native alternate mode can be replaced with another projectile and restored, but not removed.</value>
+  </data>
+  <data name="AmmoModes.Alternate.NativeSummary" xml:space="preserve">
+    <value>Uses the weapon's native {0} projectile when programmable ammunition is on.</value>
+    <comment>{0}: the native mode's published display name (FLAK, HE…)</comment>
+  </data>
+  <data name="AmmoModes.Alternate.NativeSummary.Unnamed" xml:space="preserve">
+    <value>Uses the weapon's native programmable projectile when programmable ammunition is on.</value>
+  </data>
+  <data name="AmmoModes.Alternate.Remove" xml:space="preserve">
+    <value>Remove alternate mode</value>
+  </data>
+  <data name="AmmoModes.Alternate.Summary" xml:space="preserve">
+    <value>Uses {0} when programmable ammunition is on.</value>
+    <comment>{0}: the donor projectile row</comment>
+  </data>
+  <data name="AmmoModes.Alternate.Title" xml:space="preserve">
+    <value>Alternate mode</value>
+    <comment>The programmable-ammunition mode the weapon fires while the function is on.</comment>
+  </data>
+  <data name="AmmoModes.Alternate.When" xml:space="preserve">
+    <value>Fires when programmable ammunition is ON</value>
+  </data>
+  <data name="AmmoModes.Base.Summary" xml:space="preserve">
+    <value>Uses {0} when programmable ammunition is off.</value>
+    <comment>{0}: the projectile row the base mode fires</comment>
+  </data>
+  <data name="AmmoModes.Base.SwapNote" xml:space="preserve">
+    <value>This project's projectile swap replaces the weapon's own projectile ({0}); it is edited with the weapon's projectile.</value>
+    <comment>{0}: the weapon's own projectile row</comment>
+  </data>
+  <data name="AmmoModes.Base.Swapped" xml:space="preserve">
+    <value>Swapped projectile</value>
+    <comment>Badge: a projectile swap in this project changes what the base mode fires.</comment>
+  </data>
+  <data name="AmmoModes.Base.Title" xml:space="preserve">
+    <value>Base mode</value>
+    <comment>The programmable-ammunition mode the weapon fires while the function is off.</comment>
+  </data>
+  <data name="AmmoModes.Base.Vanilla" xml:space="preserve">
+    <value>Vanilla / default</value>
+    <comment>Badge: the base mode fires the weapon's own projectile.</comment>
+  </data>
+  <data name="AmmoModes.Base.When" xml:space="preserve">
+    <value>Fires when programmable ammunition is OFF</value>
+  </data>
+  <data name="AmmoModes.Donor.Change" xml:space="preserve">
+    <value>Change projectile</value>
+  </data>
+  <data name="AmmoModes.Donor.Hide" xml:space="preserve">
+    <value>Hide projectile list</value>
+  </data>
+  <data name="AmmoModes.Donor.Title" xml:space="preserve">
+    <value>Projectile donor</value>
+    <comment>Heading of the list of projectiles the alternate mode can fire.</comment>
+  </data>
+  <data name="AmmoModes.Info.Body" xml:space="preserve">
+    <value>A weapon-function input switches the weapon between two modes: the base mode fires its normal projectile, the alternate mode fires the programmable projectile. The alternate projectile and the input binding it needs are written in the same Runtime transaction as the rate-of-fire slots.</value>
+  </data>
+  <data name="AmmoModes.Info.Tooltip" xml:space="preserve">
+    <value>How programmable ammunition works</value>
+  </data>
+  <data name="AmmoModes.Input.Bound" xml:space="preserve">
+    <value>Switched with the {0} input, bound by this mod.</value>
+    <comment>{0}: input (Left / Right)</comment>
+  </data>
+  <data name="AmmoModes.Input.Held" xml:space="preserve">
+    <value>The {0} input, the only one it can use, holds the rate-of-fire selector: choosing a projectile asks how to resolve this.</value>
+    <comment>{0}: input (Left / Right)</comment>
+  </data>
+  <data name="AmmoModes.Input.Native" xml:space="preserve">
+    <value>Switched with the {0} input (the weapon's own binding).</value>
+    <comment>{0}: input (Left / Right)</comment>
+  </data>
+  <data name="AmmoModes.Input.Pending" xml:space="preserve">
+    <value>Adding it binds the {0} input.</value>
+    <comment>{0}: input (Left / Right)</comment>
+  </data>
+  <data name="AmmoModes.Leave.Drop" xml:space="preserve">
+    <value>Remove the label edits too</value>
+  </data>
+  <data name="AmmoModes.Leave.Keep" xml:space="preserve">
+    <value>Keep the label edits</value>
+  </data>
+  <data name="AmmoModes.Leave.Prompt" xml:space="preserve">
+    <value>The {0} row carries your mode label or HUD icon edits. They are on the row, so they stay in the build unless you remove them with this change.</value>
+    <comment>{0}: the donor projectile row the alternate mode stops firing</comment>
+  </data>
+  <data name="AmmoModes.Presentation.Native" xml:space="preserve">
+    <value>Runtime publishes no projectile row for the native programmable projectile, so its label and icon are shown as they are.</value>
+  </data>
+  <data name="AmmoModes.Unverified" xml:space="preserve">
+    <value>Not gameplay-confirmed</value>
+    <comment>Badge on an alternate mode whose donor pair no live test proved.</comment>
+  </data>
+  <data name="AmmoModes.Unverified.Tooltip" xml:space="preserve">
+    <value>Written with {0}: this weapon firing it has not been confirmed in play.</value>
+    <comment>{0}: Runtime opt-in flags (allow_unverified_effect, allow_unverified_reference)</comment>
+  </data>
   <data name="App.Brand.Tagline" xml:space="preserve">
     <value>mod authoring for hd2runtime</value>
     <comment>Tagline under the HD2Runtime ModBuilder wordmark (lower case by design; hd2runtime is the product name)</comment>
@@ -4401,6 +4510,9 @@
   <data name="ModePresentation.NoLabel" xml:space="preserve">
     <value>No label</value>
   </data>
+  <data name="ModePresentation.None" xml:space="preserve">
+    <value>This projectile row publishes no mode label or HUD icon.</value>
+  </data>
   <data name="ModePresentation.Proven" xml:space="preserve">
     <value>Live-proven here: {0}.</value>
     <comment>{0}: labels and icons</comment>
@@ -7771,24 +7883,6 @@
     <value>{0} · effect not gameplay-confirmed</value>
     <comment>{0}: field display name (SDK)</comment>
   </data>
-  <data name="WeaponFunctions.Ammo.Alternate" xml:space="preserve">
-    <value>Alternate</value>
-    <comment>The programmable projectile.</comment>
-  </data>
-  <data name="WeaponFunctions.Ammo.Alternate.Help" xml:space="preserve">
-    <value>Fired while the programmable-ammunition function is on</value>
-  </data>
-  <data name="WeaponFunctions.Ammo.Base" xml:space="preserve">
-    <value>Base</value>
-    <comment>The projectile the weapon fires normally.</comment>
-  </data>
-  <data name="WeaponFunctions.Ammo.Base.Help" xml:space="preserve">
-    <value>Fired normally (function off)</value>
-  </data>
-  <data name="WeaponFunctions.Ammo.BoundOn" xml:space="preserve">
-    <value>Native on the {0} input</value>
-    <comment>{0}: input (Left / Right).</comment>
-  </data>
   <data name="WeaponFunctions.Ammo.Donors.Label" xml:space="preserve">
     <value>Projectiles this weapon can fire as programmable ammunition</value>
   </data>
@@ -7802,29 +7896,11 @@
   <data name="WeaponFunctions.Ammo.Native" xml:space="preserve">
     <value>Native programmable projectile</value>
   </data>
-  <data name="WeaponFunctions.Ammo.NativeNamed" xml:space="preserve">
-    <value>Native · {0}</value>
-    <comment>{0}: the native mode label as published (FLAK, HE…).</comment>
-  </data>
-  <data name="WeaponFunctions.Ammo.None" xml:space="preserve">
-    <value>None</value>
-    <comment>No programmable projectile.</comment>
-  </data>
   <data name="WeaponFunctions.Ammo.OtherClass" xml:space="preserve">
     <value>Other class</value>
   </data>
   <data name="WeaponFunctions.Ammo.OtherClass.Tooltip" xml:space="preserve">
     <value>A different compatibility class from the base projectile</value>
-  </data>
-  <data name="WeaponFunctions.Ammo.Proven" xml:space="preserve">
-    <value>Live-proven on {0}: {1}</value>
-    <comment>{0}: weapon, {1}: donor outputs.</comment>
-  </data>
-  <data name="WeaponFunctions.Ammo.Remove" xml:space="preserve">
-    <value>Remove alternate</value>
-  </data>
-  <data name="WeaponFunctions.Ammo.Reset" xml:space="preserve">
-    <value>Reset ammunition</value>
   </data>
   <data name="WeaponFunctions.Ammo.Restore" xml:space="preserve">
     <value>Restore native projectile</value>
@@ -7842,10 +7918,6 @@
   <data name="WeaponFunctions.Ammo.SpareTwin" xml:space="preserve">
     <value>Spare twin</value>
     <comment>An independent copy of a projectile row.</comment>
-  </data>
-  <data name="WeaponFunctions.Ammo.State.Addable" xml:space="preserve">
-    <value>Can be added</value>
-    <comment>Programmable ammunition state addable.</comment>
   </data>
   <data name="WeaponFunctions.Ammo.State.Native" xml:space="preserve">
     <value>Native</value>
@@ -7938,14 +8010,6 @@
   </data>
   <data name="WeaponFunctions.LiveProven" xml:space="preserve">
     <value>Live-proven</value>
-  </data>
-  <data name="WeaponFunctions.ModeLabels.Alternate" xml:space="preserve">
-    <value>Alternate label</value>
-    <comment>Heading: the mode label and icon of the programmable-ammunition projectile row.</comment>
-  </data>
-  <data name="WeaponFunctions.ModeLabels.Primary" xml:space="preserve">
-    <value>Primary label</value>
-    <comment>Heading: the mode label and icon of the weapon's base projectile row.</comment>
   </data>
   <data name="WeaponFunctions.Rates.AddHint" xml:space="preserve">
     <value>Fill slot X or Z to give this weapon selectable rates; its rate-of-fire selector is bound on a free input with them.</value>

@@ -13,8 +13,10 @@ Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4
 6. [ ] **Player Weapons → AR-23 Liberator → Primary → projectile output**: choose **LAS-58 Talon**. It shows its package and opt-in warnings.
 7. [ ] **Projectile builder → Hosts → EAT-17 Expendable Anti-Tank**: choose **PLAS-1 Scorcher** (live-proven: no warnings). Choosing **EAT-411 Leveller** instead shows the unverified warning. Leave Scorcher.
 8. [ ] **Stratagems → Support → MG-206 Heavy Machine Gun → Rate of fire & functions**: set Z to **900**; the default mode (Y) and the selector order are shown.
-9. [ ] Same panel, **programmable ammo**: search **Hyena** and choose **R-4 Hyena** (Incendiary, *Proven on MG-206*). **Primary label** and **Alternate label** editors appear below it.
-10. [ ] **Stratagems → Support → S-11 Speargun → programmable ammo**: choose the **spare twin** (Stun); in **Alternate label** set *STUN* and icon **auto**.
+9. [ ] Same panel, **programmable ammunition**: the **Base mode** card (MG-206, *Vanilla / default*) and an empty **Alternate mode** card. Click **Add alternate mode**, search **Hyena** and choose **R-4 Hyena** (*Live-proven*: no warnings). Each card has its own *Mode label and icon*.
+10. [ ] **Stratagems → Support → S-11 Speargun → Add alternate mode**: choose the **spare twin** (Stun); in the Alternate card set the label to *STUN* and the icon to **auto**.
+    - [ ] **AC-8 Autocannon**: the Alternate card shows the native **FLAK** mode, with no Remove button. **Change projectile** to another donor, then **Restore native projectile**.
+    - [ ] **Player Weapons → AR-23 Liberator → Add alternate mode**, choose **AR-23C Liberator Concussive**, then **Remove alternate mode**. The card goes back to *No alternate mode configured.*, and Lua Preview has no `function_ammo`.
 
 ## Projectile builder
 11. [ ] **Projectile builder → Rows → LAS-58 Talon**: set **Impact explosion** to the **GL-21 Grenade Launcher** blast. The row shows who fires it; the Liberator is listed as firing it through its swap.

@@ -1533,9 +1533,48 @@ html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei
 .fire-mode-slots.rate-slots { grid-template-columns:repeat(3, minmax(0, 1fr)); max-width:720px }
 .rate-slots input { max-width:160px }
 .fire-mode-slot.default, .fire-mode-slot.modified { border-color:var(--accent-border) }
-.feed-pair { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px }
-.mode-label-slot:empty { display:none }
 .binding-choice select { min-width:140px }
+/* Programmable ammunition as two mode cards: side by side when the panel is wide enough, stacked otherwise (a container query, so the same
+   editor fits the Player Weapons page and a support weapon inside a stratagem). The donor picker lives inside the alternate card. */
+.ammo-modes { container-type:inline-size }
+.ammo-mode-cards { display:grid; grid-template-columns:minmax(0, 1fr); gap:12px; align-items:start }
+@container (min-width:820px) { .ammo-mode-cards { grid-template-columns:minmax(0, 5fr) minmax(0, 7fr) } }
+.ammo-mode { display:grid; gap:10px; min-width:0; padding:12px 14px; border:1px solid var(--border); border-left-width:3px; border-radius:10px; background:var(--surface) }
+.ammo-mode.base { border-left-color:#4a5363 }
+.ammo-mode.alternate { border-left-color:var(--accent-border) }
+.ammo-mode.alternate.empty { border-style:dashed; border-left-style:solid; background:transparent }
+.ammo-mode.alternate.modified { border-color:var(--accent-border) }
+.ammo-mode-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px }
+.ammo-mode-title { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase }
+.ammo-mode-when { flex-basis:100%; color:var(--muted); font-size:12.5px }
+.ammo-mode-output { display:flex; flex-direction:column; gap:2px; min-width:0 }
+.ammo-mode-output strong { font-size:15px; overflow-wrap:anywhere }
+.ammo-mode-summary, .ammo-mode p { margin:0 }
+.ammo-mode-summary { font-size:13px }
+.ammo-mode-empty { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; padding:6px 0 }
+.ammo-mode-empty p { color:var(--muted) }
+.ammo-mode-actions { display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; margin-left:auto }
+.ammo-mode-identity { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:6px 12px }
+.ammo-mode button.small { padding:4px 10px; font-size:12px }
+/* Small headings inside a mode card (its label editor, its donor list), in the slot-label style of the fire-mode editors. */
+.ammo-mode-label, .mode-presentation-head .slot-label { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em }
+.ammo-input { display:flex; flex-wrap:wrap; align-items:end; gap:6px 12px; font-size:12.5px }
+.ammo-input select { min-width:120px }
+.ammo-donor-detail { display:grid; gap:4px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface2); font-size:12.5px }
+.ammo-donor-detail .donor-badges { justify-content:flex-start }
+.ammo-mode .ack-panel { margin:0; padding:8px 12px; font-size:12px; max-width:none }
+.ammo-mode .ack-panel p { margin:3px 0 }
+.mode-presentation.compact { display:grid; gap:6px; margin:0; padding-top:10px; border-top:1px solid var(--border) }
+.mode-presentation-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px }
+.mode-presentation.compact .mode-fields label { min-width:0; flex:1 1 180px }
+.mode-presentation.compact .mode-fields select { width:100% }
+.ammo-donor-picker { display:grid; gap:6px; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--bg) }
+.ammo-donor-search { display:grid; gap:4px; max-width:380px; font-size:12.5px }
+.ammo-donor-picker .donor-list { max-height:340px }
+.donor.ammo-donor { grid-template-columns:minmax(0, 1fr); gap:3px; padding:6px 10px }
+.donor.ammo-donor .donor-name { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px }
+.donor.ammo-donor .donor-badges { justify-content:flex-start }
+.donor.ammo-donor .badge { padding:2px 6px }
 .feeds-panel { display:grid; gap:8px; margin:0 0 10px }
 .feed-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:8px }
 .feed-card .stat-grid { margin-top:6px }
@@ -1543,4 +1582,4 @@ html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei
 .presentation-row > select, .trait-add select { max-width:420px }
 .fire-mode-slots.trait-slots { grid-template-columns:repeat(5, minmax(0, 1fr)) }
 .subweapon-section { border-left:3px solid var(--accent-border); padding-left:12px }
-@media (max-width:760px) { .feed-pair, .fire-mode-slots.rate-slots, .fire-mode-slots.trait-slots { grid-template-columns:1fr } }
+@media (max-width:760px) { .fire-mode-slots.rate-slots, .fire-mode-slots.trait-slots { grid-template-columns:1fr } }

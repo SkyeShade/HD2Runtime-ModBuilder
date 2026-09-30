@@ -31,7 +31,7 @@
                 @if (domain.Key == "Functions" && branch.Key.Path == "weapon" && !ModifiedOnly)
                 {
                     <WeaponFeedsPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" />
-                    <WeaponFunctionsPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" ModeLabels="ModeLabels" />
+                    <WeaponFunctionsPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" />
                 }
                 @if (domain.Key == "Presentation" && branch.Key.Path == "weapon" && !ModifiedOnly) { <WeaponPresentationPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" /> }
                 <div class="stat-grid">@foreach (var f in domain.Where(f => ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f))) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
@@ -60,8 +60,6 @@
     [Parameter] public bool ModifiedOnly { get; set; }
     [Parameter] public string Weapon { get; set; } = "";
     [Parameter] public EventCallback Changed { get; set; }
-    // The mode-label editor embedded in the programmable-ammunition panel (primary / alternate labels); none until it exists.
-    [Parameter] public RenderFragment<WeaponFunctionsPanel.ModeLabelSlot>? ModeLabels { get; set; }
     private string? Error;
     // Weapon-level fields a 1.4.0 panel edits (rate slots, weapon functions, programmable ammunition, armory labels, a feed's capacity).
     private bool Paneled(SupportField f) => f.Target.Path == "weapon" && (WeaponSelectorRules.IsSelectorField(f.SemanticFieldId) || f.Display.Domain == "presentation"

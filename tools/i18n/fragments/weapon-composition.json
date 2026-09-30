@@ -456,54 +456,6 @@
   "comment": "new: needs native review"
  },
  {
-  "key": "WeaponFunctions.Ammo.BoundOn",
-  "en": "Native on the {0} input",
-  "zh": "原生位于{0}输入",
-  "comment": "{0}: input (Left / Right). new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.Reset",
-  "en": "Reset ammunition",
-  "zh": "重置弹药",
-  "comment": "new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.Base",
-  "en": "Base",
-  "zh": "基础",
-  "comment": "The projectile the weapon fires normally. new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.Base.Help",
-  "en": "Fired normally (function off)",
-  "zh": "正常发射（功能关闭）",
-  "comment": "new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.Alternate",
-  "en": "Alternate",
-  "zh": "备用",
-  "comment": "The programmable projectile. new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.Alternate.Help",
-  "en": "Fired while the programmable-ammunition function is on",
-  "zh": "可编程弹药功能开启时发射",
-  "comment": "new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.Proven",
-  "en": "Live-proven on {0}: {1}",
-  "zh": "已在 {0} 上实机验证：{1}",
-  "comment": "{0}: weapon, {1}: donor outputs. new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.Remove",
-  "en": "Remove alternate",
-  "zh": "移除备用弹药",
-  "comment": "new: needs native review"
- },
- {
   "key": "WeaponFunctions.Ammo.Restore",
   "en": "Restore native projectile",
   "zh": "恢复原生弹体",
@@ -564,28 +516,10 @@
   "comment": "Programmable ammunition state native. new: needs native review"
  },
  {
-  "key": "WeaponFunctions.Ammo.State.Addable",
-  "en": "Can be added",
-  "zh": "可添加",
-  "comment": "Programmable ammunition state addable. new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.None",
-  "en": "None",
-  "zh": "无",
-  "comment": "No programmable projectile. new: needs native review"
- },
- {
   "key": "WeaponFunctions.Ammo.Native",
   "en": "Native programmable projectile",
   "zh": "原生可编程弹体",
   "comment": "new: needs native review"
- },
- {
-  "key": "WeaponFunctions.Ammo.NativeNamed",
-  "en": "Native · {0}",
-  "zh": "原生 · {0}",
-  "comment": "{0}: the native mode label as published (FLAK, HE…). new: needs native review"
  },
  {
   "key": "WeaponFunctions.Ammo.FieldEffect",
@@ -832,17 +766,5 @@
   "en": "{0} values Runtime does not expose",
   "zh": "Runtime 未开放的 {0} 个值",
   "comment": "{0}: count. new: needs native review"
- },
- {
-  "key": "WeaponFunctions.ModeLabels.Primary",
-  "en": "Primary label",
-  "zh": "主模式标签",
-  "comment": "Heading: the mode label and icon of the weapon's base projectile row."
- },
- {
-  "key": "WeaponFunctions.ModeLabels.Alternate",
-  "en": "Alternate label",
-  "zh": "备用模式标签",
-  "comment": "Heading: the mode label and icon of the programmable-ammunition projectile row."
  }
 ]

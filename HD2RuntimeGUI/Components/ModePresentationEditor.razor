@@ -3,7 +3,8 @@
    hd2.attack_output(Output)). Native labels and icons only (AttackOutputCapabilities modePresentation; custom text is not supported). "auto"
    writes the label's exact native icon, else the generic fallback; the empty placeholder ("default") comes back by removing the edit. The
    label is on the shared row: every weapon firing it shows it. Opt-ins are implicit and shown only as warnings.
-   Reusable: a programmable-ammunition editor embeds one per projectile (Title "Primary label" / "Alternate label", Output = that base). *@
+   Reusable: the projectile builder shows it under a heading; each programmable-ammunition mode card embeds a compact one (Compact) for the
+   row that mode fires. *@
 @{ var sdk = Workspace.Metadata; var row = sdk?.AttackOutputs?.Output(Output); var modes = sdk?.AttackOutputs?.ModePresentation; }
 @if (row?.Presentation is { } p && modes != null && sdk != null)
 {
@@ -11,10 +12,23 @@
     var auto = OutputRowChangeService.AutoIcon(modes, row, label is { Enabled: true } ? label.Value : null);
     var acks = new[] { label, icon }.OfType<OutputRowChange>().Where(c => c.Enabled).SelectMany(c => c.Acknowledgements).Distinct().ToArray();
     var editable = p.Writable && Workspace.Project != null && !Busy;
-    <div class="mode-presentation @(label != null || icon != null ? "modified" : "")" data-mode-presentation="@Output">
-        <h4 class="group-title">@(Title ?? T["ModePresentation.Title"]) @if (Title != null) { <small class="subtle">&nbsp;·&nbsp;@row.Label</small> }
-            @if (label != null || icon != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
-            @if (p.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["ModePresentation.Shared.Tooltip"]">@T["Common.Shared"]</span> }</h4>
+    var shared = T.Format("ModePresentation.Reason.Shared", row.Slots?.DirectDamage.SharedConsumerCount ?? 0, string.Join(", ", row.Slots?.DirectDamage.NamedSharedConsumers ?? []));
+    var proven = p.LiveProven.Labels.Length + p.LiveProven.Icons.Length > 0 ? T.Format("ModePresentation.Proven", string.Join(", ", p.LiveProven.Labels.Concat(p.LiveProven.Icons))) : null;
+    <div class="mode-presentation @(Compact ? "compact" : "") @(label != null || icon != null ? "modified" : "")" data-mode-presentation="@Output">
+        @if (Compact)
+        {
+            <div class="mode-presentation-head"><span class="slot-label">@T["ModePresentation.Title"]</span>
+                @if (label != null || icon != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+                @if (p.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["ModePresentation.Shared.Tooltip"]">@T["Common.Shared"]</span> }
+                <details class="field-info"><summary title="@T["ModePresentation.Title"]">ⓘ</summary><div class="field-info-body"><p>@T["ModePresentation.Help"]</p></div></details>
+            </div>
+        }
+        else
+        {
+            <h4 class="group-title">@T["ModePresentation.Title"]
+                @if (label != null || icon != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+                @if (p.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["ModePresentation.Shared.Tooltip"]">@T["Common.Shared"]</span> }</h4>
+        }
         @if (!p.Writable) { <p class="notice">@T["ModePresentation.ReadOnly"]</p> }
         <div class="mode-fields">
             <label>@T["ModePresentation.Label"]
@@ -31,7 +45,13 @@
                     { <option value="@i.Value" selected="@(icon?.Value == i.Value)">@i.Value@(i.Description != null ? " · " + i.Description : "")@(p.LiveProven.Icons.Contains(i.Value) ? " ✓" : "")</option> }
                 </select></label>
         </div>
-        <p class="subtle">@T["ModePresentation.Help"] @if (p.LiveProven.Labels.Length + p.LiveProven.Icons.Length > 0) { <span data-mode-proven>@(" " + T.Format("ModePresentation.Proven", string.Join(", ", p.LiveProven.Labels.Concat(p.LiveProven.Icons))))</span> }</p>
+        @if (!Compact) { <p class="subtle">@T["ModePresentation.Help"] @if (proven != null) { <span data-mode-proven>@(" " + proven)</span> }</p> }
+        else
+        {
+            @if (proven != null) { <p class="subtle" data-mode-proven>@proven</p> }
+            @* A shared row's warning sits on the editor; once an edit is saved, the allow_shared panel below says the same. *@
+            @if (p.Shared && !acks.Contains("allow_shared")) { <p class="subtle" data-mode-shared>@shared</p> }
+        }
         @foreach (var c in new[] { label, icon }.OfType<OutputRowChange>())
         {
             <div class="field-tools" data-mode-change="@c.Field">
@@ -42,19 +62,21 @@
         }
         @if (acks.Length > 0)
         {
-            <OptInWarnings Acknowledgements="acks" Reasons="@(new Dictionary<string, string> {
-                ["allow_shared"] = T.Format("ModePresentation.Reason.Shared", row.Slots?.DirectDamage.SharedConsumerCount ?? 0, string.Join(", ", row.Slots?.DirectDamage.NamedSharedConsumers ?? [])),
-                ["allow_unverified_effect"] = T["ModePresentation.Reason.Effect"] })" />
+            <OptInWarnings Acknowledgements="acks" Reasons="@(new Dictionary<string, string> { ["allow_shared"] = shared, ["allow_unverified_effect"] = T["ModePresentation.Reason.Effect"] })" />
         }
         @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
     </div>
 }
+else if (Compact && row != null)
+{
+    <p class="subtle" data-mode-presentation-none="@Output">@T["ModePresentation.None"]</p>
+}
 @code {
-    // The row whose mode label and icon are written (hd2.attack_output(Output)): a weapon's own output for its normal mode, a donor's for a
-    // programmable mode.
+    // The row whose mode label and icon are written (hd2.attack_output(Output)): the row a mode fires (a weapon's own output for its normal
+    // mode, a donor's for a programmable mode).
     [Parameter, EditorRequired] public string Output { get; set; } = "";
-    // Heading, for example "Primary label" / "Alternate label" when embedded next to a programmable-ammunition mode.
-    [Parameter] public string? Title { get; set; }
+    // Inside a mode card: a small head (the card names the mode), help behind ⓘ, and a shared row's warning shown on the editor.
+    [Parameter] public bool Compact { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error; private bool Busy;
     // The native label text as published (FLAK, STUN, …); no label reads as ModBuilder's "No label"; a current-only native label shows its id.

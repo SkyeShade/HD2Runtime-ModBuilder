@@ -51,7 +51,7 @@
                     @if (key == FieldPresentation.Functions)
                     {
                         <WeaponFeedsPanel @key="(weapon.Name, CompositionKind.Player)" Kind="@CompositionKind.Player" Weapon="@weapon.Name" Changed="FieldChanged" />
-                        <WeaponFunctionsPanel @key="(weapon.Name, CompositionKind.Player, 1)" Kind="@CompositionKind.Player" Weapon="@weapon.Name" Changed="FieldChanged" ModeLabels="ModeLabels" />
+                        <WeaponFunctionsPanel @key="(weapon.Name, CompositionKind.Player, 1)" Kind="@CompositionKind.Player" Weapon="@weapon.Name" Changed="FieldChanged" />
                     }
                     @if (key == FieldPresentation.Presentation) { <WeaponPresentationPanel @key="(weapon.Name, CompositionKind.Player)" Kind="@CompositionKind.Player" Weapon="@weapon.Name" Changed="FieldChanged" /> }
                     @if (key == "Projectile")
@@ -134,8 +134,6 @@
     [Parameter] public EventCallback Changed { get; set; }
     [Parameter] public EventCallback Review { get; set; }
     [Parameter] public string? InitialWeapon { get; set; }
-    // The mode-label editor embedded in each weapon's programmable-ammunition panel (primary / alternate labels); none until it exists.
-    [Parameter] public RenderFragment<WeaponFunctionsPanel.ModeLabelSlot>? ModeLabels { get; set; }
     private const string HeatSection = "Heat / Heatsink";
     private static readonly string[] Phases = ["impact", "expiry"];
     private string Search = "", Slot = "", Category = "", Family = "", Selected = "";

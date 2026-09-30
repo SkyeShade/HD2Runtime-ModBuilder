@@ -23,7 +23,7 @@
         @if (!writableIdentity) { <p class="notice warning" data-support-identity-blocked>@(Embedded ? T["Support.Detail.IdentityBlockedLinked"] : T["Support.Detail.IdentityBlocked"])</p> }
         @if (weapon.BackpackDependent) { <p class="notice warning">@T["Support.Detail.BackpackDependent"]</p> }
     </section>
-    <SupportAuthoringEditor Weapon="@weapon.CatalogIdentity" Changed="Changed" ModeLabels="ModeLabels" />
+    <SupportAuthoringEditor Weapon="@weapon.CatalogIdentity" Changed="Changed" />
     @* 0.28.0: the projectile this support weapon fires (a unified projectile host), or Runtime's reason it is read-only. *@
     <ProjectileHostSwaps Kind="@AttackOutputChange.SupportHost" Owner="@weapon.CatalogIdentity" Changed="Changed" />
     <details class="ia-section advanced" data-support-inspection="@weapon.CatalogIdentity" open="@(!writableIdentity && !Embedded)"><summary>@T["Support.Detail.Inspection"] <small>@T["Support.Detail.Inspection.Hint"]</small></summary><div class="ia-body">
@@ -59,6 +59,4 @@
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
-    // The mode-label editor for the programmable-ammunition panel (passed through to SupportAuthoringEditor); none until it exists.
-    [Parameter] public RenderFragment<WeaponFunctionsPanel.ModeLabelSlot>? ModeLabels { get; set; }
 }
