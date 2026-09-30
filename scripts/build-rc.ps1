@@ -1,9 +1,10 @@
 [CmdletBinding()]
 param(
     # An extracted, read-only HD2Runtime release tree for export validation (created from ..\HD2Runtime at $RuntimeCommit if missing).
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.0'),
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.0-public'),
     [string]$RuntimeRepo = (Join-Path $PSScriptRoot '..\..\HD2Runtime'),
-    [string]$RuntimeCommit = '39aabe3c68dc67aec71e1db796a6f85cd076a40b',
+    # The public HD2Runtime v0.28.0 release (its sdk/ is unchanged from the release candidate 39aabe3 ModBuilder was integrated on).
+    [string]$RuntimeCommit = '085acc7cfc6ecccd57c9b8c415d455a92731083d',
     # Local test builds only: allow uncommitted changes (the build report marks them).
     [switch]$AllowDirty,
     # Reuse an existing artifacts\release package instead of publishing again.

@@ -3,8 +3,8 @@
 The Runtime tree is used read-only: extract the release commit first, never point this at a working checkout with
 uncommitted changes, e.g.
 
-    git -C ..\\HD2Runtime archive 39aabe3 | tar -x -C %TEMP%\\hd2runtime-0.28.0
-    py -3 -B tools\\validate-exports.py --runtime %TEMP%\\hd2runtime-0.28.0 build\\export-fixtures\\*.zip
+    git -C ..\\HD2Runtime archive v0.28.0 | tar -x -C %TEMP%\\hd2runtime-0.28.0-public
+    py -3 -B tools\\validate-exports.py --runtime %TEMP%\\hd2runtime-0.28.0-public build\\export-fixtures\\*.zip
 
 For every export, Runtime's validator runs src/addon.lua through the production write domains (every hd2.patch /
 transaction / plan / ensure request is validated), resolves and prepares every operation against the retained snapshot

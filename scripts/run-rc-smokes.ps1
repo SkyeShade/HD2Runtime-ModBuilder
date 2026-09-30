@@ -3,7 +3,7 @@ param(
     # The packaged executable to test (default: the release candidate built by build-rc.ps1).
     [string]$App,
     [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'programmable-ammo', 'projectile-builder', 'export', 'old-project'),
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.0'),
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.0-public'),
     [int]$BasePort = 9260
 )
 

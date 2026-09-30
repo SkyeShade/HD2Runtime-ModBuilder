@@ -51,7 +51,7 @@ The product was renamed from HD2RuntimeGUI to HD2Runtime ModBuilder, and the rep
 git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
 ```
 
-A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.4.0 is built against **HD2Runtime SDK 0.28.0** (release `39aabe3`; the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
+A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.4.0 is built against **HD2Runtime SDK 0.28.0** (release [v0.28.0](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.28.0), `085acc7`; the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 4,555 entries, 121 field definitions (102 writable, 19 read-only, 9 derived)** in SDK 0.28.0. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
@@ -152,7 +152,7 @@ Capability schema v2 supplies explicit `aliasOf`, `canonical`, `preferred`, `dep
 
 ## SDK 0.28.0 authoring
 
-ModBuilder 1.4.0 binds the frozen HD2Runtime 0.28.0 SDK (release `39aabe3`); see [the integration notes](docs/runtime028-integration.md).
+ModBuilder 1.4.0 binds the frozen HD2Runtime 0.28.0 SDK (public release `085acc7`; its SDK is unchanged from the release candidate `39aabe3` it was validated on); see [the integration notes](docs/runtime028-integration.md).
 
 - **Unified projectile hosts.** Player primaries and secondaries, support weapons, vehicle mounts and the Guard Dog gun swap their projectile from one donor pool (`hd2.attack_output`), with Runtime's active-source rule, package loading, sharing and live evidence. Read-only hosts and refused donors show Runtime's reason.
 - **Projectile builder** (Projectiles page). A row's direct-hit damage, impact and expiry explosion take another row's handle or `none`; its mode label and HUD icon take a native value (`auto` icon included). A row write changes every entity firing the row and never follows a host swap; the editor names those entities.

@@ -1,7 +1,10 @@
 # HD2Runtime 0.28.0 integration (ModBuilder 1.4.0)
 
-Internal notes on how ModBuilder 1.4.0 consumes the frozen **HD2Runtime 0.28.0** release candidate: release commit `39aabe3`, SDK generated
-at `e304f26`, API 1, schema 1, SDK archive SHA-256 `42b9cac4e0d3328a638b766d70bf04e03e064a357f897bc1f89e0066f188851e`.
+Internal notes on how ModBuilder 1.4.0 consumes the frozen **HD2Runtime 0.28.0** SDK: public release `v0.28.0` (commit `085acc7`), SDK generated
+at `e304f26`, API 1, schema 1. ModBuilder was integrated on the release candidate `39aabe3` (SDK archive SHA-256
+`42b9cac4e0d3328a638b766d70bf04e03e064a357f897bc1f89e0066f188851e`). The public release adds only the guarded read-budget fix to the Runtime:
+its `sdk/` is unchanged, and its SDK asset differs from the candidate's only in `build-report.json` (Runtime's own build log, which ModBuilder
+does not read), so every SDK file ModBuilder reads, and the content fingerprint, are the same.
 
 - **Pin.** `SdkPin` records the version, commits, archive SHA-256 and a content fingerprint of every SDK file ModBuilder reads. The bundled
   SDK (`HD2RuntimeGUI.Core/Metadata/Bundled/`) is byte-identical to the release asset; `SdkPinTests` checks it against the fixture
@@ -206,9 +209,9 @@ The local SDK is still validated in memory and never cached. Exports require its
   (unexpected missing = 0; writes `capability-audit.json` and `COVERAGE.md`), `ExportFixtureTests`, `WeaponCompositionTests`, `ProjectileHostTests`,
   `ProjectileBuilderTests`, `EquipmentTests`, `ScriptingReferenceTests`, `Runtime028IntegrationTests`.
 - Export validation: `tools/validate-exports.py` runs every export fixture through HD2Runtime 0.28.0's own validator from the extracted release
-  tree (read-only, `git archive 39aabe3`), in snapshot mode, with an isolation probe per export.
-- Desktop smokes against the packaged app (`scripts/run-rc-smokes.ps1`): `scripting`, `language`, `runtime028`, `projectile-builder`, `export`,
-  `old-project`. Screenshots go to the release candidate's `smokes/screenshots/`.
+  tree (read-only, `git archive 085acc7`, the public `v0.28.0`), in snapshot mode, with an isolation probe per export.
+- Desktop smokes against the packaged app (`scripts/run-rc-smokes.ps1`): `scripting`, `language`, `runtime028`, `programmable-ammo`,
+  `projectile-builder`, `export`, `old-project`. Screenshots go to the release candidate's `smokes/screenshots/`.
 - Event scripting against the frozen 0.28.0 SDK: `ScriptingReferenceTests` (10 tests) checks that every catalog event and action reaches the
   reference and pickers with its availability, blocked reason, options and live evidence; the `player_hit` / `player_damage_dealt` payloads,
   source records and snippets; that every snippet, handler and picker insert parses and checks clean; that completion covers every class,
