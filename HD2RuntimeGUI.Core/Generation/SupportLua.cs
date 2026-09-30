@@ -14,6 +14,7 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
         var catalog = SupportChangeService.Catalog(sdk);
         var active = p.SupportChanges.Where(c => c.Enabled).OrderBy(c => c.InstanceKey, StringComparer.Ordinal).ToArray();
         foreach (var c in active) changes.Validate(p, sdk, c);
+        if (WeaponSelectorRules.SupportIssues(sdk, p.SupportChanges).FirstOrDefault() is { Message: { } selectorIssue }) throw new InvalidDataException(selectorIssue);
         var rows = active.Where(c => !SupportChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: catalog.Field(c.InstanceKey))).ToArray();
         foreach (var same in rows.GroupBy(r => (r.Field.Backing.ObjectKey, r.Field.ApiFieldConstant)))
         {
@@ -41,7 +42,10 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
             foreach (var group in groups)
             {
                 var f = group.First().Field; var contract = catalog.OperationGroups.Single(g => g.OperationGroupingKey == group.Key);
-                if (group.Select(r => r.Field.Backing.ObjectKey).Distinct().Count() != 1 || group.Count() > 32) throw new InvalidDataException(CoreText.Get("Messages.Build.Support.UnsupportedTransaction"));
+                // One backing object per transaction, except Runtime's weapon_selector group: a weapon's rate slots, weapon-function bindings
+                // and function projectile, written together across its ProjectileWeapon and WeaponData components.
+                var selector = group.All(r => WeaponSelectorRules.IsSelectorField(r.Field.SemanticFieldId) && r.Field.Target.Path == "weapon");
+                if (!selector && group.Select(r => r.Field.Backing.ObjectKey).Distinct().Count() != 1 || group.Count() > 32) throw new InvalidDataException(CoreText.Get("Messages.Build.Support.UnsupportedTransaction"));
                 // Current schema explicitly has phase 1, no dependencies, and no target_from. Reader rejects unknown future sequencing.
                 if (contract.Phase != 1 || contract.Dependencies.Length != 0) throw new InvalidDataException(CoreText.Get("Messages.Build.Support.UnsupportedDependency"));
                 var target = "hd2.support_weapon(" + LuaGenerator.Quote(f.SupportWeapon) + ")";
@@ -49,7 +53,10 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
                     ? ":attack(" + LuaGenerator.Quote(contract.Target.AttackRole!) + ")" : ":" + accessor + "()";
                 var body = new StringBuilder("{\n    id=" + LuaGenerator.Quote("support-" + SupportChangeService.Hash(p.ResourceId + "\n" + group.Key)[..24]) + ",\n    target=" + target + ",\n");
                 if (contract.AllowSharedRequired) body.Append("    allow_shared=true,\n");
-                if (group.Any(r => r.Field.Operation.Acknowledgement == "allow_unverified_effect")) body.Append("    allow_unverified_effect=true,\n");
+                // Exact values a live test proved on this weapon (liveEvidence.values) need no effect opt-in; donor function projectiles
+                // outside a live-proven pair need allow_unverified_reference.
+                if (group.Any(r => CompositionOptIns.EffectFor(r.Field, r.Change.DesiredValue))) body.Append("    allow_unverified_effect=true,\n");
+                if (group.Any(r => CompositionOptIns.ReferenceFor(r.Field, r.Change.DesiredValue))) body.Append("    allow_unverified_reference=true,\n");
                 if (group.Count() == 1 && !f.Operation.TransactionRequired)
                 {
                     var r = group.Single(); body.Append($"    field={r.Field.ApiFieldConstant},\n    expect={SupportScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={Value(r.Field, r.Change)},\n");

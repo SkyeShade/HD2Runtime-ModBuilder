@@ -356,6 +356,8 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     }
     public async Task SetWeaponChangeAsync(string weapon, string field, string value, bool acknowledge, string group = "Gameplay", string? notes = null)
     {
+        // 1.4.0: with rate modes edited, the older fire rate is their default (Y) slot and is written there.
+        if (await FoldLegacyFireRateAsync(CompositionKind.Player, weapon, field, value)) return;
         var project = Project;
         await weaponEditGate.WaitAsync();
         try
@@ -378,6 +380,8 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         // A reset of an available field is precisely an edit back to its SDK value.
         var capability = weapon != null && field != null ? Metadata?.PlayerWeapons?.FindCanonicalField(weapon, field) : null;
         var saved = WeaponGroups.SingleOrDefault(g => g.Weapon == weapon && g.FieldId == capability?.SemanticFieldId);
+        // A rate-of-fire / programmable-ammunition field resets with its pair (Runtime writes them together).
+        if (capability is { InWeaponSelector: true } && saved?.Conflict == null) { await ResetSelectorFieldAsync(CompositionKind.Player, weapon!, capability.SemanticFieldId); return; }
         if (capability?.Editable == true && field != null && saved?.Conflict == null)
         { await SetWeaponChangeAsync(weapon!, field, capability.CurrentDefault.GetRawText(), false); return; }
         var project = Project;
@@ -385,7 +389,9 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         try
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChangedBeforeReset"));
-            var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || c.Weapon == weapon) && (field == null || c.SemanticFieldId == field || saved?.Sources.Contains(c) == true));
+            // Resetting a whole weapon also resets its sub-targets (its underbarrel).
+            bool Owned(string name) => name == weapon || field == null && Metadata?.PlayerWeapons?.FindSubweapon(name)?.SubweaponOf == weapon;
+            var old = Project!.WeaponChanges.ToList(); Project.WeaponChanges.RemoveAll(c => (weapon == null || Owned(c.Weapon)) && (field == null || c.SemanticFieldId == field || saved?.Sources.Contains(c) == true));
             var oldReferences = Project.ProjectileChanges.ToList();
             var oldObjects = Project.CompositionChanges.ToList();
             var oldOutputs = Project.AttackOutputChanges?.ToList();
@@ -417,6 +423,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     public async Task ToggleWeaponChangeAsync(Guid id)
     {
         var group = WeaponGroups.Single(g => g.Sources.Any(c => c.Id == id)); var enabled = !group.Enabled;
+        if (await ToggleSelectorAsync(CompositionKind.Player, group.Weapon, group.FieldId)) return;
         var previous = group.Sources.Select(c => (Change: c, c.Enabled)).ToArray();
         foreach (var c in group.Sources) c.Enabled = enabled;
         try { await SaveChangesAsync(); } catch { foreach (var item in previous) item.Change.Enabled = item.Enabled; throw; }

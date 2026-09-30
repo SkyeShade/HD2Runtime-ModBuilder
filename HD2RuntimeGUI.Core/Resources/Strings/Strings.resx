@@ -823,6 +823,10 @@
   <data name="Composition.Section.TerminalActions" xml:space="preserve">
     <value>Terminal Actions</value>
   </data>
+  <data name="Composition.Selector.ReferenceReason" xml:space="preserve">
+    <value>The programmable projectile is another output's row. Runtime proves the donor, its owner and its package before writing, but this weapon firing it has not been confirmed in play.</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Composition.Shared.Description.One" xml:space="preserve">
     <value>This edit changes one definition that other weapons also use.</value>
     <comment>{0}: number of edits</comment>
@@ -3011,6 +3015,50 @@
   <data name="Messages.Build.Field.ReadOnly" xml:space="preserve">
     <value>This SDK field is read-only.</value>
   </data>
+  <data name="Messages.Build.FireRate.DefaultRequired" xml:space="preserve">
+    <value>The default rate (slot Y) cannot be empty.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.LegacyConflict" xml:space="preserve">
+    <value>{0}: the fire rate and the rate-of-fire modes write the same slot. Keep the rate in the modes' default slot (Y).</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.Range" xml:space="preserve">
+    <value>Each rate is 0 (no mode) or between {0} and {1} rounds per minute.</value>
+    <comment>{0}: minimum rpm, {1}: maximum rpm. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.ReadOnly" xml:space="preserve">
+    <value>The rate-of-fire modes of this weapon are read-only.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.SingleRate" xml:space="preserve">
+    <value>This weapon can hold only one rate of fire.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.ThreeSlots" xml:space="preserve">
+    <value>Rate-of-fire modes are three slots (X, Y, Z) in rounds per minute; 0 leaves a slot empty.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.Invalid" xml:space="preserve">
+    <value>Choose none, the weapon's own programmable projectile, or a catalogued projectile output.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NativeKept" xml:space="preserve">
+    <value>{0} has its own programmable projectile: it cannot be removed, only restored.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NoNative" xml:space="preserve">
+    <value>{0} has no programmable projectile of its own to restore.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NotADonor" xml:space="preserve">
+    <value>{0} is not a projectile output {1} can fire as programmable ammunition.</value>
+    <comment>{0}: attack output ID, {1}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.ReadOnly" xml:space="preserve">
+    <value>This weapon's programmable ammunition is read-only.</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Options.Blocked" xml:space="preserve">
     <value>In-game options: {0}</value>
     <comment>{0}: the first in-game option issue (a Messages.Build.Options.* message)</comment>
@@ -3235,6 +3283,46 @@
   <data name="Messages.Build.Projectile.SourceNotApproved" xml:space="preserve">
     <value>The SDK does not approve this projectile source for this selector.</value>
   </data>
+  <data name="Messages.Build.Selector.BindingNeedsProjectile" xml:space="preserve">
+    <value>{0}: the programmable-ammunition function needs a projectile in the same change.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.BindingNeedsRates" xml:space="preserve">
+    <value>{0}: a rate-of-fire selector needs at least two rates in the same change.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.DuplicateBinding" xml:space="preserve">
+    <value>{0}: one function can be bound to only one input.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.InputTaken" xml:space="preserve">
+    <value>{0}: the {1} input already selects the rate of fire.</value>
+    <comment>{0}: weapon name, {1}: input name (left / right, as published). new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.MixedPersistence" xml:space="preserve">
+    <value>{0}: the rate-of-fire and programmable-ammunition edits are written together, so they must all be re-applied or all applied once.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.NoAmmoInput" xml:space="preserve">
+    <value>{0} has no free input left for programmable ammunition.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.None" xml:space="preserve">
+    <value>{0} publishes no rate-of-fire or programmable-ammunition fields.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.NoRateInput" xml:space="preserve">
+    <value>{0} has no free input for a rate-of-fire selector.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.ProjectileNeedsBinding" xml:space="preserve">
+    <value>{0}: a programmable projectile needs the programmable-ammunition function bound to a free input in the same change.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.RatesNeedBinding" xml:space="preserve">
+    <value>{0} has no rate-of-fire selector: more than one rate needs one bound to a free input in the same change.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
     <value>Choose a status effect, or none.</value>
     <comment>new: needs native review</comment>
@@ -3319,6 +3407,42 @@
   <data name="Messages.Build.Support.UnsupportedTransaction" xml:space="preserve">
     <value>Unsupported support transaction size or backing object.</value>
   </data>
+  <data name="Messages.Build.Traits.Conflict" xml:space="preserve">
+    <value>{0}: the trait list and the penetration label write the same five armory slots. Keep the label in the trait list.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.Duplicate" xml:space="preserve">
+    <value>Each trait can be shown only once.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.Invalid" xml:space="preserve">
+    <value>Armory labels are published trait IDs.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.None" xml:space="preserve">
+    <value>{0} publishes no armory labels.</value>
+    <comment>{0}: weapon name. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.PenetrationNotAllowed" xml:space="preserve">
+    <value>'{0}' is not a penetration label this weapon can show.</value>
+    <comment>{0}: penetration choice. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.ReadOnly" xml:space="preserve">
+    <value>The armory labels of this weapon are read-only.</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.TooMany.One" xml:space="preserve">
+    <value>The armory shows at most {0} trait.</value>
+    <comment>{0}: maximum number of traits. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.TooMany.Other" xml:space="preserve">
+    <value>The armory shows at most {0} traits.</value>
+    <comment>{0}: maximum number of traits. new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.Unknown" xml:space="preserve">
+    <value>'{0}' is not a trait this SDK publishes.</value>
+    <comment>{0}: trait ID. new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Value.CompleteFinitePublishedType" xml:space="preserve">
     <value>Enter a complete, finite value of the published scalar type.</value>
   </data>
@@ -3390,6 +3514,10 @@
   <data name="Messages.Build.Weapon.SharedBackingConflict" xml:space="preserve">
     <value>Conflicting desired values for a shared backing setting.</value>
   </data>
+  <data name="Messages.Build.Weapon.SubweaponChanged" xml:space="preserve">
+    <value>{0}: this target changed between a weapon and a nested weapon (underbarrel) in this SDK. Reset the saved edit.</value>
+    <comment>{0}: weapon or sub-weapon name. new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Weapon.TransactionLimit" xml:space="preserve">
     <value>A Runtime transaction supports at most 32 fields. Divide this weapon's changes into explicit groups.</value>
   </data>
@@ -3399,6 +3527,10 @@
   <data name="Messages.Build.Weapon.WriteNotAccepted" xml:space="preserve">
     <value>This field is not accepted for writes.</value>
     <comment>Shown when the SDK publishes no reason.</comment>
+  </data>
+  <data name="Messages.Build.WeaponFunction.NotAllowed" xml:space="preserve">
+    <value>'{0}' is not a function this input can take (allowed: {1}).</value>
+    <comment>{0}: function name as published, {1}: allowed names. new: needs native review</comment>
   </data>
   <data name="Messages.Entity.AttachmentsNeedSdk" xml:space="preserve">
     <value>Rebind to SDK 0.23.1 or newer for magazine attachments.</value>

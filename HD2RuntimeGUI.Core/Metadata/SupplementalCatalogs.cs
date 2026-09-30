@@ -50,6 +50,8 @@ public sealed class WeaponFeedCatalog
 {
     public required IReadOnlyList<WeaponFeeds> Weapons { get; init; }
     public WeaponFeeds? Of(string weapon) => Weapons.FirstOrDefault(w => w.Weapon == weapon);
+    // kind: "player" or "support" (a player and a support weapon never share a name today, but the catalog keys them apart).
+    public WeaponFeeds? Of(string kind, string weapon) => Weapons.FirstOrDefault(w => w.Kind == kind && w.Weapon == weapon);
 }
 
 // sdk/LiveEvidenceCatalog.json (hd2runtime.live_evidence.v1): a family of live tests and what it proved.

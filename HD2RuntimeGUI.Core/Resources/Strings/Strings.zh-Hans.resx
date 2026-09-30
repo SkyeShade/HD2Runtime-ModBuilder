@@ -909,6 +909,10 @@
     <value>终端动作</value>
     <comment>issue #1</comment>
   </data>
+  <data name="Composition.Selector.ReferenceReason" xml:space="preserve">
+    <value>可编程弹体是另一个输出的数据行。Runtime 会在写入前验证供体、其所有者和资源包，但此武器发射它尚未经实机确认。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Composition.Shared.Description.One" xml:space="preserve">
     <value>此改动会改变一个其他武器也在使用的定义。</value>
     <comment>issue #1 (adapted)</comment>
@@ -3325,6 +3329,50 @@
     <value>该 SDK 字段为只读。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.FireRate.DefaultRequired" xml:space="preserve">
+    <value>默认射速（Y 槽位）不能为空。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.LegacyConflict" xml:space="preserve">
+    <value>{0}：射速与射速模式写入同一槽位。请将该射速保留在模式的默认槽位（Y）中。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.Range" xml:space="preserve">
+    <value>每个射速为 0（无模式），或在每分钟 {0} 到 {1} 发之间。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.ReadOnly" xml:space="preserve">
+    <value>此武器的射速模式为只读。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.SingleRate" xml:space="preserve">
+    <value>此武器只能有一个射速。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FireRate.ThreeSlots" xml:space="preserve">
+    <value>射速模式是三个槽位（X、Y、Z），单位为每分钟发数；0 表示该槽位为空。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.Invalid" xml:space="preserve">
+    <value>请选择“无”、武器自身的可编程弹体，或目录中的弹体输出。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NativeKept" xml:space="preserve">
+    <value>{0} 自带可编程弹体：不能移除，只能恢复。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NoNative" xml:space="preserve">
+    <value>{0} 没有可恢复的自带可编程弹体。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.NotADonor" xml:space="preserve">
+    <value>{0} 不是 {1} 可作为可编程弹药发射的弹体输出。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.FunctionAmmo.ReadOnly" xml:space="preserve">
+    <value>此武器的可编程弹药为只读。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Options.Blocked" xml:space="preserve">
     <value>游戏内选项：{0}</value>
     <comment>new: needs native review</comment>
@@ -3573,6 +3621,46 @@
     <value>SDK 未批准此选择器使用该弹体来源。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.Selector.BindingNeedsProjectile" xml:space="preserve">
+    <value>{0}：可编程弹药功能需要在同一次修改中指定弹体。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.BindingNeedsRates" xml:space="preserve">
+    <value>{0}：射速选择器需要在同一次修改中至少设置两个射速。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.DuplicateBinding" xml:space="preserve">
+    <value>{0}：同一功能只能绑定到一个输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.InputTaken" xml:space="preserve">
+    <value>{0}：{1} 输入已用于切换射速。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.MixedPersistence" xml:space="preserve">
+    <value>{0}：射速与可编程弹药的修改会一起写入，因此必须全部持续应用或全部只应用一次。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.NoAmmoInput" xml:space="preserve">
+    <value>{0} 已没有可用于可编程弹药的空闲输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.None" xml:space="preserve">
+    <value>{0} 未发布射速或可编程弹药字段。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.NoRateInput" xml:space="preserve">
+    <value>{0} 没有可用于射速选择器的空闲输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.ProjectileNeedsBinding" xml:space="preserve">
+    <value>{0}：可编程弹体需要在同一次修改中将可编程弹药功能绑定到一个空闲输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Selector.RatesNeedBinding" xml:space="preserve">
+    <value>{0} 没有射速选择器：多于一个射速时，需要在同一次修改中将选择器绑定到一个空闲输入。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
     <value>请选择一个状态效果，或选择无。</value>
     <comment>new: needs native review</comment>
@@ -3673,6 +3761,42 @@
     <value>不受支持的支援事务大小或底层对象。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.Traits.Conflict" xml:space="preserve">
+    <value>{0}：特性列表与穿甲标签写入同样的五个军械库槽位。请将该标签保留在特性列表中。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.Duplicate" xml:space="preserve">
+    <value>每个特性只能显示一次。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.Invalid" xml:space="preserve">
+    <value>军械库标签必须是已发布的特性 ID。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.None" xml:space="preserve">
+    <value>{0} 未发布军械库标签。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.PenetrationNotAllowed" xml:space="preserve">
+    <value>“{0}”不是此武器可显示的穿甲标签。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.ReadOnly" xml:space="preserve">
+    <value>此武器的军械库标签为只读。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.TooMany.One" xml:space="preserve">
+    <value>军械库最多显示 {0} 个特性。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.TooMany.Other" xml:space="preserve">
+    <value>军械库最多显示 {0} 个特性。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Traits.Unknown" xml:space="preserve">
+    <value>“{0}”不是此 SDK 发布的特性。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Value.CompleteFinitePublishedType" xml:space="preserve">
     <value>请输入符合所发布标量类型的完整有限数值。</value>
     <comment>new: needs native review</comment>
@@ -3761,6 +3885,10 @@
     <value>同一共享底层设置的目标值相互冲突。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.Weapon.SubweaponChanged" xml:space="preserve">
+    <value>{0}：在此 SDK 中，该目标在武器与嵌套武器（下挂武器）之间发生了变化。请重置已保存的修改。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Weapon.TransactionLimit" xml:space="preserve">
     <value>一个 Runtime 事务最多支持 32 个字段。请将此武器的改动明确划分为多个分组。</value>
     <comment>new: needs native review</comment>
@@ -3771,6 +3899,10 @@
   </data>
   <data name="Messages.Build.Weapon.WriteNotAccepted" xml:space="preserve">
     <value>该字段不接受写入。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.WeaponFunction.NotAllowed" xml:space="preserve">
+    <value>“{0}”不是此输入可以绑定的功能（允许：{1}）。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Messages.Entity.AttachmentsNeedSdk" xml:space="preserve">

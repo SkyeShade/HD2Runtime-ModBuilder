@@ -22,7 +22,8 @@ public sealed partial class BuilderWorkspace
     public WeaponAuthoringSummary WeaponSummary(string weapon)
     {
         if (Project == null || Metadata == null) return new(0, 0);
-        var groups = WeaponGroups.Where(g => g.Weapon == weapon).ToArray();
+        // Edits of the weapon's sub-targets (its underbarrel) count with it.
+        var groups = WeaponGroups.Where(g => g.Weapon == weapon || Metadata.PlayerWeapons?.FindSubweapon(g.Weapon)?.SubweaponOf == weapon).ToArray();
         var composition = Project.CompositionChanges.Where(c => c.Weapon == weapon && c.Enabled).ToArray();
         var modified = groups.Count(g => g.Conflict != null || FieldPresentationRules.Modified(g)) + composition.Length
             + Project.ProjectileChanges.Count(c => c.Weapon == weapon);

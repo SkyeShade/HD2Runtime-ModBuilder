@@ -8,14 +8,16 @@ namespace HD2RuntimeGUI.Tests;
 // build has no editor for (typed status references) stay visible but read-only with a reason.
 public sealed class DevelopmentSdkTests
 {
-    [Fact] public async Task Status_references_are_shown_read_only_in_every_weapon_domain()
+    // 1.4.0 authors typed status references on player and support weapons (WeaponCompositionTests); vehicle-weapon ones stay read-only here.
+    [Fact] public async Task Status_references_are_authored_on_player_and_support_weapons_and_shown_read_only_elsewhere()
     {
         using var e = new TestEnvironment(); var (_, sdk) = await EnemyAuthoringTests.Fresh(e);
         var player = sdk.PlayerWeapons!.Weapons.SelectMany(w => w.Fields).Where(f => f.Type == WeaponCapability.StatusReference).ToArray();
-        Assert.NotEmpty(player); Assert.All(player, f => { Assert.False(f.Editable); Assert.False(string.IsNullOrWhiteSpace(f.Reason)); Assert.NotEmpty(f.AllowedReferences!); });
-        Assert.Contains(player, f => f.Reason == WeaponCapability.StatusReferenceReason); // published writable, kept read-only by this build
+        Assert.NotEmpty(player); Assert.All(player, f => Assert.NotEmpty(f.AllowedReferences!));
+        Assert.Contains(player, f => f.Editable); Assert.DoesNotContain(player, f => f.Reason == WeaponCapability.StatusReferenceReason);
+        Assert.All(player.Where(f => !f.Editable), f => Assert.False(string.IsNullOrWhiteSpace(f.Reason)));
         var support = sdk.SupportAuthoring!.FieldInstances.Where(f => f.IsStatusReference).ToArray();
-        Assert.NotEmpty(support); Assert.All(support, f => Assert.False(f.Writable));
+        Assert.NotEmpty(support); Assert.Contains(support, f => f.Writable); Assert.DoesNotContain(support, f => f.BlockedReason == AuthoredTypes.NotAuthoredReason);
         var vehicle = sdk.Entities!.VehicleWeapons!.FieldInstances.Where(f => f.IsStatusReference || f.ApiFieldConstant.Length == 0).ToArray();
         Assert.NotEmpty(vehicle); Assert.All(vehicle, f => Assert.False(f.Editable));
         // The other new player-weapon fields are published as ordinary writable fields.
