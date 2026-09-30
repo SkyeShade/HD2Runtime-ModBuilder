@@ -131,8 +131,8 @@ public sealed class Runtime028IntegrationTests
     {
         using var e = new TestEnvironment(); var (w, sdk) = await EnemyAuthoringTests.Fresh(e);
         var snippets = LuaSnippets.For(sdk, w.Project!.ResourceId);
-        Assert.Equal(["player-death-explosion", "enemy-death-callback", "kill-stacking", "timer", "keybind", "projectile-spawn", "status-application", "weapon-changed", "heal-on-kill", "mission-counter"],
-            snippets.Select(s => s.Id));
+        Assert.Equal(["player-death-explosion", "enemy-death-callback", "kill-stacking", "timer", "keybind", "projectile-spawn", "status-application", "weapon-changed", "heal-on-kill", "mission-counter",
+            "player-hit-accuracy", "damage-dealt-heal", "write-conflicts-report"], snippets.Select(s => s.Id));
         foreach (var s in snippets) Assert.Empty(LuaScriptAnalyzer.Analyze(s.Code, sdk.Events, sdk.Entities!.Enemies));
         // The kill-stacking snippet takes its baseline and field constant from the SDK, and the keybind id from the project.
         var liberatorDamage = sdk.PlayerWeapons!.Field(Liberator, "damage.standard_damage")!;

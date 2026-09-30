@@ -1,0 +1,19 @@
+@inject BuilderWorkspace Workspace
+@* The live evidence Runtime recorded for an event, an action or a handle method (sdk/LiveEvidenceCatalog.json, domains events and
+   event_actions): a badge, then what the test proved, which tests ran and what is still not proven. Scope, tests and the not-proven
+   list are the catalog's text, shown as published; only the labels are UI text. Nothing here is a checkbox: evidence informs, it never
+   gates an insert. *@
+@foreach (var e in Items)
+{
+    <details class="script-evidence" data-script-evidence="@e.Family">
+        <summary>@if (e.LiveProven) { <span class="badge green" data-live-proven>@T["EventActions.LiveProven"]</span> }
+            else { <span class="badge amber" title="@(Workspace.Metadata?.LiveEvidence?.StatusLevels.GetValueOrDefault(e.Evidence.Status))">@e.Evidence.Status</span> }
+            <small class="subtle">@T["ScriptEvidence.Summary"]</small></summary>
+        @if (e.Evidence.Scope is { Length: > 0 } scope) { <p class="subtle">@T.Format("ScriptEvidence.Scope", scope)</p> }
+        @if (e.Evidence.Tests is { Length: > 0 } tests) { <p class="subtle">@T.Format("ScriptEvidence.Tests", string.Join(", ", tests))</p> }
+        @if (e.Evidence.NotPromoted is { Length: > 0 } open) { <p class="subtle">@T.Format("ScriptEvidence.NotPromoted", string.Join(" · ", open))</p> }
+    </details>
+}
+@code {
+    [Parameter] public IReadOnlyList<ScriptEvidence> Items { get; set; } = [];
+}

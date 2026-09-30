@@ -1,0 +1,57 @@
+@inject BuilderWorkspace Workspace
+@* The diagnostics reference (hd2.diagnostics; the SDK's docs/diagnostics.md): write conflicts (always on), telemetry (off by default),
+   Runtime's logs and the read-only status queries. Calls, signatures and their docs come from the bound SDK's Lua stub
+   (RuntimeDiagnostics.Sections) and appear only when it publishes them; log lines are Runtime's documented output. The explanations
+   are UI text paraphrasing the SDK docs. ModBuilder never turns telemetry on: its opt-in is shown as documentation, with no insert
+   button, and the custom Lua checks warn while a script enables it. *@
+@{ var api = Workspace.Metadata?.LuaApi; var sections = RuntimeDiagnostics.Sections(api); }
+<div class="diagnostics-reference" data-diagnostics-reference>
+    <p class="subtle">@T["Diagnostics.Intro"]</p>
+    @if (!RuntimeDiagnostics.Available(api)) { <p class="notice warning" data-diagnostics-missing>@T.Format("Diagnostics.NoStub", "hd2.diagnostics", Workspace.Metadata?.Version)</p> }
+    @foreach (var s in sections)
+    {
+        <section class="reference-item" data-diagnostics-section="@s.Id">
+            @switch (s.Id)
+            {
+                case RuntimeDiagnostics.WriteConflictsId:
+                    <h3 class="group-title">@T["Diagnostics.WriteConflicts.Title"]</h3>
+                    <p class="subtle">@T.Markup("Diagnostics.WriteConflicts.How.Html", "hd2.ensure")</p>
+                    <p class="subtle">@T["Diagnostics.WriteConflicts.Warning"]</p>
+                    <p class="subtle">@T["Diagnostics.WriteConflicts.NotCounted"]</p>
+                    <p class="subtle">@T["Diagnostics.WriteConflicts.Reading"]</p>
+                    <p class="subtle">@T.Markup("Diagnostics.WriteConflicts.ModBuilder.Html", "gui-")</p>
+                    break;
+                case RuntimeDiagnostics.TelemetryId:
+                    <h3 class="group-title">@T["Diagnostics.Telemetry.Title"]</h3>
+                    <p class="notice" data-telemetry-never>@T["Diagnostics.Telemetry.Never"]</p>
+                    <pre class="diagnostics-code" data-telemetry-opt-in><code>@s.Example</code></pre>
+                    <p class="subtle">@T["Diagnostics.Telemetry.Sections"]</p>
+                    <p class="subtle">@T.Markup("Diagnostics.Telemetry.Query.Html", "hd2.diagnostics.telemetry()")</p>
+                    <p class="subtle">@T.Markup("Diagnostics.Telemetry.Report.Html", "HD2Runtime.log")</p>
+                    break;
+                case RuntimeDiagnostics.LogsId:
+                    <h3 class="group-title">@T["Diagnostics.Logs.Title"]</h3>
+                    <p class="subtle">@T.Markup("Diagnostics.Logs.Help.Html", "mod:log", "HD2Runtime.log", "max_failures")</p>
+                    <p class="subtle">@T.Markup("Diagnostics.Logs.Skipped.Html", LuaGenerator.SkippedPrefix.Trim())</p>
+                    break;
+                default:
+                    <h3 class="group-title">@T["Diagnostics.Status.Title"]</h3>
+                    <p class="subtle">@T["Diagnostics.Status.Help"]</p>
+                    break;
+            }
+            @foreach (var c in s.Calls)
+            { <div class="reference-method" data-diagnostics-call="@c.Path"><code>@c.Signature</code>@if (c.Member.Doc is { Length: > 0 } doc) { <small class="subtle">@doc</small> }</div> }
+            @if (s.LogLines.Length > 0)
+            {
+                <small class="subtle">@T["Diagnostics.LogLines"]</small>
+                <pre class="diagnostics-code" data-diagnostics-log><code>@string.Join("\n", s.LogLines)</code></pre>
+            }
+            @if (Insert.HasDelegate && s.Snippet != null && Workspace.Metadata is { } sdk && Workspace.Project is { } project
+                && LuaSnippets.For(sdk, project.ResourceId).FirstOrDefault(x => x.Id == s.Snippet) is { } snippet)
+            { <button class="small" data-diagnostics-insert="@snippet.Id" title="@snippet.Description" @onclick="() => Insert.InvokeAsync(snippet.Code)">@T.Format("Diagnostics.InsertSnippet", snippet.Title)</button> }
+        </section>
+    }
+</div>
+@code {
+    [Parameter] public EventCallback<string> Insert { get; set; }
+}

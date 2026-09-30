@@ -5,10 +5,11 @@ using HD2RuntimeGUI.Core.Storage;
 
 namespace HD2RuntimeGUI.Core.Metadata;
 
-// Event scripting (hd2runtime.events.v1, sdk/EventCatalog.json; unreleased HD2Runtime 0.28.0 development SDKs): every event a mod can
-// subscribe to (with its payload, phase, source and status), the live and snapshot handles, the scripting API (events, timers, keybinds,
-// mod context) and the gameplay actions (explosions, projectiles, statuses, healing) with their limits. ModBuilder uses it for the
-// reference panel, the action pickers, the snippets and the custom Lua checks; it never interprets custom Lua beyond that.
+// Event scripting (hd2runtime.events.v1, sdk/EventCatalog.json; HD2Runtime 0.28.0): every event a mod can subscribe to (with its
+// payload, phase, source and status; 0.28.0 has 20, player_hit and player_damage_dealt among them, entity_damage_pre blocked), the live
+// and snapshot handles, the scripting API (events, timers, keybinds, mod context, stat sources) and the gameplay actions (explosions,
+// projectiles, statuses, healing; spawning entities blocked) with their limits. ModBuilder uses it for the reference panel, the action
+// pickers, the snippets and the custom Lua checks; it never interprets custom Lua beyond that.
 public sealed record EventPayloadField(string Name, string Type, string? Doc)
 {
     [JsonIgnore] public bool Nullable => Type.EndsWith("|nil", StringComparison.Ordinal) || Type.Contains("|nil|", StringComparison.Ordinal);

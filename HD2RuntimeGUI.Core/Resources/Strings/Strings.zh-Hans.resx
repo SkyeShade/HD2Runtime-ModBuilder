@@ -1097,6 +1097,10 @@
     <value>动作</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="CustomLua.Tab.Diagnostics" xml:space="preserve">
+    <value>诊断</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="CustomLua.Tab.Reference" xml:space="preserve">
     <value>参考</value>
     <comment>new: needs native review</comment>
@@ -1152,6 +1156,86 @@
   <data name="Desktop.Picker.WeaponMap" xml:space="preserve">
     <value>关联 Runtime 快照武器映射报告</value>
     <comment>issue #1</comment>
+  </data>
+  <data name="Diagnostics.InsertSnippet" xml:space="preserve">
+    <value>插入：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Intro" xml:space="preserve">
+    <value>两项开销很低的 Runtime 诊断可帮助判断大型模组组合掉帧时 HD2Runtime 是否牵涉其中。它们既不假定 Runtime 是原因，也不能证明它不是。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.LogLines" xml:space="preserve">
+    <value>Runtime 日志示例：</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Logs.Help.Html" xml:space="preserve">
+    <value>&lt;code&gt;{0}&lt;/code&gt; 会向 &lt;code&gt;{1}&lt;/code&gt; 写入一行，并以模组 ID 为前缀。出错的回调（事件、计时器或按键绑定）会连同模组、事件和错误一起记录，绝不会阻止其他订阅者，并在连续失败 &lt;code&gt;{2}&lt;/code&gt; 次后禁用该订阅。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Logs.Skipped.Html" xml:space="preserve">
+    <value>生成的操作如果在构建请求时出错（名称未知、缺少字段常量），会以一行 &lt;code&gt;{0}&lt;/code&gt; 跳过；其后的操作仍会注册。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Logs.Title" xml:space="preserve">
+    <value>日志</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.NoStub" xml:space="preserve">
+    <value>当前绑定的 SDK（{1}）的 Lua 存根中没有 {0} 的声明。Runtime 诊断自 HD2Runtime 0.28.0 起发布。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Status.Help" xml:space="preserve">
+    <value>只读：可以在按键绑定中或任务结束时记录它们，以了解 Runtime 观测到了什么，以及某个事件或动作为何不可用。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Status.Title" xml:space="preserve">
+    <value>状态查询</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Never" xml:space="preserve">
+    <value>ModBuilder 从不开启遥测：任何生成的操作、代码片段或插入按钮都不包含它。如需生成报告，请自行在自定义 Lua 中加入文档所述的调用：</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Query.Html" xml:space="preserve">
+    <value>不带参数调用 &lt;code&gt;{0}&lt;/code&gt; 会返回当前状态和本次间隔的各区段。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Report.Html" xml:space="preserve">
+    <value>如需报告，使用大型模组组合的用户可以添加一个开启遥测的小模组，玩一局任务，然后发送 &lt;code&gt;{0}&lt;/code&gt;。当脚本开启遥测时，编辑器下方的检查会给出警告，以免它被意外带进发布的模组。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Sections" xml:space="preserve">
+    <value>此后每个报告间隔，Runtime 会记录其每帧完整更新、一次 ensure 字节检查以及事件轮询的平均值、p95、p99 和最大值，并附上活动中的 ensure 数和重新应用次数。关闭时，每个计时区段只多一次布尔判断；计时需要游戏的精确时钟（在游戏中）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.Telemetry.Title" xml:space="preserve">
+    <value>遥测（默认关闭）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.How.Html" xml:space="preserve">
+    <value>&lt;code&gt;{0}&lt;/code&gt; 会让目标保持为它写入的值，并且只复查它拥有的字节。如果这些字节在其内存分配仍是已审核的那一份时发生了变化，说明有其他东西写入了它们：Runtime 会重新应用自己的值，并为该操作记一次变化。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.ModBuilder.Html" xml:space="preserve">
+    <value>以 &lt;code&gt;{0}&lt;/code&gt; 开头的操作 ID 是 ModBuilder 生成的修改。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.NotCounted" xml:space="preserve">
+    <value>游戏重新分配内存不算写入冲突：那是游戏重建了自己的数据，Runtime 会按常规方式重新解析。计数只在检测到偏移时进行，从不逐帧运行。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.Reading" xml:space="preserve">
+    <value>两个模组写入同一批字节时会互相争夺：各自重新应用自己的值，Runtime 每个校验间隔最多一次。如果报告显示存在冲突，请移除两个模组之一（或两处修改之一）；如果没有冲突，掉帧就不是 Runtime 在与其他写入方争夺。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.Title" xml:space="preserve">
+    <value>写入冲突（始终开启）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Diagnostics.WriteConflicts.Warning" xml:space="preserve">
+    <value>在该操作的时间窗口内（其五个校验间隔，至少 10 秒）出现 3 次外部变化后，Runtime 会记录一行日志，写明操作、其目标和最多四个字段、次数以及时间跨度。该操作的下一次警告要等满一个完整窗口。</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="DropPod.Compatibility.Title" xml:space="preserve">
     <value>玩法兼容性未验证</value>
@@ -1989,6 +2073,14 @@
     <value>资源未知</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="EventActions.Events.Summary.Html" xml:space="preserve">
+    <value>插入一个列出该事件载荷字段的 &lt;code&gt;{0}&lt;/code&gt; 订阅。被阻止的事件仍会列出，并附上 Runtime 给出的原因。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EventActions.Events.Title" xml:space="preserve">
+    <value>事件</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="EventActions.Explosions.Summary" xml:space="preserve">
     <value>{0} · 归属于 {1} · 其他玩家可见：{2} · {3}</value>
     <comment>new: needs native review</comment>
@@ -2033,6 +2125,10 @@
     <value>已编入目录并受防护，但未在实际游戏中测试</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="EventActions.Options" xml:space="preserve">
+    <value>选项</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="EventActions.Projectiles.Summary" xml:space="preserve">
     <value>{0} · {1} · 其他玩家可见：{2} · {3}</value>
     <comment>new: needs native review</comment>
@@ -2069,6 +2165,14 @@
     <value>武器爆炸</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="EventActions.WeaponInHand.Help.Html" xml:space="preserve">
+    <value>本地玩家当前手持的物品，每次调用都会重新读取。它不是击杀归属：手持的武器未必造成了击杀。如需归属，请使用 &lt;code&gt;{0}&lt;/code&gt; 或 &lt;code&gt;{1}&lt;/code&gt; 的 &lt;code&gt;{2}&lt;/code&gt;。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EventActions.WeaponInHand.Title" xml:space="preserve">
+    <value>手持武器</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="EventReference.EveryTick.Label" xml:space="preserve">
     <value>每次更新</value>
     <comment>new: needs native review</comment>
@@ -2087,6 +2191,14 @@
   </data>
   <data name="EventReference.Handles.Note" xml:space="preserve">
     <value>身份字段是快照，在实体消失后仍然有效。实时查询读取游戏当前状态；一旦实体被摧毁、其 ID 被重用或任务结束，就会返回 nil / false。载荷中的位置是只读快照。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EventReference.InsertHandler.Label" xml:space="preserve">
+    <value>插入处理函数</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="EventReference.InsertHandler.Tooltip" xml:space="preserve">
+    <value>插入一个列出该事件载荷字段的 {0} 订阅</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="EventReference.Live" xml:space="preserve">
@@ -2923,6 +3035,10 @@
   </data>
   <data name="LuaCheck.Syntax.Vararg" xml:space="preserve">
     <value>'{0}' 附近：不能在可变参数函数之外使用 '...'</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="LuaCheck.TelemetryEnabled" xml:space="preserve">
+    <value>{0} 会为运行此模组的每个人开启 Runtime 遥测：每个间隔都会向 {1} 写入计时报告。遥测默认关闭；请只在为一次报告而制作的小型诊断模组中使用此调用。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="LuaCheck.UnknownEnemy" xml:space="preserve">
@@ -5461,6 +5577,22 @@
     <value>已由结构标注</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="ScriptEvidence.NotPromoted" xml:space="preserve">
+    <value>未证明：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ScriptEvidence.Scope" xml:space="preserve">
+    <value>已证明：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ScriptEvidence.Summary" xml:space="preserve">
+    <value>实机证据</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="ScriptEvidence.Tests" xml:space="preserve">
+    <value>测试：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Sdk.Capabilities.Ambiguous.One" xml:space="preserve">
     <value>{0} 个歧义身份按失败关闭处理。共享设置会带有警告标记。</value>
     <comment>new: needs native review</comment>
@@ -5757,6 +5889,14 @@
     <value>快照浏览器</value>
     <comment>issue #1 (adapted)</comment>
   </data>
+  <data name="Snippets.DamageDealtHeal.Description" xml:space="preserve">
+    <value>每当游戏记录到 {0} 造成的伤害时治疗 25 点（player_damage_dealt 会准确给出每个来源）。飞刀归属和这次治疗已实机验证；其他投掷物以及按伤害比例治疗尚未验证。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Snippets.DamageDealtHeal.Title" xml:space="preserve">
+    <value>投掷物伤害回血</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Snippets.EnemyDeathCallback.Description" xml:space="preserve">
     <value>响应某一类敌人的死亡：保留快照位置，然后在 1 到 10 秒后于该处请求一次爆炸（任务范围的计时器）。</value>
     <comment>new: needs native review</comment>
@@ -5805,6 +5945,14 @@
     <value>玩家死亡爆炸</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Snippets.PlayerHitAccuracy.Description" xml:space="preserve">
+    <value>按武器统计游戏记录的射击数（player_fired）和弹体命中数（player_hit），并在任务结束时记录到日志。投掷武器不是弹体：它们只出现在 player_damage_dealt 中。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Snippets.PlayerHitAccuracy.Title" xml:space="preserve">
+    <value>各武器命中数</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Snippets.ProjectileSpawn.Description" xml:space="preserve">
     <value>从本地玩家上方发射一枚目录中的武器弹体（仅主机，仅任务中）。已实机验证：{0}。</value>
     <comment>new: needs native review</comment>
@@ -5835,6 +5983,14 @@
   </data>
   <data name="Snippets.WeaponChanged.Title" xml:space="preserve">
     <value>武器切换事件</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Snippets.WriteConflicts.Description" xml:space="preserve">
+    <value>任务结束时，记录每个被其他东西反复覆盖的操作（hd2.diagnostics.write_conflicts）。它只读取始终开启的报告：遥测保持关闭。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Snippets.WriteConflicts.Title" xml:space="preserve">
+    <value>写入冲突报告</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Stratagem.Acquisition.WorldPickup" xml:space="preserve">

@@ -91,9 +91,27 @@ try {
     await evaluate(`${q('[data-reference-event="player_died"]')}.open = true`); await sleep(200);
     assert(await count('[data-reference-event="player_died"] [data-payload-field="position"]') === 1, 'payload fields listed');
     await screenshot('custom-lua-reference');
+    // 0.28.0 events: stat sources documented per event, and a handler inserted from the reference.
+    await evaluate(`${q('[data-reference-event="player_hit"]')}.open = true`); await sleep(200);
+    assert.equal(await count('[data-reference-event="player_hit"] [data-payload-field="sources[].hits"]'), 1, 'player_hit source hits');
+    assert.equal(await count('[data-reference-event="player_hit"] [data-payload-field="sources[].kills"]'), 0, 'kills belong to player_kill_credited');
+    await click('[data-reference-insert="player_damage_dealt"]');
+    assert((await editorText()).includes("hd2.events.on('player_damage_dealt', function(event)"), 'handler inserted');
+    // Completion reaches the 0.28.0 stub additions.
+    await type('\nhd2.diagnostics.'); await waitFor(`!${q('.lua-popup')}.hidden`, 'diagnostics completion');
+    assert(await evaluate(`[...document.querySelectorAll('.lua-completion-name')].some(n => n.innerText === 'write_conflicts')`), 'hd2.diagnostics offered');
+    await evaluate(`${q(editor)}.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))`);
+    // Diagnostics reference: from the stub; the telemetry opt-in is documentation only.
+    await click('[data-custom-lua-tab="diagnostics"]'); await waitFor(q('[data-diagnostics-section="write-conflicts"]'), 'diagnostics reference');
+    assert.equal(await count('[data-diagnostics-call="hd2.diagnostics.write_conflicts"]'), 1, 'write_conflicts from the stub');
+    assert.equal(await count('[data-telemetry-opt-in]'), 1, 'telemetry opt-in documented');
+    assert.equal(await count('[data-diagnostics-section="telemetry"] button'), 0, 'no telemetry insert');
+    await screenshot('custom-lua-diagnostics-reference');
     await click('[data-custom-lua-tab="actions"]'); await waitFor(q('[data-action-explosion="NUX-223 Hellbomb"]'), 'action picker');
     assert.equal(await count('[data-action-explosion="NUX-223 Hellbomb"] [data-live-proven]'), 1, 'Hellbomb live-proven');
     assert.equal(await count('[data-action-explosion="B-100 Portable Hellbomb"] [data-live-proven]'), 0, 'portable Hellbomb not live-proven');
+    assert.equal(await count('[data-action-event="entity_damage_pre"] [data-event-blocked]'), 1, 'blocked event listed with its reason');
+    assert.equal(await count('[data-action-group="weapon-in-hand"] [data-live-proven]'), 1, 'weapon in hand live-proven');
     await click('[data-action-status="fire"] [data-action-insert]');
     assert((await editorText()).includes("hd2.status.apply(event.entity, 'fire', {buildup = 100})"), 'status inserted');
     await screenshot('custom-lua-actions');

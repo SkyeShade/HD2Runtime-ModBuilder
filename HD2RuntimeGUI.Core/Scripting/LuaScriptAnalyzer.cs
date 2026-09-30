@@ -5,7 +5,9 @@ namespace HD2RuntimeGUI.Core.Scripting;
 
 // Checks hand-written mod Lua: the syntax (LuaParser), what the build adds itself (the discovery header), and names the SDK enumerates
 // where a literal is passed straight to the API: event names (hd2.events.on/once, mod:on/once), explosions, projectiles, statuses and
-// enemy semantic IDs. Anything computed at run time is not checked, and nothing is executed; a warning never blocks a build.
+// enemy semantic IDs; and a literal telemetry opt-in (hd2.diagnostics.telemetry({enabled = true})), which turns Runtime telemetry on for
+// every player of the mod. Anything computed at run time is not checked, and nothing is executed; a warning never blocks a build. The
+// generated file (operations wrapped in `local function add(build) ... pcall(build) ... end`, then the custom Lua) checks clean.
 // Messages are UI text (LuaCheck.*); Lua names, API calls, Runtime refusal codes and quoted source are arguments, never translated.
 public static class LuaScriptAnalyzer
 {
@@ -67,8 +69,26 @@ public static class LuaScriptAnalyzer
             }
             if (enemies != null && tokens[i].Kind == LuaTokenKind.String && tokens[i].Value!.StartsWith("enemy/v1/", StringComparison.Ordinal) && enemies.Find(tokens[i].Value!) == null)
                 Warn(tokens[i], CoreText.Format("LuaCheck.UnknownEnemy", tokens[i].Value), "enemy");
+            // hd2.diagnostics.telemetry({enabled = true, ...}): Runtime telemetry is off by default and ModBuilder never turns it on; a script
+            // that does turns it on for everyone who runs the mod (docs/diagnostics.md: a small diagnostic mod for one report).
+            if (Seq(i, "hd2", ".", "diagnostics", ".", "telemetry", "(") && (i == 0 || !tokens[i - 1].Is(".")) && EnablesTelemetry(tokens, i + 5))
+                Warn(tokens[i + 4], CoreText.Format("LuaCheck.TelemetryEnabled", "hd2.diagnostics.telemetry", "HD2Runtime.log"), "telemetry");
         }
         return result.OrderBy(d => d.Line).ThenBy(d => d.Column).ToArray();
+    }
+    // `enabled = true` directly inside the call's argument list (a literal options table).
+    private static bool EnablesTelemetry(List<LuaToken> tokens, int start)
+    {
+        var depth = 0;
+        for (var i = start; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            if (t.Kind == LuaTokenKind.Symbol && t.Text is "(" or "{" or "[") depth++;
+            else if (t.Kind == LuaTokenKind.Symbol && t.Text is ")" or "}" or "]") { if (--depth <= 0) return false; }
+            else if (depth == 2 && t.Text == "enabled" && t.Kind is not (LuaTokenKind.String or LuaTokenKind.Number) && i + 2 < tokens.Count
+                && tokens[i + 1].Is("=") && tokens[i + 2].Text == "true" && tokens[i + 2].Kind is not (LuaTokenKind.String or LuaTokenKind.Number)) return true;
+        }
+        return false;
     }
     // The token that starts the second argument of a call whose '(' precedes `start`, or null when it is not a plain literal position.
     private static LuaToken? SecondArgument(List<LuaToken> tokens, int start)
