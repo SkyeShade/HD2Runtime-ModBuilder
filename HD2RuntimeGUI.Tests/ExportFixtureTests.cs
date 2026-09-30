@@ -76,4 +76,15 @@ public sealed class ExportFixtureTests
         var zip = await e.Exporter.ExportAsync(project, sdk);
         foreach (var dir in Outputs()) { Directory.CreateDirectory(dir); File.Copy(zip, Path.Combine(dir, "halt-" + variant + ".zip"), true); }
     }
+
+    // Projects saved by ModBuilder 1.3.1, rebound to the pinned SDK and exported (old-project compatibility through Runtime's validator).
+    [Theory] [MemberData(nameof(OldProjectCompatibilityTests.Projects), MemberType = typeof(OldProjectCompatibilityTests))]
+    public async Task Rebound_1_3_1_projects(string name)
+    {
+        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.27.0"); await SdkFixtures.Install(e, SdkPin.Version);
+        var w = e.Workspace(); var project = await e.Store.ImportAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "projects-1.3.1", name + ".hd2mod.json"));
+        await w.OpenAsync(project.Id); await w.RebindToInstalledSdkAsync();
+        Assert.Equal(SdkPin.Version, w.Project!.SdkVersion);
+        var (manifest, _) = await Export(w, "compat131-" + name); RequiresPinned(manifest);
+    }
 }

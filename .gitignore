@@ -29,3 +29,6 @@ samples/*.zip
 # Local snapshot captures and mapper research output
 *.hd2snap
 *.weapon-map*.json
+
+# Local release-candidate builds (build/release-candidate-<version>/)
+build/
