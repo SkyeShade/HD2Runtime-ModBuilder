@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
+using HD2RuntimeGUI.Core.Generation;
 using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Services;
 using Xunit;
@@ -49,6 +50,62 @@ public sealed class ExportFixtureTests
         await w.SetAttackOutputAsync("SMG-32 Reprimand", "primary", output);
         var (manifest, lua) = await Export(w, "F2-projectile-swap");
         RequiresPinned(manifest); Assert.Contains("hd2.attack_output('" + output + "')", lua);
+    }
+
+    private const string Out = "output/v1/projectile/";
+
+    [Fact] public async Task F3_support_projectile_swap()
+    {
+        using var e = new TestEnvironment(); var (w, _) = await Fresh(e, "F3 Support Projectile Swap");
+        // Live-proven support pairs: EAT-17 <- PLAS-1 Scorcher, M-105 Stalwart <- APW-1.
+        await w.SetHostOutputAsync(Core.Models.AttackOutputChange.SupportHost, "EAT-17 Expendable Anti-Tank", "primary", Out + "plas-1-scorcher");
+        await w.SetHostOutputAsync(Core.Models.AttackOutputChange.SupportHost, "M-105 Stalwart", "primary", Out + "apw-1-anti-materiel-rifle");
+        var (manifest, lua) = await Export(w, "F3-support-projectile-swap");
+        RequiresPinned(manifest); Assert.Contains("hd2.support_weapon('EAT-17 Expendable Anti-Tank'):attack('primary')", lua);
+    }
+
+    [Fact] public async Task F4_programmable_ammo()
+    {
+        using var e = new TestEnvironment(); var (w, _) = await Fresh(e, "F4 Programmable Ammo");
+        // MG-206: X/Y/Z rates and the Incendiary (R-4 Hyena) function projectile; S-11: the Stun spare twin with labels and auto icons.
+        await w.SetSelectorAsync(CompositionKind.Support, "MG-206 Heavy Machine Gun", new([450, 600, 900], null, Out + "r-4-hyena", null));
+        await w.SetSelectorAsync(CompositionKind.Support, "S-11 Speargun", new(null, null, Out + "s-11-speargun-spare-twin", null));
+        await w.SetRowAsync(Out + "s-11-speargun-spare-twin", OutputRowChangeService.ModeLabel, "stun");
+        await w.SetRowAsync(Out + "s-11-speargun-spare-twin", OutputRowChangeService.ModeIcon, "auto");
+        var (manifest, lua) = await Export(w, "F4-programmable-ammo");
+        RequiresPinned(manifest); Assert.Contains("hd2.fields.function_ammo.projectile", lua); Assert.Contains("hd2.fields.fire_rate.modes", lua);
+        Assert.Contains("hd2.fields.presentation.mode_label", lua);
+    }
+
+    [Fact] public async Task F5_projectile_slot_composition()
+    {
+        using var e = new TestEnvironment(); var (w, _) = await Fresh(e, "F5 Slot Composition");
+        // Liberator fires LAS-58 Talon (ammunition host); the Talon row (the donor row) gets the GL-21 grenade blast: the live-proven chain.
+        await w.SetAttackOutputAsync("AR-23 Liberator", "primary", Out + "las-58-talon");
+        await w.SetRowAsync(Out + "las-58-talon", OutputRowChangeService.ImpactExplosion, OutputRowChangeService.Handle(Out + "gl-21-grenade-launcher", AttackOutputSlots.ImpactExplosionKey));
+        var (manifest, lua) = await Export(w, "F5-slot-composition");
+        RequiresPinned(manifest); Assert.Contains("hd2.attack_output('" + Out + "las-58-talon')", lua); Assert.Contains("hd2.fields.projectile.impact_explosion", lua);
+    }
+
+    [Fact] public async Task F6_patriot_mounted_swap()
+    {
+        using var e = new TestEnvironment(); var (w, _) = await Fresh(e, "F6 Patriot Mounted Swap");
+        await w.SetHostOutputAsync(Core.Models.AttackOutputChange.VehicleHost, "EXO-45 Patriot Exosuit / right_gun", "primary", Out + "eat-17-expendable-anti-tank");
+        // The Patriot's own bullet row (host-owned row) keeps its bullet but gains an impact explosion.
+        await w.SetRowAsync(Out + "exo-45-patriot-exosuit-right-gun", OutputRowChangeService.ImpactExplosion, OutputRowChangeService.Handle(Out + "gl-21-grenade-launcher", AttackOutputSlots.ImpactExplosionKey));
+        var (manifest, lua) = await Export(w, "F6-patriot-mounted-swap");
+        RequiresPinned(manifest); Assert.Contains("hd2.vehicle('EXO-45 Patriot Exosuit'):weapon('right_gun')", lua);
+    }
+
+    [Fact] public async Task F7_one_two_underbarrel()
+    {
+        using var e = new TestEnvironment(); var (w, _) = await Fresh(e, "F7 One-Two Underbarrel");
+        await w.SetWeaponChangeAsync("AR/GL-21 One-Two / underbarrel", "weapon.horizontal_spread", "15", false);
+        await w.SetWeaponChangeAsync("AR/GL-21 One-Two / underbarrel", "rounds.spare_rounds", "10", false);
+        await w.SetWeaponChangeAsync("AR/GL-21 One-Two / underbarrel", "rounds.starting_rounds", "8", false);
+        await w.SetWeaponChangeAsync("AR/GL-21 One-Two", "weapon.ergonomics", "60", false);
+        var (manifest, lua) = await Export(w, "F7-one-two-underbarrel");
+        RequiresPinned(manifest); Assert.Contains("hd2.weapon('AR/GL-21 One-Two'):underbarrel()", lua); Assert.Contains("hd2.weapon('AR/GL-21 One-Two')", lua);
     }
 
     [Fact] public async Task F8_event_action_mod()
