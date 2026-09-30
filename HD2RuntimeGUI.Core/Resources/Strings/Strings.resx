@@ -3173,6 +3173,10 @@
   <data name="Messages.Build.Output.OnePerAttack" xml:space="preserve">
     <value>An attack can fire only one output.</value>
   </data>
+  <data name="Messages.Build.Output.SameEntity" xml:space="preserve">
+    <value>These mounts are one weapon entity and can take only one projectile swap: {0}. Keep one of them.</value>
+    <comment>{0}: comma-separated mount names</comment>
+  </data>
   <data name="Messages.Build.Output.SdkMissing" xml:space="preserve">
     <value>Attack outputs need an SDK that publishes {0} (a local HD2Runtime development SDK until 0.28.0).</value>
     <comment>{0}: SDK metadata file name (not translated)</comment>
@@ -3234,6 +3238,61 @@
   </data>
   <data name="Messages.Build.Projectile.SourceNotApproved" xml:space="preserve">
     <value>The SDK does not approve this projectile source for this selector.</value>
+  </data>
+  <data name="Messages.Build.Row.Baseline" xml:space="preserve">
+    <value>This is already the row's reviewed value; there is nothing to write.</value>
+  </data>
+  <data name="Messages.Build.Row.Changed" xml:space="preserve">
+    <value>{0} · {1}: its baseline, sharing, live proof or opt-ins changed in this SDK. Review it where it is edited, or reset it.</value>
+    <comment>{0}: row name; {1}: field name</comment>
+  </data>
+  <data name="Messages.Build.Row.DamageSlotType" xml:space="preserve">
+    <value>A direct-hit slot takes only another row's direct_damage() handle.</value>
+  </data>
+  <data name="Messages.Build.Row.DonorHasNoSlot" xml:space="preserve">
+    <value>{0} has no {1}() to reference.</value>
+    <comment>{0}: donor output id; {1}: slot handle method</comment>
+  </data>
+  <data name="Messages.Build.Row.DonorRefused" xml:space="preserve">
+    <value>{0} is not a value Runtime accepts for {1}.</value>
+    <comment>{0}: slot value; {1}: row name</comment>
+  </data>
+  <data name="Messages.Build.Row.ExplosionSlotType" xml:space="preserve">
+    <value>An explosion slot takes only an impact_explosion() or expiry_explosion() handle.</value>
+  </data>
+  <data name="Messages.Build.Row.IconRefused" xml:space="preserve">
+    <value>{0} cannot be written: use a native weapon-function icon or auto. The empty placeholder comes back by removing the edit.</value>
+    <comment>{0}: icon value</comment>
+  </data>
+  <data name="Messages.Build.Row.LabelRefused" xml:space="preserve">
+    <value>{0} is not a native mode label. Only the published labels can be written; custom text is not supported.</value>
+    <comment>{0}: label value</comment>
+  </data>
+  <data name="Messages.Build.Row.NoneRefused" xml:space="preserve">
+    <value>The direct-hit damage cannot be removed: a projectile always has a direct hit.</value>
+  </data>
+  <data name="Messages.Build.Row.NotSelectable" xml:space="preserve">
+    <value>{0} is not a selectable projectile row: {1}</value>
+    <comment>{0}: output name; {1}: Runtime reason</comment>
+  </data>
+  <data name="Messages.Build.Row.OnePerField" xml:space="preserve">
+    <value>Each field of a projectile row can be written only once.</value>
+  </data>
+  <data name="Messages.Build.Row.PresentationReadOnly" xml:space="preserve">
+    <value>The mode label and icon of {0} are not writable.</value>
+    <comment>{0}: output name</comment>
+  </data>
+  <data name="Messages.Build.Row.TerminalConflict" xml:space="preserve">
+    <value>{0} · {1} is also replaced by a terminal explosion edit on {2}: both write the same member of this row. Keep one of them.</value>
+    <comment>{0}: row name; {1}: field name; {2}: player weapon</comment>
+  </data>
+  <data name="Messages.Build.Row.Unknown" xml:space="preserve">
+    <value>This SDK does not catalogue the output {0}.</value>
+    <comment>{0}: output semantic id</comment>
+  </data>
+  <data name="Messages.Build.Row.UnknownField" xml:space="preserve">
+    <value>{0} is not a projectile-builder field.</value>
+    <comment>{0}: Runtime field id</comment>
   </data>
   <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
     <value>Choose a status effect, or none.</value>
@@ -3508,6 +3567,10 @@
     <value>Mod Options Menu shows at most {0} options per mod, including the master toggle.</value>
     <comment>{0}: maximum number of options. Mod Options Menu is a product name.</comment>
   </data>
+  <data name="Messages.Output.AmbiguousRoot" xml:space="preserve">
+    <value>{0} has no uniquely resolved runtime identity ({1}), so its projectile cannot be written.</value>
+    <comment>{0}: support weapon; {1}: identity status as published</comment>
+  </data>
   <data name="Messages.Output.EditsBlockSwitch.One" xml:space="preserve">
     <value>{1} has {0} projectile or explosion edit that cannot follow an attack output. Discard them to switch.</value>
     <comment>{0}: number of edits, {1}: weapon name (SDK text).</comment>
@@ -3519,8 +3582,24 @@
   <data name="Messages.Output.NoActiveSource" xml:space="preserve">
     <value>Runtime publishes no active projectile source for this attack.</value>
   </data>
+  <data name="Messages.Output.NoHostField" xml:space="preserve">
+    <value>{0} publishes no projectile field for this attack.</value>
+    <comment>{0}: weapon or mount name</comment>
+  </data>
+  <data name="Messages.Output.NoPackage" xml:space="preserve">
+    <value>{0} publishes no catalogued package, so Runtime cannot load its assets before the reference is written.</value>
+    <comment>{0}: output name (as published)</comment>
+  </data>
   <data name="Messages.Output.NoSources" xml:space="preserve">
     <value>This SDK publishes no active projectile sources.</value>
+  </data>
+  <data name="Messages.Output.NotSelectable" xml:space="preserve">
+    <value>Its owner is not established to fire this row, so it is never offered as a projectile.</value>
+    <comment>Fallback reason for a projectile row that is not selectable</comment>
+  </data>
+  <data name="Messages.Output.ScopeOnly" xml:space="preserve">
+    <value>Catalogued only as {0}: never an attack's projectile.</value>
+    <comment>{0}: Runtime field id such as function_ammo.projectile</comment>
   </data>
   <data name="Messages.Project.AlreadyStored" xml:space="preserve">
     <value>This project is already stored locally. Open it from the library to avoid overwriting changes.</value>
@@ -3564,6 +3643,9 @@
   <data name="Messages.Project.InvalidProjectileOverrides" xml:space="preserve">
     <value>Invalid semantic projectile overrides.</value>
   </data>
+  <data name="Messages.Project.InvalidRowChanges" xml:space="preserve">
+    <value>The project contains invalid projectile row edits.</value>
+  </data>
   <data name="Messages.Project.InvalidStratagemApproval" xml:space="preserve">
     <value>Invalid stratagem approval.</value>
   </data>
@@ -3600,6 +3682,30 @@
   </data>
   <data name="Messages.Project.VersionFormat" xml:space="preserve">
     <value>Mod version must be major.minor.patch.</value>
+  </data>
+  <data name="Messages.Row.Field.DirectDamage" xml:space="preserve">
+    <value>Direct hit</value>
+    <comment>hd2.fields.projectile.direct_damage</comment>
+  </data>
+  <data name="Messages.Row.Field.ExpiryExplosion" xml:space="preserve">
+    <value>Expiry explosion</value>
+    <comment>hd2.fields.projectile.expiry_explosion</comment>
+  </data>
+  <data name="Messages.Row.Field.ImpactExplosion" xml:space="preserve">
+    <value>Impact explosion</value>
+    <comment>hd2.fields.projectile.impact_explosion</comment>
+  </data>
+  <data name="Messages.Row.Field.ModeIcon" xml:space="preserve">
+    <value>Mode icon</value>
+    <comment>hd2.fields.presentation.mode_icon</comment>
+  </data>
+  <data name="Messages.Row.Field.ModeLabel" xml:space="preserve">
+    <value>Mode label</value>
+    <comment>hd2.fields.presentation.mode_label</comment>
+  </data>
+  <data name="Messages.Row.Scalar.OwnerFiresAnother" xml:space="preserve">
+    <value>{0} fires another projectile in this project, so its own row's flight values are shown read-only. Restore its projectile to edit them on the weapon.</value>
+    <comment>{0}: player weapon</comment>
   </data>
   <data name="Messages.Sdk.Checked" xml:space="preserve">
     <value>GitHub release and schema/API compatibility checked.</value>

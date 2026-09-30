@@ -3497,6 +3497,10 @@
     <value>一次攻击只能发射一种输出。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.Output.SameEntity" xml:space="preserve">
+    <value>这些挂载点是同一个武器实体，只能有一个弹体替换：{0}。请只保留其中之一。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Output.SdkMissing" xml:space="preserve">
     <value>攻击输出需要发布 {0} 的 SDK（在 0.28.0 之前为本地 HD2Runtime 开发版 SDK）。</value>
     <comment>new: needs native review</comment>
@@ -3571,6 +3575,66 @@
   </data>
   <data name="Messages.Build.Projectile.SourceNotApproved" xml:space="preserve">
     <value>SDK 未批准此选择器使用该弹体来源。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.Baseline" xml:space="preserve">
+    <value>这已是该行的审核值，没有需要写入的内容。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.Changed" xml:space="preserve">
+    <value>{0} · {1}：其基线、共享范围、实机证明或显式开启项在此 SDK 中已变化。请在编辑处复核，或重置它。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.DamageSlotType" xml:space="preserve">
+    <value>直击槽只接受其他行的 direct_damage() 句柄。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.DonorHasNoSlot" xml:space="preserve">
+    <value>{0} 没有可引用的 {1}()。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.DonorRefused" xml:space="preserve">
+    <value>{0} 不是 Runtime 对 {1} 接受的值。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.ExplosionSlotType" xml:space="preserve">
+    <value>爆炸槽只接受 impact_explosion() 或 expiry_explosion() 句柄。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.IconRefused" xml:space="preserve">
+    <value>无法写入 {0}：请使用原生武器功能图标或 auto。移除该改动即可恢复空白占位图标。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.LabelRefused" xml:space="preserve">
+    <value>{0} 不是原生模式标签。只能写入已发布的标签，不支持自定义文本。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.NoneRefused" xml:space="preserve">
+    <value>无法移除直击伤害：弹体始终有直击。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.NotSelectable" xml:space="preserve">
+    <value>{0} 不是可选的弹体行：{1}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.OnePerField" xml:space="preserve">
+    <value>弹体行的每个字段只能写入一次。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.PresentationReadOnly" xml:space="preserve">
+    <value>{0} 的模式标签和图标不可写。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.TerminalConflict" xml:space="preserve">
+    <value>{0} · {1} 也被 {2} 上的终端爆炸改动替换：两者写入该行的同一成员。请只保留其中之一。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.Unknown" xml:space="preserve">
+    <value>此 SDK 未登记输出 {0}。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Build.Row.UnknownField" xml:space="preserve">
+    <value>{0} 不是弹体构建器字段。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Messages.Build.Status.ChooseStatus" xml:space="preserve">
@@ -3901,6 +3965,10 @@
     <value>Mod Options Menu 每个模组最多显示 {0} 个选项（包括总开关）。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Output.AmbiguousRoot" xml:space="preserve">
+    <value>{0} 没有唯一解析的运行时身份（{1}），因此无法写入其弹体。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Output.EditsBlockSwitch.One" xml:space="preserve">
     <value>{1} 有 {0} 项弹体或爆炸编辑无法随攻击输出转移。请丢弃它们以进行切换。</value>
     <comment>new: needs native review</comment>
@@ -3913,8 +3981,24 @@
     <value>Runtime 没有为此攻击发布有效的弹体来源。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Output.NoHostField" xml:space="preserve">
+    <value>{0} 没有为此攻击发布弹体字段。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Output.NoPackage" xml:space="preserve">
+    <value>{0} 没有已登记的包，Runtime 无法在写入引用前加载其资源。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Output.NoSources" xml:space="preserve">
     <value>此 SDK 未发布任何活动弹体来源。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Output.NotSelectable" xml:space="preserve">
+    <value>尚未确认其所属对象会发射此行，因此它从不作为弹体提供。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Output.ScopeOnly" xml:space="preserve">
+    <value>仅登记为 {0}：绝不能作为攻击的弹体。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Messages.Project.AlreadyStored" xml:space="preserve">
@@ -3973,6 +4057,10 @@
     <value>无效的语义弹体覆盖值。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Project.InvalidRowChanges" xml:space="preserve">
+    <value>项目包含无效的弹体行改动。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Project.InvalidStratagemApproval" xml:space="preserve">
     <value>无效的战略配备批准记录。</value>
     <comment>new: needs native review</comment>
@@ -4019,6 +4107,30 @@
   </data>
   <data name="Messages.Project.VersionFormat" xml:space="preserve">
     <value>模组版本必须为 major.minor.patch 格式。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Row.Field.DirectDamage" xml:space="preserve">
+    <value>直击</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Row.Field.ExpiryExplosion" xml:space="preserve">
+    <value>失效爆炸</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Row.Field.ImpactExplosion" xml:space="preserve">
+    <value>命中爆炸</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Row.Field.ModeIcon" xml:space="preserve">
+    <value>模式图标</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Row.Field.ModeLabel" xml:space="preserve">
+    <value>模式标签</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Messages.Row.Scalar.OwnerFiresAnother" xml:space="preserve">
+    <value>{0} 在此项目中发射其他弹体，因此其自身行的飞行数值仅以只读方式显示。恢复其弹体后即可在武器上编辑。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Messages.Sdk.Checked" xml:space="preserve">

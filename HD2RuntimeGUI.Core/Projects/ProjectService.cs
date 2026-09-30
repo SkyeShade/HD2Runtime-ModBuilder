@@ -68,6 +68,10 @@ public static class ProjectIdentity
             _ => false,
         };
     }
+    // A row write's semantic value: a slot handle ("<output>#<slot>") or "none"; a native label / icon name ("stun", "ammo_stun", "auto").
+    private static bool RowValue(string field, string v) => Generation.OutputRowChangeService.IsSlot(field)
+        ? v == Generation.OutputRowChangeService.None || Regex.IsMatch(v, @"\Aoutput/v1/projectile/[a-z0-9-]{1,128}#(directDamage|impactExplosion|expiryExplosion)\z")
+        : Regex.IsMatch(v, @"\A[a-z0-9_]{1,64}\z");
     private static bool Scalar(System.Text.Json.JsonElement v) => v.ValueKind is not (System.Text.Json.JsonValueKind.Undefined or System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array);
     private static bool NumberOrBool(System.Text.Json.JsonElement v) => v.ValueKind is System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False;
     // 0.26.0 fire_mode.modes: 1-4 distinct named modes.
@@ -80,7 +84,8 @@ public static class ProjectIdentity
     // Format 9: SDK 0.27.0 throwable edits (older ModBuilder versions cannot read them).
     // Format 10: enemy and enemy-structure edits (0.28.0 development SDKs); older ModBuilder versions reject the format instead of the edits.
     // Format 11: hand-written Runtime Lua (custom src/addon.lua).
-    public static int RequiredFormat(ModProject p) => p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } ? 11 :
+    // Format 11 also carries 0.28.0 projectile hosts (support and mounted swaps) and projectile-builder row writes.
+    public static int RequiredFormat(ModProject p) => p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 } ? 11 :
         p.EntityChanges.Any(c => Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers != null) ? 10 :
         p.EntityChanges.Any(c => c.Resource == ThrowableAuthoringReader.Resource || c.Effect != null) ? 9 :
         p.WeaponChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet || c.EffectAcknowledgement != null)
@@ -93,14 +98,27 @@ public static class ProjectIdentity
         if (p.CustomLua is { } lua && (lua.Source == null || lua.Source.Length > CustomLuaSettings.MaxLength || lua.Source.Contains('\0')))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCustomLua"));
         // Attack outputs: semantic weapon / role / output identities and the published opt-ins only.
+        // Player hosts save no kind; support hosts name a support weapon, mounted hosts the published "<vehicle> / <mount>" key (component only).
         if (p.AttackOutputChanges is { } outputs && (outputs.Count > 500 || outputs.Select(c => c.Id).Distinct().Count() != outputs.Count
-            || outputs.GroupBy(c => (c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)
+            || outputs.GroupBy(c => (c.Kind, c.Weapon, c.AttackRole)).Any(g => g.Count() > 1)
             || outputs.Any(c => c.Id == Guid.Empty || string.IsNullOrWhiteSpace(c.Weapon) || c.Weapon.Length > 256 || !Regex.IsMatch(c.AttackRole, @"\A[a-z][a-z_0-9]{0,63}\z")
                 || c.Mechanism is not ("component" or "ammunition") || !Regex.IsMatch(c.Output, @"\Aoutput/v1/projectile/[a-z0-9-]{1,128}\z") || c.OutputName.Length > 256
                 || c.Acknowledgements.Any(a => a is not ("allow_shared" or "allow_unverified_effect" or "allow_unverified_reference")) || !Regex.IsMatch(c.Evidence, @"\A[a-f0-9]{64}\z")
-                || c.Group.Length > 120 || c.Notes?.Length > 4000)))
+                || c.Group.Length > 120 || c.Notes?.Length > 4000
+                || c.HostKind is not (null or AttackOutputChange.SupportHost or AttackOutputChange.VehicleHost)
+                || c.HostKind != null && c.Mechanism != "component"
+                || c.HostKind == AttackOutputChange.VehicleHost && !Regex.IsMatch(c.Weapon, @"\A[^\p{C}]{1,200} / [a-z][a-z_0-9]{0,63}\z"))))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidAttackOutputs"));
         foreach (var c in p.AttackOutputChanges ?? []) SemVersion.Parse(c.BaselineSdkVersion);
+        // Row writes: a catalogued row, a Runtime row field, and semantic values ("none", "<output>#<slot>", or a native label / icon name).
+        if (p.OutputRowChanges is { } rows && (rows.Count > 500 || rows.Select(c => c.Id).Distinct().Count() != rows.Count
+            || rows.GroupBy(c => (c.Output, c.Field)).Any(g => g.Count() > 1)
+            || rows.Any(c => c.Id == Guid.Empty || !Regex.IsMatch(c.Output, @"\Aoutput/v1/projectile/[a-z0-9-]{1,128}\z") || c.OutputName.Length > 256
+                || !Generation.OutputRowChangeService.Fields.Contains(c.Field) || !RowValue(c.Field, c.Expect) || !RowValue(c.Field, c.Value) || c.Expect == c.Value
+                || c.ValueName?.Length > 256 || c.Acknowledgements.Any(a => a is not ("allow_shared" or "allow_unverified_effect"))
+                || !Regex.IsMatch(c.Evidence, @"\A[a-f0-9]{64}\z") || c.Group.Length > 120 || c.Notes?.Length > 4000)))
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidRowChanges"));
+        foreach (var c in p.OutputRowChanges ?? []) SemVersion.Parse(c.BaselineSdkVersion);
         if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Length > 120 || string.IsNullOrWhiteSpace(p.Author) || p.Author.Length > 120)
             throw new InvalidDataException(CoreText.Get("Messages.Project.NameAuthorRequired"));
         ValidateResource(p.ResourceId);
@@ -307,6 +325,7 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         // Format 11: the saved custom Lua text (the copy's own src/addon.lua is created from it when it opens) and attack outputs.
         project.CustomLua = source.CustomLua;
         project.AttackOutputChanges = source.AttackOutputChanges?.Select(c => c with { Id = Guid.NewGuid() }).ToList();
+        project.OutputRowChanges = source.OutputRowChanges?.Select(c => c with { Id = Guid.NewGuid() }).ToList();
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

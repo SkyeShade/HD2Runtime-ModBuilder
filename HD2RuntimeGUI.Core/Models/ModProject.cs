@@ -36,6 +36,9 @@ public sealed class ModProject
     // Format 11: attacks that fire another catalogued output (hd2.attack_output). Omitted until a project has one.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<AttackOutputChange>? AttackOutputChanges { get; set; }
+    // Format 11: projectile-builder slot and mode-presentation writes on catalogued rows (hd2.attack_output). Omitted until a project has one.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<OutputRowChange>? OutputRowChanges { get; set; }
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

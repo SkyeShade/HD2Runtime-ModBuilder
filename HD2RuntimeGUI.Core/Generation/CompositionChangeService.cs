@@ -24,7 +24,7 @@ public sealed class CompositionChangeService : ICompositionChangeService
 {
     private readonly WeaponChangeService scalars = new();
     public static AttackOutputChange? FiresOutput(ModProject project, string weapon, string role) =>
-        project.AttackOutputChanges?.FirstOrDefault(c => c.Enabled && c.Weapon == weapon && c.AttackRole == role);
+        project.AttackOutputChanges?.FirstOrDefault(c => c.Enabled && c.IsPlayer && c.Weapon == weapon && c.AttackRole == role);
     public ProjectileReference EffectiveProjectile(ModProject project, string weapon, string role) => project.ProjectileChanges.SingleOrDefault(c => c.Enabled && c.Weapon == weapon && c.AttackRole == role)?.ReplacementProjectile ?? new(weapon, role);
     public static bool ProjectileOwned(WeaponCapability f) => f.Domain is "projectile" or "damage" && f.Backing?.Branch != null;
     private static string Branch(string role) => role.StartsWith("feed_", StringComparison.Ordinal) ? role[5..] : role;

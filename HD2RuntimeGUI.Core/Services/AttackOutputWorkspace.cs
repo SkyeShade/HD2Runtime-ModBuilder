@@ -10,7 +10,7 @@ namespace HD2RuntimeGUI.Core.Services;
 // ammunition-fed host (INDIRECT weapons such as the AR-23 Liberator), becomes an attack output written through the source Runtime reports.
 public sealed partial class BuilderWorkspace
 {
-    public AttackOutputChange? AttackOutput(string weapon, string role) => Project?.AttackOutputChanges?.FirstOrDefault(c => c.Weapon == weapon && c.AttackRole == role);
+    public AttackOutputChange? AttackOutput(string weapon, string role) => Project?.AttackOutputChanges?.FirstOrDefault(c => c.IsPlayer && c.Weapon == weapon && c.AttackRole == role);
     public string? AttackOutputIssue(AttackOutputChange change) { try { AttackOutputChangeService.Validate(Metadata!, change); return null; } catch (InvalidDataException e) { return e.Message; } }
     public AttackOutputHost? OutputHost(string weapon, string role, out string reason)
     {
@@ -36,8 +36,8 @@ public sealed partial class BuilderWorkspace
             try
             {
                 var list = project.AttackOutputChanges ?? [];
-                var old = list.FirstOrDefault(c => c.Weapon == weapon && c.AttackRole == role);
-                list.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
+                var old = list.FirstOrDefault(c => c.IsPlayer && c.Weapon == weapon && c.AttackRole == role);
+                list.RemoveAll(c => c.IsPlayer && c.Weapon == weapon && c.AttackRole == role);
                 if (output != null)
                 {
                     var next = AttackOutputChangeService.Create(Metadata!, weapon, role, output);
