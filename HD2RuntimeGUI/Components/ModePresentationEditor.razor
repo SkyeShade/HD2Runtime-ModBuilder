@@ -12,7 +12,7 @@
     var acks = new[] { label, icon }.OfType<OutputRowChange>().Where(c => c.Enabled).SelectMany(c => c.Acknowledgements).Distinct().ToArray();
     var editable = p.Writable && Workspace.Project != null && !Busy;
     <div class="mode-presentation @(label != null || icon != null ? "modified" : "")" data-mode-presentation="@Output">
-        <h4 class="group-title">@(Title ?? T["ModePresentation.Title"]) @if (Title != null) { <small class="subtle">@row.Label</small> }
+        <h4 class="group-title">@(Title ?? T["ModePresentation.Title"]) @if (Title != null) { <small class="subtle">&nbsp;·&nbsp;@row.Label</small> }
             @if (label != null || icon != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
             @if (p.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["ModePresentation.Shared.Tooltip"]">@T["Common.Shared"]</span> }</h4>
         @if (!p.Writable) { <p class="notice">@T["ModePresentation.ReadOnly"]</p> }
