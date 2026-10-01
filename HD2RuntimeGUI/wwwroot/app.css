@@ -1581,5 +1581,6 @@ html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei
 .presentation-row { display:grid; gap:6px; max-width:1100px }
 .presentation-row > select, .trait-add select { max-width:420px }
 .fire-mode-slots.trait-slots { grid-template-columns:repeat(5, minmax(0, 1fr)) }
+.trait-slots .trait-id { display:block; font-size:.78em; opacity:.7; overflow-wrap:anywhere }
 .subweapon-section { border-left:3px solid var(--accent-border); padding-left:12px }
 @media (max-width:760px) { .fire-mode-slots.rate-slots, .fire-mode-slots.trait-slots { grid-template-columns:1fr } }

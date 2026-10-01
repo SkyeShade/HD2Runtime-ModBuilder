@@ -59,6 +59,9 @@
     private string Display(System.Text.Json.JsonElement value) => Field.Value.Type == "boolean" && value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False
         ? (value.GetBoolean() ? T["Common.On"] : T["SupportField.Off"]) : Field.Value.Type == WeaponCapability.FireModeSet && value.ValueKind == System.Text.Json.JsonValueKind.Array ? FireModes.DisplayText(value)
         : Field.IsStatusReference && value.ValueKind == System.Text.Json.JsonValueKind.String ? Workspace.StatusLabel(value.GetString()!)
+        // Presentation traits by their published labels (two traits sharing a label also name their ID); the Lua keeps the IDs.
+        : Field.SemanticFieldId == TraitSets.Field && value.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? (value.GetArrayLength() == 0 ? T["Common.Empty"] : string.Join(" · ", value.EnumerateArray().Select(x => x.ValueKind == System.Text.Json.JsonValueKind.String ? Workspace.Metadata?.Presentation?.ChoiceLabel(x.GetString()!) ?? x.GetString() : x.GetRawText())))
         // Rates, trait lists and names in their language-neutral spelling (the Lua literal would quote them).
         : value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString()!
         : value.ValueKind == System.Text.Json.JsonValueKind.Array ? string.Join(" · ", value.EnumerateArray().Select(x => x.ValueKind == System.Text.Json.JsonValueKind.String ? x.GetString() : x.GetRawText()))

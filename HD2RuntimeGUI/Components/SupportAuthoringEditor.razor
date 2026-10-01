@@ -55,6 +55,9 @@
     @foreach (var b in blocked.Where(b => b.Field == FireModes.ReticleField && fields.All(f => f.SemanticFieldId != FireModes.ReticleField)))
     { <p class="subtle field-blocker" data-reticle-blocked="@Weapon"><strong>@T["Support.Reticle.Label"]</strong> @T.Format("Support.Reticle.Blocked", b.Reason)</p> }
 }
+@* Armory labels Runtime publishes only as blocked (no presentation.traits field to edit): shown unavailable with Runtime's reason. *@
+@if (!ModifiedOnly && fields.All(f => f.SemanticFieldId != TraitSets.Field) && Workspace.Presentation(CompositionKind.Support, Weapon)?.Traits is { Available: false })
+{ <WeaponPresentationPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" /> }
 <SupportBackpackAmmo Weapon="@Weapon" ModifiedOnly="ModifiedOnly" Changed="Refresh" />
 @code {
     [Parameter] public bool ModifiedOnly { get; set; }

@@ -8145,11 +8145,15 @@
     <value>Armory labels</value>
   </data>
   <data name="WeaponPresentation.Traits.One" xml:space="preserve">
-    <value>Displayed traits (up to {0})</value>
+    <value>Presentation traits (up to {0})</value>
     <comment>{0}: maximum.</comment>
   </data>
   <data name="WeaponPresentation.Traits.Other" xml:space="preserve">
-    <value>Displayed traits (up to {0})</value>
+    <value>Presentation traits (up to {0})</value>
     <comment>{0}: maximum.</comment>
+  </data>
+  <data name="WeaponPresentation.TraitsField" xml:space="preserve">
+    <value>Edits HD2Runtime's {0} field: the trait IDs the armory shows, in this order. The wiki traits are not changed.</value>
+    <comment>{0}: the published field constant (hd2.fields.presentation.traits), not translated.</comment>
   </data>
 </root>

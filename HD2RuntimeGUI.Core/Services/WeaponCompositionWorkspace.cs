@@ -64,8 +64,10 @@ public sealed record WeaponSelector(string Kind, string Weapon, SelectorRates? R
 public sealed record SelectorEdit(IReadOnlyList<float>? Rates, string? RatesInput, string? Projectile, string? ProjectileInput);
 
 // Armory presentation (presentation.traits / presentation.armor_penetration): presentation only, never gameplay.
+// ApiFieldConstant: the published Runtime field the list edits (hd2.fields.presentation.traits). Available is false where Runtime publishes the
+// field only as blocked, with its reason: no value is shown then, never an invented one.
 public sealed record PresentationTraits(bool Writable, string? Reason, IReadOnlyList<string> Baseline, IReadOnlyList<string> Current, int MaxTraits, IReadOnlyList<string> Choices,
-    string? AcknowledgementReason, bool NeedsEffect, FieldLiveEvidence? LiveEvidence)
+    string? AcknowledgementReason, bool NeedsEffect, FieldLiveEvidence? LiveEvidence, string? ApiFieldConstant = null, bool Available = true)
 {
     public bool Modified => !Baseline.SequenceEqual(Current);
 }
@@ -356,7 +358,8 @@ public sealed partial class BuilderWorkspace
             {
                 var saved = SavedSupport(tf);
                 traits = new(Project != null && tf.Writable, tf.BlockedReason, TraitSets.Traits(tf.Value.Baseline), Effective(kind, weapon, saved?.DesiredValue, tf.Value.Baseline),
-                    tf.Presentation?.MaxTraits ?? 5, choices, tf.Operation.AcknowledgementReason, saved != null && CompositionOptIns.EffectFor(tf, saved.DesiredValue), tf.LiveEvidence);
+                    tf.Presentation?.MaxTraits ?? 5, choices, tf.Operation.AcknowledgementReason, saved != null && CompositionOptIns.EffectFor(tf, saved.DesiredValue), tf.LiveEvidence,
+                    tf.ApiFieldConstant);
             }
             if (SupportWeaponField(weapon, TraitSets.PenetrationField) is { } pf)
             {
@@ -365,6 +368,13 @@ public sealed partial class BuilderWorkspace
                     pf.Presentation?.AllowedValues ?? [], pf.Presentation?.ArmorPenetrationState, pf.Operation.AcknowledgementReason,
                     saved != null && CompositionOptIns.EffectFor(pf, saved.DesiredValue), CompositionOptIns.LiveValues(pf));
             }
+            // A weapon whose armory labels Runtime publishes only as blocked (the weapon roots disagree, a tag has no string): unavailable,
+            // with Runtime's reason and no value.
+            var blocked = Metadata.SupportAuthoring?.Weapons.FirstOrDefault(w => w.Name == weapon)?.BlockedFields ?? [];
+            if (traits == null && blocked.FirstOrDefault(b => b.Field == TraitSets.Field) is { } bt)
+                traits = new(false, bt.Reason, [], [], 5, [], null, false, null, Available: false);
+            if (penetration == null && blocked.FirstOrDefault(b => b.Field == TraitSets.PenetrationField) is { } bp)
+                penetration = new(false, bp.Reason, StatusReference.None, StatusReference.None, [], "blocked", null, false, null);
         }
         else if (Metadata.PlayerWeapons?.Find(weapon) is { } w)
         {
@@ -374,7 +384,7 @@ public sealed partial class BuilderWorkspace
                 var saved = SavedWeapon(weapon, tf.SemanticFieldId);
                 traits = new(Writable(tf), w.OrdinaryWritesBlocked ? w.BlockReason : tf.Reason, TraitsOrEmpty(tf.CurrentDefault), Effective(kind, weapon, saved?.DesiredValue, tf.CurrentDefault),
                     tf.MaxTraits ?? 5, tf.TraitValues?.Keys.OrderBy(k => catalog?.TraitLabel(k) ?? k, StringComparer.OrdinalIgnoreCase).ToArray() ?? choices,
-                    tf.AcknowledgementReason, saved != null && CompositionOptIns.EffectFor(tf, saved.DesiredValue), tf.LiveEvidence);
+                    tf.AcknowledgementReason, saved != null && CompositionOptIns.EffectFor(tf, saved.DesiredValue), tf.LiveEvidence, tf.ApiFieldConstant);
             }
             if (w.Fields.FirstOrDefault(f => f.SemanticFieldId == TraitSets.PenetrationField) is { } pf)
             {

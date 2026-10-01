@@ -44,6 +44,8 @@
         {
             <div class="presentation-row" data-presentation-traits="@string.Join(",", traits.Current)">
                 <span class="slot-label">@T.Plural("WeaponPresentation.Traits", traits.MaxTraits)</span>
+                @* The Runtime field this list edits, as published (not the wiki's trait list). *@
+                @if (traits.ApiFieldConstant != null) { <small class="subtle" data-presentation-field="@traits.ApiFieldConstant">@T.Format("WeaponPresentation.TraitsField", traits.ApiFieldConstant)</small> }
                 @if (traits.Writable)
                 {
                     <ol class="fire-mode-slots trait-slots" data-trait-slots>
@@ -53,7 +55,7 @@
                             <li class="fire-mode-slot @(trait == null ? "empty" : "")" data-trait-slot="@(i + 1)" data-trait="@(trait ?? "")">
                                 @if (trait != null)
                                 {
-                                    <strong>@Label(trait)</strong>
+                                    <strong>@Label(trait)</strong>@if (Label(trait) != trait) { <code class="trait-id" data-trait-id>@trait</code> }
                                     <span class="slot-actions">
                                         <button class="small" title="@T["FireMode.MoveEarlier"]" aria-label="@T.Format("WeaponPresentation.MoveEarlier.Aria", Label(trait))" disabled="@(index == 0 || Busy)" @onclick="() => SetTraits(Move(traits.Current, index, -1))">↑</button>
                                         <button class="small" title="@T["FireMode.MoveLater"]" aria-label="@T.Format("WeaponPresentation.MoveLater.Aria", Label(trait))" disabled="@(index == traits.Current.Count - 1 || Busy)" @onclick="() => SetTraits(Move(traits.Current, index, 1))">↓</button>
@@ -75,7 +77,9 @@
                 }
                 else
                 {
-                    <strong>@(traits.Current.Count == 0 ? T["Common.Empty"] : string.Join(" · ", traits.Current.Select(Label)))</strong> <span class="badge" title="@traits.Reason">@T["Common.ReadOnly"]</span>
+                    @* Unavailable: Runtime publishes the field only as blocked, so there is no value to show (never an invented one). *@
+                    @if (traits.Available) { <strong>@(traits.Current.Count == 0 ? T["Common.Empty"] : string.Join(" · ", traits.Current.Select(Label)))</strong> }
+                    <span class="badge" title="@traits.Reason" data-traits-unavailable="@(!traits.Available)">@(traits.Available ? T["Common.ReadOnly"] : T["FieldValue.Unavailable"])</span>
                     <small class="subtle" data-presentation-blocked>@(traits.Reason ?? T["Messages.Build.Traits.ReadOnly"])</small>
                 }
                 @if (traits.Modified) { <small class="modified-value">@T.Format("WeaponPresentation.BaselineToCurrent", string.Join(" · ", traits.Baseline.Select(Label)), string.Join(" · ", traits.Current.Select(Label)))</small> }

@@ -9057,4 +9057,8 @@
     <value>显示的特性（最多 {0} 个）</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="WeaponPresentation.TraitsField" xml:space="preserve">
+    <value>编辑 HD2Runtime 的 {0} 字段：军械库按此顺序显示的特性 ID。Wiki 特性不会被修改。</value>
+    <comment>new: needs native review</comment>
+  </data>
 </root>
