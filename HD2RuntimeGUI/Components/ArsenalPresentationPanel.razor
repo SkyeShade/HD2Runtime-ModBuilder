@@ -1,0 +1,46 @@
+@inject BuilderWorkspace Workspace
+@inject IPackagedFilePicker Picker
+@using HD2RuntimeGUI.Core.Generation
+@* Export page: how HD2Arsenal presents the mod (format 12). Arsenal reads manifest.json's Description and IconPath; every export writes
+   the description before ModBuilder's dependency line and packages the icon at the ZIP root, IconPath naming it. Separate from the
+   gameplay (Runtime) edits: nothing here changes the generated Lua or game files. A problem is shown here and refuses the export. *@
+@if (Workspace.Project != null)
+{
+    var arsenal = Workspace.ArsenalState();
+    <section class="panel arsenal-presentation" data-arsenal>
+        <div class="panel-heading"><h2>@T["Arsenal.Title"]</h2>@if (arsenal.Configured) { <span class="badge" data-arsenal-configured>@T["Arsenal.Configured"]</span> }</div>
+        <p class="subtle">@T["Arsenal.Help"]</p>
+        <label for="arsenal-description">@T["Arsenal.Description.Label"]</label>
+        <textarea id="arsenal-description" rows="4" data-arsenal-description placeholder="@T["Arsenal.Description.Placeholder"]" value="@arsenal.Description"
+                  @onchange="e => Run(() => Workspace.SetArsenalDescriptionAsync(e.Value as string ?? string.Empty))"></textarea>
+        <p class="subtle">@T["Arsenal.Description.Note"]</p>
+        @if (arsenal.DescriptionIssue != null) { <p class="packaged-issue danger-text" data-arsenal-description-issue>@arsenal.DescriptionIssue</p> }
+        <label>@T["Arsenal.Icon.Label"]</label>
+        @if (arsenal.Icon == null) { <p class="subtle" data-arsenal-icon-empty>@T["Arsenal.Icon.None"]</p> }
+        else
+        {
+            <div class="change-row packaged-file" data-arsenal-icon="@arsenal.IconEntry" data-arsenal-icon-valid="@(arsenal.IconIssue == null ? "true" : "false")">
+                <div class="change-name"><strong>@arsenal.IconEntry</strong><small class="subtle packaged-source" title="@arsenal.Icon">@arsenal.Icon</small>
+                    @if (arsenal.IconIssue != null) { <p class="packaged-issue danger-text" data-arsenal-icon-issue>@arsenal.IconIssue</p> }</div>
+                <small class="subtle" data-arsenal-icon-path>@T.Format("Arsenal.Icon.InZip", arsenal.IconEntry)</small>
+                <button class="quiet danger-text" data-arsenal-icon-remove title="@T["Arsenal.Icon.Remove"]" aria-label="@T["Arsenal.Icon.Remove"]" @onclick="() => Run(() => Workspace.SetArsenalIconAsync(null))">×</button>
+            </div>
+        }
+        <p class="subtle">@T["Arsenal.Icon.Types"]</p>
+        @if (arsenal.DescriptionIssue != null || arsenal.IconIssue != null) { <p class="notice warning" data-arsenal-blocked>@T["Arsenal.Issues"]</p> }
+        @if (Error != null) { <p class="packaged-issue danger-text" role="alert" data-arsenal-error>@Error</p> }
+        <div class="actions"><button data-arsenal-icon-select @onclick="PickIcon">@(arsenal.Icon == null ? T["Arsenal.Icon.Select"] : T["Arsenal.Icon.Change"])</button></div>
+    </section>
+}
+
+@code {
+    // Saving clears the last export (Home's "Export complete" panel), so the page re-renders after each edit.
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private Task PickIcon() => Run(async () => { if (await Picker.PickImageAsync() is { } image) await Workspace.SetArsenalIconAsync(image); });
+    private async Task Run(Func<Task> action)
+    {
+        try { await action(); Error = null; await Changed.InvokeAsync(); }
+        catch (Exception e) { Error = e.Message; }
+    }
+}

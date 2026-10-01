@@ -48,3 +48,10 @@ Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.5
 29. [ ] **Build / Export**: the ZIP contains `images/thumbnail.png`, identical to your file, next to the usual files.
 30. [ ] Rename or move the image on disk, then **Build / Export**: the export is refused with *Cannot package additional file: thumbnail.png* / *Source file does not exist: …*; the row says the same. Put the file back and export again.
 31. [ ] Close and reopen the project from the library: the file is still listed. **×** removes it; the next export contains only the generated files.
+
+## Arsenal presentation (new in 1.5.0)
+32. [ ] **Build / Export → Arsenal presentation**: type a two-line **Arsenal description** and click outside the box; the section shows *Configured*. Type `<b>x</b>` instead: the section says Arsenal would remove the tag and **Build / Export** is refused; restore the plain text.
+33. [ ] **Select image…** (the picker offers PNG, JPG, GIF and WebP): pick an image. It shows *In the ZIP as <name> (IconPath)*.
+34. [ ] **Build / Export**: the ZIP has the image at its root, and `manifest.json` has your description, then the dependency line, and `"IconPath": "<name>"`.
+35. [ ] Optional, with HD2Arsenal installed: add the ZIP in Arsenal. The library shows your icon and description, and deploying installs only the `mod/` files.
+36. [ ] Move the image away: the section reports it and the export is refused naming the icon. Put it back; **×** removes the icon (the image is not deleted).

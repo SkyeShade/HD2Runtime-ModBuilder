@@ -313,6 +313,84 @@
     <value>View release notes</value>
     <comment>Button</comment>
   </data>
+  <data name="Arsenal.Configured" xml:space="preserve">
+    <value>Configured</value>
+    <comment>Badge</comment>
+  </data>
+  <data name="Arsenal.Description.Control" xml:space="preserve">
+    <value>The Arsenal description contains a control character; use plain text and line breaks.</value>
+  </data>
+  <data name="Arsenal.Description.Html" xml:space="preserve">
+    <value>Arsenal removes HTML-like tags from descriptions, such as {0}; remove it or reword it.</value>
+    <comment>{0}: the tag found in the text</comment>
+  </data>
+  <data name="Arsenal.Description.Label" xml:space="preserve">
+    <value>Arsenal description</value>
+    <comment>Label of a multi-line text box</comment>
+  </data>
+  <data name="Arsenal.Description.Note" xml:space="preserve">
+    <value>Plain text, line breaks kept. Arsenal shows it first, then the dependency line ModBuilder writes in every manifest. Leave it empty to show only the dependency line.</value>
+  </data>
+  <data name="Arsenal.Description.Placeholder" xml:space="preserve">
+    <value>What the mod changes, in plain text.</value>
+    <comment>Placeholder</comment>
+  </data>
+  <data name="Arsenal.Description.Refused" xml:space="preserve">
+    <value>Cannot write the Arsenal description.</value>
+    <comment>First line of an export error</comment>
+  </data>
+  <data name="Arsenal.Description.TooLong" xml:space="preserve">
+    <value>The Arsenal description is longer than {0} characters.</value>
+    <comment>{0}: limit</comment>
+  </data>
+  <data name="Arsenal.Help" xml:space="preserve">
+    <value>How HD2Arsenal shows this mod in its library. Every export writes these into manifest.json: the description, and the icon as an image in the ZIP that IconPath points to. Arsenal is not needed to export, and the gameplay files are unchanged.</value>
+  </data>
+  <data name="Arsenal.Icon.Change" xml:space="preserve">
+    <value>Change image…</value>
+    <comment>Button: opens a file picker</comment>
+  </data>
+  <data name="Arsenal.Icon.Content" xml:space="preserve">
+    <value>{0} is not a {1} image.</value>
+    <comment>{0}: file name; {1}: image type (PNG, JPG, GIF, WEBP)</comment>
+  </data>
+  <data name="Arsenal.Icon.InZip" xml:space="preserve">
+    <value>In the ZIP as {0} (IconPath)</value>
+    <comment>{0}: file name in the ZIP</comment>
+  </data>
+  <data name="Arsenal.Icon.Label" xml:space="preserve">
+    <value>Icon</value>
+    <comment>Label</comment>
+  </data>
+  <data name="Arsenal.Icon.None" xml:space="preserve">
+    <value>No icon: Arsenal shows its placeholder image.</value>
+  </data>
+  <data name="Arsenal.Icon.Refused" xml:space="preserve">
+    <value>Cannot use the Arsenal icon: {0}</value>
+    <comment>{0}: file name</comment>
+  </data>
+  <data name="Arsenal.Icon.Remove" xml:space="preserve">
+    <value>Remove the Arsenal icon (the image itself is not deleted)</value>
+    <comment>Tooltip</comment>
+  </data>
+  <data name="Arsenal.Icon.Select" xml:space="preserve">
+    <value>Select image…</value>
+    <comment>Button: opens a file picker</comment>
+  </data>
+  <data name="Arsenal.Icon.Type" xml:space="preserve">
+    <value>Arsenal shows .png, .jpg, .jpeg, .gif and .webp images; {0} is not one of them.</value>
+    <comment>{0}: file name</comment>
+  </data>
+  <data name="Arsenal.Icon.Types" xml:space="preserve">
+    <value>PNG, JPG, GIF or WebP, the types Arsenal's own manifest builder accepts. The image is read at every export and packaged at the ZIP root under its own name.</value>
+  </data>
+  <data name="Arsenal.Issues" xml:space="preserve">
+    <value>Exports are refused until the Arsenal presentation can be written.</value>
+  </data>
+  <data name="Arsenal.Title" xml:space="preserve">
+    <value>Arsenal presentation</value>
+    <comment>Panel heading</comment>
+  </data>
   <data name="Asset.Description.AlwaysResident" xml:space="preserve">
     <value>These assets ship in a package the game always has loaded.</value>
   </data>
@@ -1235,6 +1313,10 @@
   <data name="Desktop.FolderMissing" xml:space="preserve">
     <value>The folder does not exist yet. Export the project first.</value>
     <comment>Error when opening a folder that does not exist</comment>
+  </data>
+  <data name="Desktop.Picker.ArsenalIcon" xml:space="preserve">
+    <value>Select the Arsenal icon</value>
+    <comment>File picker title</comment>
   </data>
   <data name="Desktop.Picker.PackagedFile" xml:space="preserve">
     <value>Add a file to every exported mod ZIP</value>
@@ -4109,6 +4191,9 @@
   <data name="Messages.Project.IdentityMismatch" xml:space="preserve">
     <value>Project file identity mismatch.</value>
   </data>
+  <data name="Messages.Project.InvalidArsenal" xml:space="preserve">
+    <value>Invalid Arsenal presentation settings.</value>
+  </data>
   <data name="Messages.Project.InvalidAttackOutputs" xml:space="preserve">
     <value>Invalid attack output changes.</value>
   </data>
@@ -5261,6 +5346,10 @@
   <data name="PackagedFiles.Destination.Absolute" xml:space="preserve">
     <value>Use a path relative to the ZIP root, not an absolute path or a drive.</value>
   </data>
+  <data name="PackagedFiles.Destination.ArsenalIcon" xml:space="preserve">
+    <value>{0} is the Arsenal icon; choose another path, or remove this file if it is the same image.</value>
+    <comment>{0}: path in the ZIP</comment>
+  </data>
   <data name="PackagedFiles.Destination.Backslash" xml:space="preserve">
     <value>Use / between folders.</value>
   </data>
@@ -5309,7 +5398,7 @@
     <value>No additional files: the export contains only the files ModBuilder generates.</value>
   </data>
   <data name="PackagedFiles.Help" xml:space="preserve">
-    <value>Files from your computer that every export adds to the mod ZIP, such as a thumbnail. ModBuilder reads each file when you export, so the ZIP always carries its current contents; it does not change or rename it. Use / between folders in the ZIP path; mod/ is reserved for the generated game files.</value>
+    <value>Files from your computer that every export adds to the mod ZIP, such as a preview image for a mod site. Arsenal shows an icon only when manifest.json names it: set that under Arsenal presentation. ModBuilder reads each file when you export, so the ZIP always carries its current contents; it does not change or rename it. Use / between folders in the ZIP path; mod/ is reserved for the generated game files.</value>
   </data>
   <data name="PackagedFiles.Issues" xml:space="preserve">
     <value>Exports are refused until every additional file can be packaged.</value>

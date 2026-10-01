@@ -38,6 +38,9 @@ public sealed class ProjectFilePicker : IProjectFilePicker
 public sealed class PackagedFilePicker : IPackagedFilePicker
 {
     public async Task<string?> PickAsync() => (await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = CoreText.Get("Desktop.Picker.PackagedFile") }))?.FullPath;
+    // The Arsenal icon: the image types HD2Arsenal's own Manifest Builder accepts.
+    public async Task<string?> PickImageAsync() => (await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = CoreText.Get("Desktop.Picker.ArsenalIcon"),
+        FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>> { [DevicePlatform.WinUI] = HD2RuntimeGUI.Core.Generation.Arsenal.ImageExtensions }) }))?.FullPath;
 }
 
 public sealed class ResearchFilePicker : IResearchFilePicker

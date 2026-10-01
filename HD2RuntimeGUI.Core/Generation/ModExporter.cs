@@ -25,10 +25,14 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
         var optional = new { mod_options_menu = ModOptionsService.OptionalDependency };
         byte[] Json(object value) => JsonSerializer.SerializeToUtf8Bytes(value, new JsonSerializerOptions { WriteIndented = true });
         byte[] Text(string value) => Encoding.UTF8.GetBytes(value);
+        // HD2Arsenal presentation: the manifest description starts with the user's text; IconPath names the packaged icon.
+        var manifestDescription = Arsenal.ManifestDescription(project, description);
+        var options = new[] { new { Name = project.DisplayName, Description = description, Include = new[] { "mod" } } };
         var entries = new SortedDictionary<string, byte[]>(StringComparer.Ordinal)
         {
-            ["manifest.json"] = Json(new { Version = 1, Guid = project.ManagerGuid, Name = project.DisplayName + " " + project.Version, Description = description,
-                Options = new[] { new { Name = project.DisplayName, Description = description, Include = new[] { "mod" } } } }),
+            ["manifest.json"] = Arsenal.IconEntry(project) is { } icon
+                ? Json(new { Version = 1, Guid = project.ManagerGuid, Name = project.DisplayName + " " + project.Version, Description = manifestDescription, IconPath = icon, Options = options })
+                : Json(new { Version = 1, Guid = project.ManagerGuid, Name = project.DisplayName + " " + project.Version, Description = manifestDescription, Options = options }),
             ["hd2runtime.json"] = usesOptions
                 ? Json(new { format = 1, name = project.DisplayName, author = project.Author, version = project.Version, resource = project.ResourceId, guid = project.ManagerGuid, requires, optional })
                 : Json(new { format = 1, name = project.DisplayName, author = project.Author, version = project.Version, resource = project.ResourceId, guid = project.ManagerGuid, requires }),
@@ -41,7 +45,8 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
             [$"mod/{GameplayArchive.ArchiveName}.stream"] = [],
             [$"mod/{GameplayArchive.ArchiveName}.gpu_resources"] = []
         };
-        // The user's additional files (a thumbnail), exactly as they are on disk; refused rather than skipped or overwriting a generated file.
+        // The Arsenal icon, then the user's additional files, exactly as they are on disk; refused rather than skipped or overwriting.
+        Arsenal.AddTo(project, entries);
         PackagedFiles.AddTo(project, entries);
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))

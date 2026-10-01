@@ -100,10 +100,10 @@ public static class ProjectIdentity
     // Format 11 (1.4.0) also covers 0.28.0 projectile hosts (support and mounted swaps), projectile-builder row writes, backpack-linked
     // entities and Guard Dog drone weapons (EntityChange.Linked), mounted-weapon status slots, weapon composition edits (rate slots, weapon
     // functions, function projectiles, armory presentation, status references) and sub-target edits (underbarrels).
-    // Format 12: additional files packaged into the exported ZIP (ModProject.PackagedFiles); older ModBuilder versions reject the format
-    // instead of dropping the list when they save.
+    // Format 12: additional files packaged into the exported ZIP (ModProject.PackagedFiles) and HD2Arsenal presentation (ModProject.Arsenal);
+    // older ModBuilder versions reject the format instead of dropping either when they save.
     private static bool Composition(string fieldType) => AuthoredTypes.Composition.Contains(fieldType);
-    public static int RequiredFormat(ModProject p) => p.PackagedFiles is { Count: > 0 } ? 12 : p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 }
+    public static int RequiredFormat(ModProject p) => p.PackagedFiles is { Count: > 0 } || p.Arsenal != null ? 12 : p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 }
         || p.EntityChanges.Any(c => c.Linked != null || c.FieldType == Metadata.WeaponCapability.StatusReference)
         || p.WeaponChanges.Any(c => Composition(c.FieldType) || c.Subweapon != null) || p.SupportChanges.Any(c => Composition(c.FieldType))
         || p.CompositionChanges.Any(c => c.Scalar is { } s && Composition(s.FieldType)) ? 11 :
@@ -121,6 +121,10 @@ public static class ProjectIdentity
         if (p.PackagedFiles is { } packaged && (packaged.Count > Generation.PackagedFiles.MaxFiles || packaged.Any(f => f == null || f.Source == null || f.Destination == null
                 || f.Source.Length > 1024 || f.Destination.Length > 1024 || f.Source.Any(char.IsControl))))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidPackagedFiles"));
+        // Arsenal presentation: its shape only; what Arsenal would not show as written is reported on the Export page and refused at export.
+        if (p.Arsenal is { } arsenal && (arsenal.Description?.Length > 16 * Generation.Arsenal.MaxDescription
+                || arsenal.Icon is { } icon && (icon.Length > 1024 || icon.Any(char.IsControl))))
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidArsenal"));
         if (p.CustomLua is { } lua && (lua.Source == null || lua.Source.Length > CustomLuaSettings.MaxLength || lua.Source.Contains('\0')))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCustomLua"));
         // Attack outputs: semantic weapon / role / output identities and the published opt-ins only.
@@ -361,9 +365,10 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         project.CustomLua = source.CustomLua;
         project.AttackOutputChanges = source.AttackOutputChanges?.Select(c => c with { Id = Guid.NewGuid() }).ToList();
         project.OutputRowChanges = source.OutputRowChanges?.Select(c => c with { Id = Guid.NewGuid() }).ToList();
-        // Format 12: the copy packages the same additional files (the same files on disk).
+        // Format 12: the copy packages the same additional files (the same files on disk) and keeps the Arsenal presentation.
         project.PackagedFiles = source.PackagedFiles?.Select(f => new PackagedFile { Source = f.Source, Destination = f.Destination }).ToList();
-        if (project.PackagedFiles != null) project.FormatVersion = Math.Max(project.FormatVersion, ProjectIdentity.RequiredFormat(project));
+        project.Arsenal = source.Arsenal is { } arsenal ? new() { Description = arsenal.Description, Icon = arsenal.Icon } : null;
+        if (project.PackagedFiles != null || project.Arsenal != null) project.FormatVersion = Math.Max(project.FormatVersion, ProjectIdentity.RequiredFormat(project));
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

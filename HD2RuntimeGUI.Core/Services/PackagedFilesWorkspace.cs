@@ -4,8 +4,9 @@ using HD2RuntimeGUI.Core.Models;
 
 namespace HD2RuntimeGUI.Core.Services;
 
-/// <summary>Picks any file on the user's computer to package into exported mod ZIPs; returns its full path, or null when cancelled.</summary>
-public interface IPackagedFilePicker { Task<string?> PickAsync(); }
+/// <summary>Picks a file on the user's computer for exported mod ZIPs (any file, or an image Arsenal accepts for its icon); returns its
+/// full path, or null when cancelled.</summary>
+public interface IPackagedFilePicker { Task<string?> PickAsync(); Task<string?> PickImageAsync(); }
 
 /// <summary>One additional file as the Export page lists it, with the first reason it cannot be packaged (null when it can) and whether
 /// that reason is its ZIP path (otherwise its source file).</summary>
@@ -18,7 +19,8 @@ public sealed partial class BuilderWorkspace
     public IReadOnlyList<PackagedFileState> PackagedFileStates()
     {
         var files = Project?.PackagedFiles ?? [];
-        var issues = PackagedFiles.Issues(files, PackagedFiles.Generated);
+        var icon = Project is { } project ? Arsenal.IconEntry(project) : null;
+        var issues = PackagedFiles.Issues(files, icon == null ? PackagedFiles.Generated : [.. PackagedFiles.Generated, icon], arsenalIcon: icon);
         return [.. files.Select((f, i) => new PackagedFileState(i, PackagedFiles.Name(f), f.Source, f.Destination, issues[i],
             issues[i] != null && PackagedFiles.SourceIssue(f.Source) == null))];
     }

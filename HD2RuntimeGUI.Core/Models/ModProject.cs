@@ -43,6 +43,9 @@ public sealed class ModProject
     // Omitted until a project has one, so older projects save and export unchanged.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<PackagedFile>? PackagedFiles { get; set; }
+    // Format 12: how HD2Arsenal presents the mod in its library (manifest.json Description and IconPath). Omitted until configured.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ArsenalPresentation? Arsenal { get; set; }
 }
 
 // One additional file of the exported mod ZIP: a file on the user's computer (full path, read at export) and where it goes in the ZIP
@@ -51,6 +54,16 @@ public sealed class PackagedFile
 {
     public string Source { get; set; } = "";
     public string Destination { get; set; } = "";
+}
+
+// What HD2Arsenal reads from manifest.json for its library entry: Description (plain text, shown before ModBuilder's dependency line)
+// and IconPath (an image in the ZIP). Icon is the image's full path on the user's computer, read at every export.
+public sealed class ArsenalPresentation
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Icon { get; set; }
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

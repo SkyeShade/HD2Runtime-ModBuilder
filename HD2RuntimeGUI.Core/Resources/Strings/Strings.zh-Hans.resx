@@ -333,6 +333,90 @@
     <value>查看发布说明</value>
     <comment>issue #1</comment>
   </data>
+  <data name="Arsenal.Configured" xml:space="preserve">
+    <value>已配置</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Description.Control" xml:space="preserve">
+    <value>Arsenal 描述包含控制字符；请使用纯文本和换行。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Description.Html" xml:space="preserve">
+    <value>Arsenal 会从描述中移除类似 HTML 的标签，例如 {0}；请删除或改写。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Description.Label" xml:space="preserve">
+    <value>Arsenal 描述</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Description.Note" xml:space="preserve">
+    <value>纯文本，保留换行。Arsenal 先显示这段文字，然后显示 ModBuilder 在每个清单中写入的依赖说明。留空则只显示依赖说明。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Description.Placeholder" xml:space="preserve">
+    <value>用纯文本说明此模组改动了什么。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Description.Refused" xml:space="preserve">
+    <value>无法写入 Arsenal 描述。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Description.TooLong" xml:space="preserve">
+    <value>Arsenal 描述超过 {0} 个字符。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Help" xml:space="preserve">
+    <value>HD2Arsenal 在其模组库中如何显示此模组。每次导出都会将这些写入 manifest.json：描述，以及作为 ZIP 中图片、由 IconPath 指向的图标。导出不需要安装 Arsenal，玩法文件不变。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Change" xml:space="preserve">
+    <value>更换图片…</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Content" xml:space="preserve">
+    <value>{0} 不是 {1} 图片。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.InZip" xml:space="preserve">
+    <value>在 ZIP 中为 {0}（IconPath）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Label" xml:space="preserve">
+    <value>图标</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.None" xml:space="preserve">
+    <value>没有图标：Arsenal 会显示其占位图片。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Refused" xml:space="preserve">
+    <value>无法使用 Arsenal 图标：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Remove" xml:space="preserve">
+    <value>移除 Arsenal 图标（不会删除图片本身）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Select" xml:space="preserve">
+    <value>选择图片…</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Type" xml:space="preserve">
+    <value>Arsenal 支持 .png、.jpg、.jpeg、.gif 和 .webp 图片；{0} 不属于其中。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Icon.Types" xml:space="preserve">
+    <value>PNG、JPG、GIF 或 WebP，即 Arsenal 自带清单构建器支持的类型。每次导出都会读取该图片，并以原文件名放在 ZIP 根目录。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Issues" xml:space="preserve">
+    <value>在 Arsenal 展示信息可以写入之前，导出会被拒绝。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Arsenal.Title" xml:space="preserve">
+    <value>Arsenal 展示</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Asset.Description.AlwaysResident" xml:space="preserve">
     <value>这些资源位于游戏始终加载的包中。</value>
     <comment>new: needs native review</comment>
@@ -1356,6 +1440,10 @@
   <data name="Desktop.FolderMissing" xml:space="preserve">
     <value>该文件夹尚不存在。请先导出项目。</value>
     <comment>issue #1</comment>
+  </data>
+  <data name="Desktop.Picker.ArsenalIcon" xml:space="preserve">
+    <value>选择 Arsenal 图标</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="Desktop.Picker.PackagedFile" xml:space="preserve">
     <value>添加要放入每个导出模组 ZIP 的文件</value>
@@ -4541,6 +4629,10 @@
     <value>项目文件身份不匹配。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Project.InvalidArsenal" xml:space="preserve">
+    <value>无效的 Arsenal 展示设置。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Project.InvalidAttackOutputs" xml:space="preserve">
     <value>无效的攻击输出改动。</value>
     <comment>new: needs native review</comment>
@@ -5841,6 +5933,10 @@
     <value>请使用相对于 ZIP 根目录的路径，不要使用绝对路径或盘符。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="PackagedFiles.Destination.ArsenalIcon" xml:space="preserve">
+    <value>{0} 是 Arsenal 图标；请选择其他路径，若是同一张图片则移除此文件。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="PackagedFiles.Destination.Backslash" xml:space="preserve">
     <value>文件夹之间请使用 /。</value>
     <comment>new: needs native review</comment>
@@ -5898,7 +5994,7 @@
     <comment>new: needs native review</comment>
   </data>
   <data name="PackagedFiles.Help" xml:space="preserve">
-    <value>每次导出都会加入模组 ZIP 的本机文件，例如缩略图。ModBuilder 在导出时读取每个文件，因此 ZIP 始终包含其当前内容；不会修改或重命名文件。ZIP 路径中的文件夹之间请使用 /；mod/ 保留给生成的游戏文件。</value>
+    <value>每次导出都会加入模组 ZIP 的本机文件，例如用于模组网站的预览图。Arsenal 只显示 manifest.json 指定的图标：请在“Arsenal 展示”中设置。ModBuilder 在导出时读取每个文件，因此 ZIP 始终包含其当前内容；不会修改或重命名文件。ZIP 路径中的文件夹之间请使用 /；mod/ 保留给生成的游戏文件。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="PackagedFiles.Issues" xml:space="preserve">

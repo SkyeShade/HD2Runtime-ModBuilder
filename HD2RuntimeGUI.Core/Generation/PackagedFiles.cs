@@ -55,23 +55,25 @@ public static class PackagedFiles
     }
 
     /// <summary>The first problem of each file in the list (null when it can be packaged): its source, its destination, then clashes
-    /// with the generated files and with the files before it (paths compare without case, as Windows extracts them).</summary>
-    public static IReadOnlyList<string?> Issues(IReadOnlyList<PackagedFile> files, IEnumerable<string> generated, bool checkSources = true)
+    /// with the generated files and with the files before it (paths compare without case, as Windows extracts them). The Arsenal icon
+    /// (arsenalIcon) is one of the generated files; a clash with it says so.</summary>
+    public static IReadOnlyList<string?> Issues(IReadOnlyList<PackagedFile> files, IEnumerable<string> generated, bool checkSources = true, string? arsenalIcon = null)
     {
         var owned = generated.ToList();
         var issues = new string?[files.Count];
         for (var i = 0; i < files.Count; i++)
             issues[i] = (checkSources ? SourceIssue(files[i].Source) : null) ?? DestinationIssue(files[i].Destination)
-                ?? Clash(files[i].Destination, owned, "PackagedFiles.Destination.Generated")
+                ?? Clash(files[i].Destination, owned, "PackagedFiles.Destination.Generated", arsenalIcon)
                 ?? Clash(files[i].Destination, files.Take(i).Select(f => f.Destination), "PackagedFiles.Destination.Duplicate");
         return issues;
     }
-    private static string? Clash(string destination, IEnumerable<string> others, string sameKey)
+    private static string? Clash(string destination, IEnumerable<string> others, string sameKey, string? arsenalIcon = null)
     {
         string Invalid(string key, string other) => CoreText.Format("PackagedFiles.Destination.Invalid", destination) + "\n" + CoreText.Format(key, other);
         foreach (var other in others)
         {
-            if (other.Equals(destination, StringComparison.OrdinalIgnoreCase)) return Invalid(sameKey, other);
+            if (other.Equals(destination, StringComparison.OrdinalIgnoreCase))
+                return Invalid(other.Equals(arsenalIcon, StringComparison.OrdinalIgnoreCase) ? "PackagedFiles.Destination.ArsenalIcon" : sameKey, other);
             // One path used as a file and as a folder (README.md and README.md/a.png): the ZIP cannot be extracted.
             if (other.StartsWith(destination + "/", StringComparison.OrdinalIgnoreCase)) return Invalid("PackagedFiles.Destination.FileAndFolder", destination);
             if (destination.StartsWith(other + "/", StringComparison.OrdinalIgnoreCase)) return Invalid("PackagedFiles.Destination.FileAndFolder", other);
@@ -85,19 +87,22 @@ public static class PackagedFiles
     {
         var files = project.PackagedFiles ?? [];
         if (files.Count > MaxFiles) throw new InvalidDataException(CoreText.Format("PackagedFiles.TooMany", MaxFiles));
-        var issues = Issues(files, entries.Keys);
+        var issues = Issues(files, entries.Keys, arsenalIcon: Arsenal.IconEntry(project));
         for (var i = 0; i < files.Count; i++)
         {
             if (issues[i] is { } issue) throw Refused(files[i], issue);
-            entries.Add(files[i].Destination, Read(files[i]));
+            var file = files[i];
+            entries.Add(file.Destination, ReadSource(file.Source, reason => Refused(file, reason)));
         }
     }
-    private static byte[] Read(PackagedFile file)
+    /// <summary>A source file's bytes exactly as they are now (additional files and the Arsenal icon). A missing, unreadable or too
+    /// large file is refused with the reason, through refused.</summary>
+    public static byte[] ReadSource(string source, Func<string, InvalidDataException> refused)
     {
         try
         {
-            using var stream = new FileStream(file.Source, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (stream.Length > MaxBytes) throw Refused(file, CoreText.Format("PackagedFiles.Source.TooLarge", file.Source, MaxBytes / (1024 * 1024)));
+            using var stream = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (stream.Length > MaxBytes) throw refused(CoreText.Format("PackagedFiles.Source.TooLarge", source, MaxBytes / (1024 * 1024)));
             var bytes = new byte[stream.Length];
             stream.ReadExactly(bytes);
             if (stream.ReadByte() != -1) throw new IOException(CoreText.Get("PackagedFiles.Source.Changed"));
@@ -105,9 +110,9 @@ public static class PackagedFiles
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw Refused(file, ex is FileNotFoundException or DirectoryNotFoundException
-                ? CoreText.Format("PackagedFiles.Source.Missing", file.Source)
-                : CoreText.Format("PackagedFiles.Source.Unreadable", file.Source, ex.Message));
+            throw refused(ex is FileNotFoundException or DirectoryNotFoundException
+                ? CoreText.Format("PackagedFiles.Source.Missing", source)
+                : CoreText.Format("PackagedFiles.Source.Unreadable", source, ex.Message));
         }
     }
     private static InvalidDataException Refused(PackagedFile file, string reason) => new(CoreText.Format("PackagedFiles.Refused", Name(file)) + "\n" + reason);
