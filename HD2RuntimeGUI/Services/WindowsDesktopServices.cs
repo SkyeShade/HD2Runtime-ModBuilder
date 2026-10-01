@@ -34,6 +34,12 @@ public sealed class ProjectFilePicker : IProjectFilePicker
     }
 }
 
+// Any file type: the user decides what the mod ZIP carries (a thumbnail, a preview image).
+public sealed class PackagedFilePicker : IPackagedFilePicker
+{
+    public async Task<string?> PickAsync() => (await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = CoreText.Get("Desktop.Picker.PackagedFile") }))?.FullPath;
+}
+
 public sealed class ResearchFilePicker : IResearchFilePicker
 {
     public async Task<string?> PickAsync(bool report)

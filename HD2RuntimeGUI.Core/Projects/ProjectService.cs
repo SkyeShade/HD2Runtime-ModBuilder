@@ -100,8 +100,10 @@ public static class ProjectIdentity
     // Format 11 (1.4.0) also covers 0.28.0 projectile hosts (support and mounted swaps), projectile-builder row writes, backpack-linked
     // entities and Guard Dog drone weapons (EntityChange.Linked), mounted-weapon status slots, weapon composition edits (rate slots, weapon
     // functions, function projectiles, armory presentation, status references) and sub-target edits (underbarrels).
+    // Format 12: additional files packaged into the exported ZIP (ModProject.PackagedFiles); older ModBuilder versions reject the format
+    // instead of dropping the list when they save.
     private static bool Composition(string fieldType) => AuthoredTypes.Composition.Contains(fieldType);
-    public static int RequiredFormat(ModProject p) => p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 }
+    public static int RequiredFormat(ModProject p) => p.PackagedFiles is { Count: > 0 } ? 12 : p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 }
         || p.EntityChanges.Any(c => c.Linked != null || c.FieldType == Metadata.WeaponCapability.StatusReference)
         || p.WeaponChanges.Any(c => Composition(c.FieldType) || c.Subweapon != null) || p.SupportChanges.Any(c => Composition(c.FieldType))
         || p.CompositionChanges.Any(c => c.Scalar is { } s && Composition(s.FieldType)) ? 11 :
@@ -113,7 +115,12 @@ public static class ProjectIdentity
         || p.EntityChanges.Any(c => c.Resource is "vehicle_weapon" or "pod_rack" || c.Attack != null || c.Slot != null) ? 8 : 1;
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11) || p.Id == Guid.Empty) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedFormat"));
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12) || p.Id == Guid.Empty) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedFormat"));
+        // Additional packaged files: their shape only. A destination that is not a safe ZIP path is reported where it is edited and refused at
+        // export (Generation.PackagedFiles), so a hand-edited project still opens.
+        if (p.PackagedFiles is { } packaged && (packaged.Count > Generation.PackagedFiles.MaxFiles || packaged.Any(f => f == null || f.Source == null || f.Destination == null
+                || f.Source.Length > 1024 || f.Destination.Length > 1024 || f.Source.Any(char.IsControl))))
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidPackagedFiles"));
         if (p.CustomLua is { } lua && (lua.Source == null || lua.Source.Length > CustomLuaSettings.MaxLength || lua.Source.Contains('\0')))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCustomLua"));
         // Attack outputs: semantic weapon / role / output identities and the published opt-ins only.
@@ -354,6 +361,9 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         project.CustomLua = source.CustomLua;
         project.AttackOutputChanges = source.AttackOutputChanges?.Select(c => c with { Id = Guid.NewGuid() }).ToList();
         project.OutputRowChanges = source.OutputRowChanges?.Select(c => c with { Id = Guid.NewGuid() }).ToList();
+        // Format 12: the copy packages the same additional files (the same files on disk).
+        project.PackagedFiles = source.PackagedFiles?.Select(f => new PackagedFile { Source = f.Source, Destination = f.Destination }).ToList();
+        if (project.PackagedFiles != null) project.FormatVersion = Math.Max(project.FormatVersion, ProjectIdentity.RequiredFormat(project));
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

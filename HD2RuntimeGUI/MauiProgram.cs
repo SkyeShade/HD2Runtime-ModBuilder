@@ -82,6 +82,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<BuilderWorkspace>();
         builder.Services.AddSingleton<ISnapshotReader, SnapshotReader>();
         builder.Services.AddSingleton<IResearchFilePicker, ResearchFilePicker>();
+        builder.Services.AddSingleton<IPackagedFilePicker, PackagedFilePicker>();
         builder.Services.AddSingleton<SnapshotWorkspace>();
 
 #if DEBUG

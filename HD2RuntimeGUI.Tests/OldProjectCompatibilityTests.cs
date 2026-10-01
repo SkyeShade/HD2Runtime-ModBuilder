@@ -138,4 +138,48 @@ public sealed class OldProjectCompatibilityTests
         Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(lua, w.LuaPreview);
         (min, _, _) = await Export(w); Assert.Equal(SdkPin.Version, min);
     }
+
+    // ---- Projects saved by ModBuilder 1.4.2 itself (ModBuilder 1.5.0, project format 12) -----------------------------------------------
+    // Fixtures/projects-1.4.2: the 13 projects the packaged 1.4.2 release candidate (32df794) saved in its own smoke runs, byte for byte
+    // (formats 4, 5, 6, 9 and 11; SDK 0.27.0 and 0.28.1; weapons, a projectile swap, support weapons, stratagems, a vehicle and backpack,
+    // a booster and throwable, programmable ammo, projectile-builder rows, attack outputs and custom Lua), each with the ZIP the 1.4.2 app
+    // exported from it (*.v142.zip). 1.5.0 adds additional packaged files in format 12: none of these may be rewritten by opening, gain a
+    // packagedFiles section, or change format or SDK when saved, and each exports what 1.4.2 exported, apart from the builder version in
+    // build-report.json.
+    private static string Folder142 => Path.Combine(AppContext.BaseDirectory, "Fixtures", "projects-1.4.2");
+    public static IEnumerable<object[]> Projects142() => Directory.GetFiles(Folder142, "*.hd2mod.json").Select(f => new object[] { Path.GetFileName(f)[..^".hd2mod.json".Length] });
+    private static byte[] Read(System.IO.Compression.ZipArchiveEntry entry) { using var s = entry.Open(); using var m = new MemoryStream(); s.CopyTo(m); return m.ToArray(); }
+
+    [Theory] [MemberData(nameof(Projects142))]
+    public async Task A_1_4_2_project_opens_saves_and_exports_as_1_4_2_did(string name)
+    {
+        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.27.0"); await SdkFixtures.Install(e, SdkPin.Version);
+        var path = Path.Combine(Folder142, name + ".hd2mod.json");
+        var original = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var id = (await e.Store.ImportAsync(path)).Id; var file = e.Paths.ProjectFile(id); var stored = File.ReadAllBytes(file);
+        var w = e.Workspace(); await w.OpenAsync(id);
+        // Opening rewrites nothing and adds nothing; the SDK binding and format stay as 1.4.2 saved them.
+        Assert.Equal(stored, File.ReadAllBytes(file)); Assert.Null(w.Project!.PackagedFiles);
+        Assert.Equal((string)original["sdkVersion"]!, w.Project.SdkVersion); Assert.Equal((int)original["formatVersion"]!, w.Project.FormatVersion);
+        // A plain save keeps every saved value except the save time (and the export directory it saves).
+        await w.SaveExportDirectoryAsync(e.Paths.Exports);
+        var saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        Assert.False(saved.ContainsKey("packagedFiles"));
+        foreach (var key in new[] { "modifiedAt", "exportDirectory" }) { original.Remove(key); saved.Remove(key); }
+        Assert.True(System.Text.Json.Nodes.JsonNode.DeepEquals(original, saved), "saved project differs from 1.4.2's");
+        // The export is 1.4.2's ZIP entry for entry (names, order, timestamps, attributes, bytes); build-report.json names the builder.
+        await w.ExportAsync();
+        using var now = System.IO.Compression.ZipFile.OpenRead(w.LastExport!);
+        using var v142 = System.IO.Compression.ZipFile.OpenRead(Path.Combine(Folder142, name + ".v142.zip"));
+        Assert.Equal(v142.Entries.Select(x => x.FullName), now.Entries.Select(x => x.FullName));
+        foreach (var before in v142.Entries)
+        {
+            var after = now.GetEntry(before.FullName)!;
+            Assert.Equal(before.LastWriteTime, after.LastWriteTime); Assert.Equal(before.ExternalAttributes, after.ExternalAttributes);
+            if (before.FullName != "build-report.json") { Assert.Equal(Read(before), Read(after)); continue; }
+            var (a, b) = (System.Text.Json.Nodes.JsonNode.Parse(Read(before))!.AsObject(), System.Text.Json.Nodes.JsonNode.Parse(Read(after))!.AsObject());
+            Assert.Equal("HD2Runtime ModBuilder 1.4.2 / .NET 10", (string)a["builder"]!); Assert.Equal($"{Core.BuildInfo.ProductName} {Core.BuildInfo.Version} / .NET 10", (string)b["builder"]!);
+            a.Remove("builder"); b.Remove("builder"); Assert.True(System.Text.Json.Nodes.JsonNode.DeepEquals(a, b), "build-report.json differs beyond the builder");
+        }
+    }
 }

@@ -1,0 +1,47 @@
+{
+  "formatVersion": 11,
+  "id": "7241024d-4c00-487c-8297-534a2db44b78",
+  "displayName": "Export Smoke",
+  "author": "Smoke",
+  "resourceId": "mods/smoke/export_smoke",
+  "managerGuid": "41e91c80-20a2-5b59-b3c2-3ace1f35057c",
+  "version": "0.1.0",
+  "description": "",
+  "createdAt": "2026-09-30T23:50:06.2939436+00:00",
+  "modifiedAt": "2026-09-30T23:50:09.2398664+00:00",
+  "sdkVersion": "0.28.1",
+  "runtimeApi": 1,
+  "exportDirectory": "C:\\Users\\Skye\\Documents\\HD2Mods\\HD2RuntimeGUI\\build\\release-candidate-1.4.2\\smokes\\export\\data\\Exports",
+  "changes": [],
+  "weaponChanges": [
+    {
+      "id": "c41e1753-0b45-4137-8fb7-1c8165293819",
+      "weapon": "AR-23 Liberator",
+      "semanticFieldId": "weapon.fire_rate",
+      "fieldType": "number",
+      "expectedValue": 640,
+      "desiredValue": 720,
+      "sharedAcknowledged": false,
+      "acknowledgedWriteScope": "weapon_local",
+      "acknowledgedConsumerCount": null,
+      "acknowledgedAffectedWeapons": [],
+      "baselineSdkVersion": "0.28.1",
+      "enabled": true,
+      "ensureEnabled": true,
+      "group": "Gameplay",
+      "notes": ""
+    }
+  ],
+  "projectileChanges": [],
+  "compositionChanges": [],
+  "supportChanges": [],
+  "supportApprovals": {},
+  "stratagemChanges": [],
+  "stratagemApprovals": {},
+  "entityChanges": [],
+  "entityApprovals": {},
+  "customLua": {
+    "enabled": true,
+    "source": "-- Custom HD2Runtime Lua for this mod. ModBuilder\u0027s generated modifications are registered before this runs.\n-- \u0060hd2\u0060 is already required; the event API reference and snippets are in ModBuilder\u0027s Custom Lua page.\nlocal mod = hd2.mod()\n"
+  }
+}

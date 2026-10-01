@@ -1,0 +1,90 @@
+{
+  "formatVersion": 11,
+  "id": "1724bf3a-8363-4d3e-ae2d-17c35448ed60",
+  "displayName": "Scripting Smoke",
+  "author": "Tests",
+  "resourceId": "mods/tests/scripting_smoke",
+  "managerGuid": "4babfee3-bfe0-5fe7-8cba-b196e3350987",
+  "version": "0.1.0",
+  "description": "",
+  "createdAt": "2026-09-30T23:47:43.541936+00:00",
+  "modifiedAt": "2026-09-30T23:47:59.1002602+00:00",
+  "sdkVersion": "0.28.1",
+  "runtimeApi": 1,
+  "exportDirectory": "C:\\Users\\Skye\\Documents\\HD2Mods\\HD2RuntimeGUI\\build\\release-candidate-1.4.2\\smokes\\scripting\\data\\Exports",
+  "changes": [],
+  "weaponChanges": [],
+  "projectileChanges": [],
+  "compositionChanges": [],
+  "supportChanges": [],
+  "supportApprovals": {},
+  "stratagemChanges": [],
+  "stratagemApprovals": {},
+  "entityChanges": [
+    {
+      "id": "597dff7c-28e0-4a5f-bc23-3755f329350d",
+      "resource": "backpack",
+      "entity": "SH-20 Ballistic Shield Backpack",
+      "path": "damage_zone",
+      "zone": "zone_0",
+      "mount": null,
+      "instanceKey": "backpack:sh-20-ballistic-shield-backpack:sh-20-ballistic-shield-backpack-damage-zone-zone-0:zone.armor",
+      "semanticFieldId": "zone.armor",
+      "fieldType": "integer",
+      "expectedValue": 4,
+      "desiredValue": 6,
+      "baselineSdkVersion": "0.28.1",
+      "capabilityEvidence": "5731a04e6760b2357c75957e7d6a1ae5e934c9356140b9993a5c809bb32289f0",
+      "referenceAcknowledgement": null,
+      "enabled": true,
+      "ensureEnabled": true,
+      "group": "Vehicles \u0026 backpacks",
+      "notes": null
+    },
+    {
+      "id": "43835a35-4783-4cf0-95ef-fee9b1649498",
+      "resource": "pod_rack",
+      "entity": "Resupply pod",
+      "path": "slot",
+      "zone": null,
+      "mount": null,
+      "slot": 1,
+      "instanceKey": "pod_rack:pod-rack/v1/resupply-pod/d021e1e10ca71d9a:slot-1",
+      "semanticFieldId": "payload.entity",
+      "fieldType": "pickup_reference",
+      "expectedValue": "pickup/v1/supply-box/d0e8fed8c01ceb1f",
+      "desiredValue": "pickup/v1/grenade-box/5ad3b36a5d3adbb7",
+      "baselineSdkVersion": "0.28.1",
+      "capabilityEvidence": "0762648e02fc3cdc4a2c31ab537b2e09efda92983fc9ea905c7f63c057928ca0",
+      "referenceAcknowledgement": null,
+      "enabled": true,
+      "ensureEnabled": true,
+      "group": "Vehicles \u0026 backpacks",
+      "notes": null
+    }
+  ],
+  "entityApprovals": {},
+  "customLua": {
+    "enabled": true,
+    "source": "-- Custom HD2Runtime Lua for this mod. ModBuilder\u0027s generated modifications are registered before this runs.\n-- \u0060hd2\u0060 is already required; the event API reference and snippets are in ModBuilder\u0027s Custom Lua page.\nlocal mod = hd2.mod()\nhd2.events.on(\u0027player_died\u0027, function(event)\n    if event.local_player and event.position and event.cause.source ~= \u0027mod\u0027 then\n        hd2.explosions.spawn(\u0027Hellbomb\u0027, {position = event.position})\n    end\nend)\n\n-- edited outside ModBuilder\nhd2.events.on(\u0027player_damage_dealt\u0027, function(event)\n    -- event.player, event.local_player, event.damage, event.total, event.sources, event.unattributed\n    for _, source in ipairs(event.sources) do\n        -- source.type, source.name, source.damage\n    end\nend)\n\nhd2.diagnostics.hd2.status.apply(event.entity, \u0027fire\u0027, {buildup = 100})\n"
+  },
+  "attackOutputChanges": [
+    {
+      "id": "f4ce63af-1173-4e51-9c23-265c811988bd",
+      "weapon": "AR-23 Liberator",
+      "attackRole": "primary",
+      "mechanism": "ammunition",
+      "output": "output/v1/projectile/eat-700-expendable-napalm",
+      "outputName": "EAT-700 Expendable Napalm",
+      "acknowledgements": [
+        "allow_shared"
+      ],
+      "evidence": "d1e7daa096b8b42770ca0ec0aa98183152f156520037eec68501b738c3e81108",
+      "baselineSdkVersion": "0.28.1",
+      "enabled": true,
+      "ensureEnabled": true,
+      "group": "Composition",
+      "notes": null
+    }
+  ]
+}

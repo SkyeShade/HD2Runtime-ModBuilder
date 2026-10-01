@@ -786,6 +786,14 @@ input[type=checkbox]:checked:before {
 .export-success h2 {
     margin-top:15px
 }
+/* Export page: additional packaged files. Reasons and export errors name the file on one line and the problem on the next. */
+.packaged-file .change-name { min-width:0 }
+.packaged-source { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.packaged-destination { display:flex; flex-direction:column; gap:6px; margin:0; width:clamp(180px, 34%, 340px); font-size:11px; color:var(--muted) }
+.packaged-destination input { font-family:Consolas,monospace }
+.packaged-file[data-packaged-issue-kind="destination"] .packaged-destination input { border-color:var(--danger) }
+.packaged-issue { margin:8px 0 0; font-size:12px; white-space:pre-line }
+.notice.error { white-space:pre-line }
 .notice {
     display:flex;
     justify-content:space-between;

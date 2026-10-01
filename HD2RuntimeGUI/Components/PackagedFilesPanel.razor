@@ -1,0 +1,40 @@
+@inject BuilderWorkspace Workspace
+@inject IPackagedFilePicker Picker
+@using HD2RuntimeGUI.Core.Generation
+@* Export page: additional files every export packages into the mod ZIP (format 12), such as a thumbnail. Each row is a file on the user's
+   computer and its path in the ZIP; the file is read at every export. A row shows the first reason its file cannot be packaged (missing
+   file, unsafe path, a clash with a generated file or another row) where it is fixed; the export refuses until then. *@
+@if (Workspace.Project != null)
+{
+    var files = Workspace.PackagedFileStates();
+    <section class="panel packaged-files" data-packaged-files>
+        <div class="panel-heading"><h2>@T["PackagedFiles.Title"]</h2>@if (files.Count > 0) { <span class="badge" data-packaged-count>@T.Plural("PackagedFiles.Count", files.Count)</span> }</div>
+        <p class="subtle">@T["PackagedFiles.Help"]</p>
+        @if (files.Count == 0) { <p class="subtle" data-packaged-empty>@T["PackagedFiles.Empty"]</p> }
+        @foreach (var file in files)
+        {
+            <div class="change-row packaged-file" data-packaged-file="@file.Destination" data-packaged-valid="@(file.Issue == null ? "true" : "false")" data-packaged-issue-kind="@(file.Issue == null ? null : file.DestinationIssue ? "destination" : "source")">
+                <div class="change-name"><strong>@file.Name</strong><small class="subtle packaged-source" title="@file.Source">@file.Source</small>
+                    @if (file.Issue != null) { <p class="packaged-issue danger-text" data-packaged-issue>@file.Issue</p> }</div>
+                <label class="packaged-destination">@T["PackagedFiles.Destination.Label"]
+                    <input value="@file.Destination" spellcheck="false" data-packaged-destination @onchange="e => Run(() => Workspace.SetPackagedFileDestinationAsync(file, e.Value as string ?? string.Empty))" /></label>
+                <button class="quiet danger-text" data-packaged-remove title="@T["PackagedFiles.Remove.Tooltip"]" aria-label="@T.Format("PackagedFiles.Remove.Aria", file.Name)" @onclick="() => Run(() => Workspace.RemovePackagedFileAsync(file))">×</button>
+            </div>
+        }
+        @if (files.Any(f => f.Issue != null)) { <p class="notice warning" data-packaged-blocked>@T["PackagedFiles.Issues"]</p> }
+        @if (Error != null) { <p class="packaged-issue danger-text" role="alert" data-packaged-error>@Error</p> }
+        <div class="actions"><button data-packaged-add disabled="@(files.Count >= PackagedFiles.MaxFiles)" title="@(files.Count >= PackagedFiles.MaxFiles ? T.Format("PackagedFiles.TooMany", PackagedFiles.MaxFiles) : null)" @onclick="Add">@T["PackagedFiles.Add"]</button></div>
+    </section>
+}
+
+@code {
+    // Saving an edit clears the last export (Home's "Export complete" panel), so the page re-renders after each one.
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private Task Add() => Run(async () => { if (await Picker.PickAsync() is { } source) await Workspace.AddPackagedFileAsync(source); });
+    private async Task Run(Func<Task> action)
+    {
+        try { await action(); Error = null; await Changed.InvokeAsync(); }
+        catch (Exception e) { Error = e.Message; }
+    }
+}

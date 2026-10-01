@@ -39,6 +39,18 @@ public sealed class ModProject
     // Format 11: projectile-builder slot and mode-presentation writes on catalogued rows (hd2.attack_output). Omitted until a project has one.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<OutputRowChange>? OutputRowChanges { get; set; }
+    // Format 12: files the user adds to every exported mod ZIP (a thumbnail, a preview image), read from their own location at export.
+    // Omitted until a project has one, so older projects save and export unchanged.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PackagedFile>? PackagedFiles { get; set; }
+}
+
+// One additional file of the exported mod ZIP: a file on the user's computer (full path, read at export) and where it goes in the ZIP
+// (relative, '/' between folders). Never part of the generated gameplay files.
+public sealed class PackagedFile
+{
+    public string Source { get; set; } = "";
+    public string Destination { get; set; } = "";
 }
 
 // Project-owned overrides; SDK objects are never changed. No runtime addresses are persisted.

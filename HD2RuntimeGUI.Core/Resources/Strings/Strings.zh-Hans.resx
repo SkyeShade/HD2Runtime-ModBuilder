@@ -1357,6 +1357,10 @@
     <value>该文件夹尚不存在。请先导出项目。</value>
     <comment>issue #1</comment>
   </data>
+  <data name="Desktop.Picker.PackagedFile" xml:space="preserve">
+    <value>添加要放入每个导出模组 ZIP 的文件</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Desktop.Picker.Project" xml:space="preserve">
     <value>打开 HD2Runtime ModBuilder 项目</value>
     <comment>issue #1</comment>
@@ -4565,6 +4569,10 @@
     <value>无效的语义载具／背包覆盖值。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Project.InvalidPackagedFiles" xml:space="preserve">
+    <value>无效的附加打包文件。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Project.InvalidProjectileOverrides" xml:space="preserve">
     <value>无效的语义弹体覆盖值。</value>
     <comment>new: needs native review</comment>
@@ -5815,6 +5823,126 @@
   </data>
   <data name="Overview.Version" xml:space="preserve">
     <value>版本</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Add" xml:space="preserve">
+    <value>+ 添加文件…</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Count.One" xml:space="preserve">
+    <value>{0} 个文件</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Count.Other" xml:space="preserve">
+    <value>{0} 个文件</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Absolute" xml:space="preserve">
+    <value>请使用相对于 ZIP 根目录的路径，不要使用绝对路径或盘符。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Backslash" xml:space="preserve">
+    <value>文件夹之间请使用 /。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Device" xml:space="preserve">
+    <value>某个文件或文件夹名称是 Windows 保留的设备名（CON、PRN、AUX、NUL、COM1–COM9、LPT1–LPT9）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Duplicate" xml:space="preserve">
+    <value>另一个附加文件已经使用了 {0}。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Empty" xml:space="preserve">
+    <value>请输入文件在 ZIP 中的路径，例如 thumbnail.png。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.FileAndFolder" xml:space="preserve">
+    <value>{0} 在 ZIP 中会同时是文件和文件夹。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Folder" xml:space="preserve">
+    <value>路径以 / 结尾；请加上文件名，例如 images/thumbnail.png。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Generated" xml:space="preserve">
+    <value>{0} 由 ModBuilder 生成；请选择其他路径。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Invalid" xml:space="preserve">
+    <value>无效的 ZIP 目标路径：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Label" xml:space="preserve">
+    <value>ZIP 中的路径</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Long" xml:space="preserve">
+    <value>路径超过 240 个字符。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Name" xml:space="preserve">
+    <value>某个文件或文件夹名称为空、以点或空格结尾，或包含 Windows 文件名不允许的字符（例如 ?、* 或 |）或控制字符。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Parent" xml:space="preserve">
+    <value>路径必须位于 ZIP 内：不允许使用 . 和 .. 文件夹。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Reserved" xml:space="preserve">
+    <value>mod/ 保留给模组管理器安装到游戏中的生成文件；请选择其外部的路径。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Empty" xml:space="preserve">
+    <value>没有附加文件：导出只包含 ModBuilder 生成的文件。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Help" xml:space="preserve">
+    <value>每次导出都会加入模组 ZIP 的本机文件，例如缩略图。ModBuilder 在导出时读取每个文件，因此 ZIP 始终包含其当前内容；不会修改或重命名文件。ZIP 路径中的文件夹之间请使用 /；mod/ 保留给生成的游戏文件。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Issues" xml:space="preserve">
+    <value>在所有附加文件都能打包之前，导出会被拒绝。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Refused" xml:space="preserve">
+    <value>无法打包附加文件：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Remove.Aria" xml:space="preserve">
+    <value>从导出中移除 {0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Remove.Tooltip" xml:space="preserve">
+    <value>从导出中移除（不会删除文件本身）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Source.Changed" xml:space="preserve">
+    <value>文件在读取过程中发生了变化</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Source.Missing" xml:space="preserve">
+    <value>源文件不存在：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Source.NotFullPath" xml:space="preserve">
+    <value>源路径不是完整路径：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Source.TooLarge" xml:space="preserve">
+    <value>源文件超过 {1} MiB：{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Source.Unreadable" xml:space="preserve">
+    <value>无法读取源文件：{0}（{1}）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.Title" xml:space="preserve">
+    <value>附加文件</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="PackagedFiles.TooMany" xml:space="preserve">
+    <value>一个项目最多可打包 {0} 个附加文件。</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Presentation.Group.Ammo" xml:space="preserve">

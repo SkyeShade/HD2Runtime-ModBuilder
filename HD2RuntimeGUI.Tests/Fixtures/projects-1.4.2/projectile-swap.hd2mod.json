@@ -1,0 +1,48 @@
+{
+  "formatVersion": 4,
+  "id": "7a2cd77a-2ab6-452c-9f69-e21f469d9202",
+  "displayName": "Projectile Swap",
+  "author": "ModBuilder 1.3.1",
+  "resourceId": "mods/compat131/projectile_swap",
+  "managerGuid": "b2e54970-bca3-53c8-977e-a0017c98876d",
+  "version": "0.1.0",
+  "description": "",
+  "createdAt": "2026-09-30T14:46:52.3592576+00:00",
+  "modifiedAt": "2026-09-30T14:46:53.0351888+00:00",
+  "sdkVersion": "0.27.0",
+  "runtimeApi": 1,
+  "exportDirectory": "C:\\Users\\Skye\\AppData\\Local\\Temp\\HD2RuntimeGUI-tests\\306541a9eb324ef49dee804a909655a7\\Exports",
+  "changes": [],
+  "weaponChanges": [],
+  "projectileChanges": [
+    {
+      "id": "1c699004-02c6-4024-86a7-37e21743302c",
+      "weapon": "AR-11 Arbitrator",
+      "attackRole": "primary",
+      "semanticFieldId": "attack.projectile",
+      "expectedProjectile": {
+        "weapon": "AR-11 Arbitrator",
+        "attackRole": "primary"
+      },
+      "replacementProjectile": {
+        "weapon": "AR-23 Liberator",
+        "attackRole": "primary"
+      },
+      "baselineSdkVersion": "0.27.0",
+      "expectedEvidence": "1df1784f75b70f3b482bc318c0a0a8957b8e88510938441884724dc2782fda14",
+      "replacementEvidence": "0fbab622c2e3ff02802612fc15e423ecddc76135d6003f78479fea319896352c",
+      "compatibilityClass": "conventional_plain",
+      "enabled": true,
+      "ensureEnabled": true,
+      "group": "Composition",
+      "notes": null
+    }
+  ],
+  "compositionChanges": [],
+  "supportChanges": [],
+  "supportApprovals": {},
+  "stratagemChanges": [],
+  "stratagemApprovals": {},
+  "entityChanges": [],
+  "entityApprovals": {}
+}

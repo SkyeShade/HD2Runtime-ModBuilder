@@ -1,0 +1,29 @@
+{
+  "formatVersion": 11,
+  "id": "f1cba4c2-a4dc-4516-abec-e1bf1294a016",
+  "displayName": "Language Smoke",
+  "author": "Tests",
+  "resourceId": "mods/tests/language_smoke",
+  "managerGuid": "4f1631b5-9f78-553c-8cae-d02a34c19413",
+  "version": "0.1.0",
+  "description": "",
+  "createdAt": "2026-09-30T23:48:07.8733736+00:00",
+  "modifiedAt": "2026-09-30T23:48:09.1758272+00:00",
+  "sdkVersion": "0.28.1",
+  "runtimeApi": 1,
+  "exportDirectory": "C:\\Users\\Skye\\Documents\\HD2Mods\\HD2RuntimeGUI\\build\\release-candidate-1.4.2\\smokes\\language\\data\\Exports",
+  "changes": [],
+  "weaponChanges": [],
+  "projectileChanges": [],
+  "compositionChanges": [],
+  "supportChanges": [],
+  "supportApprovals": {},
+  "stratagemChanges": [],
+  "stratagemApprovals": {},
+  "entityChanges": [],
+  "entityApprovals": {},
+  "customLua": {
+    "enabled": true,
+    "source": "-- Custom HD2Runtime Lua for this mod. ModBuilder\u0027s generated modifications are registered before this runs.\n-- \u0060hd2\u0060 is already required; the event API reference and snippets are in ModBuilder\u0027s Custom Lua page.\nlocal mod = hd2.mod()\n"
+  }
+}

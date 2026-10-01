@@ -191,6 +191,7 @@
             else if (Page == "export")
             {
                 <section class="panel"><h2>@T["Export.Title"]</h2><p>@T.Format("Export.Help", active.SdkVersion, active.RuntimeApi)</p><label for="export-directory">@T["Export.Directory.Label"]</label><div class="input-action"><input id="export-directory" @bind="ExportDirectory" /><button @onclick="SaveExportDirectory">@T["Export.Directory.Save"]</button></div><p class="subtle">@T["Export.Reproducible"]</p>@if (Workspace.Metadata?.Has028 == true) { <p class="subtle" data-export-apply-timing>@T.Markup("Export.ApplyTiming.Html", "registered operations settled")</p> }<button class="primary" @onclick="BuildExport">@T["Export.BuildButton"]</button></section>
+                <PackagedFilesPanel Changed="RefreshWeaponUI" />
                 @if (Workspace.LastExport != null) { <section class="panel export-success" role="status"><span class="badge green">@T["Export.Succeeded"]</span><h2>@T["Export.Complete"]</h2><code class="path">@Workspace.LastExport</code><button @onclick="() => Run(Workspace.OpenExportAsync)">@T["Export.OpenFolder"]</button></section> }
                 <LuaPreview Source="@Workspace.LuaPreview" />
             }

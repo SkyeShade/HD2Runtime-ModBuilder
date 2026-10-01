@@ -41,6 +41,8 @@ public sealed class ModExporter(ILuaGenerator generator) : IModExporter
             [$"mod/{GameplayArchive.ArchiveName}.stream"] = [],
             [$"mod/{GameplayArchive.ArchiveName}.gpu_resources"] = []
         };
+        // The user's additional files (a thumbnail), exactly as they are on disk; refused rather than skipped or overwriting a generated file.
+        PackagedFiles.AddTo(project, entries);
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
             foreach (var (name, bytes) in entries)

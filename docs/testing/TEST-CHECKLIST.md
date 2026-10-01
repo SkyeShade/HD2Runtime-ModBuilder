@@ -1,10 +1,10 @@
-# ModBuilder 1.4.3 release candidate: manual check (10-20 minutes)
+# ModBuilder 1.5.0 release candidate: manual check (10-20 minutes)
 
-Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4.3/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
+Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.5.0/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
 
 ## Start
 1. [ ] ModBuilder starts; the sidebar footer shows **SDK 0.28.1**.
-2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.4.3**; installed SDK **0.28.1**; supported up to **0.28.1**.
+2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.5.0**; installed SDK **0.28.1**; supported up to **0.28.1**.
 3. [ ] **Project library → Create New Mod**, name it `RC Check`. The overview shows SDK 0.28.1.
 
 ## Weapons
@@ -41,3 +41,10 @@ Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.4
 24. [ ] **Build / Export**: the ZIP is written.
 25. [ ] In Lua Preview, `allow_shared` / `allow_unverified_effect` / `allow_unverified_reference` appear only where the editors showed those warnings.
 26. [ ] The ZIP's `hd2runtime.json` has `requires.hd2runtime.min_version` **0.28.1**.
+
+## Additional files (new in 1.5.0)
+27. [ ] **Build / Export → Additional files → Add file…**: pick any image (for example a `thumbnail.png`). It is listed with its full path and **Path in ZIP** `thumbnail.png`.
+28. [ ] Change the path to `images\thumbnail.png` and leave the field: it becomes `images/thumbnail.png`. Then type `../thumbnail.png`, then `README.md`: the row shows why each is refused, and **Build / Export** is refused with a message naming the file. Set it back to `images/thumbnail.png`.
+29. [ ] **Build / Export**: the ZIP contains `images/thumbnail.png`, identical to your file, next to the usual files.
+30. [ ] Rename or move the image on disk, then **Build / Export**: the export is refused with *Cannot package additional file: thumbnail.png* / *Source file does not exist: …*; the row says the same. Put the file back and export again.
+31. [ ] Close and reopen the project from the library: the file is still listed. **×** removes it; the next export contains only the generated files.

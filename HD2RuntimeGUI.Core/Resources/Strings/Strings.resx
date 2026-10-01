@@ -1236,6 +1236,10 @@
     <value>The folder does not exist yet. Export the project first.</value>
     <comment>Error when opening a folder that does not exist</comment>
   </data>
+  <data name="Desktop.Picker.PackagedFile" xml:space="preserve">
+    <value>Add a file to every exported mod ZIP</value>
+    <comment>File picker title</comment>
+  </data>
   <data name="Desktop.Picker.Project" xml:space="preserve">
     <value>Open HD2Runtime ModBuilder project</value>
     <comment>File picker title</comment>
@@ -4126,6 +4130,9 @@
   <data name="Messages.Project.InvalidEntityOverrides" xml:space="preserve">
     <value>Invalid semantic vehicle/backpack overrides.</value>
   </data>
+  <data name="Messages.Project.InvalidPackagedFiles" xml:space="preserve">
+    <value>Invalid additional packaged files.</value>
+  </data>
   <data name="Messages.Project.InvalidProjectileOverrides" xml:space="preserve">
     <value>Invalid semantic projectile overrides.</value>
   </data>
@@ -5238,6 +5245,113 @@
   <data name="Overview.Version" xml:space="preserve">
     <value>Version</value>
     <comment>Fact label and form label (the mod's version)</comment>
+  </data>
+  <data name="PackagedFiles.Add" xml:space="preserve">
+    <value>+ Add file…</value>
+    <comment>Button: opens a file picker</comment>
+  </data>
+  <data name="PackagedFiles.Count.One" xml:space="preserve">
+    <value>{0} file</value>
+    <comment>{0}: number of additional files</comment>
+  </data>
+  <data name="PackagedFiles.Count.Other" xml:space="preserve">
+    <value>{0} files</value>
+    <comment>{0}: number of additional files</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Absolute" xml:space="preserve">
+    <value>Use a path relative to the ZIP root, not an absolute path or a drive.</value>
+  </data>
+  <data name="PackagedFiles.Destination.Backslash" xml:space="preserve">
+    <value>Use / between folders.</value>
+  </data>
+  <data name="PackagedFiles.Destination.Device" xml:space="preserve">
+    <value>A file or folder name is a reserved Windows device name (CON, PRN, AUX, NUL, COM1–COM9, LPT1–LPT9).</value>
+  </data>
+  <data name="PackagedFiles.Destination.Duplicate" xml:space="preserve">
+    <value>Another additional file already goes to {0}.</value>
+    <comment>{0}: path in the ZIP</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Empty" xml:space="preserve">
+    <value>Enter the file's path in the ZIP, for example thumbnail.png.</value>
+  </data>
+  <data name="PackagedFiles.Destination.FileAndFolder" xml:space="preserve">
+    <value>{0} would be both a file and a folder in the ZIP.</value>
+    <comment>{0}: path in the ZIP</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Folder" xml:space="preserve">
+    <value>The path ends with /; add the file name, for example images/thumbnail.png.</value>
+  </data>
+  <data name="PackagedFiles.Destination.Generated" xml:space="preserve">
+    <value>ModBuilder generates {0}; choose another path.</value>
+    <comment>{0}: path of a generated file in the ZIP</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Invalid" xml:space="preserve">
+    <value>Invalid ZIP destination: {0}</value>
+    <comment>{0}: the path as entered</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Label" xml:space="preserve">
+    <value>Path in ZIP</value>
+    <comment>Label of the destination input</comment>
+  </data>
+  <data name="PackagedFiles.Destination.Long" xml:space="preserve">
+    <value>The path is longer than 240 characters.</value>
+  </data>
+  <data name="PackagedFiles.Destination.Name" xml:space="preserve">
+    <value>A file or folder name is empty, ends with a dot or a space, or contains a character Windows does not allow in file names (such as ?, * or |) or a control character.</value>
+  </data>
+  <data name="PackagedFiles.Destination.Parent" xml:space="preserve">
+    <value>The path must stay inside the ZIP: . and .. folders are not allowed.</value>
+  </data>
+  <data name="PackagedFiles.Destination.Reserved" xml:space="preserve">
+    <value>mod/ is reserved for the generated files the mod manager installs into the game; choose a path outside it.</value>
+  </data>
+  <data name="PackagedFiles.Empty" xml:space="preserve">
+    <value>No additional files: the export contains only the files ModBuilder generates.</value>
+  </data>
+  <data name="PackagedFiles.Help" xml:space="preserve">
+    <value>Files from your computer that every export adds to the mod ZIP, such as a thumbnail. ModBuilder reads each file when you export, so the ZIP always carries its current contents; it does not change or rename it. Use / between folders in the ZIP path; mod/ is reserved for the generated game files.</value>
+  </data>
+  <data name="PackagedFiles.Issues" xml:space="preserve">
+    <value>Exports are refused until every additional file can be packaged.</value>
+  </data>
+  <data name="PackagedFiles.Refused" xml:space="preserve">
+    <value>Cannot package additional file: {0}</value>
+    <comment>{0}: file name</comment>
+  </data>
+  <data name="PackagedFiles.Remove.Aria" xml:space="preserve">
+    <value>Remove {0} from the export</value>
+    <comment>{0}: file name</comment>
+  </data>
+  <data name="PackagedFiles.Remove.Tooltip" xml:space="preserve">
+    <value>Remove from the export (the file itself is not deleted)</value>
+  </data>
+  <data name="PackagedFiles.Source.Changed" xml:space="preserve">
+    <value>the file changed while it was read</value>
+    <comment>Reason inside PackagedFiles.Source.Unreadable</comment>
+  </data>
+  <data name="PackagedFiles.Source.Missing" xml:space="preserve">
+    <value>Source file does not exist: {0}</value>
+    <comment>{0}: full path</comment>
+  </data>
+  <data name="PackagedFiles.Source.NotFullPath" xml:space="preserve">
+    <value>Source path is not a full path: {0}</value>
+    <comment>{0}: the stored path</comment>
+  </data>
+  <data name="PackagedFiles.Source.TooLarge" xml:space="preserve">
+    <value>Source file is larger than {1} MiB: {0}</value>
+    <comment>{0}: full path; {1}: size limit</comment>
+  </data>
+  <data name="PackagedFiles.Source.Unreadable" xml:space="preserve">
+    <value>Source file cannot be read: {0} ({1})</value>
+    <comment>{0}: full path; {1}: system error message</comment>
+  </data>
+  <data name="PackagedFiles.Title" xml:space="preserve">
+    <value>Additional files</value>
+    <comment>Panel heading</comment>
+  </data>
+  <data name="PackagedFiles.TooMany" xml:space="preserve">
+    <value>A project can package at most {0} additional files.</value>
+    <comment>{0}: limit</comment>
   </data>
   <data name="Presentation.Group.Ammo" xml:space="preserve">
     <value>Ammo</value>
