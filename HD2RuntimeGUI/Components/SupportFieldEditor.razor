@@ -1,13 +1,14 @@
 @inject BuilderWorkspace Workspace
 @* One published support-weapon scalar as a compact row. Shared and unverified-effect guards stay visible as badges. *@
-@{ var saved = Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey); }
-<div class="field-row @(saved != null ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
+@* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
+@{ var saved = Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey); var edited = saved != null && !Workspace.OptionOnly(saved); }
+<div class="field-row @(edited ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
     <div class="field-name"><span>@Field.Display.Name</span>@if (!string.IsNullOrEmpty(Field.Value.Unit)) { <small class="field-unit">@Field.Value.Unit!.Replace('_', ' ')</small> }
         <span class="field-flags">
             @if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge amber" data-flag="allow_shared" title="@T["SupportField.Shared.Tooltip"]">@T["Common.Shared"]</span> }
             @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">@T["SupportField.EffectUnproven"]</span> }
             @if (Field.Reticle?.Evidence is { GameplayProven: true } proven) { <span class="badge green" data-gameplay-proven title="@proven.GameplaySource">@T["SupportField.GameplayProven"]</span> }
-            @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
         </span></div>
     <div class="field-value">
         @* A published field this build cannot write shows Runtime's baseline and reason. 1.4.0 status references are a choice of statuses;
@@ -23,14 +24,14 @@
         else if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Field.Display.Name" /> }
         else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@Field.Display.Name" /> }
     </div>
-    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("SupportField.BaseToDesired.Html", Display(saved.ExpectedValue), Display(saved.DesiredValue))</div> }
+    @if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("SupportField.BaseToDesired.Html", Display(saved.ExpectedValue), Display(saved.DesiredValue))</div> }
     else { <div class="field-baseline subtle" data-baseline="@Format(Field.Value.Baseline)">@T.Format("SupportField.Base", Display(Field.Value.Baseline))</div> }
     <div class="field-tools">
-        @if (saved != null) { <OptionToggle Key="@ModOptionsService.SupportKey(Field.InstanceKey)" Changed="Changed" /> }
+        @if (Field.Writable || saved != null) { <OptionToggle Key="@ModOptionsService.SupportKey(Field.InstanceKey)" Changed="Changed" /> }
         @if (saved != null)
         {
             <label class="field-toggle" title="@T["SupportField.Include.Tooltip"]"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleSupportAsync(Field.InstanceKey))" /> @T["Common.On"]</label>
-            <button class="reset-action small" @onclick="Reset">@T["SupportField.Reset"]</button>
+            @if (edited) { <button class="reset-action small" @onclick="Reset">@T["SupportField.Reset"]</button> }
         }
         <details class="field-info"><summary title="@T["SupportField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
             @if (!Field.Writable && Field.BlockedReason != null) { <p data-support-blocked>@T.Markup("WeaponField.NotWritable.Html", Field.BlockedReason)</p> }

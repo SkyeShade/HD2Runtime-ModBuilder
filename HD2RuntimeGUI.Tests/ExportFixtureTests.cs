@@ -124,6 +124,27 @@ public sealed class ExportFixtureTests
         RequiresPinned(manifest); Assert.Contains("hd2.explosions.spawn('Hellbomb'", lua); Assert.Contains("hd2.events.on('player_died'", lua); Assert.Contains("local function addon(...)", lua);
     }
 
+    // 1.6.0: in-game options on unedited fields (option-only edits: expect = vanilla, value = the option). Runtime validates every option
+    // sample at declaration, including the vanilla default.
+    [Fact] public async Task F9_option_only_edits()
+    {
+        using var e = new TestEnvironment(); var (w, sdk) = await Fresh(e, "F9 Option Only");
+        await w.SetModOptionsEnabledAsync(true);
+        var missiles = sdk.Entities!.VehicleWeapons!.FieldInstances.First(f => f.Target.Weapon == "TD-110 Maelstrom / slot_3" && f.SemanticFieldId == "damage.primary.standard_damage");
+        var keys = new[] { ModOptionsService.EntityKey(missiles.InstanceKey), ModOptionsService.WeaponKey("AR-23 Liberator", "weapon.ergonomics"),
+            ModOptionsService.ObjectKey("AR-23 Liberator", "primary", "projectile", null, "projectile.velocity"),
+            sdk.Stratagems!.FieldInstances.Where(f => f.Target.Stratagem == "Orbital Precision Strike" && f.Editable).Select(f => ModOptionsService.StratagemKey(f.InstanceKey)).First(k => w.OptionCandidate(k) != null) };
+        for (var i = 0; i < keys.Length; i++)
+        {
+            var row = w.SuggestOptionRow(w.OptionCandidate(keys[i])!); row.Id = "option_only_" + i; row.Label = "Option only " + i;
+            await w.SaveOptionRowAsync(row);
+        }
+        var (manifest, lua) = await Export(w, "F9-option-only");
+        RequiresPinned(manifest); Assert.Equal(13, w.Project!.FormatVersion);
+        Assert.Contains("hd2.vehicle('TD-110 Maelstrom'):weapon('slot_3')", lua); Assert.Contains("expect=1100,", lua);
+        for (var i = 0; i < keys.Length; i++) Assert.Contains("value=option_option_only_" + i, lua);
+    }
+
     [Theory]
     [InlineData("H0-control-no-halt")] [InlineData("H1-halt-all")] [InlineData("H2-halt-damage-only")] [InlineData("H3-halt-sway-only")]
     public async Task Halt_issue_variants(string variant)

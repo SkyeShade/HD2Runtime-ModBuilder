@@ -5310,8 +5310,8 @@
     <comment>new: needs native review</comment>
   </data>
   <data name="ModOptions.Status.Empty.Html" xml:space="preserve">
-    <value>尚未暴露任何字段。请对已编辑的字段使用&lt;strong&gt;暴露为选项&lt;/strong&gt;。</value>
-    <comment>issue #1 (adapted)</comment>
+    <value>尚未暴露任何字段。请对字段使用&lt;strong&gt;暴露为选项&lt;/strong&gt;（已编辑的字段，或任意字段以原版值作为默认值）。</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="ModOptions.Status.MasterToggle" xml:space="preserve">
     <value>总开关“{0}”</value>
@@ -5797,6 +5797,10 @@
     <value>值</value>
     <comment>issue #1 (adapted)</comment>
   </data>
+  <data name="Option.Editor.Vanilla.Html" xml:space="preserve">
+    <value>原版值 &lt;strong&gt;{0}&lt;/strong&gt;{1}，未编辑：只有游戏内选项会改变它</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Option.Expose" xml:space="preserve">
     <value>暴露为选项</value>
     <comment>issue #1</comment>
@@ -5804,6 +5808,10 @@
   <data name="Option.Expose.Tooltip" xml:space="preserve">
     <value>暴露为游戏内选项</value>
     <comment>issue #1</comment>
+  </data>
+  <data name="Option.ExposeVanilla.Tooltip" xml:space="preserve">
+    <value>暴露为游戏内选项而不编辑数值：在玩家于游戏中更改之前保持原版值</value>
+    <comment>new: needs native review</comment>
   </data>
   <data name="Option.Kind.Choice" xml:space="preserve">
     <value>选项</value>

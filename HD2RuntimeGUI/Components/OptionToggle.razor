@@ -1,11 +1,14 @@
 @inject BuilderWorkspace Workspace
-@* Per-field in-game option control, shown on an edited field when the project enabled in-game options (SDK 0.25.0+). *@
-@if (Key != null && Workspace.OptionsEnabled && Workspace.OptionTarget(Key) is { } target)
+@* Per-field in-game option control, shown when the project enabled in-game options (SDK 0.25.0+): on an edited field, and (1.6.0) on an
+   unedited one, whose option keeps the vanilla value and only changes it in game. *@
+@if (Key != null && Workspace.OptionsEnabled && (Workspace.OptionTarget(Key) ?? Workspace.OptionCandidate(Key)) is { } target)
 {
+    var edited = Workspace.OptionTarget(Key) != null;
     if (!target.Eligible) { <span class="badge option-na" title="@target.Blocker" data-option-ineligible="@Key">@T["Option.NotConfigurable"]</span> }
-    else if (Workspace.OptionRow(Key) is { } row)
+    else if (edited && Workspace.OptionRow(Key) is { } row)
     { <button class="badge option-badge" data-option-badge="@Key" title="@(T.Format(row.Kind == "choice" ? "Option.Badge.Tooltip.Choice" : "Option.Badge.Tooltip.Slider", row.Label))" @onclick="() => Open = true">@T["Option.Badge"]</button> }
-    else { <button class="small option-expose" data-expose-option="@Key" title="@T["Option.Expose.Tooltip"]" @onclick="() => Open = true">@T["Option.Expose"]</button> }
+    else if (edited) { <button class="small option-expose" data-expose-option="@Key" title="@T["Option.Expose.Tooltip"]" @onclick="() => Open = true">@T["Option.Expose"]</button> }
+    else { <button class="small option-expose vanilla" data-expose-vanilla-option="@Key" title="@T["Option.ExposeVanilla.Tooltip"]" @onclick="() => Open = true">@T["Option.Expose"]</button> }
     if (Open) { <OptionEditor Target="target" OnClose="() => Open = false" Changed="Changed" /> }
 }
 @code {

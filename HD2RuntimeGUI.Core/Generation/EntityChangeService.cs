@@ -179,7 +179,8 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         var catalog = EntityChangeService.Catalog(sdk);
         foreach (var c in active) service.Validate(project, sdk, c);
         var output = new List<string>();
-        var effective = active.Where(c => !EntityChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: EntityChangeService.Resolve(catalog, c))).ToArray();
+        // An option-only edit (value = vanilla) is written only while its in-game option is bound.
+        var effective = active.Where(c => !EntityChangeService.NoOp(sdk, c) || options?.Bound(ModOptionsService.EntityKey(c.InstanceKey)) == true).Select(c => (Change: c, Field: EntityChangeService.Resolve(catalog, c))).ToArray();
         // One native value reached through several targets (a weapon in two mounts, a projectile row shared by two mounted weapons)
         // is one value: edit it through one of them only, otherwise two jobs would race on the same bytes. Two zones are two values.
         foreach (var same in effective.GroupBy(r => EntityChangeService.NativeValue(r.Field))

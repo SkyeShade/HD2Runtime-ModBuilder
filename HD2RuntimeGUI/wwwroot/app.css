@@ -1205,6 +1205,9 @@ input[type=checkbox]:checked:before {
 .badge.option-badge { color:var(--cat-support); border-color:color-mix(in srgb, var(--cat-support) 55%, transparent); background:color-mix(in srgb, var(--cat-support) 10%, transparent); cursor:pointer; font-size:10.5px; padding:1px 7px }
 .option-expose { padding:2px 8px; font-size:11px; color:var(--muted); border-style:dashed }
 .option-expose:hover { color:var(--cat-support); border-color:var(--cat-support) }
+/* 1.6.0: an unedited field's expose button shows with its row (hover or keyboard focus), so long field lists stay quiet. */
+.field-row .option-expose.vanilla { opacity:0; transition:opacity .12s }
+.field-row:hover .option-expose.vanilla, .field-row:focus-within .option-expose.vanilla { opacity:1 }
 .badge.option-na { font-size:10px; color:var(--muted); border-style:dashed }
 .dialog.option-editor { width:600px }
 .option-editor label { display:block; margin-top:10px }

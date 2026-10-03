@@ -91,10 +91,13 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
         foreach (var weapon in project.WeaponChanges.Select(c => c.Weapon).Distinct())
             if (WeaponChangeService.FireModeConflict(project.WeaponChanges, weapon) is { } modeConflict) throw new InvalidDataException(modeConflict);
         if (WeaponSelectorRules.PlayerIssues(sdk, project.WeaponChanges).FirstOrDefault() is { Message: { } selectorIssue }) throw new InvalidDataException(selectorIssue);
+        // An option-only edit (value = vanilla) is planned only while its in-game option is bound. The bound keys are read only when there is one.
+        IReadOnlySet<string>? bound = null;
+        bool Bound(string key) => (bound ??= ModOptionsService.BoundKeys(project, sdk)).Contains(key);
         foreach (var group in aliases.Where(g => g.Enabled))
         {
             var c = group.Sources.Where(c => c.Enabled).OrderBy(c => c.SemanticFieldId != group.FieldId).ThenBy(c => c.Id).First();
-            if (WeaponScalar.IsNoOp(sdk, c)) continue;
+            if (WeaponScalar.IsNoOp(sdk, c) && !Bound(ModOptionsService.WeaponKey(c.Weapon, group.FieldId))) continue;
             var f = sdk.PlayerWeapons!.FindCanonicalField(c.Weapon, c.SemanticFieldId)!;
             var target = WeaponTargets.Lua(sdk, c.Weapon); var family = "weapon"; var semantic = f.SemanticFieldId; ProjectileReference? context = null;
             if (CompositionChangeService.ProjectileOwned(f))
@@ -111,7 +114,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
         }
         foreach (var c in project.CompositionChanges.Where(c => c.Enabled))
         {
-            if (objects.IsNoOp(sdk, c)) continue;
+            if (objects.IsNoOp(sdk, c) && (c.Scalar == null || !Bound(ModOptionsService.ObjectKey(c)))) continue;
             var f = c.Scalar == null ? CompositionChangeService.TerminalField(sdk, c.Target, c.Phase!) : sdk.PlayerWeapons!.Field(c.Scalar.Weapon, c.Scalar.SemanticFieldId);
             var terminal = CompositionChangeService.ProjectileLua(c.Target) + ":terminal_action(" + LuaGenerator.Quote(c.Phase ?? "impact") + ")";
             string Explosion(ExplosionReference r) => r.IsNone ? terminal + ":no_explosion()" : CompositionChangeService.ProjectileLua(r.Projectile!) + ":terminal_action(" + LuaGenerator.Quote(r.Phase!) + "):explosion()";

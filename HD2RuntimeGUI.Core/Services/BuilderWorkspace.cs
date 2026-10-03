@@ -146,7 +146,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
                     : compositionChanges.CreateScalar(project, Metadata!, weapon, role, c.Kind, c.Phase, c.Scalar!.SemanticFieldId, c.Scalar.DesiredValue.GetRawText(), acknowledge: true);
                 next.Enabled = c.Enabled; next.EnsureEnabled = c.EnsureEnabled; next.Group = c.Group; next.Notes = c.Notes;
                 project.CompositionChanges.RemoveAll(x => x.Weapon == next.Weapon && x.AttackRole == next.AttackRole && x.Kind == next.Kind && x.Phase == next.Phase && x.Scalar?.SemanticFieldId == next.Scalar?.SemanticFieldId);
-                if (compositionChanges.IsNoOp(Metadata!, next)) { atBase++; continue; }
+                if (compositionChanges.IsNoOp(Metadata!, next) && !ObjectOption(project, next)) { atBase++; continue; }
                 project.CompositionChanges.Add(next); kept++;
             }
             catch (InvalidDataException e) { dropped.Add(CoreText.Format("Messages.Weapon.ObjectEdit.NotKept", ObjectEditLabel(c), CompositionChangeService.IsFieldNotOnTarget(e) ? CoreText.Get("Messages.Weapon.ObjectEdit.NoSuchValue") : e.Message)); }
@@ -184,33 +184,39 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var next = create(); var previous = project.CompositionChanges.ToList();
-            var old = previous.SingleOrDefault(c => c.Weapon == next.Weapon && c.AttackRole == next.AttackRole && c.Kind == next.Kind && c.Phase == next.Phase && c.Scalar?.SemanticFieldId == next.Scalar?.SemanticFieldId);
-            var revokeApproval = old != null && CompositionChangeService.ApprovalCurrent(Metadata!, old) && !next.SharedAcknowledged;
-            var field = CompositionChangeService.Capability(Metadata!, next);
-            if (!revokeApproval && field.AffectsMultipleWeapons && CompositionChangeService.HasObjectApproval(project, Metadata!, next.Scalar?.Weapon ?? next.Target.Weapon, field))
-                next = CompositionChangeService.WithApproval(Metadata!, next, true);
-            if (old != null)
-            {
-                next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
-                // An edit left on a projectile or explosion the attack no longer uses is superseded by editing the value on the current object;
-                // the old object's baseline and evidence do not carry over.
-                if (!acceptBaseline && old.Target == next.Target && old.ExplosionTarget == next.ExplosionTarget)
-                {
-                    next.TargetEvidence = old.TargetEvidence; next.ReferenceEvidence = old.ReferenceEvidence; next.ExpectedExplosion = old.ExpectedExplosion;
-                    next.BaselineSdkVersion = old.BaselineSdkVersion;
-                    if (next.Scalar != null) { next.Scalar.ExpectedValue = old.Scalar!.ExpectedValue; next.Scalar.BaselineSdkVersion = old.Scalar.BaselineSdkVersion; }
-                    if (next.DesiredExplosion == old.DesiredExplosion) next.DesiredReferenceEvidence = old.DesiredReferenceEvidence;
-                }
-            }
-            project.CompositionChanges = project.CompositionChanges.Select(c => (revokeApproval || next.SharedAcknowledged) && CompositionChangeService.SameApprovalScope(Metadata!, c, next)
-                ? CompositionChangeService.WithApproval(Metadata!, c, !revokeApproval) : c).ToList();
-            project.CompositionChanges.RemoveAll(c => c.Id == old?.Id);
-            if (!compositionChanges.IsNoOp(Metadata!, next)) project.CompositionChanges.Add(next);
-            project.FormatVersion = Math.Max(project.FormatVersion, 4);
+            ApplyComposition(project, next, acceptBaseline);
             try { await SaveChangesAsync(); } catch { project.CompositionChanges = previous; throw; }
         }
         finally { weaponEditGate.Release(); }
     }
+    private void ApplyComposition(ModProject project, CompositionChange next, bool acceptBaseline)
+    {
+        var old = project.CompositionChanges.SingleOrDefault(c => c.Weapon == next.Weapon && c.AttackRole == next.AttackRole && c.Kind == next.Kind && c.Phase == next.Phase && c.Scalar?.SemanticFieldId == next.Scalar?.SemanticFieldId);
+        var revokeApproval = old != null && CompositionChangeService.ApprovalCurrent(Metadata!, old) && !next.SharedAcknowledged;
+        var field = CompositionChangeService.Capability(Metadata!, next);
+        if (!revokeApproval && field.AffectsMultipleWeapons && CompositionChangeService.HasObjectApproval(project, Metadata!, next.Scalar?.Weapon ?? next.Target.Weapon, field))
+            next = CompositionChangeService.WithApproval(Metadata!, next, true);
+        if (old != null)
+        {
+            next.Id = old.Id; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.Group = old.Group; next.Notes = old.Notes;
+            // An edit left on a projectile or explosion the attack no longer uses is superseded by editing the value on the current object;
+            // the old object's baseline and evidence do not carry over.
+            if (!acceptBaseline && old.Target == next.Target && old.ExplosionTarget == next.ExplosionTarget)
+            {
+                next.TargetEvidence = old.TargetEvidence; next.ReferenceEvidence = old.ReferenceEvidence; next.ExpectedExplosion = old.ExpectedExplosion;
+                next.BaselineSdkVersion = old.BaselineSdkVersion;
+                if (next.Scalar != null) { next.Scalar.ExpectedValue = old.Scalar!.ExpectedValue; next.Scalar.BaselineSdkVersion = old.Scalar.BaselineSdkVersion; }
+                if (next.DesiredExplosion == old.DesiredExplosion) next.DesiredReferenceEvidence = old.DesiredReferenceEvidence;
+            }
+        }
+        project.CompositionChanges = project.CompositionChanges.Select(c => (revokeApproval || next.SharedAcknowledged) && CompositionChangeService.SameApprovalScope(Metadata!, c, next)
+            ? CompositionChangeService.WithApproval(Metadata!, c, !revokeApproval) : c).ToList();
+        project.CompositionChanges.RemoveAll(c => c.Id == old?.Id);
+        // A value back to vanilla keeps the edit while the field has an in-game option (an option-only edit).
+        if (!compositionChanges.IsNoOp(Metadata!, next) || ObjectOption(project, next)) project.CompositionChanges.Add(next);
+        project.FormatVersion = Math.Max(project.FormatVersion, 4);
+    }
+    private static bool ObjectOption(ModProject project, CompositionChange c) => c.Scalar != null && ModOptionsService.HasOption(project, ModOptionsService.ObjectKey(c));
     public async Task RemoveCompositionAsync(Guid id)
     {
         var previous = Project!.CompositionChanges.ToList(); Project.CompositionChanges.RemoveAll(c => c.Id == id);
@@ -299,8 +305,12 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     {
         var sdk = await cache.GetVersionAsync(project.SdkVersion);
         // Clean redundant overrides written by older GUI versions before exposing
-        // the project. Unknown/type-changed fields remain available for review.
-        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges) + RemoveProjectileNoOps(sdk, project) + project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(sdk, c)) + project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(sdk, c)) + project.EntityChanges.RemoveAll(c => EntityChangeService.NoOp(sdk, c)) > 0) await store.SaveAsync(project);
+        // the project. Unknown/type-changed fields remain available for review. Option-only edits (vanilla value, in-game option) stay.
+        bool Option(string key) => ModOptionsService.HasOption(project, key);
+        if (WeaponAliasResolver.RemoveNoOps(sdk, project.WeaponChanges, Option) + RemoveProjectileNoOps(sdk, project)
+            + project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(sdk, c) && !Option(ModOptionsService.SupportKey(c.InstanceKey)))
+            + project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(sdk, c) && !Option(ModOptionsService.StratagemKey(c.InstanceKey)))
+            + project.EntityChanges.RemoveAll(c => EntityChangeService.NoOp(sdk, c) && !Option(ModOptionsService.EntityKey(c.InstanceKey))) > 0) await store.SaveAsync(project);
         Project = project; Metadata = sdk; savedState = SavedState(project); RefreshPreview(); LastExport = null;
         // Custom Lua gets its working copy back if it was removed (never over an existing file, which may hold outside edits).
         await EnsureCustomLuaFileAsync();
@@ -336,10 +346,11 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     {
         var previous = Project!.WeaponChanges.ToList();
         var previousReferences = Project.ProjectileChanges.ToList();
-        WeaponAliasResolver.RemoveNoOps(Metadata!, Project.WeaponChanges);
+        var project = Project!;
+        WeaponAliasResolver.RemoveNoOps(Metadata!, project.WeaponChanges, key => ModOptionsService.HasOption(project, key));
         RemoveProjectileNoOps(Metadata!, Project);
         // Format 8 marks 0.26.0 edits; a project without them keeps its format, so older ModBuilders still open it.
-        var format = Project.FormatVersion; Project.FormatVersion = Math.Max(Project.FormatVersion, Projects.ProjectIdentity.RequiredFormat(Project));
+        var format = Project.FormatVersion; Project.FormatVersion = Math.Max(Project.FormatVersion, Projects.ProjectIdentity.RequiredFormat(Project, Metadata!));
         // An edit that leaves the project exactly as saved (a value committed again) has nothing to save, regenerate or re-list. The saved
         // JSON is the whole project state generation reads.
         if (SavedState(Project) == savedState) return;
@@ -368,7 +379,9 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         try { LuaPreview = generator.Generate(Project!, Metadata!); BuildError = null; }
         catch (InvalidDataException e) { LuaPreview = "-- Build blocked: review the Changes page.\n"; BuildError = e.Message; }
     }
-    public async Task SetWeaponChangeAsync(string weapon, string field, string value, bool acknowledge, string group = "Gameplay", string? notes = null)
+    public Task SetWeaponChangeAsync(string weapon, string field, string value, bool acknowledge, string group = "Gameplay", string? notes = null) =>
+        SetWeaponValueAsync(weapon, field, value, acknowledge, group, notes, keepOption: true);
+    private async Task SetWeaponValueAsync(string weapon, string field, string value, bool acknowledge, string group, string? notes, bool keepOption)
     {
         // 1.4.0: with rate modes edited, the older fire rate is their default (Y) slot and is written there.
         if (await FoldLegacyFireRateAsync(CompositionKind.Player, weapon, field, value)) return;
@@ -377,17 +390,23 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         try
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChangedBeforeEdit"));
-            var next = weaponChanges.Create(Metadata!, weapon, field, value, acknowledge); var previous = Project!.WeaponChanges.ToList();
-            var saved = WeaponGroups.SingleOrDefault(g => g.Weapon == weapon && g.FieldId == next.SemanticFieldId);
-            if (saved?.Conflict != null) throw new InvalidDataException(saved.Conflict);
-            var old = saved?.Representative;
-            if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.EffectAcknowledgement = old.EffectAcknowledgement; }
-            next.Group = string.IsNullOrWhiteSpace(group) ? "Gameplay" : group.Trim(); next.Notes = notes;
-            Project.WeaponChanges.RemoveAll(c => saved?.Sources.Contains(c) == true);
-            if (!WeaponScalar.IsNoOp(Metadata!, next)) Project.WeaponChanges.Add(next);
-            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = previous; throw; }
+            var previous = project.WeaponChanges.ToList();
+            ApplyWeapon(project, weapon, field, value, acknowledge, group, notes, keepOption);
+            try { await SaveChangesAsync(); } catch { project.WeaponChanges = previous; throw; }
         }
         finally { weaponEditGate.Release(); }
+    }
+    // keepOption: a value back to vanilla keeps the edit while the field has an in-game option (an option-only edit); a reset removes it.
+    private void ApplyWeapon(ModProject project, string weapon, string field, string value, bool acknowledge, string group, string? notes, bool keepOption = true)
+    {
+        var next = weaponChanges.Create(Metadata!, weapon, field, value, acknowledge);
+        var saved = WeaponGroups.SingleOrDefault(g => g.Weapon == weapon && g.FieldId == next.SemanticFieldId);
+        if (saved?.Conflict != null) throw new InvalidDataException(saved.Conflict);
+        var old = saved?.Representative;
+        if (old != null) { next.Id = old.Id; next.ExpectedValue = old.ExpectedValue; next.BaselineSdkVersion = old.BaselineSdkVersion; next.Enabled = old.Enabled; next.EnsureEnabled = old.EnsureEnabled; next.EffectAcknowledgement = old.EffectAcknowledgement; }
+        next.Group = string.IsNullOrWhiteSpace(group) ? "Gameplay" : group.Trim(); next.Notes = notes;
+        project.WeaponChanges.RemoveAll(c => saved?.Sources.Contains(c) == true);
+        if (!WeaponScalar.IsNoOp(Metadata!, next) || keepOption && ModOptionsService.HasOption(project, ModOptionsService.WeaponKey(weapon, next.SemanticFieldId))) project.WeaponChanges.Add(next);
     }
     public async Task ResetWeaponsAsync(string? weapon = null, string? field = null)
     {
@@ -397,7 +416,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         // A rate-of-fire / programmable-ammunition field resets with its pair (Runtime writes them together).
         if (capability is { InWeaponSelector: true } && saved?.Conflict == null) { await ResetSelectorFieldAsync(CompositionKind.Player, weapon!, capability.SemanticFieldId); return; }
         if (capability?.Editable == true && field != null && saved?.Conflict == null)
-        { await SetWeaponChangeAsync(weapon!, field, capability.CurrentDefault.GetRawText(), false); return; }
+        { await SetWeaponValueAsync(weapon!, field, capability.CurrentDefault.GetRawText(), false, "Gameplay", null, keepOption: false); return; }
         var project = Project;
         await weaponEditGate.WaitAsync();
         try

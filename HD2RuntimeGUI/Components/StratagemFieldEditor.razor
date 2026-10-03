@@ -1,12 +1,13 @@
 @inject BuilderWorkspace Workspace
 @* One published stratagem scalar as a compact row: name, value, baseline and safety badges; provenance on demand. *@
-@{ var saved = Saved; }
-<div class="field-row @(saved != null ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-stratagem-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
+@* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
+@{ var saved = Saved; var edited = saved != null && !Workspace.OptionOnly(saved); }
+<div class="field-row @(edited ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-stratagem-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
         @if (Field.Type == StratagemUses.Type && Field.Editable && Field.Caveat != null) { <span class="uses-caveat" tabindex="0" title="@Field.Caveat" aria-label="@Field.Caveat" data-uses-caveat>ⓘ</span> }
         <span class="field-flags">
             @if (Field.Shared) { <span class="badge amber" data-flag="allow_shared" title="@T["StratagemField.Shared.Tooltip"]">@T.Format("StratagemField.Shared.Badge", Field.SharedConsumers.Length)</span> }
-            @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
             @* 0.28.0: a live test family removed the field's opt-in (sentry turn speeds, targeting range, minefield salvos, cooldowns). *@
             @if (saved != null && Field.Type == StratagemUses.Type && !StratagemChangeService.EffectRequired(Field, saved.DesiredValue)) { <span class="badge green" data-gameplay-proven>@T["StratagemField.GameplayProven"]</span> }
             else if (Field.LiveEvidence is { Status: "live_proven" } live) { <span class="badge green" data-live-proven="@live.Family" title="@T.Format("StratagemField.LiveEvidence.Tooltip", string.Join(", ", live.Tests), live.Date)">@T["StratagemField.GameplayProven"]</span> }
@@ -35,14 +36,14 @@
         else if (Field.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange='e => Commit((bool)e.Value! ? "true" : "false")' aria-label="@(Label ?? Field.DisplayName)" /> }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.Min)" max="@Bound(Field.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
-    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("StratagemField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
+    @if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("StratagemField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
     else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">@T.Format("StratagemField.Base", Format(Field.CurrentDefault))</div> }
     <div class="field-tools">
-        @if (saved != null) { <OptionToggle Key="@ModOptionsService.StratagemKey(Field.InstanceKey)" Changed="Changed" /> }
+        @if (Field.Editable || saved != null) { <OptionToggle Key="@ModOptionsService.StratagemKey(Field.InstanceKey)" Changed="Changed" /> }
         @if (saved != null)
         {
             <label class="field-toggle" title="@T["StratagemField.Include.Tooltip"]"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleStratagemAsync(saved.InstanceKey))" /> @T["Common.On"]</label>
-            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetStratagemAsync(instance: Field.InstanceKey))">@T["StratagemField.Reset"]</button>
+            @if (edited) { <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetStratagemAsync(instance: Field.InstanceKey))">@T["StratagemField.Reset"]</button> }
         }
         <details class="field-info"><summary title="@T["StratagemField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
             @if (!Field.Editable) { <p><strong>@T["StratagemField.NotWritable"]</strong> @Field.Reason</p> }

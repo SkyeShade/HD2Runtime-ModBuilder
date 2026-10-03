@@ -11,7 +11,8 @@ namespace HD2RuntimeGUI.Core.Generation;
 // In-game options (HD2Runtime 0.25.0 hd2.options, displayed by CowboyBingus Mod Options Menu, an optional dependency).
 // A row binds one edited field's value; Runtime only lets an option bind `value` inside hd2.ensure, and a toggle only `enabled`.
 // One master toggle is the `enabled` of every operation that contains a bound value. Everything else about the operation
-// (target, expect, allow_* flags, transaction/plan grouping) is generated exactly as without options.
+// (target, expect, allow_* flags, transaction/plan grouping) is generated exactly as without options. 1.6.0: the edited value may be the
+// vanilla value (an option-only edit, see HasOption): Runtime accepts an option value equal to `expect`.
 public sealed record OptionEnumValue(string Name, double Value);
 public sealed record OptionTarget(string Key, string Domain, string Owner, string DisplayName, string Type, string? Unit, double Baseline, double Desired,
     bool Active, bool Ensure, double? RangeMin, double? RangeMax, IReadOnlyList<OptionEnumValue>? EnumValues, string? Blocker, Action<double> Check)
@@ -43,10 +44,38 @@ public static class ModOptionsService
     public static bool Supported(SdkMetadata? sdk) => sdk != null && Models.SemVersion.Parse(sdk.Version).CompareTo(Models.SemVersion.Parse("0.25.0")) >= 0;
     // Binding keys: one per edited field, stable across saves.
     public static string WeaponKey(string weapon, string field) => "weapon:" + weapon + "|" + field;
-    public static string ObjectKey(CompositionChange c) => "object:" + c.Weapon + "|" + c.AttackRole + "|" + c.Kind + "|" + c.Phase + "|" + c.Scalar!.SemanticFieldId;
+    public static string ObjectKey(CompositionChange c) => ObjectKey(c.Weapon, c.AttackRole, c.Kind, c.Phase, c.Scalar!.SemanticFieldId);
+    public static string ObjectKey(string weapon, string role, string kind, string? phase, string field) => "object:" + weapon + "|" + role + "|" + kind + "|" + phase + "|" + field;
     public static string EntityKey(string instance) => "entity:" + instance;
     public static string SupportKey(string instance) => "support:" + instance;
     public static string StratagemKey(string instance) => "stratagem:" + instance;
+    // The field a key names, as the key builders above spell it: weapon [weapon, field], object [weapon, role, kind, phase, field] (phase ""
+    // when none), entity / support / stratagem [instance]. Empty parts for a key in another form.
+    public static (string Domain, string[] Parts) ParseKey(string key)
+    {
+        var colon = key.IndexOf(':'); if (colon <= 0) return ("", []);
+        var domain = key[..colon]; var rest = key[(colon + 1)..];
+        return (domain, domain switch { "weapon" => Split(rest, 2), "object" => Split(rest, 5), "entity" or "support" or "stratagem" => [rest], _ => [] });
+        // Names may contain '|' only in the first part (the weapon); the trailing parts never do.
+        static string[] Split(string text, int count)
+        {
+            var parts = new string[count];
+            for (var i = count - 1; i > 0; i--) { var bar = text.LastIndexOf('|'); if (bar < 0) return []; parts[i] = text[(bar + 1)..]; text = text[..bar]; }
+            parts[0] = text; return parts;
+        }
+    }
+
+    // 1.6.0: an edit whose value is vanilla is kept while the field has an option row: only the in-game option changes the value
+    // (an option-only edit). Without its row it is an ordinary no-op and is removed as before.
+    public static bool HasOption(ModProject p, string? key) => key != null && p.ModOptions?.Rows.Exists(r => r.Key == key) == true;
+    public static bool HasOptionOnlyEdits(ModProject p, SdkMetadata sdk) => p.ModOptions?.Rows is { Count: > 0 } && (
+        WeaponAliasResolver.Group(sdk, p.WeaponChanges).Any(g => HasOption(p, WeaponKey(g.Weapon, g.FieldId)) && g.Sources.All(c => WeaponScalar.IsNoOp(sdk, c)))
+        || p.CompositionChanges.Any(c => c.Scalar != null && HasOption(p, ObjectKey(c)) && WeaponScalar.IsNoOp(sdk, c.Scalar))
+        || p.EntityChanges.Any(c => HasOption(p, EntityKey(c.InstanceKey)) && EntityChangeService.NoOp(sdk, c))
+        || p.SupportChanges.Any(c => HasOption(p, SupportKey(c.InstanceKey)) && SupportChangeService.NoOp(sdk, c))
+        || p.StratagemChanges.Any(c => HasOption(p, StratagemKey(c.InstanceKey)) && StratagemChangeService.NoOp(sdk, c)));
+    // Keys of the rows that generate Lua (the bound fields), for emitters that run without the bindings.
+    public static IReadOnlySet<string> BoundKeys(ModProject p, SdkMetadata sdk) => ActiveRows(p, sdk).Select(r => r.Row.Key).ToHashSet(StringComparer.Ordinal);
 
     public static ModOptionsSettings Defaults(ModProject p) => new()
     {
@@ -67,55 +96,59 @@ public static class ModOptionsService
         if (!Supported(sdk)) return result;
         if (sdk.PlayerWeapons != null)
         {
-            foreach (var g in WeaponAliasResolver.Group(sdk, p.WeaponChanges))
-            {
-                var f = sdk.PlayerWeapons.FindCanonicalField(g.Weapon, g.FieldId); if (f == null) continue;
-                var c = g.Representative;
-                result.Add(Weapon(WeaponKey(g.Weapon, g.FieldId), "weapon", g.Weapon, f, c.ExpectedValue, c.DesiredValue,
-                    g.Enabled && g.Conflict == null && !WeaponScalar.IsNoOp(sdk, c), c.EnsureEnabled));
-            }
-            foreach (var c in p.CompositionChanges.Where(c => c.Scalar != null))
-            {
-                WeaponCapability f; try { f = sdk.PlayerWeapons.Field(c.Scalar!.Weapon, c.Scalar.SemanticFieldId); } catch (InvalidDataException) { continue; }
-                result.Add(Weapon(ObjectKey(c), "object", c.Weapon, f, c.Scalar!.ExpectedValue, c.Scalar.DesiredValue, c.Enabled, c.EnsureEnabled));
-            }
+            foreach (var g in WeaponAliasResolver.Group(sdk, p.WeaponChanges)) if (WeaponTarget(p, sdk, g) is { } t) result.Add(t);
+            foreach (var c in p.CompositionChanges) if (ObjectTarget(sdk, c) is { } t) result.Add(t);
         }
-        if (sdk.Entities != null)
-            foreach (var c in p.EntityChanges)
-            {
-                EntityField f; try { f = EntityChangeService.Resolve(sdk.Entities, c); } catch (InvalidDataException) { continue; }
-                var blocker = f.IsReference ? CoreText.Get("Messages.Build.Options.ReferenceBlocked") : f.IsPickup ? CoreText.Get("Messages.Build.Options.PickupBlocked") : Scalar(f.Type);
-                // Magazine attachments are identified by semantic ID; show their published name.
-                var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Enemy != null ? EntityLua.Describe(sdk.Entities, f.Target) : f.Target.Entity;
-                result.Add(Numeric(EntityKey(c.InstanceKey), "entity", owner, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
-                    c.Enabled, c.EnsureEnabled, Finite(f.EffectiveRange?.Min), Finite(f.EffectiveRange?.Max), blocker, v => EntityScalar.CheckRange(f, Json(v))));
-            }
-        if (sdk.SupportAuthoring != null)
-            foreach (var c in p.SupportChanges)
-            {
-                var f = sdk.SupportAuthoring.FieldInstances.FirstOrDefault(x => x.InstanceKey == c.InstanceKey); if (f == null) continue;
-                result.Add(Numeric(SupportKey(c.InstanceKey), "support", f.SupportWeapon, f.Display.Name, f.Value.Type, f.Value.Unit, c.ExpectedValue, c.DesiredValue,
-                    c.Enabled, c.EnsureEnabled, null, null, Scalar(f.Value.Type), v => SupportScalar.Normalize(f, Json(v))));
-            }
-        if (sdk.Stratagems != null)
-            foreach (var c in p.StratagemChanges)
-            {
-                StratagemField f; try { f = StratagemChangeService.Resolve(sdk.Stratagems, c); } catch (InvalidDataException) { continue; }
-                // 0.26.0 mission uses: a finite count Runtime lets change to other finite counts maps to an integer slider in the published
-                // range; Unlimited is a token, not a number, so an edit to or from it cannot be an option.
-                if (f.Type == StratagemUses.Type)
-                {
-                    var finite = !StratagemUses.IsUnlimited(c.ExpectedValue) && !StratagemUses.IsUnlimited(c.DesiredValue) && f.Transitions?.Contains(StratagemUses.FiniteToFinite) == true;
-                    result.Add(Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, "integer", f.Unit, c.ExpectedValue, c.DesiredValue,
-                        c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), finite ? null : CoreText.Get("Messages.Build.Options.UnlimitedBlocked"),
-                        v => StratagemUses.CheckTransition(f, c.ExpectedValue, StratagemUses.Normalize(f, Json(v)))));
-                    continue;
-                }
-                // 0.28.0 published bounds (sentry turret, targeting range, minefield counts) also bound the in-game setting.
-                result.Add(Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
-                    c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), Scalar(f.Type), v => StratagemScalar.CheckRange(f, Json(v))));
-            }
+        foreach (var c in p.EntityChanges) if (EntityTarget(sdk, c) is { } t) result.Add(t);
+        foreach (var c in p.SupportChanges) if (SupportTarget(sdk, c) is { } t) result.Add(t);
+        foreach (var c in p.StratagemChanges) if (StratagemTarget(sdk, c) is { } t) result.Add(t);
         return result;
+    }
+    // The option target of one edit (saved, or the vanilla edit a field without one would get); null when its field is not published.
+    public static OptionTarget? WeaponTarget(ModProject p, SdkMetadata sdk, WeaponChangeGroup g)
+    {
+        var f = sdk.PlayerWeapons?.FindCanonicalField(g.Weapon, g.FieldId); if (f == null) return null;
+        var c = g.Representative; var key = WeaponKey(g.Weapon, g.FieldId);
+        return Weapon(key, "weapon", g.Weapon, f, c.ExpectedValue, c.DesiredValue, g.Enabled && g.Conflict == null && (!WeaponScalar.IsNoOp(sdk, c) || HasOption(p, key)), c.EnsureEnabled);
+    }
+    public static OptionTarget? ObjectTarget(SdkMetadata sdk, CompositionChange c)
+    {
+        if (c.Scalar == null || sdk.PlayerWeapons == null) return null;
+        WeaponCapability f; try { f = sdk.PlayerWeapons.Field(c.Scalar.Weapon, c.Scalar.SemanticFieldId); } catch (InvalidDataException) { return null; }
+        return Weapon(ObjectKey(c), "object", c.Weapon, f, c.Scalar.ExpectedValue, c.Scalar.DesiredValue, c.Enabled, c.EnsureEnabled);
+    }
+    public static OptionTarget? EntityTarget(SdkMetadata sdk, EntityChange c)
+    {
+        if (sdk.Entities == null) return null;
+        EntityField f; try { f = EntityChangeService.Resolve(sdk.Entities, c); } catch (InvalidDataException) { return null; }
+        var blocker = f.IsReference ? CoreText.Get("Messages.Build.Options.ReferenceBlocked") : f.IsPickup ? CoreText.Get("Messages.Build.Options.PickupBlocked") : Scalar(f.Type);
+        // Magazine attachments are identified by semantic ID; show their published name.
+        var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Enemy != null ? EntityLua.Describe(sdk.Entities, f.Target) : f.Target.Entity;
+        return Numeric(EntityKey(c.InstanceKey), "entity", owner, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
+            c.Enabled, c.EnsureEnabled, Finite(f.EffectiveRange?.Min), Finite(f.EffectiveRange?.Max), blocker, v => EntityScalar.CheckRange(f, Json(v)));
+    }
+    public static OptionTarget? SupportTarget(SdkMetadata sdk, SupportChange c)
+    {
+        var f = sdk.SupportAuthoring?.FieldInstances.FirstOrDefault(x => x.InstanceKey == c.InstanceKey); if (f == null) return null;
+        return Numeric(SupportKey(c.InstanceKey), "support", f.SupportWeapon, f.Display.Name, f.Value.Type, f.Value.Unit, c.ExpectedValue, c.DesiredValue,
+            c.Enabled, c.EnsureEnabled, null, null, Scalar(f.Value.Type), v => SupportScalar.Normalize(f, Json(v)));
+    }
+    public static OptionTarget? StratagemTarget(SdkMetadata sdk, StratagemChange c)
+    {
+        if (sdk.Stratagems == null) return null;
+        StratagemField f; try { f = StratagemChangeService.Resolve(sdk.Stratagems, c); } catch (InvalidDataException) { return null; }
+        // 0.26.0 mission uses: a finite count Runtime lets change to other finite counts maps to an integer slider in the published
+        // range; Unlimited is a token, not a number, so an edit to or from it cannot be an option.
+        if (f.Type == StratagemUses.Type)
+        {
+            var finite = !StratagemUses.IsUnlimited(c.ExpectedValue) && !StratagemUses.IsUnlimited(c.DesiredValue) && f.Transitions?.Contains(StratagemUses.FiniteToFinite) == true;
+            return Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, "integer", f.Unit, c.ExpectedValue, c.DesiredValue,
+                c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), finite ? null : CoreText.Get("Messages.Build.Options.UnlimitedBlocked"),
+                v => StratagemUses.CheckTransition(f, c.ExpectedValue, StratagemUses.Normalize(f, Json(v))));
+        }
+        // 0.28.0 published bounds (sentry turret, targeting range, minefield counts) also bound the in-game setting.
+        return Numeric(StratagemKey(c.InstanceKey), "stratagem", f.Target.Stratagem, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
+            c.Enabled, c.EnsureEnabled, Finite(f.Min), Finite(f.Max), Scalar(f.Type), v => StratagemScalar.CheckRange(f, Json(v)));
     }
     public static OptionTarget? Target(ModProject p, SdkMetadata sdk, string key) => Targets(p, sdk).FirstOrDefault(t => t.Key == key);
     private static double? Finite(double? v) => v is double d && double.IsFinite(d) ? d : null;
@@ -161,6 +194,8 @@ public static class ModOptionsService
             row.DefaultIndex = Math.Max(1, row.Values.IndexOf(t.Desired) + 1); return row;
         }
         double lo = Math.Min(t.Baseline, t.Desired), hi = Math.Max(t.Baseline, t.Desired);
+        // An option-only edit (value = vanilla) without a published minimum: half to double the vanilla value, vanilla by default.
+        if (lo == hi && lo > 0 && t.RangeMin == null) lo = t.Integer ? Math.Max(1, Math.Floor(lo / 2)) : lo / 2;
         var min = t.RangeMin is double rmin ? Math.Max(rmin, lo == hi ? rmin : lo) : lo;
         var max = t.RangeMax ?? (hi == 0 ? (t.Integer ? 10 : 1) : Math.Abs(hi) * 2 + (hi < 0 ? hi * 2 : 0));
         if (max <= min) max = min + (t.Integer ? 10 : 1);
@@ -171,6 +206,10 @@ public static class ModOptionsService
         if (row.Max <= row.Default && row.Default < max) row.Max = Round(row.Default + step.Value);
         return row;
     }
+    // The two values a numeric field's choice starts from: its baseline and edited value, or for an option-only edit (value = vanilla)
+    // vanilla and the far end of its slider.
+    public static (double Default, double Modified) ChoicePreset(OptionTarget t, ModOptionRow slider) =>
+        (t.Baseline, t.Desired != t.Baseline ? t.Desired : slider.Max != t.Baseline ? slider.Max : slider.Min);
     private static double? StepFor(bool integer, double min, double max, double target)
     {
         var raw = (max - min) / 50; var candidates = new List<double>();
@@ -329,6 +368,7 @@ public sealed class OptionBindings(string header, IReadOnlyDictionary<string, st
     }
     public string Value(string? key, string literal) => Value([key], literal);
     public bool Bound(IEnumerable<string?> keys) => keys.Any(k => k != null && Variables.ContainsKey(k));
+    public bool Bound(string? key) => key != null && Variables.ContainsKey(key);
     // Wraps one existing request. Runtime lets only hd2.ensure own option values, so a bound operation must already be an ensure.
     public static string Wrap(OptionBindings? options, string kind, string request, bool ensure, IEnumerable<string?> keys)
     {

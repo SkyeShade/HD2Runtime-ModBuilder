@@ -9,8 +9,8 @@ namespace HD2RuntimeGUI.Core.Updates;
 
 /// <summary>
 /// modbuilder-update-v2.json, published next to the release ZIP by scripts/publish-windows.ps1:
-/// { "format": 2, "product": "HD2Runtime ModBuilder", "version": "1.5.0", "tag": "v1.5.0",
-///   "asset": "HD2Runtime-ModBuilder-v1.5.0-win-x64.zip", "size": 91234567, "sha256": "&lt;64 hex&gt;",
+/// { "format": 2, "product": "HD2Runtime ModBuilder", "version": "1.6.0", "tag": "v1.6.0",
+///   "asset": "HD2Runtime-ModBuilder-v1.6.0-win-x64.zip", "size": 91234567, "sha256": "&lt;64 hex&gt;",
 ///   "entrypoint": "HD2RuntimeModBuilder.exe", "updater": "HD2RuntimeModBuilder.Updater.exe", "commit": "&lt;40 hex&gt;" }
 /// Paths are fixed by the contract; the manifest cannot name other files. (modbuilder-update.json, format 1 with
 /// entrypoint HD2RuntimeGUI.exe, has the same fields and exists only for HD2Runtime ModBuilder 1.0.0.)

@@ -6,7 +6,9 @@
     <section class="dialog option-editor" role="dialog" aria-modal="true" aria-labelledby="option-editor-title" @onclick:stopPropagation data-option-editor="@Target.Key">
         <div class="eyebrow">@T["Option.Editor.Eyebrow"]</div>
         <h2 id="option-editor-title">@Target.Title</h2>
-        <p class="subtle">@T.Markup("Option.Editor.Edit.Html", FieldPresentationLabel(Target.Baseline), FieldPresentationLabel(Target.Desired), Target.Unit != null ? " " + Target.Unit.Replace('_', ' ') : "") ·
+        @* An option-only edit (1.6.0) keeps the vanilla value; only the in-game option changes it. *@
+        <p class="subtle">@(Target.Baseline == Target.Desired ? T.Markup("Option.Editor.Vanilla.Html", FieldPresentationLabel(Target.Baseline), Unit)
+            : T.Markup("Option.Editor.Edit.Html", FieldPresentationLabel(Target.Baseline), FieldPresentationLabel(Target.Desired), Unit)) ·
             @(Target.PublishedRange ? T.Format("Option.Editor.Range", ModOptionsService.Format(Target.RangeMin), ModOptionsService.Format(Target.RangeMax)) : T["Option.Editor.NoRange"])</p>
         <div class="form-grid">
             <label>@T["Option.Editor.Control"]
@@ -66,10 +68,16 @@
         var saved = Workspace.OptionRow(Target.Key); Existing = saved != null;
         Row = saved == null ? Workspace.SuggestOptionRow(Target) : new ModOptionRow { Key = saved.Key, Id = saved.Id, Kind = saved.Kind, Label = saved.Label, Description = saved.Description,
             Gap = saved.Gap, Min = saved.Min, Max = saved.Max, Step = saved.Step, Default = saved.Default, Choices = [.. saved.Choices], Values = [.. saved.Values], DefaultIndex = saved.DefaultIndex };
-        // A numeric field switched to a choice starts from its baseline and edited value. Choice names are in-game text written into the
-        // generated mod, so they are not UI text and stay the same in every UI language.
-        if (Row.Kind == ModOptionsService.Slider && Row.Choices.Count == 0) { Row.Choices = ["Default", "Modified"]; Row.Values = [Target.Baseline, Target.Desired]; Row.DefaultIndex = 2; }
+        // A numeric field switched to a choice starts from its baseline and edited value (an option-only edit: vanilla, by default, and the
+        // slider's far end). Choice names are in-game text written into the generated mod, so they are not UI text and stay the same in every
+        // UI language.
+        if (Row.Kind == ModOptionsService.Slider && Row.Choices.Count == 0)
+        {
+            var (vanilla, modified) = ModOptionsService.ChoicePreset(Target, Row);
+            Row.Choices = ["Default", "Modified"]; Row.Values = [vanilla, modified]; Row.DefaultIndex = Target.Desired == Target.Baseline ? 1 : 2;
+        }
     }
+    private string Unit => Target.Unit != null ? " " + Target.Unit.Replace('_', ' ') : "";
     private string FieldPresentationLabel(double v) => Target.EnumValues?.FirstOrDefault(e => e.Value == v)?.Name ?? ModOptionsService.Format(v);
     private void SetValue(int index, object? value) { if (double.TryParse(value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) Row.Values[index] = v; }
     private void AddChoice() { Row.Choices.Add("Choice " + (Row.Choices.Count + 1)); Row.Values.Add(Target.Desired); }

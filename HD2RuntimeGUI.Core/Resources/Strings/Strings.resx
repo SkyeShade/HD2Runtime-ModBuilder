@@ -4778,8 +4778,8 @@
     <comment>{0}: number of exposed fields</comment>
   </data>
   <data name="ModOptions.Status.Empty.Html" xml:space="preserve">
-    <value>No fields exposed yet. Use &lt;strong&gt;Expose as option&lt;/strong&gt; on an edited field.</value>
-    <comment>'Expose as option' is the button label on edited fields</comment>
+    <value>No fields exposed yet. Use &lt;strong&gt;Expose as option&lt;/strong&gt; on a field (an edited one, or any field to keep its vanilla value as the default).</value>
+    <comment>'Expose as option' is the button label on field rows</comment>
   </data>
   <data name="ModOptions.Status.MasterToggle" xml:space="preserve">
     <value>master toggle “{0}”</value>
@@ -5218,11 +5218,19 @@
     <value>Value</value>
     <comment>Column heading: choice value</comment>
   </data>
+  <data name="Option.Editor.Vanilla.Html" xml:space="preserve">
+    <value>Vanilla &lt;strong&gt;{0}&lt;/strong&gt;{1}, not edited: only the in-game option changes it</value>
+    <comment>Option editor of a field without a value edit (the value stays vanilla). {0}: the vanilla value; {1}: a space and the unit, or empty</comment>
+  </data>
   <data name="Option.Expose" xml:space="preserve">
     <value>Expose as option</value>
   </data>
   <data name="Option.Expose.Tooltip" xml:space="preserve">
     <value>Expose as in-game option</value>
+  </data>
+  <data name="Option.ExposeVanilla.Tooltip" xml:space="preserve">
+    <value>Expose as in-game option without editing the value: it stays vanilla until players change it in game</value>
+    <comment>Tooltip of 'Expose as option' on a field without an edit</comment>
   </data>
   <data name="Option.Kind.Choice" xml:space="preserve">
     <value>Choice</value>

@@ -13,7 +13,8 @@ public sealed class StratagemLua(IStratagemChangeService service) : IStratagemLu
         if (active.Length == 0) return [];
         var catalog = StratagemChangeService.Catalog(sdk);
         foreach (var c in active) service.Validate(project, sdk, c);
-        var rows = active.Where(c => !StratagemChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: StratagemChangeService.Resolve(catalog, c))).ToArray();
+        // An option-only edit (value = vanilla) is written only while its in-game option is bound.
+        var rows = active.Where(c => !StratagemChangeService.NoOp(sdk, c) || options?.Bound(ModOptionsService.StratagemKey(c.InstanceKey)) == true).Select(c => (Change: c, Field: StratagemChangeService.Resolve(catalog, c))).ToArray();
         var plans = rows.GroupBy(r => r.Field.PlanGroup).OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
         var parent = Enumerable.Range(0, plans.Length).ToArray();
         int Root(int i) { while (parent[i] != i) i = parent[i]; return i; }

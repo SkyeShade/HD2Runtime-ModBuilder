@@ -25,11 +25,12 @@ public static class WeaponAliasResolver
         .Select(g => new WeaponChangeGroup(g.Key.Weapon, g.Key.Field, sdk.PlayerWeapons?.FindCanonicalField(g.Key.Weapon, g.Key.Field), g.ToArray()))
         .OrderBy(g => g.Weapon, StringComparer.Ordinal).ThenBy(g => g.FieldId, StringComparer.Ordinal).ToArray();
 
-    public static int RemoveNoOps(SdkMetadata sdk, List<WeaponChange> changes)
+    // option: whether a binding key (ModOptionsService.WeaponKey) has an in-game option; such a field keeps its vanilla-valued edit.
+    public static int RemoveNoOps(SdkMetadata sdk, List<WeaponChange> changes, Func<string, bool>? option = null)
     {
         // A baseline-valued alias must not disappear and conceal a conflict with
         // another saved value. Leave the whole group for explicit resolution.
-        var removable = Group(sdk, changes).Where(g => g.Conflict == null).SelectMany(g => g.Sources)
+        var removable = Group(sdk, changes).Where(g => g.Conflict == null && option?.Invoke(ModOptionsService.WeaponKey(g.Weapon, g.FieldId)) != true).SelectMany(g => g.Sources)
             .Where(c => WeaponScalar.IsNoOp(sdk, c)).Select(c => c.Id).ToHashSet();
         return changes.RemoveAll(c => removable.Contains(c.Id));
     }

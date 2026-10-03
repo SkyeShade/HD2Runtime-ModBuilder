@@ -29,7 +29,7 @@
     </div>
     <div class="field-baseline @(Modified ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("WeaponField.Base", Display(Field.CurrentDefault))@if (Modified) { <span> → <strong>@Display(CurrentValue)</strong></span> }</div>
     <div class="field-tools">
-        @if (SavedGroup != null) { <OptionToggle Key="@ModOptionsService.WeaponKey(Weapon.Name, Field.SemanticFieldId)" Changed="Changed" /> }
+        @if (SavedGroup != null || CanEdit) { <OptionToggle Key="@ModOptionsService.WeaponKey(Weapon.Name, Field.SemanticFieldId)" Changed="Changed" /> }
         @if (Busy) { <small role="status">@T["WeaponField.Saving"]</small> }
         @if (CanEdit && (Modified || FieldPresentation.Modified(Field, Change))) { <button class="reset-action small" @onclick="Reset" disabled="@Busy">@T["WeaponField.ResetField"]</button> }
         <details class="field-info"><summary title="@T["WeaponField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">

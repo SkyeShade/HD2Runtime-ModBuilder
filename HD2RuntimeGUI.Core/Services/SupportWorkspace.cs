@@ -17,7 +17,7 @@ public sealed partial class BuilderWorkspace
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var previous = project.SupportChanges.ToList(); var approvals = new Dictionary<string, string>(project.SupportApprovals);
-            try { edit(project); project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(Metadata!, c)); await SaveChangesAsync(); }
+            try { edit(project); project.SupportChanges.RemoveAll(c => SupportChangeService.NoOp(Metadata!, c) && !ModOptionsService.HasOption(project, ModOptionsService.SupportKey(c.InstanceKey))); await SaveChangesAsync(); }
             catch { project.SupportChanges = previous; project.SupportApprovals = approvals; throw; }
         }
         finally { weaponEditGate.Release(); }
@@ -29,7 +29,8 @@ public sealed partial class BuilderWorkspace
             && await FoldLegacyFireRateAsync(CompositionKind.Support, field.SupportWeapon, field.SemanticFieldId, value)) return;
         await SetSupportValueAsync(instance, value, acceptBaseline);
     }
-    private Task SetSupportValueAsync(string instance, string value, bool acceptBaseline) => EditSupportAsync(p =>
+    private Task SetSupportValueAsync(string instance, string value, bool acceptBaseline) => EditSupportAsync(p => ApplySupportValue(p, instance, value, acceptBaseline));
+    private void ApplySupportValue(ModProject p, string instance, string value, bool acceptBaseline)
     {
         var next = supportChanges.Create(Metadata!, instance, value);
         var old = p.SupportChanges.SingleOrDefault(c => c.InstanceKey == instance);
@@ -40,9 +41,10 @@ public sealed partial class BuilderWorkspace
             BaselineSdkVersion = acceptBaseline ? next.BaselineSdkVersion : old.BaselineSdkVersion };
         p.SupportChanges.RemoveAll(c => c.InstanceKey == instance);
         var field = SupportChangeService.Catalog(Metadata!).Field(instance);
-        // A deliberate edit back to today's displayed vanilla is a reset, even after rebind.
-        if (!SupportScalar.Equal(field, next.DesiredValue, field.Value.Baseline)) p.SupportChanges.Add(next);
-    });
+        // A deliberate edit back to today's displayed vanilla is a reset, even after rebind, unless the field has an in-game option
+        // (an option-only edit).
+        if (!SupportScalar.Equal(field, next.DesiredValue, field.Value.Baseline) || ModOptionsService.HasOption(p, ModOptionsService.SupportKey(instance))) p.SupportChanges.Add(next);
+    }
     public Task ResetSupportAsync(string? weapon = null, string? instance = null)
     {
         // A rate-of-fire / programmable-ammunition field resets with its pair (Runtime writes them together).

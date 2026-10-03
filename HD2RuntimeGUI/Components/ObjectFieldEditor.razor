@@ -1,10 +1,12 @@
 @inject BuilderWorkspace Workspace
 @* One projectile / damage / explosion object scalar as a compact row. Shared objects are flagged here and warned about once
    in the section (CompositionApprovals); allow_shared is implicit. *@
-<div class="field-row @(Saved != null ? "modified" : "") @(Editable ? "" : "readonly")" data-object-field="@Field.SemanticFieldId">
+@* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
+@{ var edited = Saved is { } saved && !Workspace.OptionOnly(saved); }
+<div class="field-row @(edited ? "modified" : "") @(Editable ? "" : "readonly")" data-object-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@Field.DisplayName</span>@if (FieldPresentation.Unit(Field) is { Length: > 0 } unit) { <small class="field-unit">@unit</small> }
         <span class="field-flags">
-            @if (Saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
             @if (Field.AffectsMultipleWeapons) { <span class="badge amber" data-flag="allow_shared" title="@T["ObjectField.Shared.Tooltip"]">@T["Common.Shared"]</span> }
             @if (!Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
         </span></div>
@@ -17,10 +19,10 @@
         else if (Editable) { <input aria-label="@Field.DisplayName" type="number" step='@(Field.Type == "integer" ? "1" : "any")' @bind="Value" @bind:after="Commit" disabled="@Busy" /> }
         else { <span class="readonly-value">@Display(Current)</span> }
     </div>
-    <div class="field-baseline @(Saved != null ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("ObjectField.Base", Display(Field.CurrentDefault))@if (Saved != null) { <span> → <strong>@Display(Current)</strong></span> }</div>
+    <div class="field-baseline @(edited ? "modified-value" : "subtle")" data-baseline="@FieldPresentation.Value(Field, Field.CurrentDefault)">@T.Format("ObjectField.Base", Display(Field.CurrentDefault))@if (edited) { <span> → <strong>@Display(Current)</strong></span> }</div>
     <div class="field-tools">
-        @if (Saved?.Scalar != null) { <OptionToggle Key="@ModOptionsService.ObjectKey(Saved)" Changed="Changed" /> }
-        @if (Saved != null) { <button class="reset-action small" @onclick="Reset">@T["ObjectField.Reset"]</button> }
+        @if (Editable || Saved?.Scalar != null) { <OptionToggle Key="@ModOptionsService.ObjectKey(Weapon, Role, Kind, Phase, Field.SemanticFieldId)" Changed="Changed" /> }
+        @if (edited) { <button class="reset-action small" @onclick="Reset">@T["ObjectField.Reset"]</button> }
         <details class="field-info"><summary title="@T["ObjectField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
             @if (!Editable) { <p>@T.Markup("ObjectField.NotWritable.Html", Field.Reason)</p> }
             @if (Field.AffectsMultipleWeapons) { <p>@T.Markup("ObjectField.SharedWith.Html", string.Join(", ", Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct()))</p>

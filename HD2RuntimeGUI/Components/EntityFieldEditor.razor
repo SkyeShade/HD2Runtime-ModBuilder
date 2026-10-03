@@ -1,11 +1,12 @@
 @inject BuilderWorkspace Workspace
 @* One published vehicle/backpack/attachment/booster scalar as a compact row. The evidence tier stays visible as a short badge
    (schema-proven never looks like in-game tested); its full description and provenance are in the tooltip / ⓘ section. *@
-@{ var saved = Saved; }
-<div class="field-row @(saved != null ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
+@* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
+@{ var saved = Saved; var edited = saved != null && !Workspace.OptionOnly(saved); }
+<div class="field-row @(edited ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
         <span class="field-flags"><EvidenceBadge Evidence="Field.Evidence" Tiers="Tiers" Compact="true" />
-            @if (saved != null) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
             @if (Field.Effect is { ActiveSource: FieldEffect.Dormant }) { <span class="badge amber" data-field-dormant title="@Field.Reason">@T["EntityField.NotActive"]</span> }
             else if (Field.Effect is { ActiveSourceProven: false }) { <span class="badge amber" data-field-effect-unproven title="@T["EntityField.EffectUnproven.Tooltip"]">@T["EntityField.EffectUnproven"]</span> }</span></div>
     <div class="field-value">
@@ -21,14 +22,14 @@
         }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.EffectiveRange?.Min)" max="@Bound(Field.EffectiveRange?.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
-    @if (saved != null) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("EntityField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
+    @if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("EntityField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
     else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">@T.Format("EntityField.Base", Format(Field.CurrentDefault))</div> }
     <div class="field-tools">
-        @if (saved != null) { <OptionToggle Key="@ModOptionsService.EntityKey(Field.InstanceKey)" Changed="Changed" /> }
+        @if (Field.Editable || saved != null) { <OptionToggle Key="@ModOptionsService.EntityKey(Field.InstanceKey)" Changed="Changed" /> }
         @if (saved != null)
         {
             <label class="field-toggle" title="@T["EntityField.Include.Tooltip"]"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleEntityAsync(saved.InstanceKey))" /> @T["Common.On"]</label>
-            <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: Field.InstanceKey))">@T["EntityField.Reset"]</button>
+            @if (edited) { <button class="reset-action small" @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: Field.InstanceKey))">@T["EntityField.Reset"]</button> }
         }
         <details class="field-info"><summary title="@T["EntityField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
             @if (!Field.Editable) { <p>@T.Markup("EntityField.NotWritable.Html", Field.Reason)</p> }

@@ -113,9 +113,13 @@ public static class ProjectIdentity
         || p.SupportChanges.Any(c => c.FieldType == Metadata.WeaponCapability.FireModeSet)
         || p.StratagemChanges.Any(c => c.FieldType == Metadata.StratagemUses.Type || c.EffectAcknowledgement != null)
         || p.EntityChanges.Any(c => c.Resource is "vehicle_weapon" or "pod_rack" || c.Attack != null || c.Slot != null) ? 8 : 1;
+    // Format 13 (1.6.0): option-only edits, kept at their vanilla value for their in-game option (Generation.ModOptionsService.HasOption).
+    // Older ModBuilder versions remove vanilla-valued edits when they open a project, which would drop the option; they reject the format
+    // instead. Telling an option-only edit from an ordinary one needs the SDK's vanilla values.
+    public static int RequiredFormat(ModProject p, SdkMetadata sdk) => Generation.ModOptionsService.HasOptionOnlyEdits(p, sdk) ? 13 : RequiredFormat(p);
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12) || p.Id == Guid.Empty) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedFormat"));
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13) || p.Id == Guid.Empty) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedFormat"));
         // Additional packaged files: their shape only. A destination that is not a safe ZIP path is reported where it is edited and refused at
         // export (Generation.PackagedFiles), so a hand-edited project still opens.
         if (p.PackagedFiles is { } packaged && (packaged.Count > Generation.PackagedFiles.MaxFiles || packaged.Any(f => f == null || f.Source == null || f.Destination == null

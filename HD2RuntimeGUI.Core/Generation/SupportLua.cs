@@ -15,7 +15,8 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
         var active = p.SupportChanges.Where(c => c.Enabled).OrderBy(c => c.InstanceKey, StringComparer.Ordinal).ToArray();
         foreach (var c in active) changes.Validate(p, sdk, c);
         if (WeaponSelectorRules.SupportIssues(sdk, p.SupportChanges).FirstOrDefault() is { Message: { } selectorIssue }) throw new InvalidDataException(selectorIssue);
-        var rows = active.Where(c => !SupportChangeService.NoOp(sdk, c)).Select(c => (Change: c, Field: catalog.Field(c.InstanceKey))).ToArray();
+        // An option-only edit (value = vanilla) is written only while its in-game option is bound.
+        var rows = active.Where(c => !SupportChangeService.NoOp(sdk, c) || options?.Bound(ModOptionsService.SupportKey(c.InstanceKey)) == true).Select(c => (Change: c, Field: catalog.Field(c.InstanceKey))).ToArray();
         foreach (var same in rows.GroupBy(r => (r.Field.Backing.ObjectKey, r.Field.ApiFieldConstant)))
         {
             var first = same.First();

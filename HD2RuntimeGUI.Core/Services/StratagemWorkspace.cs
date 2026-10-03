@@ -24,7 +24,7 @@ public sealed partial class BuilderWorkspace
             var previous = project.StratagemChanges.ToList(); var approvals = new Dictionary<string, string>(project.StratagemApprovals); var format = project.FormatVersion;
             try
             {
-                edit(project); project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(Metadata!, c));
+                edit(project); project.StratagemChanges.RemoveAll(c => StratagemChangeService.NoOp(Metadata!, c) && !ModOptionsService.HasOption(project, ModOptionsService.StratagemKey(c.InstanceKey)));
                 // Format 5 adds entity/weapon graph identities to stratagem changes.
                 if (project.StratagemChanges.Count > 0) project.FormatVersion = Math.Max(project.FormatVersion, 5);
                 await SaveChangesAsync();
@@ -33,7 +33,8 @@ public sealed partial class BuilderWorkspace
         }
         finally { weaponEditGate.Release(); }
     }
-    public Task SetStratagemAsync(string instance, string value, bool acceptBaseline = false) => EditStratagemAsync(p =>
+    public Task SetStratagemAsync(string instance, string value, bool acceptBaseline = false) => EditStratagemAsync(p => ApplyStratagem(p, instance, value, acceptBaseline));
+    private void ApplyStratagem(ModProject p, string instance, string value, bool acceptBaseline)
     {
         var catalog = StratagemChangeService.Catalog(Metadata!); var f = catalog.Field(instance);
         var next = stratagemChanges.Create(Metadata!, instance, value);
@@ -49,8 +50,9 @@ public sealed partial class BuilderWorkspace
             if (!acceptBaseline && old.InstanceKey != handle.InstanceKey) next = next with { InstanceKey = old.InstanceKey };
             p.StratagemChanges.Remove(old);
         }
-        if (!StratagemScalar.Equal(f, next.DesiredValue, f.CurrentDefault)) p.StratagemChanges.Add(next);
-    });
+        // A value back to vanilla keeps the edit while the field has an in-game option (an option-only edit).
+        if (!StratagemScalar.Equal(f, next.DesiredValue, f.CurrentDefault) || ModOptionsService.HasOption(p, ModOptionsService.StratagemKey(next.InstanceKey))) p.StratagemChanges.Add(next);
+    }
     public Task ResetStratagemAsync(string? stratagem = null, string? instance = null) => EditStratagemAsync(p =>
     {
         var catalog = StratagemChangeService.Catalog(Metadata!);

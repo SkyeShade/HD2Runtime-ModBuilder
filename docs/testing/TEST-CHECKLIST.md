@@ -1,10 +1,10 @@
-# ModBuilder 1.5.0 release candidate: manual check (10-20 minutes)
+# ModBuilder 1.6.0 release candidate: manual check (10-20 minutes)
 
-Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.5.0/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
+Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.6.0/`. It uses its own `test-data` folder, so your projects and SDK cache are untouched. Tick each line; note anything odd next to it. No step should ever ask you to tick an acknowledgement: opt-ins are shown as warnings only.
 
 ## Start
 1. [ ] ModBuilder starts; the sidebar footer shows **SDK 0.28.1**.
-2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.5.0**; installed SDK **0.28.1**; supported up to **0.28.1**.
+2. [ ] **Settings & SDK** (bottom of the sidebar): version **1.6.0**; installed SDK **0.28.1**; supported up to **0.28.1**.
 3. [ ] **Project library → Create New Mod**, name it `RC Check`. The overview shows SDK 0.28.1.
 
 ## Weapons
@@ -42,16 +42,25 @@ Start **`Launch ModBuilder RC (test data).cmd`** in `build/release-candidate-1.5
 25. [ ] In Lua Preview, `allow_shared` / `allow_unverified_effect` / `allow_unverified_reference` appear only where the editors showed those warnings.
 26. [ ] The ZIP's `hd2runtime.json` has `requires.hd2runtime.min_version` **0.28.1**.
 
-## Additional files (new in 1.5.0)
+## Additional files (1.5.0)
 27. [ ] **Build / Export → Additional files → Add file…**: pick any image (for example a `thumbnail.png`). It is listed with its full path and **Path in ZIP** `thumbnail.png`.
 28. [ ] Change the path to `images\thumbnail.png` and leave the field: it becomes `images/thumbnail.png`. Then type `../thumbnail.png`, then `README.md`: the row shows why each is refused, and **Build / Export** is refused with a message naming the file. Set it back to `images/thumbnail.png`.
 29. [ ] **Build / Export**: the ZIP contains `images/thumbnail.png`, identical to your file, next to the usual files.
 30. [ ] Rename or move the image on disk, then **Build / Export**: the export is refused with *Cannot package additional file: thumbnail.png* / *Source file does not exist: …*; the row says the same. Put the file back and export again.
 31. [ ] Close and reopen the project from the library: the file is still listed. **×** removes it; the next export contains only the generated files.
 
-## Arsenal presentation (new in 1.5.0)
+## Arsenal presentation (1.5.0)
 32. [ ] **Build / Export → Arsenal presentation**: type a two-line **Arsenal description** and click outside the box; the section shows *Configured*. Type `<b>x</b>` instead: the section says Arsenal would remove the tag and **Build / Export** is refused; restore the plain text.
 33. [ ] **Select image…** (the picker offers PNG, JPG, GIF and WebP): pick an image. It shows *In the ZIP as <name> (IconPath)*.
 34. [ ] **Build / Export**: the ZIP has the image at its root, and `manifest.json` has your description, then the dependency line, and `"IconPath": "<name>"`.
 35. [ ] Optional, with HD2Arsenal installed: add the ZIP in Arsenal. The library shows your icon and description, and deploying installs only the `mod/` files.
 36. [ ] Move the image away: the section reports it and the export is refused naming the icon. Put it back; **×** removes the icon (the image is not deleted).
+
+## In-game options without a value change (new in 1.6.0)
+37. [ ] **Overview → In-game options**: switch them on. Open **Stratagems → Support → TD-110 Maelstrom** and point at the missile pod's (**slot_3**) *Standard damage* row without editing it: **Expose as option** appears (it is hidden until you point at or tab into the row).
+38. [ ] Click it: the editor says *Vanilla 1100, not edited: only the in-game option changes it*; the slider defaults to **1100**. **Cancel**: nothing is added (the row stays unedited, **Changes** shows no new edit).
+39. [ ] Click it again and **Save option**: the row still reads *Base 1100* (no Modified badge) and shows the **In-game option** badge. **Lua Preview** has `local option_…=options:slider({…default=1100})` and the slot_3 operation inside `hd2.ensure({ enabled=enabled, …` with `expect=1100` and `value=option_…`, plus `allow_shared=true`.
+40. [ ] Expose the pod's **Capacity** the same way, then try to expose **slot_4**'s *Capacity*: the option editor refuses it, naming slot_3, and nothing is saved.
+41. [ ] Type **1200** into the exposed damage field, then **1100** again: the field keeps its **In-game option** badge. Open the badge → **Stop exposing**: the edit goes too; Lua Preview no longer has the slot_3 damage operation.
+42. [ ] Close and reopen the project with an exposed unedited field: it is still exposed. **Build / Export**: `hd2runtime.json` lists `mod_options_menu` under `optional`.
+43. [ ] Optional, in game with Mod Options Menu: the slider starts at vanilla and changing it changes the missile damage; without the menu the missiles stay vanilla.

@@ -20,7 +20,7 @@ public sealed partial class BuilderWorkspace
             var previous = project.EntityChanges.ToList(); var approvals = new Dictionary<string, string>(project.EntityApprovals); var format = project.FormatVersion;
             try
             {
-                edit(project); project.EntityChanges.RemoveAll(c => EntityChangeService.NoOp(Metadata!, c));
+                edit(project); project.EntityChanges.RemoveAll(c => EntityChangeService.NoOp(Metadata!, c) && !ModOptionsService.HasOption(project, ModOptionsService.EntityKey(c.InstanceKey)));
                 // Format 6 adds vehicle/backpack changes.
                 if (project.EntityChanges.Count > 0) project.FormatVersion = Math.Max(project.FormatVersion, 6);
                 await SaveChangesAsync();
@@ -29,7 +29,8 @@ public sealed partial class BuilderWorkspace
         }
         finally { weaponEditGate.Release(); }
     }
-    public Task SetEntityAsync(string instance, string value, bool acceptBaseline = false) => EditEntityAsync(p =>
+    public Task SetEntityAsync(string instance, string value, bool acceptBaseline = false) => EditEntityAsync(p => ApplyEntity(p, instance, value, acceptBaseline));
+    private void ApplyEntity(ModProject p, string instance, string value, bool acceptBaseline)
     {
         var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.VehicleCapabilityMissing"));
         var next = entityChanges.Create(Metadata!, instance, value);
@@ -45,7 +46,8 @@ public sealed partial class BuilderWorkspace
         // A magazine attachment or booster target is acknowledged as a whole: new edits inherit an existing acknowledgement of the same scope.
         else if (f.Acknowledgement == "allow_unverified_effect" && EntityChangeService.Approved(p, f))
             next = next with { ReferenceAcknowledgement = EntityChangeService.ReferenceEvidence(f, next.DesiredValue) };
-        if (EntityScalar.Equal(f, next.DesiredValue, f.CurrentDefault)) return;
+        // A value back to vanilla keeps the edit while the field has an in-game option (an option-only edit).
+        if (EntityScalar.Equal(f, next.DesiredValue, f.CurrentDefault) && !ModOptionsService.HasOption(p, ModOptionsService.EntityKey(f.InstanceKey))) return;
         // One native row reached through two targets (an enemy attack row shared by two mounts or classes, a settings row shared by two
         // throwables) is one value. The second edit is refused right here, naming where the value is already edited, instead of at build time.
         var catalog = EntityChangeService.Catalog(Metadata!);
@@ -55,7 +57,7 @@ public sealed partial class BuilderWorkspace
         // Mounted-weapon status slots (0.28.0) stay packed from slot 1: an edit that would leave a status after an empty slot is refused here,
         // naming both slots, instead of at build time.
         if (f.IsStatusReference) EntityChangeService.CheckPacking(p, Metadata!, f);
-    });
+    }
     // One native value reached through two targets: the same value of one backing row (never two zones of it), or (0.28.0) a settings row a
     // Guard Dog drone weapon and a vehicle mount both fire.
     private static bool SameValue(EntityField other, EntityField f) => other.ApiFieldConstant == f.ApiFieldConstant && other.Target != f.Target
