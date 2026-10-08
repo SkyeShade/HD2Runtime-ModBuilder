@@ -30,6 +30,8 @@ public sealed partial class BuilderWorkspace
         finally { weaponEditGate.Release(); }
     }
     public Task SetEntityAsync(string instance, string value, bool acceptBaseline = false) => EditEntityAsync(p => ApplyEntity(p, instance, value, acceptBaseline));
+    // Several fields in one saved edit (0.30.0: both limits of an ordered turret pair, swapped or moved together); all or nothing.
+    public Task SetEntitiesAsync(IReadOnlyList<(string Instance, string Value)> edits) => EditEntityAsync(p => { foreach (var (instance, value) in edits) ApplyEntity(p, instance, value, false); });
     private void ApplyEntity(ModProject p, string instance, string value, bool acceptBaseline)
     {
         var f = EntityChangeService.Catalog(Metadata!).Field(instance) ?? throw new InvalidDataException(CoreText.Get("Messages.Entity.VehicleCapabilityMissing"));

@@ -1,0 +1,55 @@
+@inject BuilderWorkspace Workspace
+@* Muzzle, optics and underbarrel stat modifiers (HD2Runtime 0.30.0, WeaponAttachmentModifierCapabilities.json) for one player weapon: each
+   slot with its options as published (the native default first, then the definitions its unlock list names), one definition card at a time.
+   A definition is shared by every weapon that can equip it, so editing it here edits it everywhere; which attachment is equipped is not
+   editable. Opt-ins are implicit (warning panels only). *@
+@{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.AttachmentModifiers; var entry = catalog?.Weapon(Weapon); }
+@if (catalog != null && entry != null && entry.Slots.Any(s => s.Options.Length > 0))
+{
+    var slots = entry.Slots.Where(s => s.Options.Length > 0).OrderBy(s => Array.IndexOf(AttachmentModifierReader.Slots, s.Slot)).ToArray();
+    var editable = slots.SelectMany(s => s.Options).Select(o => catalog.Attachment(o.Attachment)!).Where(a => a.FieldInstanceKeys.Length > 0).Distinct().ToArray();
+    <section class="semantic-section" data-section="AttachmentModifiers" data-attachment-modifiers="@Weapon">
+        <h2>@T["AttachmentModifiers.Title"] <span class="section-summary" data-attachment-modifier-summary>@string.Join(" · ", slots.Select(s => T.Plural("AttachmentModifiers.SlotSummary", s.Options.Length, SlotLabel(T, s.Slot))))</span></h2>
+        <p class="ownership-note">@T["AttachmentModifiers.Intro"]</p>
+        <AckPanel Title="@T["AttachmentModifiers.Warning.Title"]" Kind="unverified" Description="@T["AttachmentModifiers.Warning.Description"]"
+            PanelAttributes='@(new() { ["data-attachment-modifier-warning"] = true })'>
+            <p class="subtle" data-selection-blocked>@T.Format("AttachmentModifiers.Selection", catalog.Selection.Reason)</p>
+            <p class="subtle">@T.Markup("OptIn.WrittenWith.Html", "allow_shared=true, allow_unverified_effect=true")</p>
+        </AckPanel>
+        @if (editable.Length == 0) { <p class="subtle" data-no-editable-attachments>@T["AttachmentModifiers.NoneEditable"]</p> }
+        @foreach (var slot in slots)
+        {
+            var selected = slot.Options.FirstOrDefault(o => o.Attachment == Selected.GetValueOrDefault(slot.Slot)) ?? slot.Options[0];
+            <div class="attachment-slot" data-attachment-slot="@slot.Slot">
+                <h3 class="group-title">@SlotLabel(T, slot.Slot)</h3>
+                <div class="variant-picker" role="tablist" aria-label="@T.Format("AttachmentModifiers.Options.Aria", SlotLabel(T, slot.Slot))" data-attachment-options="@slot.Options.Length">
+                    @foreach (var o in slot.Options)
+                    {
+                        var a = catalog.Attachment(o.Attachment)!;
+                        var edited = a.FieldInstanceKeys.Any(k => Workspace.Project?.EntityChanges.Any(c => c.InstanceKey == k) == true);
+                        var active = o.Attachment == selected.Attachment;
+                        <button type="button" role="tab" aria-selected="@(active ? "true" : "false")" class="variant-chip @(active ? "active" : "") @(edited ? "modified" : "") @(a.FieldInstanceKeys.Length == 0 ? "no-fields" : "")"
+                            data-attachment-option="@o.Attachment" title="@(a.FieldInstanceKeys.Length == 0 ? T["AttachmentModifiers.NoModifiers"] : T.Plural("AttachmentModifiers.ModifierCount", a.FieldInstanceKeys.Length))"
+                            @onclick="() => Selected[slot.Slot] = o.Attachment">
+                            @o.Name@if (o.Default) { <span class="chip-flag" data-default-flag>@T["AttachmentModifiers.DefaultFlag"]</span> }@if (edited) { <span class="chip-dot" aria-label="@T["Magazine.Modified.Aria"]">●</span> }
+                        </button>
+                    }
+                </div>
+                <AttachmentModifierCard @key="selected.Attachment" Attachment="@selected.Attachment" Relationship="@selected.Relationship" Weapon="@Weapon" Changed="Changed" />
+            </div>
+        }
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public EventCallback Changed { get; set; }
+    // The option shown per slot (the native default, or the first option, until another is chosen).
+    private readonly Dictionary<string, string> Selected = new(StringComparer.Ordinal);
+    public static string SlotLabel(IUiText t, string slot) => slot switch
+    {
+        "muzzle" => t["AttachmentModifiers.Slot.Muzzle"],
+        "optics" => t["AttachmentModifiers.Slot.Optics"],
+        "underbarrel" => t["AttachmentModifiers.Slot.Underbarrel"],
+        _ => slot,
+    };
+}

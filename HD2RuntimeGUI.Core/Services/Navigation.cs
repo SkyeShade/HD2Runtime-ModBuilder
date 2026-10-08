@@ -26,6 +26,10 @@ public static class StratagemCategories
     public const string BoosterCssClass = "cat-booster";
     public const string ThrowableCssClass = "cat-throwable";
     public const string EnemyCssClass = "cat-enemy", StructureCssClass = "cat-structure";
+    // The Helldiver type (Player page, 1.7.0).
+    public const string HelldiverCssClass = "cat-helldiver";
+    // HD2Runtime 0.30.0 armor stats and passives (hd2.armor_stats / hd2.player_passives).
+    public const string ArmorCssClass = "cat-armor";
     // Every call-in root is listed, including vehicle and backpack call-ins (edited through their Support entry).
     // 0.25.0+: a catalog root Runtime proves has no call-in (no_call_in) is not a stratagem; its equipment is listed as standalone.
     public static bool Listed(StratagemDefinition s, EntityAuthoring? entities = null) => s.Delivers?.IsNoCallIn != true;
@@ -48,6 +52,9 @@ public sealed record NavItem(string Page, string Label, string Section, int? Cou
 public static class Navigation
 {
     public const string Workspace = "WORKSPACE", Research = "DEVELOPER / RESEARCH";
+    // 1.7.0: experimental custom content (new Runtime-owned objects), its own group so it is never mixed with edits of existing objects.
+    public const string Custom = "CUSTOM CONTENT";
+    public const string CustomCssClass = "cat-custom";
     public static IReadOnlyList<NavItem> Build(SdkMetadata? sdk, Models.ModProject? project, int? modifications = null)
     {
         var entities = sdk?.Entities;
@@ -72,6 +79,10 @@ public static class Navigation
             items.Add(new("support", CoreText.Get("Nav.SupportEquipment"), Workspace, support.Weapons.Count, StratagemCategories.Support.CssClass));
         // hd2.booster authoring appears only when the bound SDK publishes BoosterAuthoringCapabilities.json (0.24.0+).
         if (entities?.Boosters is { } boosters) items.Add(new("boosters", CoreText.Get("Nav.Boosters"), Workspace, boosters.Boosters.Length, StratagemCategories.BoosterCssClass));
+        // hd2.helldiver() (the Player page: speeds, stamina, damage taken, body zones) when the bound SDK publishes HelldiverFieldCapabilities.json.
+        if (entities?.Helldiver is { } helldiver) items.Add(new("helldiver", CoreText.Get("Nav.Helldiver"), Workspace, helldiver.FieldInstances.Length, StratagemCategories.HelldiverCssClass));
+        // Armor kits, classes, the damage curve and the local player's armor values and passives, when the SDK publishes ArmorStatsCapabilities.json.
+        if (entities?.Armor is { } armor) items.Add(new("armor", CoreText.Get("Nav.Armor"), Workspace, armor.Kits.Length, StratagemCategories.ArmorCssClass));
         // hd2.enemy / hd2.structure authoring appears when the bound SDK publishes EnemyAuthoringCapabilities.json (unreleased Runtime 0.28.0
         // development SDKs today). Structures are their own destination, as Runtime publishes them with their own accessor.
         if (entities?.Enemies is { } enemies)
@@ -88,6 +99,9 @@ public static class Navigation
         items.Add(new("scripting", CoreText.Get("Nav.CustomLua"), Workspace));
         items.Add(new("lua", CoreText.Get("Nav.LuaPreview"), Workspace));
         items.Add(new("export", CoreText.Get("Nav.BuildExport"), Workspace));
+        // Custom content: counts are the project's own custom objects (none without a project).
+        items.Add(new("custom-stratagems", CoreText.Get("Nav.CustomStratagems"), Custom, project?.CustomContent?.Stratagems.Count, CustomCssClass));
+        items.Add(new("custom-projectiles", CoreText.Get("Nav.CustomProjectiles"), Custom, project?.CustomContent?.Projectiles.Count, CustomCssClass));
         items.Add(new("research", CoreText.Get("Nav.SnapshotResearch"), Research, RequiresProject: false));
         return items;
     }

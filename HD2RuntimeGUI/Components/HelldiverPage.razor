@@ -1,0 +1,29 @@
+@inject BuilderWorkspace Workspace
+@* The Player page (hd2.helldiver(), 1.7.0): what these type-wide fields do and do not reach, then the editor. Runtime's opt-ins are implicit and
+   shown only as warnings; the generated Lua always carries allow_shared and allow_unverified_effect. *@
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Entities?.Helldiver; }
+<div class="page-heading cat-helldiver"><div><div class="eyebrow">@T.Format("EntityPanel.GuardedEyebrow", sdk?.Version)</div><h1>@T["Helldiver.Page.Title"]</h1><p>@T.Markup("Helldiver.Page.Help.Html")</p></div></div>
+@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">@T.Format("EntityPanel.BuildReview", issue)</div> }
+@if (catalog == null) { <section class="panel" data-helldiver-unavailable><h2>@T["Helldiver.Unavailable.Title"]</h2><p>@T.Format("Helldiver.Unavailable.Help", sdk?.Version)</p></section> }
+else
+{
+    <section class="panel helldiver-warnings" data-helldiver-warnings>
+        <div class="helldiver-opt-ins"><OptInWarnings Acknowledgements="@catalog.Fields.SelectMany(f => f.Acknowledgements).Distinct().ToArray()" Reasons="@Reasons" /></div>
+        <ul class="helldiver-facts">
+            <li data-helldiver-fact="mission">@T["Helldiver.Fact.MissionOnly"]</li>
+            <li data-helldiver-fact="spawn">@T["Helldiver.Fact.NextSpawn"]</li>
+            <li data-helldiver-fact="speed-cap">@T.Format("Helldiver.Fact.SpeedCap", catalog.SpeedCapMetersPerSecond.ToString(System.Globalization.CultureInfo.InvariantCulture))</li>
+        </ul>
+    </section>
+    <HelldiverEditor Changed="Refresh" />
+    @if (Workspace.Project?.EntityChanges.Any(c => c.Resource == HelldiverAuthoringReader.Resource) == true)
+    { <button class="reset-action" data-helldiver-reset @onclick="() => Run(() => Workspace.ResetEntityAsync(HelldiverAuthoringReader.Resource))">@T["Helldiver.Reset"]</button> }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private IReadOnlyDictionary<string, string> Reasons => new Dictionary<string, string> { ["allow_shared"] = T["Helldiver.OptIn.Shared"], ["allow_unverified_effect"] = T["Helldiver.OptIn.Unverified"] };
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

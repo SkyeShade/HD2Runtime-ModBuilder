@@ -1,17 +1,23 @@
 @inject HD2RuntimeGUI.Core.GameAssets.GameIconStore Icons
 @implements IDisposable
-@* Small game icon imported locally from the installed game (Settings → Game icons). Falls back to a neutral category glyph
-   when no icon is imported or no published identity names one. Refreshes when icons are imported or removed. *@
-@{ var key = Booster != null ? Icons.BoosterIcon(Booster) : Key; var uri = Icons.DataUri(Kind, key); }
-<span class="game-icon @Size @CssClass @(uri == null ? "fallback" : "")" data-game-icon="@(uri == null ? "fallback" : key)" data-icon-state="@State" title="@(uri == null ? FallbackTitle : Label)" aria-hidden="true">
+@* Small game icon imported locally from the installed game (Settings → Game icons): the item's HUD sprite (PNG) when HD2Runtime's
+   HudIconSprites.json names one, else its vector loadout icon (SVG). Falls back to a neutral category glyph when no icon is imported
+   or no published identity names one. Refreshes when icons are imported or removed. *@
+@{
+    var key = Booster != null ? Icons.BoosterIcon(Booster) : Stratagem != null ? GameIconStore.StratagemIconKey(Stratagem) : Key;
+    var name = Booster?.Name ?? Stratagem?.Name; var sprite = Icons.SpriteUri(Kind, name); var uri = sprite ?? Icons.DataUri(Kind, key);
+}
+<span class="game-icon @Size @CssClass @(uri == null ? "fallback" : "")" data-game-icon="@(uri == null ? "fallback" : key ?? name)" data-icon-source="@(sprite != null ? "hud" : uri != null ? "vector" : null)" data-icon-state="@State" title="@(uri == null ? FallbackTitle : Label)" aria-hidden="true">
     @if (uri != null) { <img src="@uri" alt="" draggable="false" /> }
     else { <span>@Initials</span> }
 </span>
 @code {
     [Parameter, EditorRequired] public string Kind { get; set; } = "";
     [Parameter] public string? Key { get; set; }
-    // Boosters resolve their key at render time from the imported manifest, so an icon appears as soon as icons are imported.
+    // Boosters and stratagems resolve their icon at render time from the imported manifest (HUD sprite by published name, then the
+    // vector icon key), so an icon appears as soon as icons are imported.
     [Parameter] public Booster? Booster { get; set; }
+    [Parameter] public StratagemDefinition? Stratagem { get; set; }
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public string? CssClass { get; set; }
     [Parameter] public string Size { get; set; } = "sm";
@@ -19,7 +25,10 @@
     [Parameter] public string? State { get; set; }
     [Parameter] public string? Reason { get; set; }
     private string Initials => string.Concat(Label.Split([' ', '-', '/'], StringSplitOptions.RemoveEmptyEntries).Where(w => char.IsLetter(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
-    private string FallbackTitle => Reason != null ? Label + " · " + Reason : Booster == null && Key == null || Booster != null && Booster.Identity.UiIcon == null ? T["Icons.Fallback.NoIdentity"] : T["Icons.Fallback.NotImported"];
+    // An identity is published when the HUD sprite list names the item or Runtime publishes its vector icon key.
+    private bool HasIdentity => (Booster?.Name ?? Stratagem?.Name) is { } n && HudIconSprites.Bundled.Value.Of(Kind).ContainsKey(n)
+        || (Booster != null ? Booster.Identity.UiIcon != null : Stratagem != null ? GameIconStore.StratagemIconKey(Stratagem) != null : Key != null);
+    private string FallbackTitle => Reason != null ? Label + " · " + Reason : HasIdentity ? T["Icons.Fallback.NotImported"] : T["Icons.Fallback.NoIdentity"];
     protected override void OnInitialized() => Icons.Changed += Refresh;
     private void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Icons.Changed -= Refresh;

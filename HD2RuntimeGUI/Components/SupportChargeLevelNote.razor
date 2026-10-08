@@ -1,0 +1,18 @@
+@* HD2Runtime 0.30.0 (docs/support-weapon-api.md "Charge-level shots and explosions"): which charge level fires an attack row, when it is
+   read, who else uses it and whether it hurts the wielder. One branch can hold several rows (an explosion and its damage row), so each
+   distinct description is listed once. Runtime's descriptions are shown as published; the labels are ModBuilder's. *@
+@{ var first = Levels[0]; }
+<div class="charge-level" data-charge-level="@first.Level">
+    <p><span class="badge" data-charge-level-badge>@ChargeText.Level(T, first.Level)</span>@if (first.Shot != null) { <span> @first.Shot</span> }</p>
+    <dl class="charge-level-facts">
+        @foreach (var x in Distinct(l => l.FiredWhen)) { <dt>@T["Charge.LevelNote.FiredWhen"]</dt><dd>@x</dd> }
+        @foreach (var x in Distinct(l => l.ReadTiming)) { <dt>@T["Charge.LevelNote.ReadTiming"]</dt><dd>@x</dd> }
+        @foreach (var x in Distinct(l => l.SharedWith)) { <dt>@T["Charge.LevelNote.SharedWith"]</dt><dd data-charge-shared-with>@x</dd> }
+        @foreach (var x in Distinct(l => l.Multiplayer)) { <dt>@T["Charge.LevelNote.Multiplayer"]</dt><dd>@x</dd> }
+    </dl>
+    @foreach (var x in Distinct(l => l.SelfDamage is { ValueKind: System.Text.Json.JsonValueKind.String } d ? d.GetString() : null)) { <p class="notice warning" data-charge-self-damage>@x</p> }
+</div>
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SupportChargeLevel> Levels { get; set; } = [];
+    private IEnumerable<string> Distinct(Func<SupportChargeLevel, string?> part) => Levels.Select(part).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct()!;
+}

@@ -15,6 +15,16 @@
     <EmbeddedResource Include="Metadata/Bundled/*.json" />
     <!-- The SDK LuaLS stub (stubs/mods/skyeshade/hd2runtime.lua), kept under its flat cache name. -->
     <EmbeddedResource Include="Metadata/Bundled/hd2runtime-stubs.lua" />
+    <!-- Custom content targets: the HD2Runtime custom stratagem schema each target adapter was written against (CustomContent/Targets). -->
+    <EmbeddedResource Include="CustomContent/Targets/*.json" />
+    <!-- The LuaLS stub of that Runtime: completion for custom stratagem callbacks (ctx, hd2.pelican, hd2.custom_stratagem). -->
+    <EmbeddedResource Include="CustomContent/Targets/*.lua" />
+    <!-- Custom stratagem templates: ModBuilder's simple examples and two of HD2Runtime's own (sdk/fixtures/custom_stratagems, byte for byte). -->
+    <EmbeddedResource Include="CustomContent/Templates/*.json" />
+    <!-- HD2Runtime 0.30's weapon sound catalogue (sdk/WeaponSoundCatalogue.json, byte for byte): the Custom Lua sound picker (Scripting/WeaponSounds). -->
+    <EmbeddedResource Include="Scripting/Bundled/*.json" />
+    <!-- HD2Runtime's HUD icon sprite names (sdk/HudIconSprites.json, byte for byte): the game icons read from the installed game's texture atlases. -->
+    <EmbeddedResource Include="GameAssets/Bundled/*.json" />
     <!-- Release package / updater contract, shared with the standalone updater. -->
     <Compile Include="../HD2RuntimeModBuilder.Updater/UpdateContract.cs" Link="Updates/UpdateContract.cs" />
   </ItemGroup>

@@ -1,0 +1,86 @@
+@inject BuilderWorkspace Workspace
+@* HD2Runtime 0.30.0 weapon charge (docs/support-weapon-api.md "Charge"): a charge weapon's charge.* fields grouped by charge stage, each
+   with Runtime's meaning, range and notices next to the value. The charge-time order (minimum < full < overcharge) and the deprecated ids
+   are noted inline, never blocking: Runtime applies such writes and logs CHARGE ORDER / DEPRECATED / DORMANT once. A deprecated id's
+   saved edit is offered a move to the field that names what it writes. The review view (ModifiedOnly) lists the edited fields only. *@
+@{ var catalog = Workspace.Metadata?.SupportAuthoring;
+   var all = catalog == null ? [] : ChargeFields.Of(catalog, Weapon);
+   var fields = all.Where(f => !ModifiedOnly || Saved(f) != null).ToArray();
+   var times = Workspace.SupportChargeTimes(Weapon); var family = all.Select(f => f.Charge?.Family).FirstOrDefault(x => x != null);
+   var published = all.Any(f => f.Charge != null); }
+@if (fields.Length > 0)
+{
+    <div class="charge-panel" data-charge-panel="@Weapon">
+        <h4 class="charge-title">@T["Stratagem.Group.Charge"]@if (family != null) { <span class="badge" data-charge-family="@family">@ChargeText.Family(T, family)</span> }</h4>
+        @if (!ModifiedOnly)
+        {
+            <p class="subtle">@T["Charge.Intro"]</p>
+            @if (all.Select(f => f.Charge?.Effect).FirstOrDefault(e => e is { ValueKind: System.Text.Json.JsonValueKind.Object }) is { } effect
+                && effect.TryGetProperty("lifecycle", out var lifecycle) && lifecycle.ValueKind == System.Text.Json.JsonValueKind.String)
+            { <p class="subtle" data-charge-lifecycle>@lifecycle.GetString()</p> }
+            @if (!published) { <p class="notice" data-charge-older-sdk>@T.Format("Charge.OlderSdk", Workspace.Metadata?.Version)</p> }
+        }
+        @foreach (var stage in fields.GroupBy(f => ChargeFields.StageOf(f.SemanticFieldId)).OrderBy(g => g.Key))
+        {
+            var deprecated = stage.Key == ChargeFields.Stage.Deprecated;
+            <details class="charge-stage" data-charge-stage="@stage.Key" open="@(!deprecated || ModifiedOnly || stage.Any(f => Saved(f) != null))">
+                <summary><strong>@ChargeText.Stage(T, stage.Key)</strong>@if (ChargeText.StageHint(T, stage.Key) is { } hint) { <small class="subtle"> · @hint</small> }</summary>
+                <div class="stat-grid">
+                    @foreach (var f in stage)
+                    { <SupportFieldEditor @key="f.InstanceKey" Field="f" Label="@ChargeText.Label(T, f)" Unit="@ChargeText.Unit(T, f)" Changed="Refresh" Notes="@NotesFor(f, times)" /> }
+                </div>
+            </details>
+        }
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </div>
+}
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private SupportChange? Saved(SupportField f) => Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == f.InstanceKey);
+    private SupportField? Find(string id) => Workspace.Metadata?.SupportAuthoring?.FieldInstances.FirstOrDefault(f => f.SupportWeapon == Weapon && f.SemanticFieldId == id && f.Target.Path == "weapon");
+    private static string N(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    private async Task Move(string from, string to)
+    {
+        try { await Workspace.MoveSupportChangeAsync(from, to); Error = null; await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+    }
+    private async Task Remove(string instance)
+    {
+        try { await Workspace.ResetSupportAsync(instance: instance); Error = null; await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+    }
+    // The inline notes of one charge row: Runtime's meaning and range, the charge-time order, the relabelled and deprecated ids, the hazards.
+    private RenderFragment NotesFor(SupportField f, ChargeTimes? times) => __builder =>
+    {
+        var saved = Saved(f);
+        <div class="charge-notes" data-charge-notes="@f.SemanticFieldId">
+            @if (f.Charge?.Meaning is { Length: > 0 } meaning) { <p class="subtle" data-charge-meaning>@meaning</p> }
+            @if (f.Charge is { Min: { } min, Max: { } max } range) { <p class="subtle" data-charge-range title="@range.RangeReason">@T.Format("Charge.Range", N(min), N(max))</p> }
+            @if (f.SemanticFieldId == ChargeFields.FullTime && times is { FullNotAboveMinimum: true })
+            { <p class="notice warning" data-charge-order="full">@T.Format("Charge.Order.Full", N(times.Full), N(times.Minimum))</p> }
+            @if (f.SemanticFieldId == ChargeFields.OverchargeTime && times is { OverchargeNotAboveFull: true })
+            { <p class="notice warning" data-charge-order="overcharge">@T.Format("Charge.Order.Overcharge", N(times.Overcharge), N(times.Full))</p> }
+            @if (ChargeFields.IsTime(f.SemanticFieldId) && saved != null && ChargeFields.SavedBefore030(saved))
+            { <p class="notice" data-charge-relabelled>@T.Format("Charge.Relabelled", saved.BaselineSdkVersion)</p> }
+            @if (ChargeFields.Hazard(f)) { <p class="@(saved != null ? "notice warning" : "subtle")" data-charge-hazard>@T["Charge.Hazard"]</p> }
+            @foreach (var notice in f.Charge?.Notices ?? [])
+            { <p class="notice" data-charge-notice="@notice.Kind"><strong>@(notice.Kind == "dormant" ? T["Charge.Badge.Dormant"] : notice.Kind == "deprecated" ? T["Charge.Badge.Deprecated"] : notice.Kind)</strong> @notice.Text</p> }
+            @if (ChargeFields.Deprecated(f) && f.Charge?.Notices is not { Length: > 0 }) { <p class="notice" data-charge-notice="legacy">@T["Charge.Legacy.OlderSdk"]</p> }
+            @if (ChargeFields.Deprecated(f) && saved != null)
+            {
+                var canonical = f.Charge?.AliasOf is { } alias ? Find(alias) : null;
+                var time = Find(f.SemanticFieldId == ChargeFields.LegacyMinimum ? ChargeFields.MinimumTime : ChargeFields.OverchargeTime);
+                <div class="charge-fix" data-charge-fix>
+                    <p>@(canonical != null ? T.Format("Charge.Legacy.Fix", ChargeText.Label(T, canonical)) : ChargeFields.Dormant(f) ? T["Charge.Legacy.FixDormant"] : T["Charge.Legacy.FixTime"])</p>
+                    @if (canonical is { Writable: true }) { <button class="primary" @onclick="() => Move(f.InstanceKey, canonical.InstanceKey)" data-charge-move="canonical">@T.Format("Charge.Legacy.MoveTo", ChargeText.Label(T, canonical))</button> }
+                    @if (time is { Writable: true }) { <button @onclick="() => Move(f.InstanceKey, time.InstanceKey)" data-charge-move="time">@T.Format("Charge.Legacy.UseAs", ChargeText.Label(T, time))</button> }
+                    @if (canonical == null && ChargeFields.Dormant(f)) { <button @onclick="() => Remove(f.InstanceKey)" data-charge-remove>@T["Charge.Legacy.Remove"]</button> }
+                </div>
+            }
+        </div>
+    };
+}

@@ -37,7 +37,7 @@ try {
         ['overview', 'player-weapons', 'stratagems', 'stratagems:support', 'stratagems:offensive', 'stratagems:defensive', 'boosters', 'changes', 'lua', 'export']);
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-nav="boosters"] .cat-dot')).backgroundColor`), 'rgb(242, 201, 76)');
     await evaluate(`[...document.querySelectorAll('.nav-item')].find(b => b.innerText.includes('Settings')).click()`); await sleep(500);
-    assert((await evaluate("document.querySelector('[data-icon-status]').innerText")).includes('18 of 20 boosters'));
+    assert((await evaluate("document.querySelector('[data-icon-status]').innerText")).includes('20 of 20 boosters'));
     await shot('[data-game-icons]', 'ia-settings-icons');
 
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
@@ -84,12 +84,12 @@ try {
     const sentry = await evaluate(`[...document.querySelectorAll('[data-stratagem][data-family="sentry"]')].map(b => b.dataset.stratagem)[0]`);
     await stratagem('defensive', sentry); assert.equal(await count('[data-section="delivered"] [data-entity-stats]'), 1); await screenshot('ia-defensive-sentry');
 
-    // Boosters: real game icons where the published identity names one, glyphs otherwise.
+    // Boosters: the game's HUD sprite for every booster (HudIconSprites.json names all 20), the vector icon key kept where one is published.
     await go('boosters');
-    assert.equal(await count('[data-booster-item] .game-icon img'), 18); assert.equal(await count('[data-booster-item] .game-icon.fallback'), 2);
+    assert.equal(await count('[data-booster-item] .game-icon img'), 20); assert.equal(await count('[data-booster-item] .game-icon.fallback'), 0);
     await click('[data-booster-item="Armed Resupply Pods"]'); await waitFor(`document.querySelector('[data-booster="Armed Resupply Pods"] .object-header [data-game-icon="BoosterArmedpods"] img')`, 'booster header icon');
     await screenshot('ia-boosters');
-    await click('[data-booster-item="Integrated Extinguishers"]'); await waitFor(`document.querySelector('[data-booster="Integrated Extinguishers"] [data-game-icon="fallback"]')`, 'booster fallback');
+    await click('[data-booster-item="Integrated Extinguishers"]'); await waitFor(`document.querySelector('[data-booster="Integrated Extinguishers"] [data-icon-source="hud"] img')`, 'booster HUD sprite without a vector identity');
 
     // Changes / Lua / export unaffected.
     await go('lua'); const lua = await evaluate('document.querySelector("pre").innerText');

@@ -235,9 +235,9 @@ public sealed class PackagedFilesTests
         Assert.Throws<InvalidDataException>(() => ProjectIdentity.Validate(p));
         p.PackagedFiles = [.. Enumerable.Range(0, PackagedFiles.MaxFiles + 1).Select(i => new PackagedFile { Source = $"C:\\{i}.png", Destination = $"{i}.png" })];
         Assert.Throws<InvalidDataException>(() => ProjectIdentity.Validate(p));
-        // Format 13 (1.6.0, option-only edits) is the newest this version reads.
-        p.FormatVersion = 13; p.PackagedFiles = null; ProjectIdentity.Validate(p);
-        p.FormatVersion = 14;
+        // Format 14 (1.7.0, custom content) is the newest this version reads.
+        p.FormatVersion = 14; p.PackagedFiles = null; ProjectIdentity.Validate(p);
+        p.FormatVersion = 15;
         Assert.Throws<InvalidDataException>(() => ProjectIdentity.Validate(p));
     }
 

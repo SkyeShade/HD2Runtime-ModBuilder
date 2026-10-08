@@ -4,11 +4,12 @@
 @* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
 @{ var saved = Saved; var edited = saved != null && !Workspace.OptionOnly(saved); }
 <div class="field-row @(edited ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-entity-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
-    <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
+    <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (UnitText.Length > 0) { <small class="field-unit">@UnitText</small> }
         <span class="field-flags"><EvidenceBadge Evidence="Field.Evidence" Tiers="Tiers" Compact="true" />
             @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
             @if (Field.Effect is { ActiveSource: FieldEffect.Dormant }) { <span class="badge amber" data-field-dormant title="@Field.Reason">@T["EntityField.NotActive"]</span> }
-            else if (Field.Effect is { ActiveSourceProven: false }) { <span class="badge amber" data-field-effect-unproven title="@T["EntityField.EffectUnproven.Tooltip"]">@T["EntityField.EffectUnproven"]</span> }</span></div>
+            else if (Field.Effect is { ActiveSourceProven: false }) { <span class="badge amber" data-field-effect-unproven title="@T["EntityField.EffectUnproven.Tooltip"]">@T["EntityField.EffectUnproven"]</span> }
+            @if (Dormant.Length > 0) { <span class="badge amber" data-field-notice-badge="dormant" title="@string.Join(" ", Dormant.Select(n => n.Text))">@T["EntityField.NotActive"]</span> }</span></div>
     <div class="field-value">
         @if (!Field.Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
         else if (Field.IsStatusReference)
@@ -20,7 +21,24 @@
                 @foreach (var key in choices.Statuses) { <option value="@key" selected="@(Value == key)">@StatusLabel(key)@(key == Field.CurrentDefault.GetString() ? " " + T["EntityField.Status.CurrentSuffix"] : "")</option> }
             </select>
         }
-        else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.EffectiveRange?.Min)" max="@Bound(Field.EffectiveRange?.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
+        else if (Field.IsEnum)
+        {
+            @* 1.7.0 published enum (Helldiver zone damage multipliers): one of the published names, written as the name. *@
+            <select data-allowed-values data-enum-select disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Commit(e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)">
+                @foreach (var name in Field.AllowedValues!) { <option value="@name" selected="@(Value == name)">@(EnumLabel?.Invoke(name) ?? name)@(name == Field.CurrentDefault.GetString() ? " " + T["EntityField.Status.CurrentSuffix"] : "")</option> }
+            </select>
+        }
+        else if (Field.EffectiveRange?.Disabled is double off)
+        {
+            @* 0.30.0: a field with a disabled value (the enemy gib threshold, -1) gets an explicit switch instead of a typed sentinel; the
+               number box takes the enabled values (0 < value <= max). *@
+            var isOff = !Enabling && IsValue(Value, off);
+            <div class="sentinel-field" data-field-disabled="@(isOff ? "true" : "false")">
+                @if (!isOff) { <input type="number" step="any" min="0" max="@Bound(Field.EffectiveRange.Max)" value="@(IsValue(Value, off) ? "" : Value)" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Commit(e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
+                <label class="sentinel-toggle" title="@T.Format("EntityField.Disabled.Tooltip", Bound(off) ?? "")"><input type="checkbox" data-field-disabled-toggle checked="@isOff" disabled="@(Workspace.Project == null)" @onchange="e => ToggleDisabled((bool)e.Value!, off)" /> @DisabledLabel</label>
+            </div>
+        }
+        else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.EffectiveRange?.Min)" max="@Bound(Field.EffectiveRange?.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Commit(e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
     @if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("EntityField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
     else { <div class="field-baseline subtle" data-baseline="@Format(Field.CurrentDefault)">@T.Format("EntityField.Base", Format(Field.CurrentDefault))</div> }
@@ -45,12 +63,17 @@
             @* 0.28.0 native_correlated evidence: the native value next to the published one it was matched against. *@
             @if (Field.Correlations is { Length: > 0 } correlations)
             { <p data-field-correlations>@T.Format("EntityField.Correlations", string.Join("; ", correlations.Select(c => T.Format("EntityField.Correlation", c.Entity ?? Field.Target.Entity, c.Native.GetRawText(), c.Published.GetRawText()))))</p> }
+            @* 0.30.0: when a write applies (mounted turret fields publish it on the field, not in an effect block) and Runtime's other notes. *@
+            @if (Field.Effect?.Lifecycle == null && Field.Lifecycle != null) { <p data-field-lifecycle>@Field.Lifecycle</p> }
+            @foreach (var n in (Field.Notices ?? []).Where(n => n.Kind != EntityNotice.Dormant && n.Text != (Field.Effect?.Lifecycle ?? Field.Lifecycle))) { <p data-field-notice="@n.Kind">@n.Text</p> }
             @if (Field.Acknowledgement == "allow_unverified_effect" && Field.AcknowledgementReason != null) { <p data-field-unverified-reason>@T.Format("EntityField.UnverifiedReason", Field.AcknowledgementReason)</p> }
             <p>@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? T.Markup("EntityField.EvidenceTier.Html", EvidenceBadge.Label(Field.Evidence.Tier), tier) : T.Markup("EntityField.Evidence.Html", EvidenceBadge.Label(Field.Evidence.Tier)))</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
     @* A dormant member (0.28.0 development SDKs): the game reads another field, so point at the one that takes effect. *@
     @if (Field.Effect is { ActiveSource: FieldEffect.Dormant } dormant && dormant.ActiveField != null)
     { <p class="field-wide subtle" data-field-active-instead>@T.Markup("EntityField.ActiveInstead.Html", dormant.ActiveField)</p> }
+    @* 0.30.0 notices of kind "dormant" (the LIFT-860 Hover Pack's launch thrust): the write is kept, but this entity never reads it. Informational only. *@
+    @foreach (var n in Dormant) { <p class="field-wide field-notice-dormant" data-field-notice="dormant">@T.Format("EntityField.Notice.Dormant", n.Text)</p> }
     @if (saved != null && Workspace.EntityIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>
@@ -64,15 +87,34 @@
     [Parameter] public string? Label { get; set; }
     [Parameter] public IReadOnlyDictionary<string, string>? Tiers { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
+    // The unit shown instead of the published one (0.30.0 relabels jump.vertical_launch_velocity to a thrust in m/s² for every SDK).
+    [Parameter] public string? UnitOverride { get; set; }
+    // Takes a typed number instead of saving it directly (0.30.0 ordered turret limits ask inline before an edit crosses its pair).
+    [Parameter] public Func<string, Task>? Edit { get; set; }
+    // How an enum value reads in the list (a published name, optionally with what it stands for); the name itself when not set.
+    [Parameter] public Func<string, string>? EnumLabel { get; set; }
     private string? Error;
+    // Re-enabling a field whose vanilla value is its disabled value (the Hive Guard's gib threshold): the number box is shown, nothing is saved yet.
+    private bool Enabling;
+    private EntityNotice[] Dormant => Field.Notices?.Where(n => n.Kind == EntityNotice.Dormant).ToArray() ?? [];
+    private string DisabledLabel => Field.SemanticFieldId == "gore.whole_body_gib_damage" ? T["EntityField.Disabled.Gib"] : T["EntityField.Disabled"];
+    private async Task Commit(string value) { await (Edit != null ? Edit(value) : Workspace.SetEntityAsync(Field.InstanceKey, value)); Enabling = false; }
+    private static bool IsValue(string text, double value) => double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v == value;
+    // On: write the disabled value. Off: back to the vanilla value, or (when vanilla is the disabled value) show the box for a new threshold.
+    private async Task ToggleDisabled(bool on, double off)
+    {
+        if (on) { Enabling = false; await Run(() => Workspace.SetEntityAsync(Field.InstanceKey, Bound(off)!)); return; }
+        if (IsValue(Text(Field.CurrentDefault), off)) { Enabling = true; return; }
+        await Run(() => Workspace.SetEntityAsync(Field.InstanceKey, Text(Field.CurrentDefault)));
+    }
     private EntityChange? Saved => EntityChangeService.Saved(Workspace.Project, Field);
     private SdkMetadata? Sdk => Workspace.Metadata ?? Workspace.SdkStatus?.Installed;
-    private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
+    private string UnitText => (UnitOverride ?? Field.Unit)?.Replace('_', ' ') ?? "";
     private string Value => Text(Saved?.DesiredValue ?? Field.CurrentDefault);
     private static string? Bound(double? v) => v is double d && double.IsFinite(d) ? d.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
     private string Text(System.Text.Json.JsonElement v) { try { return EntityScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
     // Shown values: a status key reads as its published status name ("none" as ModBuilder's "None").
-    private string Format(System.Text.Json.JsonElement v) => Field.IsStatusReference ? StatusLabel(Text(v)) : Text(v);
+    private string Format(System.Text.Json.JsonElement v) => Field.IsStatusReference ? StatusLabel(Text(v)) : Field.IsEnum && EnumLabel != null ? EnumLabel(Text(v)) : Text(v);
     private string StatusLabel(string key) => key == StatusReference.None ? T["EntityField.Status.None"] : Sdk?.StatusEffects?.Label(key) ?? key;
     // "Takes effect: <source> (proven) · <when>". The active source and the when-token are Runtime's, shown as published; the words around them are ModBuilder's.
     private MarkupString Effect(FieldEffect e)

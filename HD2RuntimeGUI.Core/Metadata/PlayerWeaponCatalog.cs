@@ -24,7 +24,9 @@ public sealed record SemanticFieldDefinition(string Id,
     [property: JsonPropertyName("semantic_target")] string? SemanticTarget = null);
 public sealed record SemanticAliasRule(string Alias, string Canonical,
     [property: JsonPropertyName("requires_identical_backing")] bool RequiresIdenticalBacking,
-    bool Deprecated, int InstanceCount, int WriteAcceptedInstanceCount);
+    bool Deprecated, int InstanceCount, int WriteAcceptedInstanceCount,
+    // 0.30.0: why the alias exists (published on the two aliases 0.30 adds).
+    string? Reason = null);
 public sealed record DistinctSemanticExample(IReadOnlyList<string> Fields, string Reason);
 public sealed record BackingCollisionAudit(int FieldInstancesAudited, int ExactBackingCollisionGroups, int AliasPairInstances,
     int DistinctSemanticPairInstances, int UnclassifiedCollisionPairs, DistinctSemanticExample DistinctSemanticExample);
@@ -83,10 +85,15 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     string? OperationGroup = null, string? Input = null, Dictionary<string, int>? FunctionValues = null, string? FunctionAmmoState = null, bool? HostRounds = null,
     IReadOnlyList<long>? NativeTags = null, Dictionary<string, long>? TraitValues = null, int? MaxTraits = null, JsonElement? Labels = null,
     Dictionary<string, long>? PenetrationValues = null, int? PenetrationSlot = null, string? ArmorPenetrationState = null,
-    IReadOnlyList<string>? LiveProvenValues = null, JsonElement? HeatLevel = null, string? StatusScope = null, IReadOnlyList<string>? AllowedNames = null)
+    IReadOnlyList<string>? LiveProvenValues = null, JsonElement? HeatLevel = null, string? StatusScope = null, IReadOnlyList<string>? AllowedNames = null,
+    // 0.30.0 development (b3f42ec) weapon.sound: the native shot/loop event block, its MIDI byte and companion members, and the catalogue a
+    // value comes from. Read; the value type is authored only once the firing sound editor exists (AuthoredTypes).
+    JsonElement? NativeSound = null, int? MidiOffset = null, JsonElement? CompanionMembers = null, JsonElement? Sound = null)
 {
     public const string FireRateSet = "fire_rate_set", WeaponFunction = "weapon_function", FunctionProjectileReference = "function_projectile_reference",
-        TraitSet = "trait_set", ArmorPenetrationLabel = "armor_penetration_label";
+        TraitSet = "trait_set", ArmorPenetrationLabel = "armor_penetration_label",
+        // 0.30.0 development (b3f42ec): a weapon's own firing sound, a catalogue sound name (WeaponSoundCatalogue.json).
+        WeaponSound = "weapon_sound";
     // Value types a write carries as a list (the rest are scalars or typed references).
     [JsonIgnore] public bool IsListValue => Type is FireModeSet or FireRateSet or TraitSet;
     public const string FireModeSet = "fire_mode_set";
@@ -230,12 +237,15 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
     {
         [WeaponCapability.FireModeSet] = (WeaponCapability.FireModeSet, 16), [WeaponCapability.FireRateSet] = (WeaponCapability.FireRateSet, 12),
         [WeaponCapability.TraitSet] = (WeaponCapability.TraitSet, 20), [WeaponCapability.ArmorPenetrationLabel] = (WeaponCapability.ArmorPenetrationLabel, 20),
+        // The per-shot event, the loop's start and stop events and the MIDI byte: one guarded value.
+        [WeaponCapability.WeaponSound] = (WeaponCapability.WeaponSound, 12),
     };
     private static void ValidateField(PlayerWeaponCatalog c, WeaponCapability f, bool blocked)
     {
         if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName)
             || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference" or "explosion_reference" or WeaponCapability.FireModeSet or WeaponCapability.StatusReference
-                or WeaponCapability.FireRateSet or WeaponCapability.WeaponFunction or WeaponCapability.FunctionProjectileReference or WeaponCapability.TraitSet or WeaponCapability.ArmorPenetrationLabel))
+                or WeaponCapability.FireRateSet or WeaponCapability.WeaponFunction or WeaponCapability.FunctionProjectileReference or WeaponCapability.TraitSet or WeaponCapability.ArmorPenetrationLabel
+                or WeaponCapability.WeaponSound))
             throw new InvalidDataException("Invalid semantic field.");
         if (f.Type == WeaponCapability.StatusReference && (f.CurrentDefault.ValueKind != JsonValueKind.String || f.AllowedReferences is not { Count: > 0 } || f.StatusSlot is not (null or (>= 1 and <= 4))))
             throw new InvalidDataException("Invalid status reference.");

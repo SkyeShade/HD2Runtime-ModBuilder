@@ -45,8 +45,8 @@ public sealed record AmmoModes(string Kind, string Weapon, SelectorProjectile So
     // Restore: a native alternate this project replaced.
     public bool CanRestoreNative => Writable && Source.Baseline == FunctionProjectile.Native && Source.Current != FunctionProjectile.Native;
     // The opt-ins choosing a donor writes (warnings only): the field's allow_unverified_effect and allow_unverified_reference, except for a
-    // pair a live test proved on this weapon.
-    public IReadOnlyList<string> DonorOptIns(FunctionDonor donor) => donor.LiveProven ? []
+    // pair a live test proved on this weapon. A 0.30.0 projectile donor always carries both (CompositionOptIns.Donor).
+    public IReadOnlyList<string> DonorOptIns(FunctionDonor donor) => donor.Output.IsDonor ? [CompositionOptIns.Effect, CompositionOptIns.Reference] : donor.LiveProven ? []
         : [.. new[] { Source.AcknowledgementReason != null ? CompositionOptIns.Effect : null, CompositionOptIns.Reference }.OfType<string>()];
 }
 

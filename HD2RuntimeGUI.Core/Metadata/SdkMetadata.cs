@@ -91,7 +91,9 @@ public sealed class MetadataReader : IMetadataReader
             if (root["schema_version"]!.GetValue<int>() != 1) throw new UnsupportedSdkException("Unsupported SDK metadata schema; this builder supports schema 1.");
             if (root["api_version"]!.GetValue<int>() != 1) throw new UnsupportedSdkException("Unsupported runtime API; this builder supports API 1.");
             var version = Text(root, "runtime_version");
-            if (SemVersion.Parse(version).ToString() != version || SemVersion.Parse(version).Prerelease != null) throw new InvalidDataException("SDK must use a stable canonical version.");
+            // A SemVer prerelease (0.30.0-dev) is a development SDK, local or cached by an earlier build: it is never downloaded (GitHubReleaseClient
+            // skips prereleases).
+            if (SemVersion.Parse(version).ToString() != version) throw new InvalidDataException("SDK must use a canonical version.");
             var types = new Dictionary<string, SdkType>();
             foreach (var (key, node) in Object(root, "types"))
             {

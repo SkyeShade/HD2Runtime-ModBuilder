@@ -38,19 +38,62 @@ public partial class Home : IDisposable
     private string OverviewName = "", OverviewAuthor = "", OverviewVersion = "", OverviewDescription = "";
     private string? EditingWeapon;
     private string StratagemCategory = "";
+    // The custom stratagem / custom projectile open in its editor (null: the card list).
+    private string? CustomStratagemSelection, CustomProjectileSelection;
+    private void OpenCustomStratagem(string id) { CustomStratagemSelection = id; Navigate("custom-stratagems"); }
+    private bool CustomStratagemCreate;
+    private void NewCustomStratagem() { CustomStratagemSelection = null; CustomStratagemCreate = true; Navigate("custom-stratagems"); }
+    private void OpenCustomProjectile(string id) { CustomProjectileSelection = id; Navigate("custom-projectiles"); }
+    // Where the open custom projectile was reached from: a weapon attack's projectile selector on the Player Weapons or Projectile Builder
+    // page. Its editor offers to go back there, and a draft created there returns there when it is completed or cancelled.
+    [Inject] private HD2RuntimeGUI.Services.BuilderNavigator Navigator { get; set; } = default!;
+    private (string Id, HD2RuntimeGUI.Core.CustomContent.CustomProjectileHost Host, string Page)? CustomProjectileReturn;
+    private HD2RuntimeGUI.Core.CustomContent.CustomProjectileHost? CustomReturnHost => CustomProjectileReturn is { } r && r.Id == CustomProjectileSelection ? r.Host : null;
+    // The attack (Player Weapons) or host (Projectile Builder) to show when returning to a projectile selector.
+    private string? EditingAttack, ProjectileHostSelection;
+    private void CustomProjectileRequested(string id, HD2RuntimeGUI.Core.CustomContent.CustomProjectileHost? from) => InvokeAsync(() =>
+    {
+        if (from != null) CustomProjectileReturn = (id, from, Page is "player-weapons" or "projectiles" ? Page : CustomProjectileReturn?.Page ?? "player-weapons");
+        OpenCustomProjectile(id);
+        StateHasChanged();
+    });
+    private void HostRequested(HD2RuntimeGUI.Core.CustomContent.CustomProjectileHost host) => InvokeAsync(() =>
+    {
+        var page = CustomProjectileReturn is { } r && r.Host == host ? r.Page : "player-weapons";
+        CustomProjectileReturn = null; CustomProjectileSelection = null;
+        if (page == "projectiles") { ProjectileHostSelection = host.Kind + "|" + host.Weapon + "|" + host.Role; Navigate("projectiles"); }
+        else { EditWeapon(host.Weapon); EditingAttack = host.Role; }
+        StateHasChanged();
+    });
+    // A draft renamed (its id follows its name) or a changed id: the way back follows the projectile.
+    private void CustomProjectileSelected(string? id)
+    {
+        if (id != null && CustomProjectileReturn is { } r && r.Id == CustomProjectileSelection && Workspace.FindCustomProjectile(r.Id) == null) CustomProjectileReturn = r with { Id = id };
+        CustomProjectileSelection = id;
+    }
+    // The build is refused by custom content: open the custom object the first error belongs to.
+    private void OpenCustomIssue(HD2RuntimeGUI.Core.CustomContent.CustomDiagnostic issue)
+    {
+        var id = HD2RuntimeGUI.Core.CustomContent.CustomContentBuild.OwnerId(issue.Owner);
+        if (issue.Owner.StartsWith("stratagem:", StringComparison.Ordinal)) OpenCustomStratagem(id);
+        else if (issue.Owner.StartsWith("projectile:", StringComparison.Ordinal)) OpenCustomProjectile(id);
+        else if (issue.Owner.StartsWith("assignment:", StringComparison.Ordinal)
+            && Workspace.CustomContent?.Assignments.FirstOrDefault(a => a.Id.ToString("N") == id) is { } assignment) EditWeapon(assignment.Weapon);
+        else Navigate("custom-stratagems");
+    }
     private string? StratagemSupportTab;
     private bool IsSelected(NavItem item) => item.Page.StartsWith("stratagems:", StringComparison.Ordinal)
         ? Page == "stratagems" && StratagemCategory == item.Page["stratagems:".Length..] : Page == item.Page && (item.Page != "stratagems" || StratagemCategory == "");
     private void NavigateTo(string page)
     {
-        StratagemSupportTab = null;
+        StratagemSupportTab = null; EditingAttack = ProjectileHostSelection = null;
         if (page.StartsWith("stratagems:", StringComparison.Ordinal)) { StratagemCategory = page["stratagems:".Length..]; Navigate("stratagems"); }
         else if (page == "stratagems") { StratagemCategory = ""; Navigate(page); }
         else if (page == "export" && Workspace.Project != null) ShowExport();
         else Navigate(page);
     }
     private void RefreshWeaponUI() => StateHasChanged();
-    private void EditWeapon(string weapon) { EditingWeapon = weapon; Navigate("player-weapons"); }
+    private void EditWeapon(string weapon) { EditingWeapon = weapon; EditingAttack = null; Navigate("player-weapons"); }
     private bool HadDialog;
     private bool Busy, EnsureEnabled = true, FocusDialog;
     // The busy message and notices are kept as keys (and arguments), so they re-render in a new UI language. Errors are exception messages.
@@ -69,16 +112,17 @@ public partial class Home : IDisposable
     // Page ids are logic; the title is display text (an SDK category name for legacy mapped-resource pages).
     private string PageTitle => Page switch
     {
-        "stratagems" => T["Nav.Stratagems"], "vehicles" => T["Home.PageTitle.Vehicles"], "backpacks" => T["Home.PageTitle.Backpacks"], "boosters" => T["Nav.Boosters"],
+        "stratagems" => T["Nav.Stratagems"], "vehicles" => T["Home.PageTitle.Vehicles"], "backpacks" => T["Home.PageTitle.Backpacks"], "boosters" => T["Nav.Boosters"], "armor" => T["Nav.Armor"],
         "throwables" => T["Nav.Throwables"], "enemies" => T["Nav.Enemies"], "structures" => T["Nav.Structures"], "scripting" => T["Nav.CustomLua"],
         "support" => T["Nav.SupportEquipment"], "player-weapons" => T["Nav.PlayerWeapons"], "lua" => T["Nav.LuaPreview"], "research" => T["Nav.SnapshotResearch"],
         "library" => T["Home.PageTitle.Projects"], "overview" => T["Nav.Overview"], "changes" => T["Nav.Changes"], "export" => T["Home.PageTitle.Export"],
-        "settings" => T["Home.PageTitle.Settings"], "projectiles" => T["Nav.ProjectileBuilder"], _ => Workspace.Metadata?.CategoryName(Page) ?? Page
+        "settings" => T["Home.PageTitle.Settings"], "projectiles" => T["Nav.ProjectileBuilder"], "helldiver" => T["Nav.Helldiver"],
+        "custom-stratagems" => T["Nav.CustomStratagems"], "custom-projectiles" => T["Nav.CustomProjectiles"], _ => Workspace.Metadata?.CategoryName(Page) ?? Page
     };
     private IEnumerable<SdkResource> VisibleResources => Workspace.Metadata!.Resources.Values.Where(r => r.Kind == Page && r.Label.Contains(Search, StringComparison.OrdinalIgnoreCase));
     private SdkResource? SelectedResource => Workspace.Metadata?.Resources.GetValueOrDefault(TargetKey);
     private SdkField? SelectedField => SelectedResource?.Fields.GetValueOrDefault(FieldKey);
-    private int ModificationCount => (Workspace.Project?.EntityChanges.Count ?? 0) + (Workspace.Project?.StratagemChanges.Count ?? 0) + (Workspace.Project?.SupportChanges.Count ?? 0) + (Workspace.Project?.CompositionChanges.Count ?? 0) + (Workspace.Project?.ProjectileChanges.Count ?? 0) + (Workspace.Project?.Changes.Count ?? 0) + (Workspace.Project?.AttackOutputChanges?.Count ?? 0) + (Workspace.Project?.OutputRowChanges?.Count ?? 0) + (Workspace.Project?.CustomLua != null ? 1 : 0) + Workspace.WeaponGroups.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
+    private int ModificationCount => (Workspace.Project?.EntityChanges.Count ?? 0) + (Workspace.Project?.StratagemChanges.Count ?? 0) + (Workspace.Project?.SupportChanges.Count ?? 0) + (Workspace.Project?.CompositionChanges.Count ?? 0) + (Workspace.Project?.ProjectileChanges.Count ?? 0) + (Workspace.Project?.Changes.Count ?? 0) + (Workspace.Project?.AttackOutputChanges?.Count ?? 0) + (Workspace.Project?.OutputRowChanges?.Count ?? 0) + (Workspace.Project?.CustomLua != null ? 1 : 0) + (Workspace.Project?.PlayerArmor != null ? 1 : 0) + (Workspace.CustomContent is { } custom ? custom.Stratagems.Count + custom.Projectiles.Count + custom.Assignments.Count : 0) + Workspace.WeaponGroups.Count(g => g.Conflict != null || FieldPresentation.Modified(g.Field, g.Representative));
     // Legacy mapped-resource confidence is saved with each change (English); only its display follows the UI language.
     private string ConfidenceLabel(string confidence) => confidence switch
     {
@@ -89,8 +133,8 @@ public partial class Home : IDisposable
     private bool LegacyDraftModified => SelectedField?.Expected != null && FieldPresentation.Parse(NewValue) is { } value && !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(SelectedField.Expected), value);
     private string SupportedValues => string.Join(", ", Workspace.Metadata!.Transitions.Where(t => t.Resource == TargetKey && t.Field == FieldKey).Select(t => $"{t.Expected} → {t.Value}"));
     // Icons import in parallel with project loading and the GitHub check; open pages refresh through Icons.Changed.
-    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; _ = AutoImportIconsAsync(); _ = AppUpdates.StartAutomaticChecksAsync(); await Run(Workspace.InitializeAsync, "Home.Busy.Loading"); }
-    public void Dispose() => Icons.Changed -= IconsChanged;
+    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; Navigator.CustomProjectileRequested += CustomProjectileRequested; Navigator.HostRequested += HostRequested; _ = AutoImportIconsAsync(); _ = AppUpdates.StartAutomaticChecksAsync(); await Run(Workspace.InitializeAsync, "Home.Busy.Loading"); }
+    public void Dispose() { Icons.Changed -= IconsChanged; Navigator.CustomProjectileRequested -= CustomProjectileRequested; Navigator.HostRequested -= HostRequested; }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (FocusDialog && Dialog != null) { FocusDialog = false; await JS.InvokeVoidAsync("builderDialog.focus", DialogElement); }
@@ -113,8 +157,10 @@ public partial class Home : IDisposable
     }
     private void ShowLibrary() => Navigate("library");
     private void ShowExport() { ExportDirectory = Workspace.Project!.ExportDirectory; Navigate("export"); }
-    private async Task OpenProject(Guid id) => await Run(async () => { await Workspace.OpenAsync(id); Navigate("overview"); }, "Home.Busy.OpeningProject");
-    private async Task ImportProject() => await Run(async () => { await Workspace.ImportAsync(); if (Workspace.Project != null) Navigate("overview"); }, "Home.Busy.OpeningProject");
+    private async Task OpenProject(Guid id) => await Run(async () => { await Workspace.OpenAsync(id); ClearCustomSelection(); Navigate("overview"); }, "Home.Busy.OpeningProject");
+    private async Task ImportProject() => await Run(async () => { await Workspace.ImportAsync(); ClearCustomSelection(); if (Workspace.Project != null) Navigate("overview"); }, "Home.Busy.OpeningProject");
+    // Another project starts on the custom content card lists, not on an editor of the previous one.
+    private void ClearCustomSelection() { CustomStratagemSelection = CustomProjectileSelection = null; CustomProjectileReturn = null; }
     private async Task BeginCreate() => await Run(async () =>
     {
         ModName = Author = ResourceId = Description = ""; ModVersion = "0.1.0"; CreationSdk = null; ResourceIdEdited = false;
@@ -128,7 +174,7 @@ public partial class Home : IDisposable
         if (string.IsNullOrWhiteSpace(ResourceId)) { ResourceIdEdited = false; SuggestResourceId(); }
         var request = new CreateProjectRequest(ModName, Author, ResourceId.Trim(), ModVersion, Description);
         if (Dialog == "duplicate") await Workspace.DuplicateAsync(ActionProject, request); else await Workspace.CreateAsync(request, CreationSdk!);
-        Dialog = null; Navigate("overview");
+        Dialog = null; ClearCustomSelection(); Navigate("overview");
     }, "Home.Busy.CreatingProject");
     private void SetDialog(string dialog) { Dialog = dialog; FocusDialog = true; Error = null; }
     private void CloseDialog() { if (!Busy) { Dialog = null; Error = null; } }

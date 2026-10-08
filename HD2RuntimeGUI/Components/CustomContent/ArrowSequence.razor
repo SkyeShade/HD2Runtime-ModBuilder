@@ -1,0 +1,8 @@
+@* A call-in code as arrow keys (read-only). *@
+<span class="arrow-seq @(Small ? "small" : "")" role="img" aria-label="@string.Join(", ", Code.Select(c => CustomLabels.ArrowLabel(T, c)))" data-arrow-sequence="@string.Join(",", Code)">
+    @foreach (var direction in Code) { <span class="arrow-key">@CustomLabels.Arrow(direction)</span> }
+</span>
+@code {
+    [Parameter] public IReadOnlyList<string> Code { get; set; } = [];
+    [Parameter] public bool Small { get; set; }
+}

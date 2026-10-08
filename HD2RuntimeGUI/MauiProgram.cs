@@ -80,6 +80,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IProjectFilePicker, ProjectFilePicker>();
         builder.Services.AddSingleton<HD2RuntimeGUI.Core.GameAssets.GameIconStore>();
         builder.Services.AddSingleton<BuilderWorkspace>();
+        builder.Services.AddSingleton<BuilderNavigator>();
         builder.Services.AddSingleton<ISnapshotReader, SnapshotReader>();
         builder.Services.AddSingleton<IResearchFilePicker, ResearchFilePicker>();
         builder.Services.AddSingleton<IPackagedFilePicker, PackagedFilePicker>();

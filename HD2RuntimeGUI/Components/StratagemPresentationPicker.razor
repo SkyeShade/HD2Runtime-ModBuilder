@@ -1,0 +1,79 @@
+@inject BuilderWorkspace Workspace
+@inject IPackagedFilePicker Picker
+@* 0.30.0 presentation (hd2.fields.stratagem.presentation_*): which catalogued stratagem this field takes its name, cased name, description or
+   icon from (presentationSources, less Runtime's exclusions; its own name restores it). Raw text and image hashes are not accepted by Runtime.
+   The icon also takes the mod's own image (hd2.resources.image): a 256 x 256 PNG kept in the project and compiled into the mod's archive as
+   the SDK build compiles images/<id>.png, as for custom stratagems. *@
+@{
+    var catalog = Catalog; var current = Saved?.DesiredValue ?? Field.CurrentDefault; var own = Field.CurrentDefault.GetString()!;
+    var imageId = StratagemPresentation.Image(current); var image = imageId == null ? null : Workspace.CustomImageOf(imageId);
+    var selected = imageId == null ? current.GetString() : null; var takesImage = StratagemPresentation.TakesImage(Field);
+    var source = selected == null ? null : catalog.Root(selected);
+}
+<div class="stratagem-presentation" data-presentation-picker="@Field.SemanticFieldId">
+    <div class="presentation-source">
+        @if (takesImage)
+        {
+            @if (image != null && Workspace.StratagemImagePreviewUri(image, Colour(catalog.Root(Field.Target.Stratagem)?.Family)) is { } preview)
+            { <span class="custom-icon md presentation-own-icon" data-presentation-image="@image.Id"><img src="@preview" alt="" draggable="false" /></span> }
+            else if (source != null)
+            { <GameIcon Kind="stratagem" Stratagem="source" State="@source.UiIcon?.State" Label="@source.Name" CssClass="@StratagemCategories.Of(source.Family)?.CssClass" Size="md" /> }
+        }
+        <label>@T["StratagemLook.TakeFrom"]
+            <select data-presentation-source disabled="@Busy" @onchange="e => Choose(e.Value?.ToString())">
+                @if (imageId != null) { <option value="" selected>@T.Format("StratagemPresentation.CustomImage", imageId)</option> }
+                <option value="@own" selected="@(selected == own)">@T.Format("StratagemLook.Own", own)</option>
+                @foreach (var group in StratagemPresentation.Sources(catalog, Field).Where(s => s != own).GroupBy(s => catalog.Root(s)?.Family ?? "").OrderBy(g => g.Key, StringComparer.Ordinal))
+                {
+                    <optgroup label="@StratagemBrowser.FamilyLabel(group.Key)">
+                        @foreach (var name in group.Order(StringComparer.CurrentCulture)) { <option value="@name" selected="@(selected == name)">@name</option> }
+                    </optgroup>
+                }
+            </select></label>
+    </div>
+    @if (takesImage)
+    {
+        <div class="presentation-image" data-presentation-custom-image>
+            @if (image != null)
+            {
+                <figure><span class="custom-icon md">@if (Workspace.CustomIconUri(image.Id) is { } uri) { <img src="@uri" alt="" data-icon-source /> }</span><figcaption>@T["CustomStratagem.Icon.Source"]</figcaption></figure>
+                <div class="presentation-image-controls">
+                    <p class="subtle" data-icon-file>@T.Format("CustomStratagem.Icon.File", image.SourceName ?? T["CustomStratagem.Icon.Generated"], image.Sha256[..12], image.Id)</p>
+                    <label>@T["CustomStratagem.Icon.Preparation"]
+                        <select value="@image.Preparation" disabled="@Busy" data-icon-preparation @onchange="e => Run(() => Workspace.SetStratagemImagePreparationAsync(Field.InstanceKey, e.Value as string ?? CustomImage.Auto))">
+                            <option value="@CustomImage.Auto">@T["CustomStratagem.Icon.Auto"]</option>
+                            <option value="@CustomImage.Raw">@T["CustomStratagem.Icon.Raw"]</option>
+                        </select></label>
+                </div>
+            }
+            <div class="swap-actions">
+                <button disabled="@Busy" data-icon-import @onclick="Import">@(image == null ? T["StratagemLook.Image.Import"] : T["CustomStratagem.Icon.Replace"])</button>
+                @if (image != null) { <button class="link-button" disabled="@Busy" data-icon-remove @onclick="() => Choose(own)">@T["StratagemLook.Image.Remove"]</button> }
+            </div>
+            <p class="subtle">@T["StratagemLook.Image.Help"]</p>
+        </div>
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+</div>
+@code {
+    [Parameter, EditorRequired] public StratagemField Field { get; set; } = null!;
+    [Parameter] public StratagemChange? Saved { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error; private bool Busy;
+    private StratagemCatalog Catalog => (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!;
+    // The colours ModBuilder's UI uses for stratagem categories (app.css --cat-*), as the custom stratagem icon preview draws them.
+    private static (byte, byte, byte) Colour(string? family) => StratagemCategories.Of(family ?? "")?.Key switch
+    {
+        "defensive" => (98, 213, 150), "offensive" => (255, 128, 120), _ => (121, 174, 252),
+    };
+    private Task Choose(string? name) => string.IsNullOrEmpty(name) ? Task.CompletedTask
+        : Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, System.Text.Json.JsonSerializer.Serialize(name)));
+    private Task Import() => Run(async () => { if (await Picker.PickIconAsync() is { } path) await Workspace.ImportStratagemImageAsync(Field.InstanceKey, path); });
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true;
+        try { await action(); Error = null; await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

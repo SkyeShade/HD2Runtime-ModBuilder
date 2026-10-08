@@ -86,7 +86,8 @@ public sealed class Runtime022Tests
         switch (fault)
         {
             case "native": at["offset"] = 12; break;
-            case "hex": at["provenance"] = "record 0x1234"; break;
+            // A value-bearing property; prose (reason, provenance, native readers) may cite code addresses from 0.30.0 on.
+            case "hex": at["displayName"] = "record 0x1234"; break;
             case "group-target": json["operationGroups"]!.AsArray().First(g => (string?)g!["operationGroup"] == (string?)at["operationGroup"])!["target"]!["attack"] = "primary_damage"; break;
             case "scope": at["sharedScopeKey"] = "shared-scope:0000000000000000"; break;
             case "backing-kind": at["backingObjectKind"] = "DamageInfo"; break;

@@ -1,0 +1,100 @@
+{
+ "images": {
+  "mask": {
+   "width": 256,
+   "height": 256,
+   "rgba": "ef5e0f56544f8d81b0e753d48df24f8c84dd584cb7117d2f786ed4620d083962",
+   "auto": {
+    "label": "masks (as given)",
+    "prepared": "ef5e0f56544f8d81b0e753d48df24f8c84dd584cb7117d2f786ed4620d083962",
+    "main": "4900aa6319d000d3f481b783b3c001164facc32d494ce86cb2b470303b96bdf1",
+    "gpu": "e3a62be33b8c27510dd9b093dbabd75323e5672c8dc9f3e5a2fa49f56f122a7f",
+    "gpuLength": 43704
+   },
+   "raw": {
+    "label": "raw (as given)",
+    "prepared": "ef5e0f56544f8d81b0e753d48df24f8c84dd584cb7117d2f786ed4620d083962",
+    "main": "4900aa6319d000d3f481b783b3c001164facc32d494ce86cb2b470303b96bdf1",
+    "gpu": "e3a62be33b8c27510dd9b093dbabd75323e5672c8dc9f3e5a2fa49f56f122a7f",
+    "gpuLength": 43704
+   }
+  },
+  "art": {
+   "width": 256,
+   "height": 256,
+   "rgba": "8f0f735f3cc79a034e84e8055c898e6869d9ec32b5692fba6b5830d4c12bdc24",
+   "auto": {
+    "label": "converted to masks",
+    "prepared": "565b59970154bb0ab85e14ea8b5d814b53a85e6fd8af6a6758b7af6146cf893c",
+    "main": "4900aa6319d000d3f481b783b3c001164facc32d494ce86cb2b470303b96bdf1",
+    "gpu": "7dd1810dc08bbaa2a39e28cf5e72348fec1889709b82737567e475b5f5ace611",
+    "gpuLength": 43704
+   },
+   "raw": {
+    "label": "raw (as given)",
+    "prepared": "8f0f735f3cc79a034e84e8055c898e6869d9ec32b5692fba6b5830d4c12bdc24",
+    "main": "4900aa6319d000d3f481b783b3c001164facc32d494ce86cb2b470303b96bdf1",
+    "gpu": "1a5b6ace01b1859c11638b4d15af4ca6bdf60955b33a020cc828fd5210c236b7",
+    "gpuLength": 43704
+   }
+  },
+  "rgb_filters": {
+   "width": 256,
+   "height": 256,
+   "rgba": "4602493cea6c8f3aa293e46055136df72886049b384a916336554b3a0a917973",
+   "auto": {
+    "label": "converted to masks",
+    "prepared": "ee4968ce8ed83d4194a92a6263be3a5bb41bf6aa4ec36d425c0cd21ae64f8c82",
+    "main": "4900aa6319d000d3f481b783b3c001164facc32d494ce86cb2b470303b96bdf1",
+    "gpu": "26653cb6c64f686f6a619847e9a4ad5e0012401c45d4d6c480835e9c2f9e2c0d",
+    "gpuLength": 43704
+   },
+   "raw": {
+    "label": "raw (as given)",
+    "prepared": "4602493cea6c8f3aa293e46055136df72886049b384a916336554b3a0a917973",
+    "main": "4900aa6319d000d3f481b783b3c001164facc32d494ce86cb2b470303b96bdf1",
+    "gpu": "59f8ae1f291782f4bfb0cfd91a532769605594dde50a00702e5f87659a79eb78",
+    "gpuLength": 43704
+   }
+  },
+  "grey_alpha": {
+   "width": 16,
+   "height": 16,
+   "rgba": "9d8d44ab091bc70a223b8036d75c8036093aae33c889d91e1eaf2181152657cb"
+  },
+  "rgba16": {
+   "width": 8,
+   "height": 8,
+   "rgba": "2152fd4661d26e3e2e1cd963cd891c4e8f9b22b76d59ba53774246a4e36b8c40"
+  },
+  "palette4": {
+   "width": 16,
+   "height": 16,
+   "rgba": "b174cc0898586acca9df50099f80893ee0af361a6969b0e4758169e9771ce50e"
+  },
+  "grey2": {
+   "width": 16,
+   "height": 16,
+   "rgba": "692e5e92ba7179e075a8bae72ce22de014245796b68e457029a3d72e4fcd5173"
+  }
+ },
+ "material": {
+  "name": "mods/tests/custom_content/images/mask",
+  "hash": "17340559656618262121",
+  "sha256": "8a13542ff441900ac2e6c6d31bb0fc4f60961da26cf7a2cb2a4491a15b496e60"
+ },
+ "archive": {
+  "resource": "mods/tests/custom_content",
+  "lua": "-- test addon\nreturn true\n",
+  "record": "return {}\n",
+  "images": [
+   "mask",
+   "art"
+  ],
+  "sha256": "18e4980fe9644ea1c415f51d206e1a7b2677a754a60d5de337a9f68764062992",
+  "gpuSha256": "d0785446047f225830d05441448faf88d18a9986592dda9d25ffb36cdb2cfdb2",
+  "length": 1872,
+  "gpuLength": 87424
+ },
+ "source": "HD2Runtime 0.30.0-dev sdk/tools (hd2_image.py, hd2_archive.py)"
+}

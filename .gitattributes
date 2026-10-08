@@ -12,3 +12,14 @@
 # capability catalog. The cache treats each SDK version as immutable.
 HD2RuntimeGUI.Core/Metadata/Bundled/*.json -text whitespace=cr-at-eol
 HD2RuntimeGUI.Tests/Fixtures/*-0.13.0.json -text whitespace=cr-at-eol
+# HD2Runtime's custom stratagem schema, model facts and two of its example projects, byte for byte as the Runtime publishes them (their
+# SHA-256 is recorded in exports and the conformance tests compile them exactly as the Runtime's SDK does), and ModBuilder's own templates
+# beside them, held to the same SDK compiler by the oracle.
+HD2RuntimeGUI.Core/CustomContent/Targets/*.json -text
+HD2RuntimeGUI.Core/CustomContent/Targets/*.lua -text
+HD2RuntimeGUI.Core/CustomContent/Templates/*.json -text
+# HD2Runtime's weapon sound catalogue, byte for byte as the SDK publishes it (the Custom Lua sound picker).
+HD2RuntimeGUI.Core/Scripting/Bundled/*.json -text
+HD2RuntimeGUI.Tests/Fixtures/custom-content/oracle/* -text
+# HD2Runtime's HUD icon sprite names, byte for byte as the SDK publishes them (sdk/HudIconSprites.json).
+HD2RuntimeGUI.Core/GameAssets/Bundled/*.json -text

@@ -6,7 +6,15 @@ namespace HD2RuntimeGUI.Core.Services;
 
 /// <summary>Picks a file on the user's computer for exported mod ZIPs (any file, or an image Arsenal accepts for its icon); returns its
 /// full path, or null when cancelled.</summary>
-public interface IPackagedFilePicker { Task<string?> PickAsync(); Task<string?> PickImageAsync(); }
+public interface IPackagedFilePicker
+{
+    Task<string?> PickAsync();
+    Task<string?> PickImageAsync();
+    /// <summary>A PNG for a custom stratagem icon (1.7.0); the desktop offers PNG files only.</summary>
+    Task<string?> PickIconAsync() => PickImageAsync();
+    /// <summary>An HD2Runtime custom stratagem project file (custom_stratagems.json) to import; the desktop offers JSON files only.</summary>
+    Task<string?> PickRuntimeProjectAsync() => PickAsync();
+}
 
 /// <summary>One additional file as the Export page lists it, with the first reason it cannot be packaged (null when it can) and whether
 /// that reason is its ZIP path (otherwise its source file).</summary>

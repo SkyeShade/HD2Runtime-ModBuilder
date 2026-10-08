@@ -2,7 +2,7 @@
 @inject IPackagedFilePicker Picker
 @using HD2RuntimeGUI.Core.Generation
 @* Export page: how HD2Arsenal presents the mod (format 12). Arsenal reads manifest.json's Description and IconPath; every export writes
-   the description before ModBuilder's dependency line and packages the icon at the ZIP root, IconPath naming it. Separate from the
+   the description before ModBuilder's "// "-marked dependency line and packages the icon at the ZIP root, IconPath naming it. Separate from the
    gameplay (Runtime) edits: nothing here changes the generated Lua or game files. A problem is shown here and refuses the export. *@
 @if (Workspace.Project != null)
 {

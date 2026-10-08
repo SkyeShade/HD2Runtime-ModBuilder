@@ -9,7 +9,12 @@ public sealed partial class BuilderWorkspace
 {
     private readonly ISupportChangeService supportChanges = new SupportChangeService();
     public string? SupportIssue(SupportChange c)
-    { try { supportChanges.Validate(Project!, Metadata!, c); return null; } catch (InvalidDataException e) { return e.Message; } }
+    {
+        try { supportChanges.Validate(Project!, Metadata!, c); }
+        catch (InvalidDataException e) { return e.Message; }
+        // 0.30.0 charge rules across edits (ChargeFields.Issues), checked only for the edits they concern.
+        return ChargeFields.Relevant(c) ? ChargeFields.Issues(Metadata!, Project!.SupportChanges).FirstOrDefault(i => i.Id == c.Id).Message : null;
+    }
     private async Task EditSupportAsync(Action<ModProject> edit)
     {
         var project = Project; await weaponEditGate.WaitAsync();

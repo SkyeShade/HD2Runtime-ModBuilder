@@ -41,9 +41,9 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         try
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
-            var previous = project.ProjectileChanges.ToList();
+            var (previous, custom) = (project.ProjectileChanges.ToList(), project.CustomContent);
             ApplyProjectile(project, weapon, role, replacement, acceptBaseline);
-            try { await SaveChangesAsync(); } catch { project.ProjectileChanges = previous; throw; }
+            try { await SaveChangesAsync(); } catch { project.ProjectileChanges = previous; project.CustomContent = custom; throw; }
         }
         finally { weaponEditGate.Release(); }
     }
@@ -66,7 +66,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             }
         }
         project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
-        if (next != null) project.ProjectileChanges.Add(next);
+        if (next != null) { project.ProjectileChanges.Add(next); ReplaceCustomAssignment(project, weapon, role); }
         project.FormatVersion = Math.Max(project.FormatVersion, 4);
     }
 
@@ -104,7 +104,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         try
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
-            var (projectiles, composition) = (project.ProjectileChanges.ToList(), project.CompositionChanges.ToList());
+            var (projectiles, composition, custom) = (project.ProjectileChanges.ToList(), project.CompositionChanges.ToList(), project.CustomContent);
             var edits = ObjectEditsOnCurrentProjectile(weapon, role);
             try
             {
@@ -112,7 +112,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
                 var result = Retarget(project, weapon, role, edits, keepValues);
                 await SaveChangesAsync(); return result;
             }
-            catch { project.ProjectileChanges = projectiles; project.CompositionChanges = composition; throw; }
+            catch { project.ProjectileChanges = projectiles; project.CompositionChanges = composition; project.CustomContent = custom; throw; }
         }
         finally { weaponEditGate.Release(); }
     }
@@ -428,10 +428,18 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             var oldReferences = Project.ProjectileChanges.ToList();
             var oldObjects = Project.CompositionChanges.ToList();
             var oldOutputs = Project.AttackOutputChanges?.ToList();
+            var oldCustom = Project.CustomContent;
+            // Resetting a whole weapon also resets the custom projectile it fires (the custom projectile itself stays).
+            if (field == null && Project.CustomContent is { } custom && custom.Assignments.Any(a => a.HostKind == AttackOutputChange.PlayerHost && (weapon == null || a.Weapon == weapon)))
+            {
+                var section = Clone(custom);
+                section.Assignments.RemoveAll(a => a.HostKind == AttackOutputChange.PlayerHost && (weapon == null || a.Weapon == weapon));
+                Project.CustomContent = Normalized(section, Project);
+            }
             if (field == null) Project.CompositionChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
             if (field == null) Project.ProjectileChanges.RemoveAll(c => weapon == null || c.Weapon == weapon);
             if (field == null && Project.AttackOutputChanges != null) { Project.AttackOutputChanges.RemoveAll(c => c.IsPlayer && (weapon == null || c.Weapon == weapon)); if (Project.AttackOutputChanges.Count == 0) Project.AttackOutputChanges = null; }
-            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; Project.CompositionChanges = oldObjects; Project.AttackOutputChanges = oldOutputs; throw; }
+            try { await SaveChangesAsync(); } catch { Project.WeaponChanges = old; Project.ProjectileChanges = oldReferences; Project.CompositionChanges = oldObjects; Project.AttackOutputChanges = oldOutputs; Project.CustomContent = oldCustom; throw; }
         }
         finally { weaponEditGate.Release(); }
     }
@@ -485,7 +493,7 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
     {
         var sdk = await cache.GetCurrentAsync(); var old = (Project!.SdkVersion, Metadata);
         var stratagems = (Project.StratagemChanges.ToList(), new Dictionary<string, string>(Project.StratagemApprovals), Project.FormatVersion);
-        var entities = Project.EntityChanges.ToList();
+        var entities = Project.EntityChanges.ToList(); var support = Project.SupportChanges.ToList();
         var projectiles = Project.ProjectileChanges.Select(c => (c, c.ExpectedEvidence, c.ReplacementEvidence)).ToArray();
         var composition = Project.CompositionChanges.Select(c => (c, c.TargetEvidence, c.ReferenceEvidence, c.DesiredReferenceEvidence)).ToArray();
         Project.SdkVersion = sdk.Version; Metadata = sdk;
@@ -494,10 +502,13 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
         // Evidence that differs only in package-residency data (SDK 0.27.0 automatic asset loading) is carried over, never re-reviewed.
         if (sdk.Entities != null) EntityChangeService.Rebind(Project, old.Metadata?.Entities, sdk.Entities);
         if (old.Metadata != null) { ProjectileChangeService.Rebind(Project, old.Metadata, sdk); CompositionChangeService.Rebind(Project, old.Metadata, sdk); }
+        // Support edits whose write is unchanged apart from the opt-ins it needs (0.30.0's Epoch fields) carry over; the new opt-ins are emitted.
+        if (sdk.SupportAuthoring != null) SupportChangeService.Rebind(Project, old.Metadata?.SupportAuthoring, sdk.SupportAuthoring);
         try { await SaveChangesAsync(); }
         catch
         {
             (Project.SdkVersion, Metadata) = old; (Project.StratagemChanges, Project.StratagemApprovals, Project.FormatVersion) = stratagems; Project.EntityChanges = entities;
+            Project.SupportChanges = support;
             foreach (var (c, expected, replacement) in projectiles) (c.ExpectedEvidence, c.ReplacementEvidence) = (expected, replacement);
             foreach (var (c, target, reference, desired) in composition) (c.TargetEvidence, c.ReferenceEvidence, c.DesiredReferenceEvidence) = (target, reference, desired);
             throw;

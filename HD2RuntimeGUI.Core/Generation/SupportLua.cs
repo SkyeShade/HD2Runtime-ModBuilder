@@ -15,6 +15,9 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
         var active = p.SupportChanges.Where(c => c.Enabled).OrderBy(c => c.InstanceKey, StringComparer.Ordinal).ToArray();
         foreach (var c in active) changes.Validate(p, sdk, c);
         if (WeaponSelectorRules.SupportIssues(sdk, p.SupportChanges).FirstOrDefault() is { Message: { } selectorIssue }) throw new InvalidDataException(selectorIssue);
+        // 0.30.0: one write per native value (the Epoch's shared explosion damage, deprecated charge aliases) and no overcharge explosion row edit
+        // under a swapped overcharge explosion reference; the field editor resolves both inline.
+        if (ChargeFields.Issues(sdk, p.SupportChanges).FirstOrDefault() is { Message: { } chargeIssue }) throw new InvalidDataException(chargeIssue);
         // An option-only edit (value = vanilla) is written only while its in-game option is bound.
         var rows = active.Where(c => !SupportChangeService.NoOp(sdk, c) || options?.Bound(ModOptionsService.SupportKey(c.InstanceKey)) == true).Select(c => (Change: c, Field: catalog.Field(c.InstanceKey))).ToArray();
         foreach (var same in rows.GroupBy(r => (r.Field.Backing.ObjectKey, r.Field.ApiFieldConstant)))
@@ -56,8 +59,8 @@ public sealed class SupportLua(ISupportChangeService changes) : ISupportLua
                 if (contract.AllowSharedRequired) body.Append("    allow_shared=true,\n");
                 // Exact values a live test proved on this weapon (liveEvidence.values) need no effect opt-in; donor function projectiles
                 // outside a live-proven pair need allow_unverified_reference.
-                if (group.Any(r => CompositionOptIns.EffectFor(r.Field, r.Change.DesiredValue))) body.Append("    allow_unverified_effect=true,\n");
-                if (group.Any(r => CompositionOptIns.ReferenceFor(r.Field, r.Change.DesiredValue))) body.Append("    allow_unverified_reference=true,\n");
+                if (group.Any(r => CompositionOptIns.EffectFor(sdk, r.Field, r.Change.DesiredValue))) body.Append("    allow_unverified_effect=true,\n");
+                if (group.Any(r => CompositionOptIns.ReferenceFor(sdk, r.Field, r.Change.DesiredValue))) body.Append("    allow_unverified_reference=true,\n");
                 if (group.Count() == 1 && !f.Operation.TransactionRequired)
                 {
                     var r = group.Single(); body.Append($"    field={r.Field.ApiFieldConstant},\n    expect={SupportScalar.Text(r.Field, r.Change.ExpectedValue)},\n    value={Value(r.Field, r.Change)},\n");

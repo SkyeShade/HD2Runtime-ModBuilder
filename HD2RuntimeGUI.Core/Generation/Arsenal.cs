@@ -13,13 +13,17 @@ namespace HD2RuntimeGUI.Core.Generation;
 public static class Arsenal
 {
     public const int MaxDescription = 4000;
+    /// <summary>Marks where the user's description ends. Arsenal's library shows the description as one paragraph (.mod-description is
+    /// white-space: normal, so the blank line before the dependency line collapses to a space, and its tag removal leaves no markup for a
+    /// break), so the marker is what separates them there; anything that keeps line breaks shows it at the start of its own line.</summary>
+    public const string DependencyMarker = "// ";
     public static readonly IReadOnlyList<string> ImageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
     private static readonly Regex Tag = new("<[^>]*>");
 
     public static string NormalizeDescription(string text) => text.Replace("\r\n", "\n").Replace('\r', '\n').Trim();
-    /// <summary>The manifest description: the user's text, then the dependency statement ModBuilder always writes.</summary>
+    /// <summary>The manifest description: the user's text, then a blank line and the marked dependency statement ModBuilder always writes.</summary>
     public static string ManifestDescription(ModProject project, string dependencies) =>
-        project.Arsenal?.Description is { Length: > 0 } text ? text + "\n\n" + dependencies : dependencies;
+        project.Arsenal?.Description is { Length: > 0 } text ? text + "\n\n" + DependencyMarker + dependencies : dependencies;
     /// <summary>The icon's path in the ZIP (its file name at the root, as Arsenal's Manifest Builder packages it), or null without one.</summary>
     public static string? IconEntry(ModProject project) => project.Arsenal?.Icon is { Length: > 0 } icon ? Path.GetFileName(icon) : null;
 

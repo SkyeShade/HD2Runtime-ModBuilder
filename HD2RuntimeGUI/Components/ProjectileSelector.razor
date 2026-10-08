@@ -15,10 +15,21 @@
         <label>@T["Projectile.Replacement.Label"]
             <select aria-label="@T["Projectile.Replacement.Label"]" value="@Key(Pending?.Source ?? saved?.ReplacementProjectile ?? baseline)" @onchange="Select" disabled="@(Pending != null)">
                 <option value="">@T.Format("Composition.Original", baseline.Label)</option>
-                @if (saved != null && !sources.Contains(saved.ReplacementProjectile)) { <option value="@Key(saved.ReplacementProjectile)" disabled>@T.Format("Projectile.Unavailable", saved.ReplacementProjectile.Label)</option> }
-                @foreach (var source in sources.Where(s => s != baseline)) { <option value="@Key(source)">@source.Label @ResidencyLabel(source)</option> }
+                <optgroup label="@T["ProjectilePicker.Vanilla"]">
+                    @if (saved != null && !sources.Contains(saved.ReplacementProjectile)) { <option value="@Key(saved.ReplacementProjectile)" disabled>@T.Format("Projectile.Unavailable", saved.ReplacementProjectile.Label)</option> }
+                    @foreach (var source in sources.Where(s => s != baseline)) { <option value="@Key(source)">@source.Label @ResidencyLabel(source)</option> }
+                </optgroup>
+                @* The project's custom projectiles, listed apart; this SDK binding cannot fire them (the target says why below). *@
+                @if (Workspace.CustomProjectiles.Count > 0)
+                {
+                    <optgroup class="custom-optgroup" label="@T["ProjectilePicker.Custom"]" data-custom-optgroup>
+                        @foreach (var p in Workspace.CustomProjectiles) { <option class="custom-option" value="@("custom:" + p.Id)" disabled>@p.Name (@p.Id)</option> }
+                    </optgroup>
+                }
             </select>
         </label>
+        @if (Workspace.CustomProjectiles.Count > 0 && Workspace.CustomProjectileHostSupport(CustomProjectileHost.Player(Weapon, Attack.Role)) is { Supported: false } custom)
+        { <p class="field-reason" data-custom-unsupported>@custom.Reason</p> }
         @if (Pending is { } pending) { <ProjectileSwapPrompt Current="current" Target="pending.Target" Edits="pending.Edits" Reset="pending.Source == null" Decide="Swap" Cancel="() => Pending = null" /> }
         <p class="subtle">@T.Format("Projectile.Compatibility", Attack.CompatibilityClass.Replace('_', ' '))</p>
         @* 0.27.0+: Runtime loads a known donor package itself, so a cross-package source needs nobody to carry the donor weapon. *@

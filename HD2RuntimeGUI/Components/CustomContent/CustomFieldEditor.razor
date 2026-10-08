@@ -1,0 +1,114 @@
+@* One field of a custom stratagem, generated from ModBuilder's field definition (label, control, where it is stored) and the target's
+   description of it (range, unit, default, choices, and whether this Runtime can write it at all). A field the Runtime refuses or cannot use
+   here stays visible, disabled, with the reason. Empty means "the donor's own value". Problems the Runtime's validator reports for the field
+   (or a value inside it) show under it. *@
+@{
+    var info = Workspace.CustomTarget.Describe(Def.Path, Stratagem);
+    var issues = Workspace.CustomDiagnosticsFor(CustomDiagnostic.StratagemOwner(Stratagem.Id)).Where(d => d.About(Def.Path) && d.Severity is CustomSeverity.Error or CustomSeverity.Warning).ToArray();
+    var value = Def.Get?.Invoke(Stratagem);
+    var id = "custom-field-" + System.Text.RegularExpressions.Regex.Replace(Def.Path, "[^a-z0-9_]+", "-");
+    var status = info.Status switch { CustomFieldStatus.Refused => "refused", CustomFieldStatus.Unavailable => "unavailable", _ => "" };
+}
+<div class="custom-field @status @(issues.Any(i => i.Severity == CustomSeverity.Error) ? "has-error" : "")" data-custom-field="@Def.Path" data-field-status="@info.Status.ToString().ToLowerInvariant()">
+    <label for="@id">@T[Def.Label] @if (info.Required && info.Supported) { <small>@T["CustomContent.Field.Required"]</small> } else if (info.Supported && Def.Kind is CustomFieldKind.Number or CustomFieldKind.Integer && info.Default is { } d) { <small>@T.Format("CustomContent.Field.Default", d)</small> }</label>
+    @if (!info.Supported)
+    {
+        <input id="@id" disabled placeholder="@T["CustomContent.Field.NotSupportedShort"]" />
+        <p class="field-reason" data-field-reason>@(info.Status == CustomFieldStatus.Refused ? T["CustomContent.Field.NotSupported"] + " " : "")@info.Reason</p>
+    }
+    else
+    {
+        switch (Def.Kind)
+        {
+            case CustomFieldKind.Number or CustomFieldKind.Integer:
+                <div class="input-unit">
+                    <input id="@id" type="number" step="@(Def.Kind == CustomFieldKind.Integer ? "1" : "any")" min="@CustomLabels.Number(info.Min)" max="@CustomLabels.Number(info.Max)"
+                           value="@(value is null ? "" : CustomLabels.Number(Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)))" placeholder="@info.Default" disabled="@Busy"
+                           @onchange="e => SetNumber(e.Value as string)" />
+                    @if (CustomLabels.Unit(T, info.Unit) is { Length: > 0 } unit) { <span>@unit</span> }
+                    @if (value != null) { <button class="quiet" title="@T["CustomContent.Field.Clear"]" aria-label="@T["CustomContent.Field.Clear"]" disabled="@Busy" @onclick="() => Set(null)">×</button> }
+                </div>
+                break;
+            case CustomFieldKind.Choice:
+                var current = value as string;
+                <select id="@id" value="@(current ?? "")" disabled="@Busy" @onchange="e => Set(e.Value is string s && s.Length > 0 ? s : null)">
+                    <option value="">@T["CustomContent.Field.Choose"]</option>
+                    @foreach (var choice in info.Choices ?? []) { <option value="@choice">@ChoiceLabel(choice)</option> }
+                    @if (current is { Length: > 0 } && info.Choices?.Contains(current) != true) { <option value="@current">@T.Format("CustomContent.Field.UnknownChoice", current)</option> }
+                </select>
+                break;
+            case CustomFieldKind.Payload:
+                var payload = value as ContentRef;
+                <select id="@id" value="@(payload?.Id ?? "")" disabled="@Busy" @onchange="e => Set(e.Value is string s && s.Length > 0 ? new ContentRef(ContentRef.VanillaExplosion, s) : null)">
+                    <option value="">@T["CustomContent.Field.NoPayload"]</option>
+                    @foreach (var choice in info.Choices ?? []) { <option value="@choice">@ExplosionLabel(choice)</option> }
+                </select>
+                break;
+            case CustomFieldKind.Round:
+                var round = value as ContentRef;
+                var custom = Workspace.CustomTarget.Describe(Def.Path + "#custom", Stratagem);
+                <select id="@id" value="@(round == null ? "" : (round.IsCustom ? "custom:" : "vanilla:") + round.Id)" disabled="@Busy" @onchange="e => SetRound(e.Value as string)" data-round-select>
+                    <option value="">@T["CustomContent.Field.OwnRound"]</option>
+                    <optgroup label="@T["ProjectilePicker.Vanilla"]">
+                        @foreach (var choice in info.Choices ?? []) { <option value="@("vanilla:" + choice)">@choice</option> }
+                    </optgroup>
+                    @if (Workspace.CustomProjectiles.Count > 0)
+                    {
+                        <optgroup class="custom-optgroup" label="@T["ProjectilePicker.Custom"]" data-custom-round-group>
+                            @foreach (var p in Workspace.CustomProjectiles) { <option class="custom-option" value="@("custom:" + p.Id)" disabled="@(!custom.Supported)" title="@custom.Reason">@p.Name (@p.Id)</option> }
+                        </optgroup>
+                    }
+                </select>
+                @if (Workspace.CustomProjectiles.Count > 0 && !custom.Supported) { <p class="field-reason" data-custom-round-reason>@T["CustomContent.Field.CustomRoundNote"] @custom.Reason</p> }
+                @if (round is { IsCustom: true }) { <p><span class="custom-chip">@T["CustomContent.Chip.Custom"] <code>@round.Id</code></span></p> }
+                break;
+            case CustomFieldKind.Toggle:
+                <label class="switch-label"><input id="@id" type="checkbox" checked="@(value is true)" disabled="@Busy" @onchange="e => Set(e.Value is true)" />@T["CustomContent.Field.On"]</label>
+                break;
+            case CustomFieldKind.Mode:
+                <div class="segmented" role="group" aria-labelledby="@id">
+                    <button class="@(value as string == OrbitalDelivery.RuntimeBarrage ? "active" : "")" aria-pressed="@(value as string == OrbitalDelivery.RuntimeBarrage)" disabled="@Busy" data-orbital-mode="runtime" @onclick="() => Mode(OrbitalDelivery.RuntimeBarrage)">@T["CustomStratagem.Orbital.Runtime"]</button>
+                    <button class="@(value as string == OrbitalDelivery.NativeBarrage ? "active" : "")" aria-pressed="@(value as string == OrbitalDelivery.NativeBarrage)" disabled="@Busy" data-orbital-mode="native" @onclick="() => Mode(OrbitalDelivery.NativeBarrage)">@T["CustomStratagem.Orbital.Native"]</button>
+                </div>
+                break;
+        }
+        @if (Def.Help != null) { <p class="field-help">@T[Def.Help]</p> }
+    }
+    @foreach (var issue in issues) { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error" : "warning")" data-field-issue>@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomFieldDef Def { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    private Task Set(object? value) => Run.InvokeAsync(() => Workspace.EditCustomStratagemAsync(Stratagem.Id, s => Def.Set!(s, value)));
+    // The orbital's mode decides which fields exist and which carrier groups can carry it: switched through the workspace.
+    private Task Mode(string mode) => Run.InvokeAsync(() => Workspace.SetOrbitalModeAsync(Stratagem.Id, mode));
+    private Task SetNumber(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return Set(null);
+        if (!double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number)) return Task.CompletedTask;
+        return Set(Def.Kind == CustomFieldKind.Integer ? (object)(int)Math.Round(number) : number);
+    }
+    private Task SetRound(string? value) => Set(value switch
+    {
+        { } v when v.StartsWith("vanilla:", StringComparison.Ordinal) => new ContentRef(ContentRef.VanillaRound, v["vanilla:".Length..]),
+        { } v when v.StartsWith("custom:", StringComparison.Ordinal) => ContentRef.Custom(v["custom:".Length..]),
+        _ => null,
+    });
+    // Support items show what their pod brings; Pelican gun explosions how they fire; attack outputs and pod items their names; the rest as
+    // published.
+    private string ChoiceLabel(string choice)
+    {
+        var schema = Workspace.CustomTarget.Schema;
+        if (Def.Path == "payload.items[].donor" && schema.SupportDonor(choice) is { } donor)
+            return donor.Deliverable ? T.Format("CustomStratagem.SupportItem.Option", donor.Name, donor.Count ?? 1, donor.Modifiable ? T["CustomStratagem.SupportItem.Weapon"] : T["CustomStratagem.SupportItem.Backpack"])
+                : T.Format("CustomStratagem.SupportItem.NotDeliverable", donor.Name);
+        if (Def.Path == "payload.gun.impact_explosion" && schema.PelicanExplosion(choice) is { } explosion)
+            return explosion.Kind == "slow" && explosion.MaxRpm is { } max ? T.Format("CustomStratagem.GunImpact.Slow", choice, CustomLabels.Number(max)) : choice;
+        if (Def.Path is "payload.blast" or "payload.fallback" && schema.Blast(choice) is { Objective: true }) return T.Format("CustomStratagem.Blast.Objective", choice);
+        return Workspace.CustomTarget.ChoiceLabel(Def.Path, choice);
+    }
+    private string ExplosionLabel(string choice) => Workspace.CustomTarget.Schema.Explosion(choice)?.Effect is { } effect ? choice + " · " + effect : choice;
+}

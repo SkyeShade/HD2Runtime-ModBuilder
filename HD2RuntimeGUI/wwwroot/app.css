@@ -1250,7 +1250,7 @@ input[type=checkbox]:checked:before {
 .overview-grid > .panel { margin:0 }
 @media (min-width:1300px) {
     .overview-grid { grid-template-columns:minmax(0, 1.15fr) minmax(360px, .85fr) }
-    .overview-facts, .mod-options { grid-column:1 } .overview-details { grid-column:2; grid-row:1 / span 2 } .quick-author { grid-column:2 }
+    .overview-facts, .mod-options, .overview-custom { grid-column:1 } .overview-details { grid-column:2; grid-row:1 / span 2 } .quick-author { grid-column:2 }
 }
 .fact-strip { display:flex; flex-wrap:wrap; gap:8px 28px; margin:0 0 14px }
 .fact-strip div { min-width:0 } .fact-strip dt { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted) }
@@ -1595,3 +1595,460 @@ html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei
 .trait-slots .trait-id { display:block; font-size:.78em; opacity:.7; overflow-wrap:anywhere }
 .subweapon-section { border-left:3px solid var(--accent-border); padding-left:12px }
 @media (max-width:760px) { .fire-mode-slots.rate-slots, .fire-mode-slots.trait-slots { grid-template-columns:1fr } }
+
+/* ---- Custom content (1.7.0, experimental) --------------------------------------------------------------------------------------------
+   A reference to a NEW, Runtime-owned object (custom stratagems, custom projectiles) from another tab is violet; editing an existing
+   game object keeps the ordinary styling above. The Custom Content tabs themselves re-declare these colours as the brand yellow (below). Violet text is #a78bfa on the dark surfaces (about 6.3:1 on --surface); filled
+   controls use #6d28d9 with white text (about 7:1). Experimental adds a small outlined badge, never a full-page colour. */
+:root {
+    --custom:#a78bfa;
+    --custom-strong:#6d28d9;
+    --custom-strong-hover:#7c3aed;
+    --custom-ink:#ffffff;
+    --custom-border:color-mix(in srgb, var(--custom) 42%, var(--border));
+    --custom-soft:color-mix(in srgb, var(--custom) 8%, var(--surface));
+    --custom-selected-bg:color-mix(in srgb, var(--custom) 13%, #181b21);
+}
+.cat-custom { --cat:var(--custom) }
+.nav-caption.custom { color:color-mix(in srgb, var(--custom) 70%, #707b8d); display:flex; align-items:center; gap:8px }
+.nav-item.cat-custom.selected { background:var(--custom-selected-bg); color:var(--custom); border-color:color-mix(in srgb, var(--custom) 35%, transparent) }
+.custom-content .eyebrow, .eyebrow.custom { color:var(--custom); display:flex; align-items:center; gap:10px }
+.badge.custom { color:var(--custom); border-color:var(--custom-border); background:color-mix(in srgb, var(--custom) 10%, transparent) }
+.badge.experimental { color:var(--custom); border-color:var(--custom-border); background:transparent; text-transform:uppercase; letter-spacing:.08em; font-size:9px; padding:3px 6px }
+.custom-primary { background:var(--custom-strong); color:var(--custom-ink); border-color:var(--custom-strong); font-weight:650 }
+.custom-primary:hover { background:var(--custom-strong-hover); border-color:var(--custom-strong-hover) }
+.custom-outline { color:var(--custom); border-color:var(--custom-border); background:transparent }
+.custom-outline:hover { background:color-mix(in srgb, var(--custom) 10%, transparent); border-color:var(--custom) }
+.custom-content .link-button { color:var(--custom) }
+.unused-fields { margin:2px 0 8px; font-size:12px; color:var(--muted) }
+.output-picker .output-search { flex:0 1 200px }
+.custom-content button:focus-visible, .custom-content input:focus-visible, .custom-content select:focus-visible, .custom-content textarea:focus-visible,
+.custom-group button:focus-visible, .custom-group input:focus-visible { outline-color:var(--custom) }
+.custom-banner { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--custom-border); border-left:3px solid var(--custom); background:var(--custom-soft);
+    border-radius:9px; padding:10px 14px; margin:0 0 18px; font-size:12.5px; line-height:1.55 }
+.custom-banner p { margin:0 }
+.custom-banner .badge { flex:0 0 auto; margin-top:1px }
+/* Cards */
+.custom-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px }
+.custom-card { position:relative; display:flex; flex-direction:column; border:1px solid var(--custom-border); border-radius:11px; background:var(--surface);
+    box-shadow:inset 0 2px var(--custom); min-width:0 }
+.custom-card:hover { border-color:color-mix(in srgb, var(--custom) 65%, var(--border)) }
+.custom-card-open { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:6px 14px; text-align:left; background:none; border:0; border-radius:11px 11px 0 0; padding:16px }
+.custom-card-open:hover { background:#1e2229 }
+.custom-card-open h3 { margin:0; font-size:14px; overflow-wrap:anywhere }
+.custom-card-open code { color:#b4bdcc; font-size:11.5px }
+.custom-card-meta { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-top:6px; font-size:12px; color:var(--muted) }
+.custom-card-actions { display:flex; flex-wrap:wrap; gap:4px; align-items:center; border-top:1px solid var(--border); padding:6px 10px; margin-top:auto }
+.custom-card-actions > button { border:0; background:none; font-size:12px; color:var(--custom); padding:6px 8px }
+.custom-card-actions > button.danger-text { color:var(--danger) }
+.custom-card-actions .confirm { flex-basis:100%; display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12px; padding:4px 0 }
+.custom-card-actions .confirm input { flex:1 1 140px; padding:5px 8px }
+.custom-card-actions .confirm button { padding:5px 10px; font-size:12px }
+/* The last grid card adds another custom stratagem; the strip above an open editor lists the mod's others (switch, all, add). */
+.custom-add-card { align-items:center; justify-content:center; gap:6px; min-height:150px; padding:18px; border-style:dashed; color:var(--custom); text-align:center }
+.custom-add-card small { color:var(--muted); max-width:260px }
+.custom-add-plus { font-size:30px; line-height:1 }
+.custom-add-card:disabled { opacity:.6 }
+.custom-switcher { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 14px; padding:8px; border:1px solid var(--custom-border); border-radius:11px; background:var(--surface) }
+.custom-switch { display:inline-flex; align-items:center; gap:8px; padding:5px 10px 5px 6px; font-size:12.5px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--text); max-width:260px }
+.custom-switch > span:not(.state-dot) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.custom-switch:hover { border-color:var(--custom-border) }
+.custom-switch.active { border-color:var(--custom); background:color-mix(in srgb, var(--custom) 12%, transparent) }
+.custom-switch.all { color:var(--custom); padding-left:10px }
+.custom-switch.add { color:var(--custom); border:1px dashed var(--custom-border); padding-left:10px }
+.custom-icon.xs { width:22px; height:22px; border-radius:5px } .custom-icon.xs > span { font-size:12px }
+.state-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; background:var(--green) }
+.state-dot.warning { background:var(--warning) } .state-dot.error { background:var(--danger) }
+.overview-custom .panel-heading h2 { display:flex; align-items:center; gap:10px }
+.overview-custom .link-button { color:var(--custom) }
+.overview-custom-list { list-style:none; margin:0 0 12px; padding:0; display:grid; gap:4px }
+.overview-custom-list button { width:100%; display:grid; grid-template-columns:auto minmax(0, 1fr) auto auto; align-items:center; gap:12px; text-align:left;
+    padding:8px 10px; border:1px solid transparent; border-radius:9px; background:transparent }
+.overview-custom-list button:hover { border-color:var(--custom-border); background:color-mix(in srgb, var(--custom) 6%, transparent) }
+.overview-custom-name { display:grid; min-width:0 } .overview-custom-name strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.overview-custom-name small { color:var(--muted) }
+.custom-empty { border:1px dashed var(--custom-border); border-radius:12px; padding:34px 24px; text-align:center; background:radial-gradient(ellipse at top, #221d33 0%, #161a20 70%) }
+.custom-empty p { max-width:520px; margin:0 auto 16px; color:var(--muted) }
+.custom-empty .empty-icon { color:var(--custom) }
+.custom-empty .actions { justify-content:center }
+/* Icons */
+.custom-icon { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border-radius:8px; overflow:hidden; background:#0b0c10;
+    border:1px solid var(--custom-border) }
+.custom-icon.sm { width:32px; height:32px } .custom-icon.md { width:48px; height:48px } .custom-icon.lg { width:96px; height:96px } .custom-icon.xl { width:128px; height:128px }
+.custom-icon img { width:100%; height:100%; display:block }
+.custom-icon.missing { color:var(--custom); font-size:18px; border-style:dashed }
+.custom-icon > span { color:var(--custom); line-height:1 }
+.custom-icon.md > span { font-size:22px } .custom-icon.lg > span { font-size:44px } .custom-icon.xl > span { font-size:56px }
+.custom-icon-editor { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-start }
+.custom-icon-editor figure { margin:0; display:grid; gap:6px; justify-items:center; font-size:11px; color:var(--muted) }
+.custom-icon-editor .actions { flex-wrap:wrap }
+.custom-icon-controls { flex:1 1 280px; min-width:0 }
+.custom-icon-actions { margin-top:12px }
+/* Arrows (call-in code) */
+.arrow-seq { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:15px }
+.arrow-seq.small { gap:3px; font-size:12px }
+.arrow-key { display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:28px; border-radius:6px; border:1px solid var(--custom-border);
+    background:color-mix(in srgb, var(--custom) 9%, #101319); color:var(--text); font-weight:700 }
+.arrow-seq.small .arrow-key { min-width:20px; height:20px; border-radius:4px }
+.code-editor { display:grid; gap:10px }
+.code-slot { display:inline-flex; align-items:center; gap:2px; padding:3px; border:1px solid var(--border); border-radius:8px; background:var(--surface2) }
+.code-slot .arrow-key { min-width:36px; height:36px; font-size:18px }
+.code-slot button { padding:2px 6px; font-size:11px; border:0; background:none; color:var(--muted) }
+.code-slot button:hover { color:var(--text) }
+.code-add { display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.code-add button { min-width:40px; padding:6px 10px; font-size:16px }
+/* Editors */
+.custom-editor-header { display:flex; gap:16px; align-items:center; margin-bottom:6px }
+.custom-editor-header h2 { margin:0 0 4px }
+.custom-editor-header .field-badges { margin-top:6px }
+.custom-content .ia-section.needs-attention > summary { color:var(--danger) }
+.custom-fields { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:4px 18px }
+.custom-field label { margin:12px 0 6px; display:flex; justify-content:space-between; gap:8px; align-items:baseline }
+.custom-field label small { font-weight:400; color:var(--muted) }
+.custom-field .input-unit { display:flex; align-items:center; gap:8px }
+.custom-field .input-unit span { color:var(--muted); font-size:12px; white-space:nowrap }
+.custom-field.refused, .custom-field.unavailable { opacity:.75 }
+.custom-field .field-reason { margin:4px 0 0; font-size:11.5px; color:var(--muted); line-height:1.45 }
+.custom-field .field-issue { margin:4px 0 0; font-size:11.5px; line-height:1.45 }
+.custom-field .field-issue.error { color:var(--danger) }
+.custom-field .field-issue.warning { color:var(--warning) }
+.custom-field.has-error input, .custom-field.has-error select { border-color:var(--danger) }
+.custom-field .field-help { margin:4px 0 0; font-size:11.5px; color:var(--muted) }
+.refused-list { margin-top:14px; padding:10px 12px; border:1px dashed var(--border); border-radius:8px; font-size:12px; color:var(--muted) }
+.refused-list h4 { margin:0 0 6px; font-size:11px; letter-spacing:.06em; text-transform:uppercase }
+.refused-list p { margin:4px 0 }
+.family-picker { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 10px }
+.family-option { display:grid; gap:2px; text-align:left; min-width:150px; padding:10px 14px; border-radius:9px; background:var(--surface2) }
+.family-option small { color:var(--muted); font-size:11px; font-weight:400 }
+.family-option.active { border-color:var(--custom); background:var(--custom-selected-bg); color:var(--custom) }
+.segmented { display:inline-flex; flex-wrap:wrap; border:1px solid var(--border); border-radius:8px; overflow:hidden }
+.segmented button { border:0; border-radius:0; padding:7px 12px; background:var(--surface2); font-size:12.5px }
+.segmented button + button { border-left:1px solid var(--border) }
+.segmented button.active { background:var(--custom-selected-bg); color:var(--custom) }
+.chip-select { display:flex; flex-wrap:wrap; gap:6px }
+.chip-select button { padding:4px 10px; border-radius:999px; font-size:12px; background:transparent }
+.chip-select button.active { border-color:var(--custom); color:var(--custom); background:color-mix(in srgb, var(--custom) 10%, transparent) }
+.custom-callbacks textarea { font-family:"Cascadia Code",Consolas,monospace; font-size:12px; min-height:110px }
+.custom-warning { border:1px solid color-mix(in srgb, var(--warning) 35%, transparent); background:color-mix(in srgb, var(--warning) 5%, transparent); border-radius:8px; padding:10px 12px; font-size:12.5px }
+.custom-warning p { margin:4px 0 }
+/* Validation checklist */
+.check-list { list-style:none; margin:0; padding:0; display:grid; gap:3px }
+.check-list li { display:grid; grid-template-columns:20px minmax(0, 1fr); gap:6px; font-size:12.5px; line-height:1.5; padding:3px 0 }
+.check-list .mark { font-weight:700; text-align:center }
+.check-list .pass .mark { color:var(--green) }
+.check-list .info .mark { color:var(--cat-support) }
+.check-list .experimental .mark { color:var(--custom) }
+.check-list .warning .mark { color:var(--warning) }
+.check-list .error .mark { color:var(--danger) }
+.check-list li.error { color:color-mix(in srgb, var(--danger) 85%, var(--text)) }
+.check-group + .check-group { margin-top:10px }
+.check-group h4 { margin:0 0 4px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted) }
+.state-badge.error { color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, transparent) }
+.state-badge.warning { color:var(--warning); border-color:#5a4c29 }
+.state-badge.ready { color:var(--green); border-color:#305344 }
+/* References to custom content (weapon editor, used-by lists) */
+.custom-chip { display:inline-flex; align-items:center; gap:6px; padding:2px 9px; border-radius:999px; border:1px solid var(--custom-border);
+    background:color-mix(in srgb, var(--custom) 10%, transparent); color:var(--custom); font-size:11.5px; font-weight:600; white-space:nowrap }
+.custom-chip code { color:inherit; font-size:11px }
+/* A projectile selector's two groups: the vanilla projectiles, and the project's custom projectiles (violet, experimental). */
+.projectile-picker { display:flex; flex-direction:column; gap:10px }
+.picker-group-label { font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:2px 2px 5px }
+.picker-group-label.custom { color:var(--custom) }
+.custom-group { border:1px solid var(--custom-border); border-left:3px solid var(--custom); border-radius:10px; background:var(--custom-soft); padding:8px 10px 10px }
+.custom-group .field-reason { margin:2px 2px 6px; font-size:12px }
+.custom-group .link-button { color:var(--custom) }
+.custom-group .custom-notice { background:var(--surface); margin:8px 0 0 }
+.custom-group .custom-notice p { margin:0 0 6px }
+.donor-list.custom-options { border-color:var(--custom-border); max-height:220px; background:var(--surface) }
+.donor.custom-option .donor-name { display:flex; align-items:baseline; gap:8px; min-width:0 }
+.donor.custom-option .donor-name code { color:color-mix(in srgb, var(--custom) 75%, var(--muted)); font-size:11px }
+.custom-glyph { color:var(--custom) }
+.donor.custom-option.active { background:var(--custom-selected-bg); border-color:var(--custom) }
+.donor.custom-option.active .donor-name strong { color:var(--custom) }
+.donor.custom-option:disabled { opacity:.6; cursor:not-allowed }
+.donor.custom-create-option { grid-template-columns:minmax(0, 1fr); color:var(--custom); border:1px dashed var(--custom-border); font-weight:600 }
+.donor.custom-create-option:hover:not(:disabled) { background:color-mix(in srgb, var(--custom) 10%, transparent); border-color:var(--custom) }
+.custom-assigned { margin-top:8px; padding-top:8px; border-top:1px solid var(--custom-border) }
+.custom-assigned p { margin:4px 0; font-size:12.5px }
+.custom-assigned .field-issue, .custom-draft .field-issue { margin:4px 0; font-size:12px; line-height:1.45 }
+.custom-assigned .field-issue.warning { color:var(--warning) }
+.custom-assigned .field-issue.error, .custom-draft .field-issue.error { color:var(--danger) }
+.custom-checks > summary { padding:4px 0; font-size:12px }
+.custom-optgroup, option.custom-option { color:var(--custom) }
+/* The Custom Projectile Builder while a projectile is being created for a weapon: the way back, and what completing it does. */
+.custom-draft { border:1px solid var(--custom); border-radius:10px; background:var(--custom-soft); padding:12px 14px; margin:0 0 14px; font-size:12.5px; line-height:1.5 }
+.custom-draft p { margin:4px 0 }
+.custom-editor-nav { display:flex; flex-wrap:wrap; gap:16px }
+.custom-notice { border-left:3px solid var(--custom); background:var(--custom-soft); border-radius:6px; padding:8px 12px; font-size:12.5px; margin:8px 0 }
+.used-by { list-style:none; margin:6px 0 0; padding:0; display:grid; gap:4px; font-size:12.5px }
+.used-by li { display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.custom-delete { margin-top:10px; padding:10px 12px; border:1px solid color-mix(in srgb, var(--danger) 40%, transparent); border-radius:8px; background:color-mix(in srgb, var(--danger) 5%, transparent) }
+.custom-delete .actions { flex-wrap:wrap; margin-top:8px }
+.custom-preview pre { margin:0; overflow:auto; background:#10141a; padding:14px 16px; color:#c9b8f5; font-size:12px; line-height:1.6; max-height:420px; border-radius:8px; border:1px solid var(--border) }
+.custom-create { border:1px solid var(--custom-border); border-radius:11px; background:var(--surface); padding:16px 18px; margin-bottom:18px }
+.custom-create h2 { margin:0 0 6px; font-size:15px }
+.template-menu { position:relative }
+.template-toggle { white-space:nowrap }
+.template-menu .menu { width:340px; right:0; top:44px }
+.template-menu .menu button { display:grid; gap:2px }
+.template-menu .menu small { color:var(--muted); font-weight:400 }
+.template-menu .menu .menu-divider { border-top:1px solid var(--custom-border); margin:4px 0 }
+.donor-list.clone-list { max-height:420px; margin-top:8px }
+.clone-list .picker-group-label { margin:8px 4px 2px }
+.custom-assign { display:flex; flex-wrap:wrap; gap:8px; align-items:end }
+.custom-assign label { flex:1 1 220px; margin:0 }
+@media (max-width:800px) { .custom-fields { grid-template-columns:1fr } }
+/* The custom stratagem studio (1.7.0): the editor beside a sticky live preview, a section bar that jumps to problems, family and carrier
+   group cards, pod, presentation, model and Lua editors. --custom is the brand yellow on these tabs; a family's category colour
+   (support blue, defensive green, offensive red) marks only its icon, glyph and preview edge, as the game's own stratagems are coloured. */
+.custom-studio-top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px }
+.custom-section-nav { display:flex; flex-wrap:wrap; gap:4px }
+.custom-section-nav button { padding:5px 10px; font-size:12px; border-radius:999px; background:transparent; color:var(--muted); display:inline-flex; gap:6px; align-items:center }
+.custom-section-nav button:hover { color:var(--custom); border-color:var(--custom-border) }
+.custom-section-nav button.attention { color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, transparent) }
+.tab-mark { font-size:9px; line-height:1 }
+.tab-mark.error { color:var(--danger) } .tab-mark.filled { color:var(--custom) }
+.custom-studio-layout { display:grid; grid-template-columns:minmax(0, 1fr) 320px; gap:18px; align-items:start }
+.custom-studio-side { position:sticky; top:0; max-height:calc(100vh - 120px); overflow:auto; min-width:0 }
+.custom-studio-main { min-width:0 }
+.custom-studio-main > .ia-section { scroll-margin-top:12px }
+@media (max-width:1200px) { .custom-studio-layout { grid-template-columns:minmax(0, 1fr) } .custom-studio-side { position:static; max-height:none; order:-1 } }
+/* Live preview */
+.loadout-preview { border:1px solid var(--custom-border); border-radius:12px; background:var(--surface); padding:14px; display:grid; gap:12px;
+    box-shadow:inset 3px 0 var(--cat, var(--custom)) }
+.loadout-card { display:flex; gap:12px; align-items:center }
+.loadout-text { display:grid; gap:3px; min-width:0 }
+.loadout-text strong { font-size:15px; overflow-wrap:anywhere }
+.loadout-hud { font-size:10.5px; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; overflow-wrap:anywhere }
+.loadout-traits { display:flex; flex-wrap:wrap; gap:4px; margin-top:3px }
+.trait { font-size:9.5px; letter-spacing:.07em; font-weight:700; padding:2px 6px; border-radius:4px; border:1px solid var(--border); color:#cdd5e2; background:#12161c }
+.trait.custom { color:var(--custom); border-color:var(--custom-border) }
+.trait.subtle { color:var(--muted); font-weight:500; font-style:italic }
+.loadout-facts { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:5px 12px; margin:0; font-size:12px }
+.loadout-facts dt { color:var(--muted) } .loadout-facts dd { margin:0; display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.loadout-readiness { border-radius:8px; padding:8px 10px; font-size:12px; border:1px solid var(--border) }
+.loadout-readiness p { margin:0 0 4px }
+.loadout-readiness.ready { border-color:#305344; color:var(--green) }
+.loadout-readiness.warning { border-color:#5a4c29; color:var(--warning) }
+.loadout-readiness.error { border-color:color-mix(in srgb, var(--danger) 40%, transparent); color:var(--danger) }
+.loadout-readiness ul { margin:4px 0 0; padding-left:16px; display:grid; gap:3px }
+.loadout-readiness .link-button { color:inherit; text-align:left; font-size:11.5px; line-height:1.4; padding:0 }
+/* Family and carrier group cards */
+.family-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; margin:6px 0 12px }
+.family-grid.compact { grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)) }
+.family-card { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:10px; text-align:left; align-items:start; padding:11px 12px; border-radius:10px; background:var(--surface2) }
+.family-card .family-glyph { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; font-size:15px;
+    color:var(--cat, var(--custom)); background:color-mix(in srgb, var(--cat, var(--custom)) 12%, transparent); border:1px solid color-mix(in srgb, var(--cat, var(--custom)) 35%, transparent) }
+.family-card .family-text { display:grid; gap:3px; min-width:0 }
+.family-card small { color:var(--muted); font-size:11px; font-weight:400; line-height:1.4 }
+.family-card .family-evidence { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:10.5px; margin-top:2px }
+.family-card.active { border-color:var(--custom); background:var(--custom-selected-bg) }
+.family-card.active strong { color:var(--custom) }
+.family-summary { margin:2px 0 8px; font-size:12.5px; color:var(--muted) }
+.runtime-notes { margin-bottom:8px; font-size:12px } .runtime-notes p { margin:4px 0 }
+.group-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:8px; margin:4px 0 10px }
+.group-card { display:grid; gap:4px; text-align:left; padding:10px 12px; border-radius:10px; background:var(--surface2) }
+.group-card .group-head { display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+.group-card small { color:var(--muted); font-size:11px; font-weight:400; line-height:1.4 }
+.group-card .group-doc { font-size:10.5px; opacity:.85 }
+.group-card.active { border-color:var(--custom); background:var(--custom-selected-bg) }
+.group-card.active strong { color:var(--custom) }
+.group-card.policy { border-style:dashed }
+.beacon-dot { width:10px; height:10px; border-radius:50%; flex:0 0 auto; background:var(--muted) }
+.beacon-dot.offensive { background:var(--cat-offensive) } .beacon-dot.support { background:var(--cat-support) }
+.beacon-dot.any { background:linear-gradient(90deg, var(--cat-offensive) 50%, var(--cat-support) 50%) }
+.carrier-editor .chip-select { margin-bottom:6px }
+/* Traits */
+.chip-select.traits { align-items:center }
+.trait-fixed { font-size:10px; letter-spacing:.07em; font-weight:700; padding:4px 8px; border-radius:999px; color:var(--custom); border:1px dashed var(--custom-border) }
+.trait-input { flex:0 1 180px; padding:4px 10px; border-radius:999px; font-size:12px }
+/* Pods */
+.pod-editor { display:grid; gap:8px }
+.pod-items { display:grid; gap:8px }
+.pod-item { border:1px solid var(--border); border-radius:9px; padding:8px 10px; background:var(--surface2) }
+.pod-item.unverified { border-color:#5a4c29 }
+.pod-item-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+.pod-item-row select { flex:1 1 260px; min-width:0 }
+.pod-count { display:inline-flex; align-items:center; gap:4px; margin:0 } .pod-count input { width:64px }
+.pod-item-actions { display:inline-flex; gap:2px } .pod-item-actions button { padding:4px 8px }
+.pod-item-meta { margin:4px 0 0; font-size:11.5px; display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.pod-add { display:flex; flex-wrap:wrap; gap:10px; align-items:center }
+/* Presentation and models */
+.presentation-icon { display:flex; gap:12px; align-items:center; margin-top:8px }
+.presentation-icon .actions { flex-wrap:wrap }
+.model-editor { display:grid; gap:8px }
+.zone-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:6px 14px }
+.zone-row { display:flex; align-items:center; gap:8px; font-size:12.5px; min-height:32px }
+.zone-row.all { grid-column:1 / -1 }
+.zone-row input[type=color] { width:44px; height:28px; padding:2px; background:var(--surface2); border-radius:6px }
+.zone-row button { padding:3px 8px; font-size:11px }
+.zone-swatch { width:22px; height:22px; border-radius:5px; border:1px solid var(--border); flex:0 0 auto;
+    background-image:linear-gradient(45deg, #2a2f38 25%, transparent 25%, transparent 75%, #2a2f38 75%) }
+.zone-name { display:grid; min-width:0 } .zone-name small { display:flex; gap:4px; align-items:center; font-size:10.5px }
+.zone-dot { width:8px; height:8px; border-radius:50%; display:inline-block }
+.field-issue.pass { color:var(--green) }
+/* Lua callbacks */
+.callback-editor { display:grid; gap:8px }
+.callback-tabs { flex-wrap:wrap }
+.callback-tabs button { display:inline-flex; gap:6px; align-items:center }
+.callback-tabs button code { font-size:12px; color:inherit }
+.callback-tabs button.unusable { opacity:.55 }
+.callback-body { display:grid; gap:6px }
+.callback-signature code { font-family:"Cascadia Code",Consolas,monospace; font-size:12px; color:#c9b8f5 }
+.callback-lua { height:34vh; min-height:220px }
+.callback-toolbar { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; align-items:center }
+.callback-toolbar .actions { display:flex; flex-wrap:wrap; gap:6px }
+.callback-toolbar button.small, .custom-preview button.small { padding:4px 10px; font-size:12px }
+/* Templates */
+.template-gallery .group-title { display:flex; gap:8px; align-items:center }
+.template-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:8px; margin-bottom:10px }
+.template-card { display:grid; gap:4px; text-align:left; padding:10px 12px; border-radius:10px; background:var(--surface2) }
+.template-card small { color:var(--muted); font-size:11px; font-weight:400; line-height:1.45; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden }
+.template-card code { font-size:10.5px; color:color-mix(in srgb, var(--custom) 70%, var(--muted)) }
+.template-card:hover:not(:disabled) { border-color:var(--custom) }
+.custom-card { box-shadow:inset 0 2px var(--cat, var(--custom)) }
+.custom-preview pre[data-custom-project-form] { color:#b8d4f5 }
+.custom-content .page-heading .actions button { white-space:nowrap }
+.family-current { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:6px 0 8px; padding:10px 12px; border:1px solid var(--custom-border); border-radius:10px; background:var(--surface2) }
+.family-current .family-glyph { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; font-size:15px;
+    color:var(--cat, var(--custom)); background:color-mix(in srgb, var(--cat, var(--custom)) 12%, transparent) }
+.family-current button { margin-left:auto }
+.zone-row input[type=color] { min-height:0; block-size:28px }
+.zone-grid { gap:2px 14px }
+/* The Custom Content tabs themselves (Custom Stratagems, Custom Projectiles and their sidebar group) use the brand yellow, as every other
+   authoring tab does: violet across a whole page made it blur together. Each derived colour is declared again here, because a custom
+   property built from another is resolved where it is declared (on :root, from the violet). References to custom content from other
+   tabs (a weapon's projectile selector, the Changes panel) keep the violet, so they still stand out there. */
+.custom-content, [data-nav-group="custom"] {
+    --custom:var(--brand-yellow);
+    --custom-strong:var(--brand-yellow);
+    --custom-strong-hover:var(--accent-hover);
+    --custom-ink:#211d12;
+    --custom-border:var(--accent-border);
+    --custom-soft:color-mix(in srgb, var(--brand-yellow) 6%, var(--surface));
+    --custom-selected-bg:var(--accent-selected-bg);
+}
+.custom-content .custom-empty { background:radial-gradient(ellipse at top, #24210f 0%, #161a20 70%) }
+.custom-content .custom-preview pre, .custom-content .callback-signature code { color:#e8dca6 }
+
+/* ---- HD2Runtime 0.30 vehicles, backpacks and enemies (1.7.0, docs/runtime030-integration-plan.md Phases 3.2 and 5) ---------------------- */
+/* Mounted turret motion: speeds, then each limit pair (order: [low, high]) as one block; a pair out of order is marked and fixed in place. */
+.turret-motion .limit-pair { margin:10px 0 0; padding:8px 10px; border:1px solid var(--border); border-radius:8px }
+.turret-motion .limit-pair.unordered { border-color:color-mix(in srgb, var(--warning) 45%, transparent); background:color-mix(in srgb, var(--warning) 4%, transparent) }
+.turret-motion .limit-pair-title { margin:0 0 6px; font-size:12.5px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em }
+.turret-motion .turret-lifecycle { margin:6px 0 0; font-size:12px }
+.limit-order-fixes { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin:8px 0 0; font-size:12.5px }
+/* Jump / Hover Pack movement: one block per flight phase. */
+.movement-phase + .movement-phase { margin-top:14px }
+.movement-phase .group-title { margin:0 0 4px }
+/* A field with a disabled value (the enemy gib threshold): the number box with an explicit switch below it. */
+.field-value .sentinel-field { display:flex; flex-direction:column; gap:3px }
+.field-value .sentinel-toggle { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); white-space:nowrap }
+/* Runtime "dormant" notices (the write is kept, this entity never reads it): informational, never a blocker. */
+.field-notice-dormant { font-size:12px; color:var(--muted); border-left:2px solid color-mix(in srgb, var(--warning) 55%, transparent); padding-left:8px }
+/* ---- HD2Runtime 0.30 support-weapon charge (SupportChargePanel, SupportChargeLevelNote, the inline replace prompt in SupportFieldEditor) ----
+   Brand yellow for the section and its prompts; Runtime's warnings keep the shared notice / ack-panel colours. */
+.charge-panel { margin:10px 0 4px; padding:10px 12px; border:1px solid var(--accent-border); border-radius:10px; background:color-mix(in srgb, var(--brand-yellow) 3%, var(--surface)) }
+.charge-title { display:flex; gap:8px; align-items:center; margin:0 0 4px; color:var(--accent) }
+.charge-stage { margin:8px 0 0 }
+.charge-stage > summary { cursor:pointer; padding:4px 0; border-bottom:1px solid var(--border) }
+.charge-stage > summary small { font-weight:400 }
+.charge-notes { display:grid; gap:3px; font-size:12px }
+.charge-notes p { margin:0 }
+.charge-notes .notice { margin:2px 0 }
+.charge-fix { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:6px 10px; border-left:3px solid var(--accent); background:var(--accent-selected-bg); border-radius:6px }
+.charge-fix p { flex-basis:100%; margin:0 }
+.charge-level { margin:4px 0 8px; padding:8px 12px; border-left:3px solid var(--accent-border); background:var(--surface2); border-radius:6px; font-size:12.5px }
+.charge-level p { margin:0 0 4px }
+.charge-level-facts { display:grid; grid-template-columns:max-content 1fr; gap:2px 10px; margin:0 }
+.charge-level-facts dt { color:var(--muted) }
+.charge-level-facts dd { margin:0 }
+.support-replace { padding:8px 12px; border:1px solid var(--accent-border); border-radius:8px; background:var(--accent-selected-bg); font-size:13px }
+.support-replace p { margin:0 0 4px }
+.support-replace ul { margin:0 0 6px; padding-left:18px }
+.support-replace-actions { display:flex; flex-wrap:wrap; gap:6px }
+/* ---- HD2Runtime 0.30 projectile donors (DonorDetail: role, projectile type and flight in the donor lists and where a donor is chosen) ---- */
+.donor-detail { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px }
+.donor-detail.compact { margin-top:3px }
+.donor-detail.compact .badge { padding:1px 6px; font-size:10.5px }
+.donor-detail .donor-kind { color:var(--brand-yellow); border-color:var(--accent-border) }
+.donor-detail-notes { display:flex; flex-direction:column; gap:2px; margin-top:6px }
+.donor-chosen { margin:4px 0 8px }
+.donor-hint { margin:4px 0 6px; font-size:12px }
+
+/* ---- HD2Runtime 0.30 Custom Lua gameplay actions (GameplayActionPicker: homing, spawn weights, limbs, velocity, player state, Pelican, sounds) ---- */
+.gameplay-actions .action-form { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:end; margin:6px 0 4px }
+.gameplay-actions .action-form label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--muted) }
+.gameplay-actions .action-form label code { color:var(--text) }
+.gameplay-actions .action-form input[type=number] { width:96px }
+.gameplay-actions .action-form-note { flex-basis:100%; font-size:11.5px }
+.gameplay-actions .action-form .action-invalid { flex-basis:100%; margin:0 }
+.gameplay-actions .action-buttons { display:flex; flex-wrap:wrap; gap:6px }
+.gameplay-actions .action-opt-in { border-color:var(--accent-border); font-size:12px }
+.gameplay-actions .sound-list { max-height:320px; overflow:auto; padding-right:4px }
+.gameplay-actions .sound-list .action-row code { font-size:11.5px }
+/* ---- HD2Runtime 0.30 stratagem authoring (Phase 4): call-in code, presentation, barrage pattern, Eagle attack, sentry components ----
+   Brand yellow throughout: these edit existing game stratagems, so the custom content violet (arrow keys, icon frames) is overridden here. */
+.field-row.wide-value { grid-template-columns:minmax(170px,1.5fr) minmax(150px,240px) minmax(110px,1fr) 170px }
+.field-value .arrow-seq.small .arrow-key, .stratagem-code .arrow-key { border-color:var(--accent-border); color:var(--accent); background:var(--accent-selected-bg) }
+.presentation-value { display:block; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.field-value select[data-allowed-values] { width:100%; height:30px; min-height:0; padding:3px 6px; font-size:12.5px; border-radius:6px }
+.sentinel-value { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px }
+.sentinel-value input[type=number] { flex:1 1 70px }
+.badge.timing-badge { color:var(--muted) }
+.stratagem-group { margin-top:14px }
+.stratagem-group > p { margin:2px 0 8px; font-size:12.5px }
+.stratagem-group h4.group-title { margin:10px 0 6px; font-size:12px }
+.stratagem-code, .stratagem-presentation { display:grid; gap:8px; padding:6px 0 4px }
+.stratagem-code .code-add { display:flex; flex-wrap:wrap; align-items:center; gap:6px }
+.stratagem-code .code-add button { min-width:36px; padding:4px 8px; font-size:16px; line-height:1.1 }
+.stratagem-code .code-actions { display:inline-flex; gap:6px; margin-left:auto }
+.stratagem-code .code-actions button { font-size:12.5px }
+.stratagem-code .code-note { margin:0; font-size:12px }
+.stratagem-code .field-issue.warning { margin:0; font-size:12px; color:var(--warning) }
+.stratagem-code .swap-prompt, .stratagem-presentation .swap-prompt, .stratagem-group .swap-prompt { margin:0 }
+.presentation-source { display:flex; flex-wrap:wrap; align-items:end; gap:10px }
+.presentation-source label, .look-like label { display:inline-grid; gap:3px; font-size:12px; color:var(--muted); min-width:260px }
+.presentation-image { display:grid; grid-template-columns:auto 1fr; gap:6px 12px; align-items:start; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface2) }
+.presentation-image > .swap-actions, .presentation-image > p { grid-column:1 / -1; margin:0 }
+.presentation-image figure { margin:0; display:grid; justify-items:center; gap:2px; font-size:11px; color:var(--muted) }
+.presentation-image-controls { display:grid; gap:6px; align-content:start; font-size:12px }
+.presentation-image-controls p { margin:0 }
+.stratagem-presentation .custom-icon, .presentation-own-icon { border-color:var(--accent-border) }
+.look-like { margin:0 0 8px }
+.orbital-notes { margin:0 0 8px; font-size:12px }
+.orbital-notes p { margin:4px 0 }
+.entity-component { margin-top:12px }
+.entity-component > p { margin:0 0 6px; font-size:12px }
+/* Player (hd2.helldiver(), 1.7.0): lime, between the yellow boosters and the green defensive stratagems. */
+:root { --cat-helldiver:#bde05f }
+.cat-helldiver { --cat:var(--cat-helldiver) }
+.helldiver-warnings { display:grid; gap:10px }
+.helldiver-opt-ins { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:10px }
+.helldiver-opt-ins .ack-panel { margin:0 }
+.helldiver-facts { margin:0; padding-left:20px; display:grid; gap:4px; font-size:13px }
+.helldiver-zone-table td.modified-value { color:var(--accent); font-weight:600 }
+.helldiver-legend { margin:8px 0 0; font-size:12px }
+
+/* Armor (HD2Runtime 0.30.0 hd2.armor_stats / hd2.player_passives): steel cyan, between the support blue and the defensive green. */
+:root { --cat-armor:#5ec8de }
+.cat-armor { --cat:var(--cat-armor) }
+.armor-tabs { margin:0 0 14px }
+.armor-list-stats { font-variant-numeric:tabular-nums }
+.armor-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:14px 0 8px }
+.armor-stat { display:flex; flex-direction:column; gap:2px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface2) }
+.armor-stat.modified { border-color:var(--accent-border); box-shadow:inset 3px 0 var(--accent) }
+.armor-stat-label { color:var(--muted); font-size:12px }
+.armor-stat strong { font-size:20px; font-variant-numeric:tabular-nums }
+.armor-stat small { font-size:11.5px }
+.armor-weight-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-top:6px }
+.armor-class-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; font-variant-numeric:tabular-nums }
+.armor-class-table th { text-align:left; color:var(--muted); font-weight:600; padding:6px 10px; border-bottom:1px solid var(--border) }
+.armor-class-table td { padding:6px 10px; border-bottom:1px solid var(--border) }
+.armor-class-table tr.modified td { color:var(--accent) }
+.armor-passive-pickers { margin:8px 0 12px }
+.armor-passive-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; margin:0 0 10px }
+.armor-passive-card { padding:12px 14px; border:1px solid var(--border); border-left:3px solid var(--cat-armor); border-radius:10px; background:var(--surface2) }
+.armor-passive-card > strong { display:block; margin:2px 0 6px; font-size:15px }
+.armor-passive-card p { margin:8px 0 0 }
+[data-armor-player-change] h2 .category-pill { vertical-align:middle }

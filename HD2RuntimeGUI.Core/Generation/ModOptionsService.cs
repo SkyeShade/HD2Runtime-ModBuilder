@@ -99,7 +99,7 @@ public static class ModOptionsService
             foreach (var g in WeaponAliasResolver.Group(sdk, p.WeaponChanges)) if (WeaponTarget(p, sdk, g) is { } t) result.Add(t);
             foreach (var c in p.CompositionChanges) if (ObjectTarget(sdk, c) is { } t) result.Add(t);
         }
-        foreach (var c in p.EntityChanges) if (EntityTarget(sdk, c) is { } t) result.Add(t);
+        foreach (var c in p.EntityChanges) if (EntityTarget(sdk, c, p) is { } t) result.Add(t);
         foreach (var c in p.SupportChanges) if (SupportTarget(sdk, c) is { } t) result.Add(t);
         foreach (var c in p.StratagemChanges) if (StratagemTarget(sdk, c) is { } t) result.Add(t);
         return result;
@@ -117,7 +117,8 @@ public static class ModOptionsService
         WeaponCapability f; try { f = sdk.PlayerWeapons.Field(c.Scalar.Weapon, c.Scalar.SemanticFieldId); } catch (InvalidDataException) { return null; }
         return Weapon(ObjectKey(c), "object", c.Weapon, f, c.Scalar.ExpectedValue, c.Scalar.DesiredValue, c.Enabled, c.EnsureEnabled);
     }
-    public static OptionTarget? EntityTarget(SdkMetadata sdk, EntityChange c)
+    // With the project, a sample of an ordered limit (0.30.0 turret limits) is also checked against the other limit's edited value.
+    public static OptionTarget? EntityTarget(SdkMetadata sdk, EntityChange c, ModProject? p = null)
     {
         if (sdk.Entities == null) return null;
         EntityField f; try { f = EntityChangeService.Resolve(sdk.Entities, c); } catch (InvalidDataException) { return null; }
@@ -125,7 +126,8 @@ public static class ModOptionsService
         // Magazine attachments are identified by semantic ID; show their published name.
         var owner = f.Target.Attachment is { } a ? sdk.Entities.Attachments?.Attachment(a)?.Name ?? a : f.Target.Enemy != null ? EntityLua.Describe(sdk.Entities, f.Target) : f.Target.Entity;
         return Numeric(EntityKey(c.InstanceKey), "entity", owner, f.DisplayName, f.Type, f.Unit, c.ExpectedValue, c.DesiredValue,
-            c.Enabled, c.EnsureEnabled, Finite(f.EffectiveRange?.Min), Finite(f.EffectiveRange?.Max), blocker, v => EntityScalar.CheckRange(f, Json(v)));
+            c.Enabled, c.EnsureEnabled, Finite(f.EffectiveRange?.Min), Finite(f.EffectiveRange?.Max), blocker,
+            v => { EntityScalar.CheckRange(f, Json(v)); if (p != null && f.Order != null) EntityOrder.CheckValue(p, sdk.Entities!, f, v); });
     }
     public static OptionTarget? SupportTarget(SdkMetadata sdk, SupportChange c)
     {

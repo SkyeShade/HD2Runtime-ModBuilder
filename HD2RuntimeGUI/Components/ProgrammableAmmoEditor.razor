@@ -94,18 +94,20 @@
                         <div class="ammo-donor-picker" data-ammo-donor-picker>
                             <span class="ammo-mode-label">@T["AmmoModes.Donor.Title"]</span>
                             <label class="ammo-donor-search">@T["AttackOutput.Search.Label"]<input data-function-ammo-search @bind="Search" @bind:event="oninput" placeholder="@T["WeaponFunctions.Ammo.Search.Placeholder"]" /></label>
+                            <div class="picker-group-label">@T["ProjectilePicker.Vanilla"]</div>
                             <div class="donor-list" role="listbox" aria-label="@T["WeaponFunctions.Ammo.Donors.Label"]" data-function-ammo-donors>
                                 @foreach (var d in shown)
                                 {
                                     var selected = modes.Source.Current == d.Output.SemanticId;
                                     <button class="donor ammo-donor @(selected ? "active" : "")" role="option" aria-selected="@(selected ? "true" : "false")" disabled="@Busy" data-function-donor="@d.Output.SemanticId"
                                             title="@d.Output.SemanticId" @onclick="() => Choose(modes, view, d.Output.SemanticId)">
-                                        <span class="donor-name"><strong>@d.Output.Label</strong><small class="subtle">@Describe(d.Output, true)</small></span>
+                                        <span class="donor-name"><strong>@d.Output.Label</strong><small class="subtle">@Describe(d.Output, true)</small><DonorDetail Output="d.Output" Compact="true" /></span>
                                         <span class="donor-badges">@Badges(modes, d, false)</span>
                                     </button>
                                 }
                                 @if (shown.Length == 0) { <p class="subtle">@T["AttackOutput.Donors.Empty"]</p> }
                             </div>
+                            <CustomProjectileGroup Host="new(CustomProjectileHost.AmmoMode, Weapon, AlternateRole)" Changed="Changed" />
                         </div>
                     }
 
@@ -113,7 +115,8 @@
                     {
                         <div class="ammo-donor-detail" data-selected-donor="@donorRow.SemanticId">
                             @if (alt.Donor is { } d) { <span class="donor-badges">@Badges(modes, d, true)</span> }
-                            <p class="subtle" data-donor-package>@(donorRow.Package.Known ? T.Format("AttackOutput.Badge.AutoLoad.Tooltip", donorRow.Package.Name ?? "") : T["AttackOutput.Badge.AssetsUnknown.Tooltip"])</p>
+                            <p class="subtle" data-donor-package>@(donorRow.Package.Known ? ProjectileDonorList.AutoLoad(T, donorRow.Package) : T["AttackOutput.Badge.AssetsUnknown.Tooltip"])</p>
+                            @if (donorRow.IsDonor) { <p class="donor-chosen"><DonorDetail Output="donorRow" /></p> }
                             @if (donorRow.SpareTwin is { } twin) { <p class="subtle">@twin.Reason</p> }
                             @if (FieldEffect(donorRow) is { } field) { <p class="subtle">@field</p> }
                         </div>
@@ -140,6 +143,8 @@
     [Parameter, EditorRequired] public string Kind { get; set; } = CompositionKind.Player;
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";
     [Parameter] public EventCallback Changed { get; set; }
+    // The alternate mode as a custom projectile host (its selector offers custom projectiles where the target can bind them).
+    private const string AlternateRole = "alternate";
     // A choice asked where the edit happens: a rate-of-fire selector holding the only input, or label edits a donor leaves on its row.
     private sealed record Prompt(string Message, IReadOnlyList<(string Label, Func<Task> Action)> Options);
     // Adding: the alternate card is open before a donor is chosen (nothing is saved until then). Picking: the donor list is shown.
@@ -164,7 +169,7 @@
         @if (d.Output.SpareTwin is { } twin) { <span class="badge" data-donor-twin title="@twin.Reason">@T["WeaponFunctions.Ammo.SpareTwin"]</span> }
         @if (d.CrossClass) { <span class="badge amber" data-donor-cross title="@T["WeaponFunctions.Ammo.OtherClass.Tooltip"]">@T["WeaponFunctions.Ammo.OtherClass"]</span> }
         @if (!d.Output.Package.Known) { <span class="badge amber" data-donor-assets="unknown" title="@T["AttackOutput.Badge.AssetsUnknown.Tooltip"]">@T["Asset.Label.Unknown"]</span> }
-        else if (d.Output.Package.AutoLoad) { <span class="badge" data-donor-assets="auto" title="@T.Format("AttackOutput.Badge.AutoLoad.Tooltip", d.Output.Package.Name ?? "")">@T["AttackOutput.Badge.AutoLoad"]</span> }
+        else if (d.Output.Package.AutoLoad) { <span class="badge" data-donor-assets="auto" title="@ProjectileDonorList.AutoLoad(T, d.Output.Package)">@T["AttackOutput.Badge.AutoLoad"]</span> }
     </text>;
 
     // The input that switches the alternate mode on: the weapon's own, the one this mod binds, or the one adding it binds (a choice when there

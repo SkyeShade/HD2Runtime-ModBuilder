@@ -8,19 +8,21 @@
     <label>@T["AttackOutput.Search.Label"]<input data-donor-search @bind="Search" @bind:event="oninput" placeholder="EAT-700, Talon, arc…" /></label>
     <label class="switch-label"><input type="checkbox" data-donor-cross @bind="ShowCross" /> @T["AttackOutput.ShowCrossClass"]</label>
 </div>
+@if (shown.Any(d => d.Output.IsDonor)) { <p class="subtle donor-hint" data-donor-hint>@T["AttackOutput.Donor.Hint"]</p> }
 <div class="donor-list" role="listbox" aria-label="@T["AttackOutput.Donors.Label"]" data-donor-list>
     @foreach (var d in shown)
     {
         var selected = Selected == d.Output.SemanticId;
         <button class="donor @(selected ? "active" : "") @(d.Allowed ? "" : "refused")" role="option" aria-selected="@selected" disabled="@(!d.Allowed || Busy)" data-donor="@d.Output.SemanticId"
                 title="@(d.Refusal ?? d.Output.SemanticId)" @onclick="() => Choose.InvokeAsync(d)">
-            <span class="donor-name"><strong>@d.Output.Label</strong> <small class="subtle">@OwnerKind(T, d.Output.Owner.Kind) · @d.Output.KindLabel · @(d.Output.CompatibilityClass?.Replace('_', ' '))</small></span>
+            <span class="donor-name"><strong>@d.Output.Label</strong> <small class="subtle">@OwnerKind(T, d.Output.Owner.Kind) · @d.Output.KindLabel · @(d.Output.CompatibilityClass?.Replace('_', ' '))</small>
+                <DonorDetail Output="d.Output" Compact="true" /></span>
             <span class="donor-badges">
                 @if (d.CrossClass) { <span class="badge amber" data-donor-cross>@T["AttackOutput.Badge.CrossClass"]</span> }
                 @if (d.ProvenOnHost) { <span class="badge green" data-donor-proven title="@T["AttackOutput.Badge.ProvenOnHost.Tooltip"]">@T.Format("AttackOutput.Badge.ProvenOnHost", Host.Weapon)</span> }
                 else if (d.Output.LiveProof?.DonorOutput == "live_proven") { <span class="badge green" title="@string.Join(", ", d.Output.LiveProof.Tests)">@T["AttackOutput.Badge.DonorLiveProven"]</span> }
                 @if (!d.Output.Package.Known) { <span class="badge amber" title="@T["AttackOutput.Badge.AssetsUnknown.Tooltip"]">@T["Asset.Label.Unknown"]</span> }
-                else if (d.Output.Package.AutoLoad) { <span class="badge" title="@T.Format("AttackOutput.Badge.AutoLoad.Tooltip", d.Output.Package.Name)">@T["AttackOutput.Badge.AutoLoad"]</span> }
+                else if (d.Output.Package.AutoLoad) { <span class="badge" title="@AutoLoad(T, d.Output.Package)">@T["AttackOutput.Badge.AutoLoad"]</span> }
                 @foreach (var a in d.Acknowledgements) { <span class="badge amber" data-flag="@a">@Flag(T, a)</span> }
             </span>
             @if (!d.Allowed) { <small class="donor-refusal">@d.Refusal</small> }
@@ -47,6 +49,8 @@
     private bool Matches(AttackOutput o) => Search.Length == 0 || $"{o.Label} {o.KindLabel} {o.SemanticId} {o.Family}".Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase);
     // Opt-in flag names are Runtime identifiers (kept as written); the badge labels are ModBuilder's text.
     public static string Flag(IUiText t, string a) => a switch { "allow_shared" => t["Common.Shared"], "allow_unverified_effect" => t["AttackOutput.Flag.EffectUnverified"], "allow_unverified_reference" => t["AttackOutput.Flag.ReferenceUnverified"], _ => a };
+    // How Runtime loads a donor's package: its catalogued name, or (0.30.0 donors) the published route (the owner weapon, the owner entity's loadout package).
+    public static string AutoLoad(IUiText t, AttackOutputPackage p) => p.Via is { } via ? t.Format("AttackOutput.Donor.Via", via) : t.Format("AttackOutput.Badge.AutoLoad.Tooltip", p.Name ?? "");
     public static string OwnerKind(IUiText t, string kind) => kind switch
     {
         AttackProjectileSource.PlayerKind => t["ProjectileBuilder.Owner.Player"], AttackProjectileSource.SupportKind => t["ProjectileBuilder.Owner.Support"],

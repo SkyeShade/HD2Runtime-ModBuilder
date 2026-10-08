@@ -1,10 +1,13 @@
 [CmdletBinding()]
 param(
-    # An extracted, read-only HD2Runtime release tree for export validation (created from ..\HD2Runtime at $RuntimeCommit if missing).
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.1-public'),
-    [string]$RuntimeRepo = (Join-Path $PSScriptRoot '..\..\HD2Runtime'),
-    # The public HD2Runtime v0.28.1 release, whose SDK ModBuilder bundles (SdkPin).
-    [string]$RuntimeCommit = '96ab2d258d867a5df4f22bb7b3321d84d28de21d',
+    # An extracted, read-only HD2Runtime tree for export validation (created from ..\HD2Runtime at $RuntimeCommit if missing).
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.30.0-893d31f'),
+    # The HD2Runtime checkout (default ..\HD2Runtime beside this repository; resolved below, since Windows PowerShell 5.1 leaves $PSScriptRoot
+    # empty in the default of a parameter that follows another computed default).
+    [string]$RuntimeRepo,
+    # The HD2Runtime 0.30.0 release candidate commit whose SDK ModBuilder bundles (SdkPin.RuntimeCommit).
+    [string]$RuntimeCommit = '893d31fdb25076fb3d19f95b8eaba0b7ba3327f5',
+    [string]$RuntimeVersion = '0.30.0',
     # Local test builds only: allow uncommitted changes (the build report marks them).
     [switch]$AllowDirty,
     # Reuse an existing artifacts\release package instead of publishing again.
@@ -22,6 +25,7 @@ param(
 # Nothing is pushed, tagged or published.
 
 $ErrorActionPreference = 'Stop'
+if (-not $RuntimeRepo) { $RuntimeRepo = Join-Path $PSScriptRoot '..\..\HD2Runtime' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Push-Location $repoRoot
 try {
@@ -31,8 +35,9 @@ try {
     $version = (& dotnet msbuild (Join-Path $repoRoot 'HD2RuntimeGUI\HD2RuntimeGUI.csproj') -getProperty:Version -nologo | Select-Object -Last 1).Trim()
     $rc = Join-Path $repoRoot "build\release-candidate-$version"
     $name = "HD2Runtime-ModBuilder-v$version-win-x64"
-    if (Test-Path $rc) { Remove-Item -LiteralPath $rc -Recurse -Force }
-    New-Item -ItemType Directory -Path $rc | Out-Null
+    # Empty the folder rather than delete it: a shell or Explorer window open in it keeps the folder itself in use.
+    if (Test-Path $rc) { Get-ChildItem -LiteralPath $rc -Force | Remove-Item -Recurse -Force }
+    else { New-Item -ItemType Directory -Path $rc | Out-Null }
 
     # 1. The Windows package (self-contained, the same script a release uses).
     if (-not $SkipPublish) {
@@ -68,7 +73,11 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
     $trx = [xml](Get-Content -LiteralPath (Join-Path $results 'tests.trx') -Raw)
     $counters = $trx.TestRun.ResultSummary.Counters
 
-    # 3. Export validation against the frozen HD2Runtime release tree (extracted read-only with git archive).
+    # 3. Export validation against the frozen HD2Runtime tree of the pinned SDK (extracted read-only with git archive). git archive leaves the
+    #    research submodule (research/, since 0.30.0) empty: the validators ModBuilder runs (scripts/validate_examples.py through
+    #    tools/validate-exports.py, and tests/support.py with the stratagem test modules through tools/custom-content/validate-runtime.py)
+    #    read nothing under research/ (checked at 893d31f), so the tree needs only the superproject. Only the Runtime's own snapshot
+    #    validators and unit tests read research/.
     if (-not (Test-Path (Join-Path $RuntimeTree 'VERSION'))) {
         New-Item -ItemType Directory -Path $RuntimeTree -Force | Out-Null
         # Through a file: Windows PowerShell pipes native output as text, which corrupts a tar stream.
@@ -93,12 +102,12 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
 
     # 6. Build report.
     $zip = Get-Item -LiteralPath (Join-Path $package "$name.zip")
-    $sdkZip = Join-Path $repoRoot 'HD2RuntimeGUI.Tests\Fixtures\sdk-0.28.1.zip'
+    $sdkZip = Join-Path $repoRoot "HD2RuntimeGUI.Tests\Fixtures\sdk-$RuntimeVersion.zip"
     $audit = Get-Content -LiteralPath (Join-Path $rc 'capability-audit.json') -Raw | ConvertFrom-Json
     $report = [ordered]@{
         product = 'HD2Runtime ModBuilder'; version = $version; commit = $commit; dirty = [bool]$dirty; built = (Get-Date).ToUniversalTime().ToString('o')
         package = [ordered]@{ zip = $zip.Name; size = $zip.Length; sha256 = (Get-FileHash -LiteralPath $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
-        runtime = [ordered]@{ version = '0.28.1'; releaseCommit = $RuntimeCommit; sdkCommit = '96ab2d258d867a5df4f22bb7b3321d84d28de21d'; apiVersion = 1; schemaVersion = 1
+        runtime = [ordered]@{ version = $RuntimeVersion; releaseCommit = $RuntimeCommit; sdkCommit = $RuntimeCommit; apiVersion = 1; schemaVersion = 1
             sdkArchiveSha256 = (Get-FileHash -LiteralPath $sdkZip -Algorithm SHA256).Hash.ToLowerInvariant(); contentFingerprint = $audit.contentFingerprint; pinnedBuild = $audit.pinnedBuild }
         tests = [ordered]@{ total = [int]$counters.total; passed = [int]$counters.passed; failed = [int]$counters.failed; exitCode = $testExit }
         exportValidation = [ordered]@{ status = $exports.status; mode = $exports.mode; snapshot = $exports.snapshot; exports = $exports.exports; failed = @($exports.failed); exitCode = $exportExit }
@@ -110,10 +119,10 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
         "# HD2Runtime ModBuilder $version release candidate - build report", '',
         "- Commit: ``$commit``$(if ($dirty) { ' (**uncommitted changes**: local test build only)' })",
         "- Package: ``$($zip.Name)`` ($('{0:N1}' -f ($zip.Length / 1MB)) MB), SHA-256 ``$($report.package.sha256)``",
-        "- HD2Runtime: 0.28.1 (release commit ``$RuntimeCommit``, SDK generated at ``96ab2d2``), API 1, schema 1",
+        "- HD2Runtime: $RuntimeVersion (commit ``$RuntimeCommit``, SDK generated at the same commit), API 1, schema 1",
         "- SDK archive SHA-256: ``$($report.runtime.sdkArchiveSha256)``; bundled content fingerprint ``$($audit.contentFingerprint)`` (pinned build: $($audit.pinnedBuild))",
         "- Tests: $($counters.passed) passed, $($counters.failed) failed of $($counters.total)",
-        "- Export validation (HD2Runtime 0.28.1 validator, $($exports.mode) $($exports.snapshot)): $($exports.status), $(@($exports.failed).Count) failed of $($exports.exports) exports (with isolation probes)",
+        "- Export validation (HD2Runtime $RuntimeVersion validator, $($exports.mode) $($exports.snapshot)): $($exports.status), $(@($exports.failed).Count) failed of $($exports.exports) exports (with isolation probes)",
         "- Capability audit: unexpected missing = $($audit.unexpectedMissing) (see COVERAGE.md)",
         "- Desktop smokes on the packaged app: $(if ($smokeSummary) { ($smokeSummary.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ' } else { 'not run' })",
         '', 'Open the app with "Launch ModBuilder RC (test data).cmd" and follow TEST-CHECKLIST.md. Nothing here is published.'

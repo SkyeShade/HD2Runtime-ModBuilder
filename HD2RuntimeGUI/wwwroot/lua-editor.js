@@ -55,7 +55,22 @@ window.hd2LuaEditor = (() => {
     }
 
     // ---- completion -------------------------------------------------------------------------------------------------------------------
-    const firstType = t => (t || '').split('|').map(x => x.trim().replace(/\?$/, '')).find(x => x && x !== 'nil') || '';
+    // The alternatives of a union, split only at a top-level '|': 0.30's hd2.enemies is "HD2Enemies|fun(filter?: {kind?: "enemy"|...}): string[]".
+    function union(t) {
+        const parts = []; let depth = 0, quote = '', start = 0;
+        for (let i = 0; i < t.length; i++) {
+            const c = t[i];
+            if (quote) { if (c === '\\') i++; else if (c === quote) quote = ''; continue; }
+            if (c === '"' || c === "'") quote = c;
+            else if ('({[<'.includes(c)) depth++;
+            else if (')}]>'.includes(c)) depth = Math.max(0, depth - 1);
+            else if (c === '|' && depth === 0) { parts.push(t.slice(start, i)); start = i + 1; }
+        }
+        parts.push(t.slice(start));
+        return parts;
+    }
+    // The first non-nil class of a type; a function type in the union (a callable table) is skipped.
+    const firstType = t => union(t || '').map(x => x.trim().replace(/\?$/, '')).find(x => x && x !== 'nil' && !x.startsWith('fun(')) || '';
     // A call chain: hd2.weapon('AR-23 Liberator'):programmable_ammo(), event.player, sub
     const CHAIN = String.raw`[A-Za-z_]\w*(?:\s*(?:\.\s*[A-Za-z_]\w*|:\s*[A-Za-z_]\w*\s*\([^()\n]*\)|\([^()\n]*\)))*`;
     // The strings a parameter type accepts: every alias it names ("HD2ExplosionName|HD2WeaponName") and its inline literals ("primary"|...).
@@ -85,7 +100,8 @@ window.hd2LuaEditor = (() => {
     // Typed locals in the text before the caret: event handler parameters (the nearest handler wins), `local x = <chain>` and
     // `for _, x in ipairs(<chain>)` over an array type (event.sources, hd2.players()).
     function variables(text, data) {
-        const vars = {};
+        // Locals the host declares around the text (a callback body's ctx), typed before anything in the text.
+        const vars = Object.assign({}, data.locals || {});
         const found = [];
         for (const m of text.matchAll(/(?:\.|:)\s*(?:on|once)\s*\(\s*['"](\w+)['"]\s*,\s*function\s*\(\s*([A-Za-z_]\w*)/g)) {
             const cls = 'HD2Event_' + m[1]; found.push([m.index, () => { vars[m[2]] = data.classes[cls] ? cls : 'HD2Event'; }]);

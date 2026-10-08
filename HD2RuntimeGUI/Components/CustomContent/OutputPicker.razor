@@ -1,0 +1,36 @@
+@* A vanilla projectile from the SDK's catalogue of projectile outputs (output/v1/projectile/...), grouped by what owns it. A custom
+   projectile's base and component donors are always vanilla catalogue rows; spare twins (borrowed rows) are never offered. *@
+@{
+    var catalog = Workspace.Metadata?.AttackOutputs;
+    var outputs = catalog?.Outputs.Where(o => o.Family == "projectile" && o.SpareTwin == null && o.Owner.Kind != "spare_row" && (Search.Length == 0 || o.Owner.Name.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase) || o.SemanticId == Value)).ToArray() ?? [];
+    var current = Value == null ? null : catalog?.Output(Value);
+}
+@if (catalog == null) { <p class="field-reason">@T.Format("CustomContent.Projectile.NeedsCatalog", Workspace.Metadata?.Version ?? Workspace.Project?.SdkVersion)</p> }
+else
+{
+    <div class="input-action output-picker" data-output-picker="@Id">
+        <input class="output-search" placeholder="@T["CustomProjectiles.Search"]" aria-label="@T["CustomProjectiles.Search"]" @bind="Search" @bind:event="oninput" />
+        <select id="@Id" value="@(Value ?? "")" disabled="@Busy" @onchange="e => Changed.InvokeAsync(e.Value is string s && s.Length > 0 ? s : null)">
+            <option value="">@(Optional ? T["CustomProjectiles.SameAsBase"] : T["CustomContent.Field.Choose"])</option>
+            @foreach (var group in outputs.GroupBy(o => o.Owner.Kind).OrderBy(g => g.Key == AttackProjectileSource.PlayerKind ? 0 : g.Key == AttackProjectileSource.SupportKind ? 1 : 2))
+            {
+                <optgroup label="@ProjectileDonorList.OwnerKind(T, group.Key)">
+                    @foreach (var o in group.OrderBy(o => o.Owner.Name, StringComparer.OrdinalIgnoreCase))
+                    { <option value="@o.SemanticId">@o.Owner.Name · @o.KindLabel@(RequirePackage && !o.Package.Known ? " · " + T["CustomProjectiles.NoPackage"] : "")</option> }
+                </optgroup>
+            }
+            @if (Value != null && current == null) { <option value="@Value">@T.Format("CustomContent.Field.UnknownChoice", Value)</option> }
+        </select>
+    </div>
+    @if (current != null) { <p class="field-help"><code>@current.SemanticId</code> · @(current.CompatibilityClass?.Replace('_', ' '))</p> }
+}
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> Changed { get; set; }
+    [Parameter] public bool Optional { get; set; }
+    [Parameter] public bool RequirePackage { get; set; } = true;
+    [Parameter] public bool Busy { get; set; }
+    private string Search = "";
+}

@@ -4,24 +4,33 @@ using System.Text;
 namespace HD2RuntimeGUI.Core.Metadata;
 
 /// <summary>
-/// The exact HD2Runtime SDK this ModBuilder release is built and validated against: HD2Runtime 0.28.1. ModBuilder bundles these files; every
+/// The exact HD2Runtime SDK this ModBuilder release is built and validated against: the HD2Runtime 0.30.0 release. ModBuilder bundles these files; every
 /// file it reads is byte-identical in the public release asset (ContentFingerprint), and any SDK with the pinned version whose content differs
 /// (a later development build, a local sdk/ folder) is reported as a different build, never silently used as the pin.
 /// </summary>
 public static class SdkPin
 {
-    // 0.28.1 publishes the 0.28.0 capabilities unchanged (only their version label differs) plus hd2.diagnostics.operations() in the stubs;
-    // Runtime 0.28.1 applies SDK 0.27-era operations by the SDK version each export's wrapper declares.
-    public const string Version = "0.28.1";
-    // The Runtime commit the SDK was generated at, which is the public v0.28.1 release commit.
-    public const string SdkCommit = "96ab2d258d867a5df4f22bb7b3321d84d28de21d";
-    public const string RuntimeCommit = "96ab2d258d867a5df4f22bb7b3321d84d28de21d";
+    // 0.30.0: the HD2Runtime release after 0.28.1 (there is no 0.29), built at its release candidate commit. Its SDK ZIP is the release
+    // asset, so once 0.30.0 is published GitHubReleaseClient finds the same version that is already installed. The 0.30.0-dev test SDKs that
+    // earlier 1.7.0 builds bundled are SemVer prereleases, never downloaded; a project bound to one keeps it until it is rebound.
+    // The eight 0.19.0-labelled graphs are byte-identical to 0.28.1's (PublishedArtifactVersion).
+    //
+    // Swapping in another SDK (docs/runtime030-integration-plan.md, "Swapping the bundled SDK"; tools/swap-bundled-sdk.py):
+    //  1. copy the archive to HD2RuntimeGUI.Tests/Fixtures/sdk-<version>.zip and replace every file in Metadata/Bundled with the archive's
+    //     file of the same name (hd2runtime-stubs.lua is stubs/mods/skyeshade/hd2runtime.lua), byte for byte;
+    //  2. set Version (and SdkCompatibility.NewestSupportedVersion), the commits, ArchiveName, ArchiveSha256 and ContentFingerprint (SdkPinTests
+    //     prints the fingerprint it computes when it differs);
+    //  3. for a new version also: PublishedArtifactVersion, Runtime030Tests.Version / Fixture, and the custom content target's files.
+    public const string Version = "0.30.0";
+    // The Runtime commit the SDK was generated at (the 0.30.0 release candidate; built with scripts/build_release.py).
+    public const string SdkCommit = "893d31fdb25076fb3d19f95b8eaba0b7ba3327f5";
+    public const string RuntimeCommit = "893d31fdb25076fb3d19f95b8eaba0b7ba3327f5";
     public const int ApiVersion = 1, SchemaVersion = 1;
-    // HD2Runtime-0.28.1-sdk.zip, the public release asset (the test fixture sdk-0.28.1.zip).
-    public const string ArchiveName = "HD2Runtime-0.28.1-sdk.zip";
-    public const string ArchiveSha256 = "02060ea78afe4fd59426cb86b85d087cc247b1a2f06d88a822a4190bb323f7c8";
+    // HD2Runtime-0.30.0-sdk.zip of that build (the test fixture sdk-0.30.0.zip).
+    public const string ArchiveName = "HD2Runtime-0.30.0-sdk.zip";
+    public const string ArchiveSha256 = "a6875afbd144f3874d72e5b28c4baad4adf5671e991b4af5e6a32f1d3075ca42";
     // Fingerprint (below) of every SDK file ModBuilder reads, as bundled.
-    public const string ContentFingerprint = "eae0c3ecbe687dcde3cbbc1ca1ba4ddc9fba4b9a4e1ad8f61cc5d3b3f1433015";
+    public const string ContentFingerprint = "1343fa2b5c500aae96d506a656036587947309243fb922d3ee6d2fe20286766e";
 
     /// <summary>SHA-256 over "name:sha256" lines of the consumed files, sorted by name (independent of archive layout and timestamps).</summary>
     public static string Fingerprint(IReadOnlyDictionary<string, byte[]> files)

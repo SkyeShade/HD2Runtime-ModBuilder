@@ -1,0 +1,108 @@
+@* What a pod holds: a carrier pod's items (support weapons, backpacks, player weapons), or an expendable's pod (its clone plus other items).
+   Each item once, with a count; a weapon item can be reconfigured on its own instance. An item the Runtime has not live-tested in a pod (a
+   primary) gets its opt-in written by the build and shows the risk here, never a checkbox. *@
+@{
+    var items = Items(Stratagem);
+    var catalog = Workspace.CustomTarget.Schema.Catalogs.PodItems;
+    var total = items?.Sum(i => i.Count ?? 1) ?? 0;
+    var owner = CustomDiagnostic.StratagemOwner(Stratagem.Id);
+}
+<div class="pod-editor" data-pod-editor="@Path">
+    @if (Expendable)
+    {
+        <div class="segmented" role="group" data-pod-mode>
+            <button class="@(items == null ? "active" : "")" aria-pressed="@(items == null)" disabled="@Busy" data-pod-vanilla @onclick="() => Edit(s => s.Delivery.Expendable!.Pod = null)">@T["CustomStratagem.Pod.Vanilla"]</button>
+            <button class="@(items != null ? "active" : "")" aria-pressed="@(items != null)" disabled="@Busy" data-pod-custom
+                    @onclick="() => Edit(s => s.Delivery.Expendable!.Pod ??= [new() { Item = PodItem.Clone, Count = 2 }])">@T["CustomStratagem.Pod.Custom"]</button>
+        </div>
+        @if (items == null) { <p class="field-help">@T["CustomStratagem.Pod.Vanilla.Help"]</p> }
+    }
+    @if (items != null)
+    {
+        <div class="pod-items">
+            @for (var k = 0; k < items.Count; k++)
+            {
+                var index = k; var item = items[k];
+                var entry = catalog.FirstOrDefault(e => e.Key == item.Item);
+                var weapon = item.Item != PodItem.Clone && entry is { Kind: not "backpack" };
+                var at = Path + "[" + index + "]";
+                <div class="pod-item @(entry is { Unverified: true } ? "unverified" : "")" data-pod-item="@index">
+                    <div class="pod-item-row">
+                        <select value="@item.Item" disabled="@Busy" aria-label="@T["CustomStratagem.Pod.Item"]" data-pod-item-select @onchange="e => Edit(s => Items(s)![index].Item = e.Value as string ?? item.Item)">
+                            @if (Expendable) { <option value="@PodItem.Clone">@T["CustomStratagem.Pod.Clone"]</option> }
+                            @foreach (var group in catalog.GroupBy(e => e.Kind))
+                            {
+                                <optgroup label="@KindLabel(group.Key)">
+                                    @foreach (var e in group) { <option value="@e.Key">@e.Name@(e.Unverified ? " ⚠" : "")</option> }
+                                </optgroup>
+                            }
+                            @if (item.Item != PodItem.Clone && entry == null) { <option value="@item.Item">@T.Format("CustomContent.Field.UnknownChoice", item.Item)</option> }
+                        </select>
+                        <label class="pod-count"><span>×</span><input type="number" min="1" max="8" step="1" value="@(item.Count ?? 1)" disabled="@Busy" aria-label="@T["CustomStratagem.Field.Count"]"
+                               @onchange="e => Edit(s => Items(s)![index].Count = CustomFields.I(e.Value as string) is { } c && c != 1 ? c : null)" /></label>
+                        <span class="pod-item-actions">
+                            <button class="quiet" disabled="@(Busy || index == 0)" title="@T["CustomStratagem.Code.Earlier"]" aria-label="@T["CustomStratagem.Code.Earlier"]" @onclick="() => Move(index, -1)">↑</button>
+                            <button class="quiet" disabled="@(Busy || index == items.Count - 1)" title="@T["CustomStratagem.Code.Later"]" aria-label="@T["CustomStratagem.Code.Later"]" @onclick="() => Move(index, 1)">↓</button>
+                            <button class="quiet danger-text" disabled="@Busy" title="@T["CustomContent.Delete"]" aria-label="@T["CustomContent.Delete"]" data-pod-remove="@index" @onclick="() => Edit(s => Items(s)!.RemoveAt(index))">×</button>
+                        </span>
+                    </div>
+                    @if (entry != null)
+                    {
+                        <p class="pod-item-meta subtle">@KindLabel(entry.Kind) · @(entry.Role == "backpack" ? T["CustomStratagem.Pod.Role.Backpack"] : T["CustomStratagem.Pod.Role.Weapon"])
+                            @if (entry.Unverified) { <span class="badge state-badge warning" title="@T["CustomStratagem.Pod.Unverified.Help"]">@T["CustomStratagem.Pod.Unverified"]</span> }
+                            @if (entry.RateSelector) { <span class="subtle"> · @T["CustomStratagem.Pod.RateSelector"]</span> }</p>
+                    }
+                    @foreach (var issue in Workspace.CustomDiagnosticsFor(owner).Where(d => d.Severity is CustomSeverity.Error or CustomSeverity.Warning && d.About(at)))
+                    { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error danger-text" : "warning")" data-field-issue="@issue.Field">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+                    @if (weapon)
+                    {
+                        <details class="custom-advanced" open="@(item.Weapon != null)" data-pod-weapon="@index">
+                            <summary class="subtle">@T["CustomStratagem.Pod.Reconfigure"]</summary>
+                            <div class="custom-fields">
+                                @foreach (var def in CustomFields.WeaponFields(at + ".modify", s => Items(s)?.ElementAtOrDefault(index)?.Weapon, (s, w) => { if (Items(s) is { } list && index < list.Count) list[index].Weapon = w; }))
+                                { <CustomFieldEditor @key="def.Path" Stratagem="Stratagem" Def="def" Run="Run" Busy="Busy" /> }
+                            </div>
+                        </details>
+                    }
+                </div>
+            }
+        </div>
+        <div class="pod-add">
+            <button class="custom-outline" disabled="@(Busy || items.Count >= 8)" data-pod-add @onclick="Add">+ @T["CustomStratagem.Pod.Add"]</button>
+            <span class="subtle" data-pod-total>@T.Format("CustomStratagem.Pod.Total", total, Stratagem.Carrier.Slots?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? T["CustomStratagem.Pod.RackCapacity"])</span>
+        </div>
+        @foreach (var issue in Workspace.CustomDiagnosticsFor(owner).Where(d => d.Severity is CustomSeverity.Error && d.Field == Path))
+        { <p class="field-issue error danger-text" data-field-issue="@Path">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+        <p class="field-help">@T["CustomStratagem.Pod.Help"]</p>
+    }
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    // An expendable's pod (payload.pod: may hold the clone; null is the carrier weapon's vanilla rack) or a carrier pod (payload.items).
+    [Parameter] public bool Expendable { get; set; }
+    private string Path => Expendable ? "payload.pod" : "payload.items";
+    private List<PodItem>? Items(CustomStratagem s) => Expendable ? s.Delivery.Expendable?.Pod : (s.Delivery.Pod ??= new()).Items;
+    private Task Edit(Action<CustomStratagem> edit) => Run.InvokeAsync(() => Workspace.EditCustomStratagemAsync(Stratagem.Id, edit));
+    private Task Move(int index, int by) => Edit(s =>
+    {
+        if (Items(s) is not { } list) return;
+        var to = index + by;
+        if (index < list.Count && to >= 0 && to < list.Count) (list[index], list[to]) = (list[to], list[index]);
+    });
+    // The first catalogued item the pod does not hold yet (support weapons first).
+    private Task Add() => Edit(s =>
+    {
+        if (Items(s) is not { } list) return;
+        var held = list.Select(i => i.Item).ToHashSet(StringComparer.Ordinal);
+        if (Workspace.CustomTarget.Schema.Catalogs.PodItems.OrderBy(e => e.Kind == "support_weapon" ? 0 : e.Kind == "backpack" ? 1 : 2).FirstOrDefault(e => !held.Contains(e.Key)) is { } next)
+            list.Add(new PodItem { Item = next.Key });
+    });
+    private string KindLabel(string kind) => kind switch
+    {
+        "support_weapon" => T["CustomStratagem.Pod.Kind.Support"], "backpack" => T["CustomStratagem.Pod.Kind.Backpack"], "primary" => T["CustomStratagem.Pod.Kind.Primary"],
+        "player_weapon" => T["CustomStratagem.Pod.Kind.Primary"], _ => kind,
+    };
+}

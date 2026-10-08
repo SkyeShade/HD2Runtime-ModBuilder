@@ -1,0 +1,31 @@
+@* The delivery families as cards: what each delivers, and what HD2Runtime has shown of it in play (CustomStratagemSchema familyEvidence: live,
+   partial or offline, and its multiplayer status), so the choice is made knowing how proven it is. Informational only: every family can be
+   chosen. *@
+<div class="family-grid @(Compact ? "compact" : "")" role="radiogroup" aria-label="@Label" data-family-picker>
+    @foreach (var family in DeliveryFamily.All)
+    {
+        var evidence = Workspace.CustomTarget.Evidence(family);
+        <button class="family-card @CustomLabels.FamilyCss(family) @(Value == family ? "active" : "")" role="radio" aria-checked="@(Value == family)" disabled="@Busy"
+                data-family="@family" @onclick="() => Chosen.InvokeAsync(family)">
+            <span class="family-glyph" aria-hidden="true">@CustomLabels.FamilyGlyph(family)</span>
+            <span class="family-text"><strong>@CustomLabels.Family(T, family)</strong>
+                @if (!Compact) { <small>@CustomLabels.FamilyHelp(T, family)</small> }
+                @if (evidence != null)
+                {
+                    <span class="family-evidence" title="@evidence.Doc">
+                        <span class="badge state-badge @CustomLabels.EvidenceCss(evidence.Status)" data-family-evidence="@evidence.Status">@CustomLabels.Evidence(T, evidence.Status)</span>
+                        <span class="subtle">@CustomLabels.Multiplayer(T, evidence.Multiplayer)</span>
+                    </span>
+                }
+            </span>
+        </button>
+    }
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> Chosen { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string Label { get; set; } = "";
+}

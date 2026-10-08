@@ -110,7 +110,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
             var handle = WeaponTargets.Lua(sdk, c.Weapon);
             edits.Add(new(SemanticBackingObject.For(sdk, c.Weapon, f), c.Weapon, family, target, semantic, accessor,
                 Scalar(f, c.ExpectedValue, handle), Scalar(f, c.DesiredValue, handle), c.EnsureEnabled, f.AffectsMultipleWeapons, context, Key: ModOptionsService.WeaponKey(c.Weapon, group.FieldId),
-                Unverified: CompositionOptIns.EffectFor(f, c.DesiredValue), UnverifiedReference: CompositionOptIns.ReferenceFor(f, c.DesiredValue)));
+                Unverified: CompositionOptIns.EffectFor(sdk, f, c.DesiredValue), UnverifiedReference: CompositionOptIns.ReferenceFor(sdk, f, c.DesiredValue)));
         }
         foreach (var c in project.CompositionChanges.Where(c => c.Enabled))
         {

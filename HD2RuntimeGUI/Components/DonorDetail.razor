@@ -1,0 +1,33 @@
+@inject BuilderWorkspace Workspace
+@* What the SDK publishes about a 0.30.0 projectile donor (AttackOutputCapabilities.json, kind projectile_donor; Runtime docs/attack-outputs.md
+   "More donors"): its role and native projectile type, its flight (speed, mass, whether a unit drives it), the component that fires it, the
+   names hd2.attack_output accepts and how Runtime loads its package. Compact is the one line a donor list shows; the full detail is shown
+   where a donor is chosen. Role, names, emitter and package route are the SDK's text, shown as published. Informational only: every write
+   carries the donor's opt-ins, nothing needs ticking. *@
+@if (Output is { IsDonor: true } o)
+{
+    var flight = o.Flight;
+    <span class="donor-detail @(Compact ? "compact" : "")" data-donor-detail="@o.SemanticId">
+        <span class="badge donor-kind" title="@T["AttackOutput.Donor.Badge.Tooltip"]">@T["AttackOutput.Donor.Badge"]</span>
+        @if (o.Role is { } role) { <span class="badge">@role</span> }
+        @if (o.ProjectileType is { } type) { <span class="badge" data-donor-type>@T.Format("AttackOutput.Donor.Type", type)</span> }
+        @if (flight?.Velocity is { } velocity) { <span class="badge" data-donor-velocity>@T.Format("AttackOutput.Donor.Speed", Number(velocity))</span> }
+        @if (flight?.Mass is { } mass) { <span class="badge" data-donor-mass>@T.Format("AttackOutput.Donor.Mass", Number(mass))</span> }
+        @if (flight?.UnitDriven == true) { <span class="badge" data-donor-unit-driven title="@T["AttackOutput.Donor.UnitDriven.Tooltip"]">@T["AttackOutput.Donor.UnitDriven"]</span> }
+    </span>
+    @if (!Compact)
+    {
+        <span class="donor-detail-notes">
+            <small class="subtle" data-donor-emitter>@T.Format("AttackOutput.Donor.Emitter", o.Emitter)</small>
+            @if (o.Names is { Length: > 0 } names) { <small class="subtle" data-donor-names>@T.Format("AttackOutput.Donor.Names", string.Join(", ", names))</small> }
+            @if (o.Package.Via is { } via) { <small class="subtle" data-donor-via>@T.Format("AttackOutput.Donor.Via", via)</small> }
+            <small class="subtle">@T["AttackOutput.Donor.Note"]</small>
+        </span>
+        @if (Workspace.Metadata?.LiveEvidence?.Family(AttackOutput.DonorEvidence) is { } evidence) { <ScriptEvidenceNote Items="[new ScriptEvidence(AttackOutput.DonorEvidence, evidence)]" /> }
+    }
+}
+@code {
+    [Parameter, EditorRequired] public AttackOutput? Output { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    private static string Number(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}

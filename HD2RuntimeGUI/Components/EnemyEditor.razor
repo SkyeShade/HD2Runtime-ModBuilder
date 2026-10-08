@@ -12,7 +12,9 @@
     var saved = Workspace.Project?.EntityChanges.Where(x => x.Entity == c.SemanticId).ToDictionary(x => x.InstanceKey, StringComparer.Ordinal) ?? new();
     bool IsSaved(EntityField f) => saved.ContainsKey(f.InstanceKey);
     bool Show(EntityField f) => !ModifiedOnly || IsSaved(f);
-    var main = fields.Where(f => f.Target.Path == EnemyAuthoringReader.EntityPath && Show(f)).ToArray();
+    var main = fields.Where(f => f.Target.Path == EnemyAuthoringReader.EntityPath && f.Domain != "gore" && Show(f)).ToArray();
+    // 0.30.0: the class's own gore record (the whole-body gib threshold), beside its health block.
+    var gore = fields.Where(f => f.Target.Path == EnemyAuthoringReader.EntityPath && f.Domain == "gore" && Show(f)).ToArray();
     var zoneFields = fields.Where(f => f.Target.Path == EnemyAuthoringReader.ZonePath).GroupBy(f => f.Target.Zone!).ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
     var attackFields = fields.Where(f => f.Target.Path == EnemyAuthoringReader.AttackPath).GroupBy(f => f.Target.Attack!).ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
     @if (!ModifiedOnly)
@@ -51,6 +53,15 @@
         <section class="panel @(main.Any(IsSaved) ? "modified" : "")" data-enemy-section="general">
             <div class="panel-heading"><h2>@T["Enemy.General.Title"]</h2><span class="badge">@T["Enemy.General.Badge"]</span></div>
             <div class="stat-grid">@foreach (var f in main) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
+        </section>
+    }
+    @if (gore.Length > 0)
+    {
+        <section class="panel @(gore.Any(IsSaved) ? "modified" : "")" data-enemy-section="gore">
+            <div class="panel-heading"><h2>@T["Enemy.Gore.Title"]</h2><span class="badge">@T["Enemy.Gore.Badge"]</span></div>
+            @if (!ModifiedOnly) { <p class="subtle">@T["Enemy.Gore.Help"]</p> }
+            <div class="stat-grid">@foreach (var f in gore) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
+            <p class="subtle" data-gore-live>@T["Enemy.Gore.Live"]</p>
         </section>
     }
     @if (c.Zones.Length > 0)
@@ -161,6 +172,7 @@
         ["gameplay_proven_member"] = T["Enemy.Tier.GameplayProvenMember"],
         ["schema_wiki_correlated"] = T["Enemy.Tier.SchemaWikiCorrelated"],
         ["mount_chain_structural"] = T["Enemy.Tier.MountChainStructural"],
+        ["native_code_proven"] = T["Enemy.Tier.NativeCodeProven"],
     };
     // One attack row: its identity (wiki names only as Runtime matched them), sharing, and fields.
     private RenderFragment AttackDetail(EnemyClass c, EnemyAttack a, EntityField[] fields, IReadOnlyDictionary<string, EntityChange> saved) => __builder =>

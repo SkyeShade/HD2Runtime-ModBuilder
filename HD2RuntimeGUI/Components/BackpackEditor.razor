@@ -35,7 +35,9 @@
     @foreach (var group in grouped)
     {
         <section class="panel" data-backpack-group="@group.Title"><h2>@group.Label</h2>
-            <div class="stat-grid">@foreach (var f in group.Fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@Label(backpack, f)" Tiers="catalog.EvidenceTiers" Changed="Refresh" /> }</div>
+            @* 0.30.0 Jump Pack / Hover Pack movement (published group "movement"): grouped by flight phase. *@
+            @if (group.Title == MovementGroup) { <BackpackMovement Fields="group.Fields" Tiers="catalog.EvidenceTiers" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> }
+            else { <div class="stat-grid">@foreach (var f in group.Fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@Label(backpack, f)" Tiers="catalog.EvidenceTiers" Changed="Refresh" /> }</div> }
             @foreach (var (reason, items) in Unverified(group.Fields, backpack))
             {
                 <AckPanel Title="@T["Backpack.Unverified.Title"]" Kind="unverified" Description="@reason" Items="@items" ItemsLabel="@T["EntityPanel.Edited"]"
@@ -91,9 +93,12 @@
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
+    // The published movement group as identified by its section (Title("movement")).
+    private const string MovementGroup = "Movement";
     // A damage-zone field names its zone (the SH-20's "shield" plate armor), so it never reads as the backpack's default-zone armor.
     private string? Label(Backpack backpack, EntityField f)
     {
+        if (f.SemanticFieldId == "jump.vertical_launch_velocity") return T["Movement.LaunchThrust"];
         if (f.Target.Path != "damage_zone" || f.Target.Linked != null || backpack.DamageZones?.FirstOrDefault(z => z.ZoneId == f.Target.Zone) is not { } zone) return EntityStats.Label(f.SemanticFieldId);
         var name = f.DisplayName.StartsWith("Zone ", StringComparison.OrdinalIgnoreCase) ? char.ToUpperInvariant(f.DisplayName[5]) + f.DisplayName[6..] : f.DisplayName;
         return T.Format("Backpack.ZoneField", Title(zone.Name ?? zone.ZoneId), name);

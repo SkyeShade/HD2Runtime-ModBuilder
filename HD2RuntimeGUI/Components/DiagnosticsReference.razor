@@ -19,7 +19,14 @@
                     <p class="subtle">@T["Diagnostics.WriteConflicts.Warning"]</p>
                     <p class="subtle">@T["Diagnostics.WriteConflicts.NotCounted"]</p>
                     <p class="subtle">@T["Diagnostics.WriteConflicts.Reading"]</p>
+                    @* 0.30.0: a CONFLICT line names the operation and mod holding the bytes and every other user of the record (docs/diagnostics.md). *@
+                    @if (ChargeFields.AtLeast030(Workspace.Metadata?.Version)) { <p class="subtle" data-conflict-held-by>@T.Markup("Diagnostics.WriteConflicts.HeldBy.Html", "held by", "the same native record is also used by")</p> }
                     <p class="subtle">@T.Markup("Diagnostics.WriteConflicts.ModBuilder.Html", "gui-")</p>
+                    break;
+                case RuntimeDiagnostics.PerformanceId:
+                    <h3 class="group-title">@T["Diagnostics.Performance.Title"]</h3>
+                    <p class="subtle">@T["Diagnostics.Performance.Help"]</p>
+                    <p class="subtle">@T["Diagnostics.Performance.Thresholds"]</p>
                     break;
                 case RuntimeDiagnostics.TelemetryId:
                     <h3 class="group-title">@T["Diagnostics.Telemetry.Title"]</h3>

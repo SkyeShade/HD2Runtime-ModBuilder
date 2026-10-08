@@ -15,10 +15,13 @@
         var own = project.EntityChanges.Where(c => Group(c) == (resource, entity)).ToArray();
         var callIn = entities?.CallInFor(resource, entity); var callInChanges = callIn == null ? 0 : project.StratagemChanges.Count(c => c.Stratagem == callIn);
         var key = resource + ":" + entity;
+        // 0.30.0 vehicle motion tuning targets the vehicle itself (path entity) beside its durability; it is named as its own part.
+        var tuning = resource == "vehicle" ? entities?.Vehicles.Find(entity)?.TuningFieldInstanceKeys ?? [] : [];
         @* The editor is built only while its group is open. *@
-        <LazyDetails class="panel" data-entity-change-group="@key" @key="key"><Summary><span class="category-pill static @(resource == "booster" ? StratagemCategories.BoosterCssClass : resource == "throwable" ? StratagemCategories.ThrowableCssClass : resource == "enemy" ? StratagemCategories.EnemyCssClass : resource == "structure" ? StratagemCategories.StructureCssClass : "cat-support")"><span class="cat-dot" aria-hidden="true"></span>@KindLabel(resource)</span><strong>@Title(resource, entity)</strong>
+        <LazyDetails class="panel" data-entity-change-group="@key" @key="key"><Summary><span class="category-pill static @(ArmorAuthoringReader.IsArmor(resource) ? StratagemCategories.ArmorCssClass : resource == "booster" ? StratagemCategories.BoosterCssClass : resource == "throwable" ? StratagemCategories.ThrowableCssClass : resource == "enemy" ? StratagemCategories.EnemyCssClass : resource == "structure" ? StratagemCategories.StructureCssClass : resource == HelldiverAuthoringReader.Resource ? StratagemCategories.HelldiverCssClass : "cat-support")"><span class="cat-dot" aria-hidden="true"></span>@KindLabel(resource, entity)</span><strong>@Title(resource, entity)</strong>
             <span class="badge">@T.Plural("EntityChanges.Count", own.Length + callInChanges)</span>
-            <small class="subtle">@string.Join(" · ", new[] { callInChanges > 0 ? T["EntityChanges.Part.CallIn"] : null, own.Any(c => c.Path is "entity" or "backpack") ? (resource == "vehicle" ? T["EntityChanges.Part.Durability"] : T["EntityChanges.Part.Settings"]) : null,
+            <small class="subtle">@string.Join(" · ", new[] { callInChanges > 0 ? T["EntityChanges.Part.CallIn"] : null, own.Any(c => c.Path is "entity" or "backpack" && !tuning.Contains(c.InstanceKey)) ? (resource == "vehicle" ? T["EntityChanges.Part.Durability"] : T["EntityChanges.Part.Settings"]) : null,
+                own.Any(c => tuning.Contains(c.InstanceKey)) ? T["EntityChanges.Part.Tuning"] : null,
                 own.Any(c => c.Path == "damage_zone") ? T.Plural("EntityChanges.Part.ZoneFields", own.Count(c => c.Path == "damage_zone")) : null, own.Any(c => c.Path == "mount") ? T["EntityChanges.Part.Mounts"] : null, own.Any(c => c.Resource == "vehicle_weapon" && c.Linked == null) ? T["EntityChanges.Part.MountedWeapons"] : null, own.Any(c => c.Resource == "backpack" && c.Linked != null) ? T["EntityChanges.Part.LinkedEntity"] : null, own.Any(c => c.Resource == "vehicle_weapon" && c.Linked != null) ? T["EntityChanges.Part.DroneWeapon"] : null, own.Any(c => c.Resource == "pod_rack") ? T["EntityChanges.Part.Contents"] : null, own.Any(c => c.Path == "magazine") ? T["EntityChanges.Part.MagazineValues"] : null, own.Any(c => c.Path == "deployed_entity") ? T["EntityChanges.Part.DeployedEntity"] : null, own.Any(c => c.Path == "status_effect") ? T["EntityChanges.Part.StatusEffect"] : null, own.Any(c => c.Path == "attack" && EntityChangeService.IsEnemy(c.Resource)) ? T.Plural("EntityChanges.Part.AttackRows", own.Where(c => c.Path == "attack").Select(c => c.Attack).Distinct().Count()) : null }.Where(s => s != null))</small></Summary>
             <ChildContent>
             <label><input type="checkbox" checked="@ShowAll.Contains(key)" @onchange="e => Toggle(key, (bool)e.Value!)" /> @T["EntityChanges.ShowAllFields"]</label>
@@ -27,7 +30,11 @@
             else if (resource == "booster") { <BoosterEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (resource == "throwable") { <ThrowableEditor Name="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (EntityChangeService.IsEnemy(resource)) { <EnemyEditor SemanticId="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
+            else if (resource == HelldiverAuthoringReader.Resource) { <HelldiverEditor ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else if (resource == "pod_rack") { <PodPayloadEditor Rack="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
+            else if (entities?.AttachmentModifiers?.Attachment(entity) != null) { <AttachmentModifierCard Attachment="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
+            else if (resource == ArmorAuthoringReader.KitResource) { <ArmorKitEditor Kit="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
+            else if (ArmorAuthoringReader.IsArmor(resource)) { <ArmorClassesEditor Only="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             else { <MagazineAttachmentCard Attachment="@entity" ModifiedOnly="@(!ShowAll.Contains(key))" Changed="Refresh" /> }
             @foreach (var c in own.Where(c => entities?.Field(c.InstanceKey) == null))
             { <p class="notice warning">@T.Format("EntityChanges.MissingCapability", c.SemanticFieldId, c.Zone ?? c.Mount ?? c.Path)</p><button @onclick="() => Run(() => Workspace.ResetEntityAsync(instance: c.InstanceKey))">@T["EntityChanges.RemoveMissing"]</button> }
@@ -40,15 +47,31 @@
     [Parameter] public EventCallback Changed { get; set; }
     private readonly HashSet<string> ShowAll = []; private string? Error;
     // Attachment definitions are named by their native name and the weapons whose default magazine they are.
-    private string Title(string resource, string entity) => EntityChangeService.IsEnemy(resource) ? Workspace.Metadata?.Entities?.Enemies?.Name(entity) ?? entity
+    private string Title(string resource, string entity) => ArmorAuthoringReader.IsArmor(resource) ? ArmorTitle(resource, entity)
+        : EntityChangeService.IsEnemy(resource) ? Workspace.Metadata?.Entities?.Enemies?.Name(entity) ?? entity
         : resource != "weapon_attachment" ? entity
+        // 0.30.0 muzzle, optics and underbarrel definitions: the native name and the slot.
+        : Workspace.Metadata?.Entities?.AttachmentModifiers?.Attachment(entity) is { } m ? m.Name + " (" + WeaponAttachmentModifiers.SlotLabel(T, m.Slot) + ")"
         : Workspace.Metadata?.Entities?.Attachments?.Attachment(entity) is { } a ? a.Name + (a.Consumers.NativeDefaultOf.Length > 0 ? " (" + string.Join(", ", a.Consumers.NativeDefaultOf) + ")" : "") : entity;
     // Resource ids are the project's; each gets ModBuilder's category name (anything else is a magazine attachment).
     private string KindLabel(string resource) => resource switch
     {
         "vehicle" => T["EntityChanges.Kind.Vehicle"], "backpack" => T["EntityChanges.Kind.Backpack"], "booster" => T["EntityChanges.Kind.Booster"], "throwable" => T["EntityChanges.Kind.Throwable"],
-        "pod_rack" => T["EntityChanges.Kind.DropPod"], "enemy" => T["EntityChanges.Kind.Enemy"], "structure" => T["EntityChanges.Kind.Structure"], _ => T["EntityChanges.Kind.MagazineAttachment"],
+        "pod_rack" => T["EntityChanges.Kind.DropPod"], "enemy" => T["EntityChanges.Kind.Enemy"], "structure" => T["EntityChanges.Kind.Structure"],
+        HelldiverAuthoringReader.Resource => T["EntityChanges.Kind.Helldiver"],
+        ArmorAuthoringReader.KitResource => T["EntityChanges.Kind.ArmorKit"], ArmorAuthoringReader.ClassResource => T["EntityChanges.Kind.ArmorClass"],
+        ArmorAuthoringReader.CurveResource => T["EntityChanges.Kind.ArmorCurve"], _ => T["EntityChanges.Kind.MagazineAttachment"],
     };
+    // Armor kits by game name (unnamed ones by id), weight classes by their label, the damage curve by name.
+    private string ArmorTitle(string resource, string entity) => resource switch
+    {
+        ArmorAuthoringReader.KitResource => Workspace.Metadata?.Entities?.Armor?.Kit(entity)?.Label ?? entity,
+        ArmorAuthoringReader.ClassResource => Armor.ClassLabel(T, entity),
+        _ => T["Armor.Curve.Title"],
+    };
+    // A muzzle, optics or underbarrel definition (0.30.0) is a weapon attachment, not a magazine.
+    private string KindLabel(string resource, string entity) => resource == AttachmentModifierReader.Resource && Workspace.Metadata?.Entities?.AttachmentModifiers?.Attachment(entity) != null
+        ? T["EntityChanges.Kind.WeaponAttachment"] : KindLabel(resource);
     // A Guard Dog drone weapon (0.28.0, Linked "drone") belongs to its backpack's entry, where the drone is edited.
     private static (string Resource, string Entity) Group(EntityChange c) => c.Resource == "vehicle_weapon"
         ? (c.Linked == BackpackLinkedEntity.Drone ? "backpack" : "vehicle", VehicleWeaponReader.Split(c.Entity).Vehicle) : (c.Resource, c.Entity);

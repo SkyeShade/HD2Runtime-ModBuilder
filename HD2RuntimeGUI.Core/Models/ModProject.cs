@@ -46,6 +46,14 @@ public sealed class ModProject
     // Format 12: how HD2Arsenal presents the mod in its library (manifest.json Description and IconPath). Omitted until configured.
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ArsenalPresentation? Arsenal { get; set; }
+    // Format 14 (1.7.0): experimental custom content (custom stratagems, custom projectiles and the weapons that fire them), in ModBuilder's
+    // own semantic model with its own version (CustomContentSection.Version). Omitted until a project creates custom content.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CustomContentSection? CustomContent { get; set; }
+    // Format 14 (1.7.0): the local player's own armor values and passive override (HD2Runtime 0.30.0 hd2.armor_stats.player():set and
+    // hd2.player_passives.set), applied by the mod at load. Omitted until a project sets one.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlayerArmorSettings? PlayerArmor { get; set; }
 }
 
 // One additional file of the exported mod ZIP: a file on the user's computer (full path, read at export) and where it goes in the ZIP

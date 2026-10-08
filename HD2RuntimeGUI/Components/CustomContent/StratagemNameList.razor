@@ -1,0 +1,18 @@
+@* A list of catalogued vanilla stratagem names (excluded carriers, extra call-in packages): chips to remove, a picker to add. *@
+<label>@Label <small class="subtle">@Hint</small></label>
+<div class="chip-select" data-custom-list="@Key">
+    @foreach (var v in Values) { <button class="active" disabled="@Busy" title="@T["CustomContent.Field.Clear"]" data-list-value="@v" @onclick="() => Toggle.InvokeAsync(v)">@v ×</button> }
+    <select value="" disabled="@Busy" aria-label="@Label" @onchange="e => e.Value is string v && v.Length > 0 ? Toggle.InvokeAsync(v) : Task.CompletedTask">
+        <option value="">@T["CustomContent.Field.Add"]</option>
+        @foreach (var name in Workspace.CustomTarget.Schema.Catalogs.Stratagems.Where(n => !Values.Contains(n))) { <option value="@name">@name</option> }
+    </select>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Hint { get; set; } = "";
+    [Parameter] public string Key { get; set; } = "";
+    [Parameter] public IReadOnlyList<string> Values { get; set; } = [];
+    [Parameter] public EventCallback<string> Toggle { get; set; }
+    [Parameter] public bool Busy { get; set; }
+}

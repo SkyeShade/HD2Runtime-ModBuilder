@@ -1,0 +1,125 @@
+@* The "Custom — Experimental" group of a projectile selector, the same in every selector that picks what a weapon fires: player weapons'
+   Projectile sections, the Projectile Builder's hosts, support and mounted weapons, programmable-ammunition modes. Its entries are the
+   project's custom projectiles, violet and kept apart from the vanilla donors; choosing one stores a typed reference ({kind: custom_projectile,
+   id}), never a vanilla projectile id. Create New Custom Projectile… (and Duplicate…) start a draft in the Custom Projectile Builder that
+   returns here and is assigned only when the author completes it. Where the target cannot bind this host, the group says why. *@
+@{
+    var support = Workspace.CustomProjectileHostSupport(Host);
+    var assigned = Workspace.CustomAssignment(Host);
+    var projectile = assigned == null ? null : Workspace.FindCustomProjectile(assigned.Projectile.Id);
+    var draft = Workspace.CustomDraft;
+    var projectiles = Workspace.CustomProjectiles;
+}
+<div class="picker-group custom-group" role="group" aria-labelledby="@LabelId" data-custom-projectile-group="@Host.Role" data-host-kind="@Host.Kind"
+     data-custom-supported="@(support.Supported ? "true" : "false")">
+    <div class="picker-group-label custom" id="@LabelId">@T["ProjectilePicker.Custom"]</div>
+    @if (!support.Supported) { <p class="field-reason" data-custom-unsupported>@support.Reason</p> }
+    @if (projectiles.Count > 0 || support.Supported)
+    {
+        <div class="donor-list custom-options" role="listbox" aria-labelledby="@LabelId" data-custom-options>
+            @foreach (var p in projectiles)
+            {
+                var selected = assigned?.Projectile.Id == p.Id;
+                var state = Workspace.CustomState(CustomDiagnostic.ProjectileOwner(p.Id));
+                <button class="donor custom-option @(selected ? "active" : "")" role="option" aria-selected="@(selected ? "true" : "false")" disabled="@(!support.Supported || Busy)"
+                        data-custom-option="@p.Id" @onclick="() => Assign(p.Id, false)">
+                    <span class="donor-name"><span class="custom-glyph" aria-hidden="true">➶</span><strong>@p.Name</strong> <code>@p.Id</code></span>
+                    <span class="donor-badges">
+                        @if (draft?.ProjectileId == p.Id) { <span class="badge custom" data-option-draft>@T["ProjectilePicker.Draft"]</span> }
+                        <span class="badge state-badge @CustomLabels.StateCss(state)" data-option-state="@CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span>
+                    </span>
+                </button>
+            }
+            @if (support.Supported)
+            { <button class="donor custom-create-option" disabled="@Busy" data-custom-create-new @onclick="CreateNew">@T["ProjectilePicker.CreateNew"]</button> }
+        </div>
+    }
+    @if (draft is { } d && d.Origin == Host && Workspace.FindCustomProjectile(d.ProjectileId) is { } pending)
+    {
+        <div class="custom-notice" role="group" data-custom-draft-pending="@d.ProjectileId">
+            <p>@T.Format("ProjectilePicker.DraftPending", pending.Name)</p>
+            <div class="actions"><button class="custom-outline" data-draft-continue @onclick="() => Navigator.OpenCustomProjectile(d.ProjectileId, Host)">@T["ProjectilePicker.DraftContinue"]</button>
+                <button class="link-button" disabled="@Busy" data-draft-discard @onclick="Discard">@T["ProjectilePicker.DraftDiscard"]</button></div>
+        </div>
+    }
+    @if (Pending is { } conflict)
+    {
+        <div class="swap-prompt" role="group" data-custom-assign-conflict><p>@conflict.Message</p>
+            <div class="swap-actions"><button class="custom-primary" disabled="@Busy" data-custom-assign-replace @onclick="() => Assign(conflict.Id, true)">@T["CustomProjectile.Assign.Replace"]</button>
+                <button class="link-button" @onclick="() => Pending = null">@T["Common.Cancel"]</button></div></div>
+    }
+    @if (assigned != null)
+    {
+        var issues = (projectile == null ? Array.Empty<CustomDiagnostic>() : Workspace.CustomDiagnosticsFor(CustomDiagnostic.ProjectileOwner(projectile.Id)))
+            .Concat(Workspace.CustomDiagnosticsFor(CustomDiagnostic.AssignmentOwner(assigned.Id))).Where(x => x.Severity is CustomSeverity.Error or CustomSeverity.Warning).ToArray();
+        <div class="custom-assigned @(issues.Any(i => i.Severity == CustomSeverity.Error) ? "has-error" : "")" data-custom-assigned="@assigned.Projectile.Id">
+            <p>@T["ProjectilePicker.Fires"] <span class="custom-chip">@T["CustomContent.Chip.Custom"] <code>@assigned.Projectile.Id</code></span> <strong>@(projectile?.Name)</strong>
+                @if (!assigned.Enabled) { <span class="badge" data-custom-assigned-off>@T["ProjectilePicker.Off"]</span> }</p>
+            <p class="subtle">@T["ProjectilePicker.Replaces"]</p>
+            @if (Renaming && projectile != null)
+            {
+                <div class="input-action" data-custom-rename-form>
+                    <input value="@NewName" maxlength="64" aria-label="@T["CustomProjectile.Name"]" @oninput="e => NewName = e.Value as string ?? string.Empty" data-custom-rename-input />
+                    <button class="custom-primary" disabled="@(Busy || string.IsNullOrWhiteSpace(NewName))" data-custom-rename-save @onclick="() => Rename(projectile.Id)">@T["ProjectilePicker.RenameSave"]</button>
+                    <button class="link-button" @onclick="() => Renaming = false">@T["Common.Cancel"]</button>
+                </div>
+                <p class="field-help">@T.Format("ProjectilePicker.RenameHint", projectile.Id)</p>
+            }
+            <div class="actions">
+                @if (projectile != null)
+                {
+                    <button class="custom-outline" data-custom-open @onclick="() => Navigator.OpenCustomProjectile(projectile.Id, Host)">@T["ProjectilePicker.Open"]</button>
+                    <button class="custom-outline" disabled="@Busy" data-custom-rename @onclick="() => { Renaming = true; NewName = projectile.Name; }">@T["ProjectilePicker.Rename"]</button>
+                    <button class="custom-outline" disabled="@(Busy || !support.Supported)" data-custom-duplicate-for @onclick="() => Duplicate(projectile)">@T["ProjectilePicker.Duplicate"]</button>
+                }
+                <button class="quiet danger-text" disabled="@Busy" data-custom-clear @onclick="Clear">@T["ProjectilePicker.Clear"]</button>
+            </div>
+            @foreach (var issue in issues)
+            {
+                <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error danger-text" : "warning")" data-custom-issue="@issue.Owner">@CustomLabels.Mark(issue.Severity) @issue.Message
+                    @if (projectile != null && issue.Owner == CustomDiagnostic.ProjectileOwner(projectile.Id)) { <button class="link-button" data-custom-fix @onclick="() => Navigator.OpenCustomProjectile(projectile.Id, Host)">@T["ProjectilePicker.Fix"]</button> }</p>
+            }
+            <details class="custom-checks"><summary class="subtle">@T["ProjectilePicker.Checks"]</summary>
+                <CustomChecklist Diagnostics="Workspace.CustomDiagnosticsFor(CustomDiagnostic.AssignmentOwner(assigned.Id))" ShowAreas="false" /></details>
+        </div>
+    }
+    @if (Error != null) { <p class="dialog-error" role="alert">@Error</p> }
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Inject] private BuilderNavigator Navigator { get; set; } = default!;
+    // The attack (or ammunition mode) this selector chooses for. An object parameter: the group re-renders with its selector.
+    [Parameter, EditorRequired] public CustomProjectileHost Host { get; set; } = default!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private sealed record Conflict(string Id, string Message);
+    private readonly string LabelId = "custom-group-" + Guid.NewGuid().ToString("N")[..8];
+    private bool Busy, Renaming; private string? Error; private string NewName = ""; private Conflict? Pending;
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+    // Choosing the custom projectile the attack already fires changes nothing; a conflict (a vanilla swap or edits on this attack, or the
+    // target's binding limit) is asked here before anything is saved.
+    private Task Assign(string id, bool discard) => Workspace.CustomAssignment(Host)?.Projectile.Id == id && !discard ? Task.CompletedTask : Run(async () =>
+    {
+        try { await Workspace.AssignCustomProjectileAsync(Host, id, discard); Pending = null; }
+        catch (CustomAssignmentConflictException e) { Pending = new(id, e.Message); }
+    });
+    private Task Clear() => Run(async () => { await Workspace.AssignCustomProjectileAsync(Host, null); Pending = null; Renaming = false; });
+    private Task Rename(string id) => Run(async () => { await Workspace.RenameCustomProjectileAsync(id, NewName); Renaming = false; });
+    // A new draft or a copy of the assigned one, edited in the Custom Projectile Builder; this attack keeps what it fires until it is completed.
+    private Task CreateNew() => Run(async () =>
+    {
+        var id = await Workspace.BeginCustomProjectileDraftAsync(Host, T.Format("ProjectilePicker.NewName", Host.Weapon));
+        Navigator.OpenCustomProjectile(id, Host);
+    });
+    private Task Duplicate(CustomProjectile source) => Run(async () =>
+    {
+        var id = await Workspace.BeginCustomProjectileDraftAsync(Host, T.Format("ProjectilePicker.CopyName", source.Name), source.Id);
+        Navigator.OpenCustomProjectile(id, Host);
+    });
+    private Task Discard() => Run(async () => { await Workspace.CancelCustomProjectileDraftAsync(); });
+}

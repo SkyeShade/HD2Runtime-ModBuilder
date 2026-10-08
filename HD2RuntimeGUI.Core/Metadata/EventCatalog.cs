@@ -37,7 +37,12 @@ public sealed record StatusAction(string Id, string Name, string Family, double?
 public sealed record StatusActions(bool HostOnly, bool InMissionOnly, string CreditedTo, string OtherPlayersSee, string Api, ActionRateLimit RateLimit,
     StatusAction[] Statuses, JsonElement Options, string[] Unproven);
 public sealed record BlockedAction(string Status, string Reason);
-public sealed record EventActions(ExplosionActions Explosions, ProjectileActions Projectiles, StatusActions StatusEffects, BlockedAction SpawnEntity);
+// 0.30.0: hd2.pelican.spawn, the game's own transport Pelican summoned empty (host only, in a mission, at most MaxActive at a time; its rate per
+// mod may be fractional per second).
+public sealed record PelicanRate(int Burst, double PerSecond);
+public sealed record PelicanActions(string Api, bool HostOnly, bool InMissionOnly, string Entity, bool Empty, int MaxActive, double MaxHoverSeconds, PelicanRate RateLimit,
+    bool LiveProven, string OtherPlayersSee);
+public sealed record EventActions(ExplosionActions Explosions, ProjectileActions Projectiles, StatusActions StatusEffects, BlockedAction SpawnEntity, PelicanActions? Pelican = null);
 public sealed record EventCatalogJson(string Contract, int SchemaVersion, string Hd2RuntimeVersion, EventCatalogSummary Summary, Dictionary<string, string> Model,
     Dictionary<string, string> Sources, EventDefinition[] Events, Dictionary<string, EventHandle> Handles, EventApi Api, EventActions Actions);
 
@@ -94,7 +99,8 @@ public static class EventCatalogReader
             Check(a.Explosions.Api == "hd2.explosions.spawn" && a.Projectiles.Api == "hd2.projectiles.spawn" && a.StatusEffects.Api == "hd2.status.apply"
                 && a.Explosions.Named.All(n => !string.IsNullOrWhiteSpace(n.Name)) && a.Explosions.LiveProvenWeapons.All(a.Explosions.Weapons.Contains)
                 && a.Projectiles.LiveProven.All(a.Projectiles.Weapons.Contains) && a.StatusEffects.Statuses.All(x => StatusId.IsMatch(x.Id))
-                && a.StatusEffects.Statuses.Select(x => x.Id).Distinct().Count() == a.StatusEffects.Statuses.Length && a.SpawnEntity.Status is "blocked" or "available");
+                && a.StatusEffects.Statuses.Select(x => x.Id).Distinct().Count() == a.StatusEffects.Statuses.Length && a.SpawnEntity.Status is "blocked" or "available"
+                && (a.Pelican == null || a.Pelican.Api == "hd2.pelican.spawn" && a.Pelican.MaxActive > 0 && a.Pelican.MaxHoverSeconds > 0 && a.Pelican.RateLimit.PerSecond > 0));
             return new() { Events = c.Events, Model = c.Model, Sources = c.Sources, Handles = c.Handles, Api = c.Api, Actions = c.Actions };
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException or FormatException)

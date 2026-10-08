@@ -21,6 +21,8 @@
     @foreach (var branch in fields.Where(f => !ModifiedOnly || Workspace.Project!.SupportChanges.Any(c => c.InstanceKey == f.InstanceKey)).GroupBy(f => (f.Target.Path, f.Target.AttackRole)))
     {
         <section class="panel" data-support-authoring-branch="@(branch.Key.AttackRole ?? "weapon")"><h3>@(branch.Key.AttackRole == null ? T["Support.Branch.Weapon"] : T.Format("Support.Branch.Attack", string.Join(" / ", branch.First().Target.WritableCatalogBranches.Select(b => b.Name))))</h3>
+            @* 0.30.0: the charge level that fires this attack row (the PLAS-45 Epoch's partial / full-charge shots, the overcharge explosions). *@
+            @if (branch.Key.AttackRole != null && branch.Where(f => f.ChargeLevel != null).Select(f => f.ChargeLevel!).ToArray() is { Length: > 0 } levels) { <SupportChargeLevelNote Levels="levels" /> }
             @foreach (var domain in FieldGroups.Group(branch, f => f.SemanticFieldId, f => f.Display.Domain))
             {
                 <h3 class="group-title">@GroupLabel(T, domain.Key)</h3>
@@ -34,7 +36,9 @@
                     <WeaponFunctionsPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" />
                 }
                 @if (domain.Key == "Presentation" && branch.Key.Path == "weapon" && !ModifiedOnly) { <WeaponPresentationPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" /> }
-                <div class="stat-grid">@foreach (var f in domain.Where(f => ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f))) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+                <div class="stat-grid">@foreach (var f in domain.Where(f => !ChargeFields.Is(f) && (ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f)))) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+                @* 0.30.0 charge: the charge.* fields by charge stage, with Runtime's ranges and notes (SupportChargePanel). *@
+                @if (branch.Key.Path == "weapon" && domain.Any(ChargeFields.Is)) { <SupportChargePanel Weapon="@Weapon" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> }
             }
             @{ var unverified = branch.Where(f => Saved(f) is { } s && CompositionOptIns.EffectFor(f, s.DesiredValue) && (ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f))).ToArray(); }
             @if (unverified.Length > 0)

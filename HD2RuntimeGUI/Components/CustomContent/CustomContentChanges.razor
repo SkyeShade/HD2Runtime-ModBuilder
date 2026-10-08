@@ -1,0 +1,39 @@
+@* Changes page: the project's custom content (experimental), apart from the edits of existing game objects above it. Each custom object with
+   its state; the weapons that fire a custom projectile. Opening one goes to its editor. *@
+@if (Workspace.CustomContent is { } content)
+{
+    <section class="panel category-panel cat-custom custom-content" data-custom-changes>
+        <div class="panel-heading"><h2>@T["CustomContent.Changes.Title"]</h2><span class="badge experimental">@T["CustomContent.Experimental"]</span></div>
+        <p class="subtle">@T.Format("CustomContent.Changes.Help", Workspace.CustomTarget.MinimumRuntime)</p>
+        @foreach (var s in content.Stratagems)
+        {
+            var state = Workspace.CustomState(CustomDiagnostic.StratagemOwner(s.Id));
+            <div class="change-row" data-custom-change="stratagem:@s.Id"><CustomIcon Stratagem="s" Size="sm" />
+                <div class="change-name"><strong>@(s.NameCased ?? s.Name)</strong><small><span class="custom-chip">@T["CustomContent.Badge.CustomStratagem"] <code>@s.Id</code></span> @CustomLabels.Family(T, s.Delivery.Family)</small></div>
+                <span class="badge state-badge @CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span>
+                <button class="custom-outline" @onclick="() => OpenStratagem.InvokeAsync(s.Id)">@T["Common.Edit"]</button></div>
+        }
+        @foreach (var p in content.Projectiles)
+        {
+            var state = Workspace.CustomState(CustomDiagnostic.ProjectileOwner(p.Id));
+            <div class="change-row" data-custom-change="projectile:@p.Id"><span class="custom-icon sm" aria-hidden="true"><span>➶</span></span>
+                <div class="change-name"><strong>@p.Name</strong><small><span class="custom-chip">@T["CustomContent.Badge.CustomProjectile"] <code>@p.Id</code></span></small></div>
+                <span class="badge state-badge @CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span>
+                <button class="custom-outline" @onclick="() => OpenProjectile.InvokeAsync(p.Id)">@T["Common.Edit"]</button></div>
+        }
+        @foreach (var a in content.Assignments)
+        {
+            var errors = Workspace.CustomDiagnosticsFor(CustomDiagnostic.AssignmentOwner(a.Id)).Any(d => d.Severity == CustomSeverity.Error);
+            <div class="change-row @(a.Enabled ? "" : "disabled-row")" data-custom-change="assignment:@CustomContentGraph.WeaponKey(a)">
+                <div class="change-name"><strong>@a.Weapon</strong><small>@T.Format("CustomContent.Changes.Fires", a.AttackRole.Replace('_', ' ')) <span class="custom-chip">@T["CustomContent.Chip.Custom"] <code>@a.Projectile.Id</code></span></small></div>
+                <span class="badge state-badge @(errors ? "error" : "ready")">@(errors ? T["CustomContent.State.Error"] : T["CustomContent.State.Ready"])</span>
+                <button @onclick="() => OpenWeapon.InvokeAsync(a.Weapon)">@T["CustomProjectile.FiredBy.Open"]</button></div>
+        }
+    </section>
+}
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter] public EventCallback<string> OpenStratagem { get; set; }
+    [Parameter] public EventCallback<string> OpenProjectile { get; set; }
+    [Parameter] public EventCallback<string> OpenWeapon { get; set; }
+}

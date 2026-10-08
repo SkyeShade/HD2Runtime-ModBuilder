@@ -40,18 +40,33 @@ public sealed record SupportPresentation(JsonElement? Labels, int? MaxTraits, IR
 public sealed record SupportWeaponFunction(string Input, IReadOnlyList<string> AllowedValues);
 public sealed record SupportProjectileReference(string ReferenceKind, string CompatibilityClass, string ReferenceRole, WeaponProjectileSource ProjectileSource,
     ProjectileResidency? Residency, JsonElement? Effect);
+// 0.30.0 weapon charge (charge.* on WeaponChargeComponentData): the field's meaning and family (beam / arc / projectile), its write effect,
+// its range (min, max, rangeReason; charge times are seconds), the overcharge explosion's allowed weapons and donor packages, and notices
+// (deprecated ids, dormant fields: kind + text). Ranges come from here, not from value. Read for later editors; not interpreted yet.
+public sealed record SupportChargeNotice(string Kind, string Text);
+public sealed record SupportChargeDonor(string Summary, string? PackageDependency);
+public sealed record SupportCharge(string? Meaning, string Family, JsonElement? Effect = null, double? Min = null, double? Max = null, string? RangeReason = null,
+    bool? Deprecated = null, bool? Dormant = null, bool? LegacyContract = null, string? AliasOf = null, SupportChargeNotice[]? Notices = null,
+    string? Contents = null, IReadOnlyList<string>? AllowedValues = null, Dictionary<string, SupportChargeDonor>? Donors = null);
+// 0.30.0: the charge level (partial / full / overcharge) that fires an attack row, with its read timing, sharing and multiplayer notes.
+public sealed record SupportChargeLevel(string Level, string? Shot, string? FiredWhen, string? Row, JsonElement? Phases, string? ReadTiming, string? SharedWith,
+    JsonElement? SharedConsumers, int? UnidentifiedSharedConsumers, JsonElement? SelfDamage, string? Multiplayer, string? Evidence);
 public sealed record SupportField(string InstanceKey, string SupportWeapon, SupportIdentity SupportWeaponIdentity, SupportTarget Target,
     string SemanticFieldId, string QualifiedSemanticFieldId, string ApiFieldConstant, SupportDisplay Display, SupportValue Value,
     bool Writable, bool ReadOnly, string? BlockedReason, SupportBacking Backing, SupportScope SharedScope,
     SupportOperation Operation, SupportResolution Resolution, SupportProvenance Provenance,
     SupportFireMode? FireMode = null, SupportReticle? Reticle = null, FieldLiveEvidence? LiveEvidence = null,
     SupportProjectileReference? ProjectileReference = null, SupportFireRate? FireRate = null, SupportFunctionAmmo? FunctionAmmo = null,
-    SupportPresentation? Presentation = null, SupportWeaponFunction? WeaponFunction = null, JsonElement? Effect = null)
+    SupportPresentation? Presentation = null, SupportWeaponFunction? WeaponFunction = null, JsonElement? Effect = null,
+    SupportCharge? Charge = null, SupportChargeLevel? ChargeLevel = null)
 {
     // A typed status reference (value kind "reference"): a status key, or 'none'.
     [JsonIgnore] public bool IsStatusReference => Value.Kind == "reference" && Value.Type == WeaponCapability.StatusReference;
     // 0.28.0 typed references: the projectile an attack fires ({weapon, attack} baseline) and the programmable-ammunition projectile.
     [JsonIgnore] public bool IsProjectileReference => Value.Kind == "reference" && Value.Type == "projectile_reference";
+    // 0.30.0: the explosion a charge weapon's overcharge failure spawns ('RS-422 Railgun' or 'PLAS-45 Epoch'); read-only until it is authored.
+    [JsonIgnore] public bool IsOverchargeExplosion => Value.Kind == "reference" && Value.Type == OverchargeExplosionReference;
+    public const string OverchargeExplosionReference = "overcharge_explosion_reference";
     [JsonIgnore] public bool IsFunctionProjectile => Value.Kind == "reference" && Value.Type == WeaponCapability.FunctionProjectileReference;
     // Plain scalars (numbers, integers, booleans) and the published list / label types.
     [JsonIgnore] public bool IsScalar => Value.Kind == "scalar";
@@ -101,7 +116,8 @@ public interface ISupportAuthoringReader { SupportAuthoringCatalog Read(byte[] b
 public sealed class SupportAuthoringReader : ISupportAuthoringReader
 {
     public const string FileName = "SupportWeaponAuthoringCapabilities.json";
-    public const int MaxBytes = 8 * 1024 * 1024;
+    // 0.30.0's catalog is 8.07 MB (the 0.28 catalogs were under 8 MiB); the bound leaves room for 0.30.x.
+    public const int MaxBytes = 16 * 1024 * 1024;
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip };
     public SupportAuthoringCatalog Read(byte[] bytes, string version)
     {
@@ -196,9 +212,14 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
             ("reference", "projectile_reference") => f.SemanticFieldId == "attack.projectile" && f.Target.Path == "attack" && f.Target.AttackRole != null
                 && baseline.ValueKind == JsonValueKind.Object && f.ProjectileReference is { ReferenceKind: "projectile" } r && r.ReferenceRole == f.Target.AttackRole
                 && !string.IsNullOrWhiteSpace(r.CompatibilityClass) && r.ProjectileSource.Status == WeaponProjectileSource.ActiveDirect,
+            // 0.30.0: one of the charge field's published weapons (charge.allowedValues), never a free name.
+            ("reference", SupportField.OverchargeExplosionReference) => f.SemanticFieldId == "charge.overcharge_explosion" && f.Target.Path == "weapon"
+                && f.Charge is { AllowedValues.Count: > 0 } charge && Names(charge.AllowedValues, baseline),
             ("reference", WeaponCapability.FunctionProjectileReference) => f.SemanticFieldId == "function_ammo.projectile" && f.FunctionAmmo != null
                 && baseline.ValueKind == JsonValueKind.String,
             ("scalar", "number" or "integer" or "boolean" or WeaponCapability.FireModeSet) => true,
+            // 0.30.0 development (b3f42ec): the weapon's own firing sound, a catalogue sound name. Read-only until authored (AuthoredTypes).
+            ("scalar", WeaponCapability.WeaponSound) => f.SemanticFieldId == "weapon.sound" && baseline.ValueKind == JsonValueKind.String,
             ("scalar", WeaponCapability.FireRateSet) => f.FireRate is { MaxModes: 3, SlotNames.Count: 3, NativeSlots.Count: 3 } fr && fr.SlotNames.Contains(fr.DefaultSlot)
                 && baseline.ValueKind == JsonValueKind.Array && baseline.GetArrayLength() == 3 && baseline.EnumerateArray().Select(x => x.GetDouble()).SequenceEqual(fr.NativeSlots),
             ("scalar", WeaponCapability.WeaponFunction) => f.WeaponFunction is { Input: "left" or "right" } wf && f.SemanticFieldId == "weapon_function." + wf.Input && Names(wf.AllowedValues, baseline),

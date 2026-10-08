@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json.Nodes;
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 using HD2RuntimeGUI.Core.Projects;
 using HD2RuntimeGUI.Core.Services;
@@ -10,10 +11,11 @@ namespace HD2RuntimeGUI.Tests;
 
 // HD2Arsenal presentation (format 12). HD2Arsenal 0.36.2 builds its library entry from manifest.json: Description (plain text) and
 // IconPath (an image file in the ZIP, relative to its root). ModBuilder writes the user's description before the dependency line every
-// manifest description states, and packages the icon at the ZIP root under its own file name, as Arsenal's own Manifest Builder does.
+// manifest description states, marked with "// " because Arsenal's library collapses the blank line between them, and packages the icon
+// at the ZIP root under its own file name, as Arsenal's own Manifest Builder does.
 public sealed class ArsenalPresentationTests
 {
-    private const string Dependencies = "Requires Bingus Shared Loader v15+ / API 1 and HD2Runtime 0.28.1+ / API 1; install dependencies separately.";
+    private const string Dependencies = "Requires Bingus Shared Loader v15+ / API 1 and HD2Runtime " + SdkPin.Version + "+ / API 1; install dependencies separately.";
     private static async Task<BuilderWorkspace> Workspace(TestEnvironment e)
     {
         var (w, _) = await ExportFixtureTests.Fresh(e, "Arsenal Look");
@@ -60,7 +62,7 @@ public sealed class ArsenalPresentationTests
         Assert.True(w.Project.FormatVersion < 12);
     }
 
-    // A description: shown first, then the dependency line; the option, hd2runtime.json, README and the game files are unchanged.
+    // A description: shown first, then the marked dependency line; the option, hd2runtime.json, README and the game files are unchanged.
     [Fact] public async Task A_description_is_written_before_the_dependency_line()
     {
         using var e = new TestEnvironment(); var w = await Workspace(e);
@@ -68,7 +70,7 @@ public sealed class ArsenalPresentationTests
         await w.SetArsenalDescriptionAsync("  Faster Liberator.\r\nFire rate 720 RPM.\r\n\r\n ");
         Assert.Equal("Faster Liberator.\nFire rate 720 RPM.", w.Project!.Arsenal!.Description); Assert.Equal(12, w.Project.FormatVersion);
         var after = await Export(w); var manifest = Manifest(after);
-        Assert.Equal("Faster Liberator.\nFire rate 720 RPM.\n\n" + Dependencies, (string)manifest["Description"]!);
+        Assert.Equal("Faster Liberator.\nFire rate 720 RPM.\n\n// " + Dependencies, (string)manifest["Description"]!);
         Assert.Equal(Dependencies, (string)manifest["Options"]![0]!["Description"]!);
         Assert.False(manifest.ContainsKey("IconPath"));
         foreach (var name in before.Keys.Where(n => n is not ("manifest.json" or "build-report.json"))) Assert.Equal(before[name], after[name]);

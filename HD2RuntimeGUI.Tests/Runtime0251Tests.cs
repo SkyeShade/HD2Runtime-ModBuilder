@@ -26,6 +26,13 @@ public sealed class Runtime0251Tests
         Assert.Null(GameIconStore.StratagemIconKey(c.Stratagems.Single(s => s.Name == "M-1000 Maxigun"))); // empty template, key published
         Assert.Equal("StratagemMaxigun", c.Stratagems.Single(s => s.Name == "M-1000 Maxigun").UiIcon!.IconKey);
         Assert.Equal("no_native_root", c.Stratagems.Single(s => s.Name == "SG-88 Break-Action Shotgun").UiIcon!.Blocker!.Kind);
+        // The HUD sprite list (HudIconSprites.json, by published name) covers every stratagem but SG-88 and CQC-72, those without a resolved
+        // vector icon included (93 of 0.25.1's 95; 94 of the bundled SDK's 96 with Resupply); the two keep the glyph with the list's own reason.
+        var sprites = HudIconSprites.Bundled.Value;
+        Assert.Equal(93, c.Stratagems.Count(s => sprites.Stratagems.ContainsKey(s.Name)));
+        Assert.All(c.Stratagems.Where(s => s.UiIcon!.State != "resolved" && s.UiIcon.State != "no_native_root"), s => Assert.Contains(s.Name, sprites.Stratagems.Keys));
+        Assert.Equal(["CQC-72 Entrenchment Tool", "SG-88 Break-Action Shotgun"], c.Stratagems.Where(s => !sprites.Stratagems.ContainsKey(s.Name)).Select(s => s.Name).Order(StringComparer.Ordinal));
+        Assert.All(sprites.Missing.Keys, n => Assert.Equal("no_native_root", c.Stratagems.Single(s => s.Name == n).UiIcon!.State));
         var contract = c.UiIconContract!;
         Assert.Equal(StratagemUiIcon.Library0, contract.Library); Assert.Equal("DEDA7000592065F14D79D41C5D153EC1041FFF7A58D6A607DEF232ADD7702EAE", contract.LibrarySha256);
         Assert.False(contract.ArtworkPublished); Assert.Equal(19, contract.EmptyTemplates.Length);

@@ -1,0 +1,37 @@
+{
+ "format": "hd2runtime-custom-stratagems/1",
+ "stratagems": [
+  {
+   "id": "eagle_heavy_bomb",
+   "name": "EAGLE HEAVY BOMB",
+   "name_cased": "Eagle Heavy Bomb",
+   "description": "An Eagle drops the 500kg bomb, with two uses per rearm.",
+   "icon": {
+    "image": "eagle_heavy_bomb",
+    "source": "images/eagle_heavy_bomb.png"
+   },
+   "code": [
+    "up",
+    "right",
+    "down",
+    "down",
+    "left",
+    "down"
+   ],
+   "carrier": {
+    "beacon": "offensive",
+    "prefer_families": [
+     "eagle"
+    ],
+    "allow_families": [
+     "eagle"
+    ]
+   },
+   "payload": {
+    "family": "eagle",
+    "donor": "Eagle 500kg Bomb",
+    "uses": 2
+   }
+  }
+ ]
+}

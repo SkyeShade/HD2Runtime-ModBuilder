@@ -1,0 +1,121 @@
+@inject BuilderWorkspace Workspace
+@* 0.30.0 call-in code (hd2.fields.stratagem.calldown_code): the arrows a player enters, edited as a draft (add a direction, move one earlier or
+   later, remove one) and applied in one save. Runtime takes 1 to 9 of the published directions. Nothing is ever ticked: a code equal to another
+   stratagem's native code is written with Runtime's allow_unverified_effect and explained here; a code this project also gives another
+   stratagem is asked about where it is applied (keep both, restore the other stratagem's code, or cancel) and reported here afterwards. *@
+@{
+    var catalog = Catalog; var applied = StratagemCode.Of(Saved?.DesiredValue ?? Field.CurrentDefault); var code = Draft ?? [.. applied];
+    var max = Field.MaxLength ?? 9; var min = Field.MinLength ?? 1; var directions = Field.Directions ?? [.. StratagemCode.Directions];
+    var value = StratagemCode.Value(code); var dirty = !StratagemCode.Same(code, applied);
+    var equal = StratagemCode.Same(code, StratagemCode.Of(Field.CurrentDefault)) ? [] : StratagemCode.EqualNative(catalog, Field, value);
+    var overlapping = StratagemCode.Overlapping(catalog, Field, value);
+    var clashes = StratagemCode.ProjectClashes(Workspace.Project, catalog, Field, value);
+}
+<div class="stratagem-code" data-stratagem-code="@Field.Target.Stratagem">
+    <div class="code-editor">
+        <div class="arrow-seq" role="list" aria-label="@T["StratagemCode.Label"]">
+            @for (var i = 0; i < code.Count; i++)
+            {
+                var index = i;
+                <span class="code-slot" role="listitem" data-code-slot="@index">
+                    <button disabled="@(index == 0 || Busy)" title="@T["CustomStratagem.Code.Earlier"]" aria-label="@T["CustomStratagem.Code.Earlier"]" @onclick="() => Move(index, -1)">‹</button>
+                    <span class="arrow-key" title="@CustomLabels.ArrowLabel(T, code[index])">@CustomLabels.Arrow(code[index])</span>
+                    <button disabled="@(index == code.Count - 1 || Busy)" title="@T["CustomStratagem.Code.Later"]" aria-label="@T["CustomStratagem.Code.Later"]" @onclick="() => Move(index, 1)">›</button>
+                    <button disabled="@Busy" title="@T["CustomStratagem.Code.Remove"]" aria-label="@T["CustomStratagem.Code.Remove"]" data-code-remove="@index" @onclick="() => Remove(index)">×</button>
+                </span>
+            }
+            @if (code.Count == 0) { <span class="subtle">@T["CustomStratagem.Code.Empty"]</span> }
+        </div>
+        <div class="code-add">
+            <small class="subtle">@T.Format("CustomStratagem.Code.Add", code.Count, max)</small>
+            @foreach (var direction in directions)
+            { <button disabled="@(code.Count >= max || Busy)" title="@CustomLabels.ArrowLabel(T, direction)" aria-label="@CustomLabels.ArrowLabel(T, direction)" data-code-add="@direction" @onclick="() => Add(direction)">@CustomLabels.Arrow(direction)</button> }
+            @if (dirty)
+            {
+                <span class="code-actions">
+                    <button class="primary" disabled="@(Busy || code.Count < min)" data-code-apply @onclick="() => Apply(code, clashes, false)">@T["StratagemCode.Apply"]</button>
+                    <button disabled="@Busy" data-code-discard @onclick="Discard">@T["StratagemCode.Discard"]</button>
+                </span>
+            }
+        </div>
+    </div>
+    @if (dirty && code.Count < min) { <p class="field-issue warning" data-code-short>@T.Format("StratagemCode.TooShort", min)</p> }
+    @if (equal.Count > 0)
+    {
+        <AckPanel Title="@T["StratagemCode.Equal.Title"]" Kind="unverified" Description="@T.Format("StratagemCode.Equal.Description", Names(equal))"
+            PanelAttributes='@(new() { ["data-opt-in"] = "allow_unverified_effect", ["data-code-equal"] = Names(equal) })' />
+    }
+    @if (overlapping.Count > 0) { <p class="subtle code-note" data-code-overlap>@T.Format("StratagemCode.Overlap", Names(overlapping))</p> }
+    @if (Pending is { } pending)
+    {
+        @* Asked where the code is applied: another edit of this project already gives that code to another stratagem. *@
+        <div class="swap-prompt" role="group" data-code-clash-prompt>
+            <p>@T.Format("StratagemCode.Clash.Prompt", ClashNames(pending.Clashes))</p>
+            <div class="swap-actions">
+                @if (pending.Clashes.Any(c => !c.IsCustom)) { <button class="primary" disabled="@Busy" data-clash-restore-other @onclick="() => Apply(pending.Code, pending.Clashes, true, restoreOthers: true)">@T["StratagemCode.Clash.RestoreOthers"]</button> }
+                <button disabled="@Busy" data-clash-keep @onclick="() => Apply(pending.Code, pending.Clashes, true)">@T["StratagemCode.Clash.KeepBoth"]</button>
+                <button class="link-button" disabled="@Busy" data-clash-cancel @onclick="() => Pending = null">@T["Common.Cancel"]</button>
+            </div>
+        </div>
+    }
+    else if (!dirty && Saved != null && clashes.Count > 0)
+    {
+        @* An applied code this project also gives another stratagem (for example from an older project): resolved here. *@
+        <div class="swap-prompt" role="group" data-code-clash>
+            <p>@T.Format("StratagemCode.Clash.Applied", ClashNames(clashes))</p>
+            <div class="swap-actions">
+                @foreach (var other in clashes.Where(c => !c.IsCustom)) { <button disabled="@Busy" data-clash-restore="@other.Other" @onclick="() => RestoreOther(other.Other)">@T.Format("StratagemCode.Clash.RestoreOne", other.Other)</button> }
+                <button class="link-button" disabled="@Busy" data-clash-restore-self @onclick="RestoreSelf">@T["StratagemCode.Clash.RestoreSelf"]</button>
+            </div>
+        </div>
+    }
+    @if (Report != null) { <p class="subtle code-note" role="status" data-code-report>@Report</p> }
+    @if (Field.HudSynchronization != null) { <p class="subtle code-note" data-hud-sync title="@Field.HudSynchronization">@T["StratagemCode.Hud"]</p> }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+</div>
+@code {
+    [Parameter, EditorRequired] public StratagemField Field { get; set; } = null!;
+    [Parameter] public StratagemChange? Saved { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private List<string>? Draft;
+    private (List<string> Code, IReadOnlyList<StratagemCode.Clash> Clashes)? Pending;
+    private string? Error, Report; private bool Busy;
+    private StratagemCatalog Catalog => (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!;
+    private string Names(IEnumerable<StratagemCode.Native> natives) => string.Join(", ", natives.Select(n => n.Stratagem ?? T["StratagemCode.Uncatalogued"]).Distinct());
+    private string ClashNames(IEnumerable<StratagemCode.Clash> clashes) => string.Join(", ", clashes.Select(c => c.Other).Distinct());
+    private List<string> Current() => Draft ??= [.. StratagemCode.Of(Saved?.DesiredValue ?? Field.CurrentDefault)];
+    private void Add(string direction) { var code = Current(); if (code.Count < (Field.MaxLength ?? 9)) code.Add(direction); Pending = null; Report = null; }
+    private void Remove(int index) { var code = Current(); if (index < code.Count) code.RemoveAt(index); Pending = null; Report = null; }
+    private void Move(int index, int by)
+    {
+        var code = Current(); var to = index + by;
+        if (index < code.Count && to >= 0 && to < code.Count) (code[index], code[to]) = (code[to], code[index]);
+        Pending = null; Report = null;
+    }
+    private void Discard() { Draft = null; Pending = null; Error = null; }
+    // Applies the draft: asked first when another edit of this project gives the same code to another stratagem (resolved here, never elsewhere).
+    private async Task Apply(List<string> code, IReadOnlyList<StratagemCode.Clash> clashes, bool confirmed, bool restoreOthers = false)
+    {
+        if (clashes.Count > 0 && !confirmed) { Pending = ([.. code], clashes); return; }
+        await Run(async () =>
+        {
+            var others = restoreOthers ? clashes.Where(c => !c.IsCustom).Select(c => c.Other).ToArray() : [];
+            await Workspace.SetStratagemCodeAsync(Field.InstanceKey, StratagemCode.Value(code).GetRawText(), others);
+            Report = others.Length > 0 ? T.Format("StratagemCode.Clash.Restored", string.Join(", ", others)) : null;
+            Draft = null; Pending = null;
+        });
+    }
+    private Task RestoreOther(string stratagem) => Run(async () =>
+    {
+        await Workspace.SetStratagemCodeAsync(Field.InstanceKey, (Saved?.DesiredValue ?? Field.CurrentDefault).GetRawText(), [stratagem]);
+        Report = T.Format("StratagemCode.Clash.Restored", stratagem);
+    });
+    private Task RestoreSelf() => Run(async () => { await Workspace.ResetStratagemAsync(instance: Field.InstanceKey); Draft = null; Report = null; });
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true;
+        try { await action(); Error = null; await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

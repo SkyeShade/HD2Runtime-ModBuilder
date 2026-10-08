@@ -41,6 +41,14 @@
         // 0.28.0 backpack settings and linked entities: the native member's meaning is proven offline (exact published value, differential,
         // hidden-name length); not yet shown in game, so every write carries allow_unverified_effect.
         "native_correlated" => t["Evidence.Tier.NativeCorrelated"],
+        // 0.30.0: the native code that reads the member is traced (vehicle tuning, jump and hover movement) or pinned (the enemy gib
+        // threshold); not yet shown in game, so every write carries allow_unverified_effect.
+        "native_consumer_proven" => t["Evidence.Tier.NativeConsumerProven"],
+        "native_code_proven" => t["Evidence.Tier.NativeCodeProven"],
+        // Helldiver fields (0.30.0 development, research grades): CONFIRMED pins the reader and its branch; STRONG pins the reader, the state
+        // bit that selects it is inferred. Neither is live-tested.
+        "CONFIRMED" => t["Evidence.Tier.ReaderConfirmed"],
+        "STRONG" => t["Evidence.Tier.ReaderStrong"],
         _ => tier.Replace('_', ' '),
     };
     public static string Short(IUiText t, string tier) => tier switch
@@ -62,6 +70,9 @@
         "schema_wiki_correlated" => t["Evidence.Short.SchemaWikiCorrelated"],
         "mount_chain_structural" => t["Evidence.Short.MountChainStructural"],
         "native_correlated" => t["Evidence.Short.NativeCorrelated"],
+        "native_consumer_proven" or "native_code_proven" => t["Evidence.Short.NativeCode"],
+        "CONFIRMED" => t["Evidence.Short.ReaderConfirmed"],
+        "STRONG" => t["Evidence.Short.ReaderStrong"],
         _ => tier.Replace('_', ' '),
     };
     private string Tooltip => string.Join("\n", new[] { Label(T, Evidence.Tier), Tiers?.GetValueOrDefault(Evidence.Tier), Evidence.ReferenceMod == null ? null : T.Format("Evidence.ReferenceMod", Evidence.ReferenceMod),

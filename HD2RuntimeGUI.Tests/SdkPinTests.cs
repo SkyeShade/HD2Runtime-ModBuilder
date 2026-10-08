@@ -7,7 +7,7 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// ModBuilder 1.4.2 is built against HD2Runtime 0.28.1 (1.4.0 and 1.4.1: 0.28.0). The fixture sdk-<SdkPin.Version>.zip is that release asset; the
+// ModBuilder 1.7.0 is built against HD2Runtime 0.30.0 (1.4.2 to 1.6.0: 0.28.1). The fixture sdk-<SdkPin.Version>.zip is that release asset; the
 // bundled SDK is its files byte for byte, a newer bundled SDK becomes current on upgrade, and a same-version build that differs (a local
 // sdk/ folder of a later Runtime commit) is always reported as a different build.
 public sealed class SdkPinTests
@@ -68,6 +68,28 @@ public sealed class SdkPinTests
         await reopened.OpenAsync(w.Project!.Id); Assert.Equal("0.27.0", reopened.Project!.SdkVersion); Assert.Null(reopened.BuildError);
         // A later start does not switch again (current is already the bundled version).
         var again = await new SdkCache(e.Paths, e.Reader, e.GitHub).GetCurrentAsync(); Assert.Equal(SdkPin.Version, again.Version);
+    }
+
+    // ModBuilder can ship before the Runtime release it pins is on GitHub: the check then finds only older releases, offers nothing and keeps
+    // the bundled SDK. Once the release is published (the same asset) it is found as the installed version: nothing is downloaded again.
+    [Fact] public async Task The_bundled_pin_works_before_and_after_its_release_is_published()
+    {
+        using var e = new TestEnvironment(); File.Delete(e.Paths.CachePath("current.json"));
+        var older = FakeGitHub.MakeRelease("0.28.1", SdkFixtures.Archive("0.28.1"));
+        e.GitHub.Candidates = [older]; e.GitHub.CandidateArchives["0.28.1"] = SdkFixtures.Archive("0.28.1");
+        var updates = new SdkUpdateService(new SdkCache(e.Paths, e.Reader, e.GitHub), e.GitHub, e.Paths);
+        var status = await updates.CheckAsync();
+        Assert.Equal(SdkPin.Version, status.Installed.Version); Assert.True(status.Installed.IsPinnedBuild); Assert.True(status.VerifiedOnline);
+        Assert.Equal("0.28.1", status.Latest!.Version); Assert.False(status.UpdateAvailable); Assert.Null(status.NewerUnsupported);
+        var ticket = await updates.BeginCreationAsync();
+        Assert.Equal(SdkPin.Version, (await updates.ResolveCreationAsync(ticket, UpdateDecision.UseInstalled)).Version);
+        Assert.DoesNotContain(SdkPin.Version, e.GitHub.Downloads); Assert.Equal(SdkPin.Version, Current(e));
+        // Published: the newest release is the pinned version itself.
+        var published = FakeGitHub.MakeRelease(SdkPin.Version, File.ReadAllBytes(Fixture));
+        e.GitHub.Candidates = [published, older]; e.GitHub.CandidateArchives[SdkPin.Version] = File.ReadAllBytes(Fixture);
+        status = await updates.CheckAsync();
+        Assert.Equal(SdkPin.Version, status.Latest!.Version); Assert.False(status.UpdateAvailable); Assert.True(status.Installed.IsPinnedBuild);
+        Assert.DoesNotContain(SdkPin.Version, e.GitHub.Downloads);
     }
 
     [Fact] public async Task A_local_build_with_the_pinned_version_but_other_content_is_never_taken_for_the_pin()

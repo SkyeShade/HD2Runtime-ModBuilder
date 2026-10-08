@@ -17,3 +17,13 @@ window.builderDialog = {
         this.previousFocus = null;
     }
 };
+// Brings an element into view after a page change (the weapon attack a custom projectile was created for, for example).
+window.builderView = {
+    reveal(selector) { document.querySelector(selector)?.scrollIntoView({ block: 'center' }); },
+    // A section of a long editor: opened when it is a collapsed <details>, then scrolled to its top.
+    jump(selector) {
+        const el = document.querySelector(selector); if (!el) return;
+        if (el.tagName === 'DETAILS') el.open = true;
+        el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+};

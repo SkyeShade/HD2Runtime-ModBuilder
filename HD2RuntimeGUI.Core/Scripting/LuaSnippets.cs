@@ -221,6 +221,61 @@ public static class LuaSnippets
                 end)
 
                 """, ["mission_ended", RuntimeDiagnostics.WriteConflicts]));
+        // 0.30.0 per-mod CPU time (hd2.diagnostics.performance, always on): the three heaviest owners when the mission ends.
+        if (Event("mission_ended") && sdk.LuaApi?.Resolve(RuntimeDiagnostics.Performance) != null)
+            result.Add(new(RuntimeDiagnostics.PerformanceSnippet, CoreText.Get("Snippets.Performance.Title"), CoreText.Get("Snippets.Performance.Description"),
+                """
+                hd2.events.on('mission_ended', function()
+                    local report = hd2.diagnostics.performance()
+                    for index, owner in ipairs(report.owners or {}) do
+                        if index > 3 then break end
+                        hd2.mod():log(('%s: %.1f ms in %d calls (slowest: %s)'):format(tostring(owner.owner), (owner.total_seconds or 0) * 1000, owner.calls or 0, tostring(owner.max_label)))
+                    end
+                end)
+
+                """, ["mission_ended", RuntimeDiagnostics.Performance]));
+        // 0.30.0 live-proven stratagem writes (LiveEvidenceCatalog stratagem_calldown_code, stratagem_presentation), built from the field the
+        // live test proved: its target, published constant and native value. Docs: stratagem-calldown-code.md, stratagem-presentation.md.
+        if (sdk.Stratagems is { } stratagems)
+        {
+            static bool Proven(StratagemField f) => f.LiveEvidence is { Status: "live_proven" } live && live.Target == f.Target.Stratagem;
+            if (stratagems.FieldInstances.FirstOrDefault(f => f.Type == StratagemField.CalldownCode && Proven(f) && f.CurrentDefault.ValueKind == System.Text.Json.JsonValueKind.Array) is { } code)
+            {
+                string[] Arrows(System.Text.Json.JsonElement value) => [.. value.EnumerateArray().Select(d => d.GetString() ?? "")];
+                string[] next = ["up", "up", "down", "down"];
+                // A code equal to another stratagem's native code needs allow_unverified_effect (acknowledgementRule).
+                var taken = stratagems.FieldInstances.Any(f => f.Type == StratagemField.CalldownCode && f.Target.Stratagem != code.Target.Stratagem
+                    && f.CurrentDefault.ValueKind == System.Text.Json.JsonValueKind.Array && Arrows(f.CurrentDefault).SequenceEqual(next));
+                string List(IEnumerable<string> arrows) => "{" + string.Join(", ", arrows.Select(Generation.LuaGenerator.Quote)) + "}";
+                result.Add(new("stratagem-calldown-code", CoreText.Get("Snippets.CalldownCode.Title"), CoreText.Format("Snippets.CalldownCode.Description", code.Target.Stratagem),
+                    $$"""
+                    -- {{code.Target.Stratagem}}: its native code, then the new one (1 to 9 of 'up', 'right', 'down', 'left')
+                    hd2.ensure({
+                        patch = {id = 'calldown-code', target = hd2.stratagem({{Generation.LuaGenerator.Quote(code.Target.Stratagem)}}),{{(taken ? " allow_unverified_effect = true," : "")}}
+                            field = {{code.ApiFieldConstant}}, expect = {{List(Arrows(code.CurrentDefault))}}, value = {{List(next)}}},
+                    })
+
+                    """, ["hd2.ensure", code.ApiFieldConstant]));
+            }
+            var shown = stratagems.FieldInstances.Where(f => f.Type == StratagemField.Presentation && Proven(f)).GroupBy(f => f.Target.Stratagem).FirstOrDefault(g => g.Count() > 1);
+            var source = shown == null ? null : new[] { "Orbital Gas Strike" }.Concat(stratagems.PresentationSources?.Stratagems ?? [])
+                .FirstOrDefault(s => s != shown.Key && shown.All(f => stratagems.PresentationSources?.Offers(f.SemanticFieldId, s) == true));
+            if (shown != null && source != null)
+            {
+                var changes = string.Join(",\n", shown.Select(f => "        {field = " + f.ApiFieldConstant + ", expect = " + Generation.LuaGenerator.Quote(f.CurrentDefault.GetString() ?? shown.Key)
+                    + ", value = " + Generation.LuaGenerator.Quote(source) + "}"));
+                result.Add(new("stratagem-presentation", CoreText.Get("Snippets.StratagemPresentation.Title"), CoreText.Format("Snippets.StratagemPresentation.Description", shown.Key, source),
+                    $$$"""
+                    -- {{{shown.Key}}} looks like the {{{source}}} (name, description, icon); it is still the {{{shown.Key}}}. Applied aboard the ship.
+                    hd2.ensure({
+                        transaction = {id = 'stratagem-presentation', target = hd2.stratagem({{{Generation.LuaGenerator.Quote(shown.Key)}}}), changes = {
+                    {{{changes}}},
+                        }},
+                    })
+
+                    """, ["hd2.ensure", .. shown.Select(f => f.ApiFieldConstant)]));
+            }
+        }
         return result;
     }
 

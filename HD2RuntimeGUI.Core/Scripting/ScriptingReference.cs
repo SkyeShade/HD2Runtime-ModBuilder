@@ -16,10 +16,26 @@ public sealed record ScriptEvidence(string Family, LiveEvidenceFamily Evidence)
 public static partial class ScriptingReference
 {
     /// <summary>The families that name a subject in their fields: an event ("player_damage_dealt", also through
-    /// "player_damage_dealt.sources"), an action ("hd2.actions.heal") or a handle method ("player:equipped_weapon").</summary>
+    /// "player_damage_dealt.sources"), an action ("hd2.actions.heal") or a handle method ("player:equipped_weapon"). From 0.30.0 a family of
+    /// another domain counts too when a field is exactly the API (enemy_spawn_weights: hd2.enemies.spawn_weight; custom_stratagem_weapon_variant:
+    /// hd2.resources.model), and a family that proves an API without naming it is linked explicitly (Linked).</summary>
     public static IReadOnlyList<ScriptEvidence> Evidence(LiveEvidenceCatalog? catalog, string subject) => catalog == null ? [] : catalog.Families
-        .Where(f => f.Value.Domain is "events" or "event_actions" && (f.Value.Fields ?? []).Any(x => x == subject || x.StartsWith(subject + ".", StringComparison.Ordinal)))
+        .Where(f => (f.Value.Fields ?? []).Any(x => f.Value.Domain is "events" or "event_actions" ? x == subject || x.StartsWith(subject + ".", StringComparison.Ordinal)
+                : subject.StartsWith("hd2.", StringComparison.Ordinal) && x == subject)
+            || Linked.GetValueOrDefault(subject)?.Contains(f.Key) == true)
         .Select(f => new ScriptEvidence(f.Key, f.Value)).OrderBy(e => e.Family, StringComparer.Ordinal).ToArray();
+    // 0.30.0 families whose fields name a stratagem field or nothing, but whose test proved this API: a mod's custom icon family is what
+    // hd2.resources.image names, and the presentation icon took one live.
+    private static readonly Dictionary<string, string[]> Linked = new(StringComparer.Ordinal)
+    {
+        ["hd2.resources.image"] = ["custom_icon_resource_family", "stratagem_presentation_custom_image"],
+    };
+    /// <summary>The call path of an API class method (hd2.actions.heal) where the hd2 table has a field of that class (the event catalog's API
+    /// fields, else the stub's: 0.30's hd2.enemies is declared only there); else Class.method.</summary>
+    public static string ApiPath(EventCatalog catalog, LuaApiIndex? api, string type, string method) =>
+        catalog.Api.Fields.FirstOrDefault(f => f.Length > 1 && f[1] == type) is { } field ? "hd2." + field[0] + "." + method
+        : api?.Members(api.RootClass).FirstOrDefault(m => m.Kind == "field" && LuaApiIndex.FirstType(m.Type) == type) is { } member ? "hd2." + member.Name + "." + method
+        : type + "." + method;
     /// <summary>The subject of a handle method in the evidence catalog: HD2PlayerHandle + equipped_weapon → "player:equipped_weapon".</summary>
     public static string HandleSubject(string handle, string method) =>
         (handle.StartsWith("HD2", StringComparison.Ordinal) ? handle[3..] : handle).Replace("Handle", "", StringComparison.Ordinal).ToLowerInvariant() + ":" + method;
@@ -56,6 +72,13 @@ public static class RuntimeDiagnostics
 {
     public const string WriteConflicts = "hd2.diagnostics.write_conflicts", Telemetry = "hd2.diagnostics.telemetry", WriteConflictsSnippet = "write-conflicts-report";
     public const string WriteConflictsId = "write-conflicts", TelemetryId = "telemetry", LogsId = "logs", StatusId = "status";
+    // 0.30.0: per-mod CPU time (always on, quiet), and the PERFORMANCE lines Runtime logs (docs/runtime-performance.md).
+    public const string Performance = "hd2.diagnostics.performance", PerformanceId = "performance", PerformanceSnippet = "performance-report";
+    public static readonly string[] PerformanceLogs =
+    [
+        "[HD2Runtime] PERFORMANCE: mod <id>: <callback> took <n> ms in one call",
+        "[HD2Runtime] PERFORMANCE: mod <id> used <n> ms per update over the last 10 s (<calls> calls); heaviest: ...",
+    ];
     // The documented opt-in (docs/diagnostics.md "Telemetry (off by default)").
     public const string TelemetryOptIn = "hd2.diagnostics.telemetry({enabled=true, report_seconds=60})";
     public const string WriteConflictLog = "[HD2Runtime] possible write conflict: operation gui-object-3d9ff4833c24584a039f823f (player_weapon SG-20 Halt: weapon.fire_rate) externally changed and re-applied 3 times in 120.0 s; another mod may be writing the same memory";
@@ -76,6 +99,8 @@ public static class RuntimeDiagnostics
         var sections = new List<DiagnosticsSection>();
         if (Calls((WriteConflicts, "hd2.diagnostics.")) is { Length: > 0 } conflicts)
             sections.Add(new(WriteConflictsId, conflicts, null, [WriteConflictLog], WriteConflictsSnippet));
+        if (Calls((Performance, "hd2.diagnostics.")) is { Length: > 0 } performance)
+            sections.Add(new(PerformanceId, performance, null, PerformanceLogs, PerformanceSnippet));
         if (Calls((Telemetry, "hd2.diagnostics.")) is { Length: > 0 } telemetry)
             sections.Add(new(TelemetryId, telemetry, TelemetryOptIn, [TelemetryLog], null));
         sections.Add(new(LogsId, Calls(("HD2ModContext:log", "mod:")), null, [ModLog, CallbackFailureLog, Generation.LuaGenerator.SkippedPrefix + "<error>"], null));

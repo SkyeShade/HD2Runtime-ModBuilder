@@ -1,0 +1,43 @@
+{
+  "format": "hd2runtime-custom-stratagems/1",
+  "stratagems": [
+    {
+      "id": "hmg_sentry",
+      "name": "A/HMG-206 HEAVY MACHINE GUN SENTRY",
+      "name_cased": "A/HMG-206 Heavy Machine Gun Sentry",
+      "description": "Deploys a machine gun sentry that fires the MG-206 heavy machine gun's armor-piercing rounds at a deliberate 400 rounds per minute.",
+      "icon": {
+        "image": "hmg_sentry",
+        "source": "images/hmg_sentry.png"
+      },
+      "code": [
+        "down",
+        "up",
+        "left",
+        "left",
+        "down",
+        "up"
+      ],
+      "cooldown": 150,
+      "carrier": {
+        "beacon": "support",
+        "prefer_families": [
+          "sentry"
+        ],
+        "allow_families": [
+          "sentry"
+        ]
+      },
+      "payload": {
+        "family": "sentry",
+        "donor": "A/MG-43 Machine Gun Sentry",
+        "weapon": {
+          "projectile": "MG-206 Heavy Machine Gun",
+          "rpm": 400,
+          "spread": 5,
+          "ammo": 300
+        }
+      }
+    }
+  ]
+}

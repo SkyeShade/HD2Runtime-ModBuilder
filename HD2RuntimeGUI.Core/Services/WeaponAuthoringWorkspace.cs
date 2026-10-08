@@ -41,6 +41,13 @@ public sealed partial class BuilderWorkspace
                 if (!edited) continue;
                 modified += attachment.FieldInstanceKeys.Count(k => Project.EntityChanges.Any(c => c.InstanceKey == k)); shared++;
             }
+        // So are the edited muzzle, optics and underbarrel definitions this weapon lists (0.30.0).
+        if (Metadata.Entities?.AttachmentModifiers is { } modifiers && modifiers.Weapon(weapon) is { } listed)
+            foreach (var attachment in listed.Slots.SelectMany(s => s.Options).Select(o => o.Attachment).Distinct().Select(id => modifiers.Attachment(id)!))
+            {
+                var count = attachment.FieldInstanceKeys.Count(k => Project.EntityChanges.Any(c => c.InstanceKey == k));
+                if (count > 0) { modified += count; shared++; }
+            }
         return new(modified, shared);
     }
 }

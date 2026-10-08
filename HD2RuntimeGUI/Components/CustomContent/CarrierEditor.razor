@@ -1,0 +1,100 @@
+@* Which vanilla stratagem carries the custom one. A carrier group (the Runtime's structural pools: only the groups that can carry this payload
+   are offered, the family's default marked) is the usual choice; a custom policy (beacon, preferred and allowed families) is the older form,
+   kept for full control. Exclusions and extra call-in packages apply to both. Problems show on the control they are about. *@
+@{
+    var target = Workspace.CustomTarget;
+    var groups = target.CarrierGroups(Stratagem);
+    var fallback = target.DefaultCarrierGroup(Stratagem);
+    var current = Stratagem.Carrier.Group;
+    var policy = current == null;
+    var group = target.Schema.Group(current);
+    var only = (target as Runtime030Target)?.OnlyFamilies(Stratagem.Delivery.Family) ?? [];
+    var families = target.Schema.Catalogs.CarrierFamilies.Where(f => group == null || group.Families.Count == 0 || group.Families.Contains(f)).ToArray();
+    var beacons = (target as Runtime030Target)?.Beacons(Stratagem.Delivery.Family) ?? CustomCarrier.Beacons;
+}
+<div class="carrier-editor" data-carrier-editor>
+    <div class="group-grid" role="radiogroup" aria-label="@T["CustomStratagem.Carrier.Group"]" data-carrier-groups>
+        @foreach (var g in groups)
+        {
+            <button class="group-card @(current == g.Name ? "active" : "")" role="radio" aria-checked="@(current == g.Name)" disabled="@Busy" data-carrier-group="@g.Name"
+                    @onclick="() => SetGroup(g.Name)">
+                <span class="group-head"><span class="beacon-dot @g.Beacon" aria-hidden="true"></span><strong>@CustomLabels.Group(T, g.Name)</strong>
+                    @if (g.Name == fallback) { <span class="badge custom">@T["CustomStratagem.Carrier.Default"]</span> }</span>
+                <small>@CustomLabels.Beacon(T, g.Beacon)@(g.Families.Count > 0 ? " · " + string.Join(", ", g.Families.Select(f => CustomLabels.CarrierFamily(T, f))) : "")</small>
+                <small class="group-doc">@g.Doc</small>
+            </button>
+        }
+        <button class="group-card policy @(policy ? "active" : "")" role="radio" aria-checked="@policy" disabled="@Busy" data-carrier-group="" @onclick="UsePolicy">
+            <span class="group-head"><span class="beacon-dot any" aria-hidden="true"></span><strong>@T["CustomStratagem.Carrier.Policy"]</strong></span>
+            <small>@T["CustomStratagem.Carrier.Policy.Help"]</small>
+        </button>
+    </div>
+    @Issues("carrier.group") @Issues("carrier")
+    @if (group is { } pg && (pg.Pod || pg.Weapon))
+    {
+        var slots = target.Describe("carrier.slots", Stratagem);
+        <div class="custom-fields">
+            <div class="custom-field" data-custom-field="carrier.slots"><label for="carrier-slots">@T["CustomStratagem.Carrier.Slots"] <small>@T["CustomStratagem.Carrier.Slots.Hint"]</small></label>
+                <div class="input-unit"><input id="carrier-slots" type="number" step="1" min="@CustomLabels.Number(slots.Min)" max="@CustomLabels.Number(slots.Max)" value="@Stratagem.Carrier.Slots"
+                        disabled="@Busy" placeholder="@T["CustomStratagem.Carrier.Slots.Auto"]" @onchange="e => Edit(s => s.Carrier.Slots = CustomFields.I(e.Value as string))" />
+                    <span>@CustomLabels.Unit(T, "items")</span></div>
+                @Issues("carrier.slots")</div>
+        </div>
+    }
+    @if (policy)
+    {
+        <label>@T["CustomStratagem.Beacon"] <small class="subtle">@T["CustomStratagem.Beacon.Hint"]</small></label>
+        <div class="segmented" role="group" data-custom-beacon>
+            @foreach (var beacon in beacons)
+            { <button class="@(Stratagem.Carrier.Beacon == beacon ? "active" : "")" aria-pressed="@(Stratagem.Carrier.Beacon == beacon)" disabled="@Busy" data-beacon="@beacon" @onclick="() => Edit(s => s.Carrier.Beacon = beacon)">@CustomLabels.Beacon(T, beacon)</button> }
+        </div>
+        @Issues("carrier.beacon")
+    }
+    <details class="custom-advanced" open="@(policy || Stratagem.Carrier.Prefer.Count > 0 || Stratagem.Carrier.Exclude.Count > 0 || Stratagem.Assets.Count > 0)" data-custom-carrier-advanced>
+        <summary class="subtle">@T["CustomStratagem.Carrier.Advanced"]</summary>
+        <label>@T["CustomStratagem.Carrier.Prefer"] <small class="subtle">@T["CustomStratagem.Carrier.Prefer.Hint"]</small></label>
+        <div class="chip-select" data-custom-prefer>
+            @foreach (var family in families)
+            { <button class="@(Stratagem.Carrier.Prefer.Contains(family) ? "active" : "")" aria-pressed="@Stratagem.Carrier.Prefer.Contains(family)" disabled="@Busy" data-prefer="@family" @onclick="() => Edit(s => Toggle(s.Carrier.Prefer, family))">@CustomLabels.CarrierFamily(T, family)</button> }
+        </div>
+        @Issues("carrier.prefer_families")
+        <label>@T["CustomStratagem.Carrier.Allow"] <small class="subtle">@(only.Count > 0 ? T.Format("CustomStratagem.Carrier.Only", string.Join(", ", only.Select(f => CustomLabels.CarrierFamily(T, f)))) : T["CustomStratagem.Carrier.Allow.Hint"])</small></label>
+        <div class="chip-select" data-custom-allow>
+            @foreach (var family in families)
+            { <button class="@(Stratagem.Carrier.Allow.Contains(family) ? "active" : "")" aria-pressed="@Stratagem.Carrier.Allow.Contains(family)" disabled="@Busy" data-allow="@family" @onclick="() => Edit(s => Toggle(s.Carrier.Allow, family))">@CustomLabels.CarrierFamily(T, family)</button> }
+        </div>
+        @Issues("carrier.allow_families")
+        <StratagemNameList Label="@T["CustomStratagem.Carrier.Exclude"]" Hint="@T["CustomStratagem.Carrier.Exclude.Hint"]" Values="@Stratagem.Carrier.Exclude" Busy="Busy" Key="exclude"
+                           Toggle="name => Edit(s => Toggle(s.Carrier.Exclude, name))" />
+        @Issues("carrier.exclude")
+        <StratagemNameList Label="@T["CustomStratagem.Assets"]" Hint="@T["CustomStratagem.Assets.Hint"]" Values="@Stratagem.Assets" Busy="Busy" Key="assets"
+                           Toggle="name => Edit(s => Toggle(s.Assets, name))" />
+        @Issues("assets")
+    </details>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    private Task Edit(Action<CustomStratagem> edit) => Run.InvokeAsync(() => Workspace.EditCustomStratagemAsync(Stratagem.Id, edit));
+    private static void Toggle(List<string> list, string value) { if (!list.Remove(value)) list.Add(value); }
+    // A group implies its beacon; a family's own limit (sentries, Eagles) stays in allow. Preferred families outside the new group are dropped.
+    private Task SetGroup(string group) => Edit(s =>
+    {
+        var g = Workspace.CustomTarget.Schema.Group(group);
+        s.Carrier.Group = group; s.Carrier.Beacon = null;
+        if (g is { Families.Count: > 0 }) { s.Carrier.Prefer.RemoveAll(f => !g.Families.Contains(f)); s.Carrier.Allow.RemoveAll(f => !g.Families.Contains(f)); }
+        if (g is not { Pod: true } and not { Weapon: true }) s.Carrier.Slots = null;
+    });
+    private Task UsePolicy() => Edit(s =>
+    {
+        s.Carrier.Group = null; s.Carrier.Slots = null;
+        s.Carrier.Beacon ??= (Workspace.CustomTarget as Runtime030Target)?.Beacons(s.Delivery.Family)[0] ?? CustomCarrier.Any;
+    });
+    private RenderFragment Issues(string field) => __builder =>
+    {
+        foreach (var issue in Workspace.CustomDiagnosticsFor(CustomDiagnostic.StratagemOwner(Stratagem.Id)).Where(d => d.Field == field && d.Severity is CustomSeverity.Error or CustomSeverity.Warning))
+        { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error danger-text" : "warning")" data-field-issue="@field">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+    };
+}

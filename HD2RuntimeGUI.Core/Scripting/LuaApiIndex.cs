@@ -20,8 +20,27 @@ public sealed class LuaApiIndex
     public IReadOnlyList<LuaMember> Members(string type) => Classes.GetValueOrDefault(type) ?? [];
     public IReadOnlyList<string> Alias(string name) => Aliases.GetValueOrDefault(name) ?? [];
     public string? ClassDoc(string type) => ClassDocs.GetValueOrDefault(type);
-    // The first non-nil class of a declared type ("HD2Explosion|nil" → HD2Explosion).
-    public static string? FirstType(string? type) => type?.Split('|').Select(t => t.Trim().TrimEnd('?')).FirstOrDefault(t => t.Length > 0 && t != "nil");
+    // The first non-nil class of a declared type ("HD2Explosion|nil" → HD2Explosion). A function type in the union is skipped, whole: HD2Runtime
+    // 0.30's hd2.enemies is "HD2Enemies|fun(filter?: {kind?: "enemy"|"structure", ...}): string[]" (a table that can also be called).
+    public static string? FirstType(string? type) => type == null ? null
+        : Union(type).Select(t => t.Trim().TrimEnd('?')).FirstOrDefault(t => t.Length > 0 && t != "nil" && !t.StartsWith("fun(", StringComparison.Ordinal));
+    // The callable part of a declared type ("fun(filter?: {…}): string[]"), if it has one.
+    public static string? Callable(string? type) => type == null ? null : Union(type).Select(t => t.Trim()).FirstOrDefault(t => t.StartsWith("fun(", StringComparison.Ordinal));
+    /// <summary>The alternatives of a LuaLS union, split only at a top-level '|' (never inside a function type, a table shape or a literal).</summary>
+    public static IEnumerable<string> Union(string type)
+    {
+        var depth = 0; var quote = '\0'; var start = 0;
+        for (var i = 0; i < type.Length; i++)
+        {
+            var c = type[i];
+            if (quote != '\0') { if (c == '\\') i++; else if (c == quote) quote = '\0'; continue; }
+            if (c is '"' or '\'') quote = c;
+            else if (c is '(' or '{' or '[' or '<') depth++;
+            else if (c is ')' or '}' or ']' or '>') depth = Math.Max(0, depth - 1);
+            else if (c == '|' && depth == 0) { yield return type[start..i]; start = i + 1; }
+        }
+        yield return type[start..];
+    }
     /// <summary>A member by its call path: "hd2.diagnostics.write_conflicts" walks the hd2 table's fields and sub-tables;
     /// "HD2Subscription:describe" or "HD2Events.status" starts at a class. Null when the stub does not publish it.</summary>
     public LuaMember? Resolve(string path)
@@ -47,7 +66,7 @@ public static class LuaStubReader
     private static readonly Regex FieldLine = new(@"^---@field\s+([A-Za-z_]\w*)\??\s+(.+)$", RegexOptions.CultureInvariant);
     private static readonly Regex ParamLine = new(@"^---@param\s+([A-Za-z_]\w*|\.\.\.)\??\s+(.+?)\s*$", RegexOptions.CultureInvariant);
     private static readonly Regex ReturnLine = new(@"^---@return\s+(.+)$", RegexOptions.CultureInvariant);
-    private static readonly Regex TypeLine = new(@"^---@type\s+(\S+)", RegexOptions.CultureInvariant);
+    private static readonly Regex TypeLine = new(@"^---@type\s+(.+)$", RegexOptions.CultureInvariant);
     private static readonly Regex AliasLine = new(@"^---@alias\s+([A-Za-z_]\w*)\s+(.*)$", RegexOptions.CultureInvariant);
     private static readonly Regex Literal = new("\"((?:[^\"\\\\]|\\\\.)*)\"", RegexOptions.CultureInvariant);
     private static readonly Regex FunctionLine = new(@"^function\s+([A-Za-z_][\w.]*)([.:])([A-Za-z_]\w*)\s*\(([^)]*)\)", RegexOptions.CultureInvariant);
@@ -89,7 +108,7 @@ public static class LuaStubReader
                 }
                 if ((m = ParamLine.Match(line)).Success) { parameters.Add((m.Groups[1].Value, SplitType(m.Groups[2].Value).Type)); continue; }
                 if ((m = ReturnLine.Match(line)).Success) { returns.AddRange(ReturnTypes(m.Groups[1].Value)); continue; }
-                if ((m = TypeLine.Match(line)).Success) { declared = m.Groups[1].Value; continue; }
+                if ((m = TypeLine.Match(line)).Success) { declared = SplitType(m.Groups[1].Value).Type; continue; }
                 if ((m = AliasLine.Match(line)).Success)
                 {
                     var values = Literal.Matches(m.Groups[2].Value).Select(x => x.Groups[1].Value).Distinct(StringComparer.Ordinal).ToArray();
@@ -103,14 +122,15 @@ public static class LuaStubReader
             var t = TableLine.Match(line);
             if (t.Success)
             {
-                // hd2.x = {}: a field of the hd2 table (or of a sub-table), typed by the ---@type above it or a class of its own.
-                var path = t.Groups[1].Value; var cut = path.LastIndexOf('.');
+                // hd2.x = {}: a field of the hd2 table (or of a sub-table), typed by the ---@type above it or a class of its own. A table that
+                // can also be called (---@type HD2Enemies|fun(filter?): string[]) is its class, and keeps the call as its signature.
+                var path = t.Groups[1].Value; var cut = path.LastIndexOf('.'); var name = path[(cut + 1)..];
                 var owner = path[..cut] == "hd2" ? root ?? "hd2" : tables.GetValueOrDefault(path[..cut]) ?? path[..cut];
-                var type = declared ?? path; Class(type);
+                var type = (declared == null ? null : LuaApiIndex.FirstType(declared)) ?? path; Class(type);
                 if (declared == null && Doc() is { } tableDoc) classDocs[type] = tableDoc;
                 tables[path] = type;
-                Class(owner).RemoveAll(x => x.Name == path[(cut + 1)..]);
-                Class(owner).Add(new(path[(cut + 1)..], "field", null, type, Doc()));
+                Class(owner).RemoveAll(x => x.Name == name);
+                Class(owner).Add(new(name, "field", CallSignature(name, LuaApiIndex.Callable(declared)), declared ?? type, Doc()));
                 Reset(); continue;
             }
             var f = FunctionLine.Match(line);
@@ -159,6 +179,22 @@ public static class LuaStubReader
             else if (char.IsWhiteSpace(c) && depth == 0 && !(i > 0 && text[i - 1] is ':' or '|')) return (text[..i], text[(i + 1)..].Trim());
         }
         return (text.Trim(), "");
+    }
+    // A callable table's call as a signature: ("enemies", "fun(filter?: {…}): string[]") → "enemies(filter?: {…}) → string[]".
+    private static string? CallSignature(string name, string? function)
+    {
+        if (function == null) return null;
+        var depth = 0;
+        for (var i = 3; i < function.Length; i++)
+        {
+            if (function[i] == '(') depth++;
+            else if (function[i] == ')' && --depth == 0)
+            {
+                var returns = function[(i + 1)..].Trim().TrimStart(':').Trim();
+                return name + function[3..(i + 1)] + (returns.Length > 0 ? " → " + returns : "");
+            }
+        }
+        return null;
     }
     // "integer, boolean" / "HD2Explosion|nil, string|nil" / "string? reason" → the returned types, without their names or comments.
     private static IEnumerable<string> ReturnTypes(string text)

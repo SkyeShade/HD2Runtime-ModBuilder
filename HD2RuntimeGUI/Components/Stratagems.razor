@@ -1,4 +1,5 @@
 @inject BuilderWorkspace Workspace
+@inject GameIconStore Icons
 @* Stratagem browser. Each stratagem is one object: header, call-in, delivered object, then collapsed advanced/provenance.
    Support equipment is presented through its support call-in; equipment without a published structural link is listed as unlinked. *@
 @{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Stratagems; }
@@ -35,7 +36,7 @@ else
             {
                 var category = StratagemCategories.Of(root.Family);
                 <button class="resource-item with-icon @category?.CssClass @(Selected == root.Name ? "active" : "")" data-stratagem="@root.Name" data-family="@root.Family" @onclick="() => Selected = root.Name">
-                    <GameIcon Kind="stratagem" Key="@GameIconStore.StratagemIconKey(root)" State="@root.UiIcon?.State" Reason="@IconReason(catalog, root)" Label="@root.Name" CssClass="@category?.CssClass" />
+                    <GameIcon Kind="stratagem" Stratagem="root" State="@root.UiIcon?.State" Reason="@IconReason(catalog, root)" Label="@root.Name" CssClass="@category?.CssClass" />
                     <span class="resource-text"><strong>@root.Name@if (Warning(T, catalog, root) is { } warning) { <span class="warn-dot" title="@warning">●</span> }</strong><small>@FamilyLabel(root.Family) · @Summary(catalog, root)</small></span></button>
             }
             @if (unlinked.Length > 0)
@@ -107,7 +108,7 @@ else
             // The object is the call-in plus what it delivers: count the linked equipment's published fields too.
             var equipment = link == null ? [] : sdk!.SupportAuthoring!.FieldInstances.Where(f => f.SupportWeapon == link.Weapon.Name).ToArray();
             <section class="panel category-panel @category?.CssClass" data-stratagem-category="@category?.Key" data-stratagem-header="@stratagem.Name">
-                <div class="object-header"><GameIcon Kind="stratagem" Key="@GameIconStore.StratagemIconKey(stratagem)" State="@stratagem.UiIcon?.State" Reason="@IconReason(catalog, stratagem)" Label="@stratagem.Name" CssClass="@category?.CssClass" Size="md" />
+                <div class="object-header"><GameIcon Kind="stratagem" Stratagem="stratagem" State="@stratagem.UiIcon?.State" Reason="@IconReason(catalog, stratagem)" Label="@stratagem.Name" CssClass="@category?.CssClass" Size="md" />
                     <div><h2>@stratagem.Name</h2>
                         <div class="field-badges">@if (category != null) { <span class="category-pill static @category.CssClass"><span class="cat-dot" aria-hidden="true"></span>@category.Label</span> }
                             <span class="badge">@FamilyLabel(stratagem.Family)</span>
@@ -154,11 +155,15 @@ else
                     @* Only what is actually read-only: a writable call-in time or mission use count (0.26.0+, e.g. Resupply) has no reason to show. *@
                     @if (!stratagem.CallInTime.Writable) { <p><strong>@T["Stratagem.Blocked.CallInTime"]</strong> @stratagem.CallInTime.Reason</p> }
                     @if (!stratagem.MaxUses.Writable) { <p><strong>@T["Stratagem.Blocked.MaxUses"]</strong> @stratagem.MaxUses.Reason</p> }
-                    @if (stratagem.BarrageScheduling != null) { <p><strong>@T["Stratagem.Blocked.Barrage"]</strong> @stratagem.BarrageScheduling.Reason</p> }
-                    @foreach (var blocked in graph.Blocked) { <p data-blocked-field="@blocked.Field"><strong>@T.Format("Stratagem.Blocked.Field", BlockedLabel(T, blocked.Field))</strong> @blocked.Reason</p> }</div>
+                    @* 0.30.0 makes barrage scheduling writable (the orbital.* pattern fields): it is blocked only where Runtime says so. *@
+                    @if (stratagem.BarrageScheduling is { Writable: false } barrage) { <p><strong>@T["Stratagem.Blocked.Barrage"]</strong> @barrage.Reason</p> }
+                    @foreach (var blocked in graph.Blocked) { <p data-blocked-field="@blocked.Field"><strong>@T.Format("Stratagem.Blocked.Field", BlockedLabel(T, blocked.Field))</strong> @blocked.Reason</p> }
+                    @* 0.30.0 sentry fields Runtime defers or excludes on this sentry, with its reason. *@
+                    @foreach (var deferred in stratagem.SentryFields?.Deferred ?? []) { <p data-deferred-field="@deferred.Field"><strong>@T.Format("Stratagem.Blocked.Field", BlockedLabel(T, deferred.Field))</strong> @deferred.Reason</p> }
+                    @foreach (var (excluded, reason) in stratagem.SentryFields?.Excluded ?? []) { <p data-excluded-field="@excluded"><strong>@T.Format("Stratagem.Blocked.Field", BlockedLabel(T, excluded))</strong> @reason</p> }</div>
                 <p class="subtle">@T.Markup("Stratagem.RootIdentity.Line.Html", stratagem.RootResolution, stratagem.SemanticId)</p>
-                @if (IconReason(catalog, stratagem) is { } iconReason) { <p class="subtle" data-icon-reason="@stratagem.UiIcon!.State">@T.Format("Stratagem.Icon.Reason", iconReason)</p> }
-                else if (stratagem.UiIcon is { State: "resolved" } icon) { <p class="subtle" data-icon-reason="resolved">@T.Markup("Stratagem.Icon.Resolved.Html", icon.IconKey, icon.NativeType)</p> }
+                @if (IconReason(catalog, stratagem) is { } iconReason) { <p class="subtle" data-icon-reason="@(stratagem.UiIcon?.State ?? "missing")">@T.Format("Stratagem.Icon.Reason", iconReason)</p> }
+                else if (stratagem.UiIcon is { State: "resolved" } icon && Icons.SpriteUri(GameIconStore.Stratagem, stratagem.Name) == null) { <p class="subtle" data-icon-reason="resolved">@T.Markup("Stratagem.Icon.Resolved.Html", icon.IconKey, icon.NativeType)</p> }
                 @if (catalog.SemanticBranches.Any(b => b.Stratagem == stratagem.Name))
                 {
                     <h3 class="group-title">@T["Stratagem.DeliveryInspection.Title"]</h3>
@@ -198,13 +203,19 @@ else
     private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
     public static string FamilyLabel(string family) => StratagemBrowser.FamilyLabel(family);
     private string Writability(bool writable) => writable ? T["Stratagem.Summary.Writable"] : T["Stratagem.Summary.ReadOnly"];
-    // Why a stratagem shows a glyph instead of its game icon, from Runtime's published uiIcon (never inferred from names).
-    private string? IconReason(StratagemCatalog c, StratagemDefinition s) => s.UiIcon is null ? null : s.UiIcon.FallbackReason(c.UiIconContract) is { } reason
-        ? s.UiIcon.State switch
-        {
-            "empty_template" => T.Format("Stratagem.IconReason.NoArtwork", reason), "unbound" => T.Format("Stratagem.IconReason.NoGameIcon", reason),
-            "no_native_root" => T.Format("Stratagem.NoCallInReason", reason), _ => T.Format("Stratagem.IconReason.NoIcon", reason),
-        } : null;
+    // Why a stratagem shows a glyph instead of its game icon: none while it shows one, or while the HUD sprite list names one that is not
+    // imported yet; else HudIconSprites.json's reason for an item without a sprite, or Runtime's published uiIcon state (never inferred from names).
+    private string? IconReason(StratagemCatalog c, StratagemDefinition s)
+    {
+        if (Icons.StratagemIcon(s) != null || Icons.Manifest == null && HudIconSprites.Bundled.Value.Stratagems.ContainsKey(s.Name)) return null;
+        if (GameIconStore.NoIconReason(s.Name) is { } missing) return s.UiIcon?.State == "no_native_root" ? T.Format("Stratagem.NoCallInReason", missing) : T.Format("Stratagem.IconReason.NoIcon", missing);
+        return s.UiIcon is null ? null : s.UiIcon.FallbackReason(c.UiIconContract) is { } reason
+            ? s.UiIcon.State switch
+            {
+                "empty_template" => T.Format("Stratagem.IconReason.NoArtwork", reason), "unbound" => T.Format("Stratagem.IconReason.NoGameIcon", reason),
+                "no_native_root" => T.Format("Stratagem.NoCallInReason", reason), _ => T.Format("Stratagem.IconReason.NoIcon", reason),
+            } : null;
+    }
     // Runtime's published acquisition kind for no-call-in equipment (e.g. world_pickup → "World pickup").
     private string AcquisitionLabel(SdkMetadata? sdk, string weapon) => sdk?.SupportAuthoring?.Weapons.SingleOrDefault(w => w.Name == weapon)?.LinkedStratagem?.NoCallIn?.Acquisition?.Kind is { } kind
         ? (kind == "world_pickup" ? T["Stratagem.Acquisition.WorldPickup"] : FieldPresentation.EnumLabel(kind)) : T["Stratagem.NoCallIn"];

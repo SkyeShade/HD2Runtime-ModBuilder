@@ -1,10 +1,11 @@
 ---@meta
 -- Generated authoring definitions. Never package or execute this file.
--- Schema SHA256 bce95feb2247e46580506d05593f6793d418019b3a587d32d02dbe1ef0af933b
+-- Schema SHA256 1600ee7b0eaac4b3e5ece9d4216a4703db7b849d017c3ec1567b1de9e9e2ef1a
 
 ---@alias HD2Resource "0x16474112801385B6"|"0x59C5CA839449B379"|"0x80F1A156D9FA1E36"|"0x89C5493E08CA4207"|"0xB0C9FAF4AF8903F9"|"0xEC3575E7A93793BB"|"0xED13DDC480EC6910"|"amr"|"bastion"|"jar5"|"jump_pack"|"maelstrom"|"orbital_laser"|"shield_relay"
 ---@alias HD2PatchField "armor_penetration"
 ---@alias HD2TransactionField "cooldown"|"durability"|"lifetime"|"radius"
+---@alias HD2PassiveName "ACCLIMATED"|"ADRENO-DEFIBRILLATOR"|"ADVANCED FILTRATION"|"BALLISTIC PADDING"|"BLUNT-FORCE MITIGATION"|"CONCUSSIVE PADDING, GRENADIER"|"CONCUSSIVE PADDING, HAZMAT"|"CONCUSSIVE PADDING, REINFORCED"|"DEMOCRACY PROTECTS"|"DESERT STORMER"|"ELECTRICAL CONDUIT"|"ENGINEERING KIT"|"EXTRA PADDING"|"FEET FIRST"|"FORTIFIED"|"GUNSLINGER"|"INFLAMMABLE"|"INTEGRATED EXPLOSIVES"|"KINETIC DISPLACEMENT MITIGATION"|"MED-KIT"|"OXYGENATOR"|"PEAK PHYSIQUE"|"REDUCED SIGNATURE"|"REINFORCED EPAULETTES"|"ROCK-SOLID"|"SCOUT"|"SERVO-ASSISTED"|"SIEGE-READY"|"STANDARD ISSUE"|"SUPPLEMENTAL ADRENALINE"|"TRUE GRIT"|"UNFLINCHING"
 
 ---@class HD2ReadTarget
 ---@field resource HD2Resource
@@ -46,6 +47,8 @@
 ---@field restores? integer
 ---@field rebinds? integer
 ---@field option_defaults? boolean
+---@field recoveries? integer
+---@field retry_in? number
 
 ---@class HD2ObserveRequest
 ---@field targets HD2ReadTarget[]
@@ -132,6 +135,8 @@
 ---@field startup_delay? number
 ---@field max_interval? number
 ---@field enabled? HD2Option
+---@field recover? boolean|{delay?: number, max_delay?: number, limit?: integer}
+---@field on_status? fun(status: string, info: {id: string, status: string, previous: string, error: string|nil, code: string|nil, runs: integer, recoveries: integer, retry_in: number|nil})
 
 ---@class HD2RuntimeMetrics
 ---@field counters table<string, number>
@@ -489,7 +494,7 @@ local HD2AttachmentOption = {}
 ---@return table
 function HD2AttachmentOption:describe() end
 
----@alias HD2AuthoringTarget HD2Weapon|HD2DamageProfile|HD2Stratagem|HD2StratagemAttack|HD2EagleRearm|HD2PlayerAttack|HD2WeaponAmmunition|HD2ProjectileReference|HD2TerminalAction|HD2Explosion|HD2SupportWeapon|HD2SupportAttack|HD2SupportProjectile|HD2SupportExplosion|HD2DeployedEntity|HD2DeployedShield|HD2DeployedZone|HD2MountedWeapon|HD2VehicleEntity|HD2VehicleZone|HD2VehicleMount|HD2VehicleWeapon|HD2VehicleWeaponAttack|HD2Backpack|HD2BackpackZone|HD2BackpackLinked|HD2BackpackLinkedZone|HD2BoosterTarget|HD2WeaponAttachment|HD2PodRack|HD2PodSlot
+---@alias HD2AuthoringTarget HD2Weapon|HD2DamageProfile|HD2Stratagem|HD2StratagemAttack|HD2EagleRearm|HD2PlayerAttack|HD2WeaponAmmunition|HD2ProjectileReference|HD2TerminalAction|HD2Explosion|HD2SupportWeapon|HD2SupportAttack|HD2SupportProjectile|HD2SupportExplosion|HD2DeployedEntity|HD2DeployedShield|HD2DeployedZone|HD2MountedWeapon|HD2VehicleEntity|HD2VehicleZone|HD2VehicleMount|HD2VehicleWeapon|HD2VehicleWeaponAttack|HD2Backpack|HD2BackpackZone|HD2BackpackLinked|HD2BackpackLinkedZone|HD2BoosterTarget|HD2WeaponAttachment|HD2PodRack|HD2PodSlot|HD2CatalogueExplosion
 
 ---@param role HD2AttackRole
 ---@return HD2PlayerAttack
@@ -599,7 +604,7 @@ local HD2Subweapon = {}
 ---@return table
 function HD2Subweapon:describe() end
 ---@alias HD2SupportWeaponName "40-K Meltagun"|"AC-8 Autocannon"|"APW-1 Anti-Materiel Rifle"|"ARC-3 Arc Thrower"|"B/FLAM-80 Cremator"|"B/MD C4 Pack"|"CQC-1 One True Flag"|"CQC-20 Breaching Hammer"|"CQC-72 Entrenchment Tool"|"CQC-9 Defoliation Tool"|"EAT-17 Expendable Anti-Tank"|"EAT-411 Leveller"|"EAT-700 Expendable Napalm"|"FAF-14 Spear"|"FLAM-40 Flamethrower"|"GL-21 Grenade Launcher"|"GL-28 Belt-Fed Grenade Launcher"|"GL-52 De-Escalator"|"GR-8 Recoilless Rifle"|"LAS-98 Laser Cannon"|"LAS-99 Quasar Cannon"|"M-1000 Maxigun"|"M-105 Stalwart"|"MG-206 Heavy Machine Gun"|"MG-43 Machine Gun"|"MGX-42 Bullet Storm"|"MLS-4X Commando"|"MS-11 Solo Silo"|"PLAS-45 Epoch"|"RL-77 Airburst Rocket Launcher"|"RS-422 Railgun"|"S-11 Speargun"|"SG-88 Break-Action Shotgun"|"StA-X3 W.A.S.P. Launcher"|"TX-41 Sterilizer"
----@alias HD2SupportAttackName "40-K MELTAGUN B"|"AC-8 P"|"AC-8 P IE"|"AC-8 P1"|"AC-8 P1 IE"|"AC-8 P2"|"APW-1 P"|"AR-23 P"|"ARC-3 ARC THROWER A"|"B/FLAM-80 CREMATOR S"|"B/MD C4 PACK E"|"BurningHeavy"|"CQC-1 ONE TRUE FLAG_dm"|"CQC-20 BREACHING HAMMER IE"|"CQC-20 BREACHING HAMMER_dm"|"CQC-72 ENTRENCHMENT TOOL_dm"|"CQC-9 DEFOLIATION TOOL_dm"|"EAT-17 BACKBLAST E"|"EAT-17 P"|"EAT-17 P IE"|"EAT-411 P"|"EAT-411 P IE"|"EAT-700 P"|"EAT-700 P IE"|"EAT-700 P1"|"EAT-700 P1 IE"|"FAF-14 P"|"FAF-14 P IE"|"FLAM-40 FLAMETHROWER S"|"Fire"|"Fire Panic"|"FlamerSlowed"|"GL-21 P"|"GL-21 P IE"|"GL-28 P"|"GL-28 P IE"|"GL-52 P"|"GL-52 P IE"|"GL-52 P IE A"|"GR-8 BACKBLAST E"|"GR-8 P"|"GR-8 P IE"|"GR-8 P1"|"GR-8 P1 IE"|"Gas"|"Gas Confusion"|"Gas Confusion Var2"|"Gas Var2"|"LAS-98 LASER CANNON B"|"LAS-99 P"|"LAS-99 P IE"|"M-1000 P"|"MG-206 P"|"MG-43 P"|"MGX-42 P"|"MLS-4X BACKBLAST E"|"MLS-4X P"|"MLS-4X P IE"|"P3"|"P3 IE"|"PLAS-45 EPOCH Overcharge E"|"PLAS-45 P"|"PLAS-45 P IE"|"RL-77 P"|"RL-77 P IE"|"RL-77 P1"|"RL-77 P1 IE"|"RL-77 P2"|"RL-77 P2 IE"|"RL-77 P3"|"RS-422 P"|"RS-422 RAILGUN Overcharge E"|"Railgun Max Charge"|"S-11 P"|"S-11 P E"|"SG-88 P"|"SWP SOLO SILO E"|"SWP SOLO SILO EImpact"|"StA-X3 P"|"StA-X3 P IE"|"StA-X3 P1"|"StA-X3 P1 IE"|"Stun Small"|"TX-41 STERILIZER S"|"detonation"|"feed_primary"|"impact"|"primary"|"primary_expiry"|"primary_impact"|"primary_impact_status_32"|"primary_impact_status_5"|"primary_status_37"|"primary_status_42"|"primary_status_43"|"primary_status_44"|"primary_status_45"|"primary_status_5"|"primary_status_6"|"primary_status_67"
+---@alias HD2SupportAttackName "40-K MELTAGUN B"|"AC-8 P"|"AC-8 P IE"|"AC-8 P1"|"AC-8 P1 IE"|"AC-8 P2"|"APW-1 P"|"AR-23 P"|"ARC-3 ARC THROWER A"|"B/FLAM-80 CREMATOR S"|"B/MD C4 PACK E"|"BurningHeavy"|"CQC-1 ONE TRUE FLAG_dm"|"CQC-20 BREACHING HAMMER IE"|"CQC-20 BREACHING HAMMER_dm"|"CQC-72 ENTRENCHMENT TOOL_dm"|"CQC-9 DEFOLIATION TOOL_dm"|"EAT-17 BACKBLAST E"|"EAT-17 P"|"EAT-17 P IE"|"EAT-411 P"|"EAT-411 P IE"|"EAT-700 P"|"EAT-700 P IE"|"EAT-700 P1"|"EAT-700 P1 IE"|"FAF-14 P"|"FAF-14 P IE"|"FLAM-40 FLAMETHROWER S"|"Fire"|"Fire Panic"|"FlamerSlowed"|"GL-21 P"|"GL-21 P IE"|"GL-28 P"|"GL-28 P IE"|"GL-52 P"|"GL-52 P IE"|"GL-52 P IE A"|"GR-8 BACKBLAST E"|"GR-8 P"|"GR-8 P IE"|"GR-8 P1"|"GR-8 P1 IE"|"Gas"|"Gas Confusion"|"Gas Confusion Var2"|"Gas Var2"|"LAS-98 LASER CANNON B"|"LAS-99 P"|"LAS-99 P IE"|"M-1000 P"|"MG-206 P"|"MG-43 P"|"MGX-42 P"|"MLS-4X BACKBLAST E"|"MLS-4X P"|"MLS-4X P IE"|"P3"|"P3 IE"|"PLAS-45 EPOCH Overcharge E"|"PLAS-45 P"|"PLAS-45 P IE"|"RL-77 P"|"RL-77 P IE"|"RL-77 P1"|"RL-77 P1 IE"|"RL-77 P2"|"RL-77 P2 IE"|"RL-77 P3"|"RS-422 P"|"RS-422 RAILGUN Overcharge E"|"Railgun Max Charge"|"S-11 P"|"S-11 P E"|"SG-88 P"|"SWP SOLO SILO E"|"SWP SOLO SILO EImpact"|"StA-X3 P"|"StA-X3 P IE"|"StA-X3 P1"|"StA-X3 P1 IE"|"Stun Small"|"TX-41 STERILIZER S"|"detonation"|"feed_primary"|"full_charge"|"full_charge_impact"|"impact"|"overcharge_explosion"|"primary"|"primary_expiry"|"primary_impact"|"primary_impact_status_32"|"primary_impact_status_5"|"primary_status_37"|"primary_status_42"|"primary_status_43"|"primary_status_44"|"primary_status_45"|"primary_status_5"|"primary_status_6"|"primary_status_67"
 
 ---@class HD2SupportAttack
 ---@field resource "support_weapon"
@@ -1209,7 +1214,47 @@ function HD2EnemyAttack:describe() end
 function HD2Enemy:attack(identity) end
 ---@return HD2EnemyAttack[]
 function HD2Enemy:attacks() end
----@alias HD2AttackOutputId "40-K Meltagun"|"A/M-23 EMS Mortar Sentry"|"AC-8 Autocannon"|"APW-1 Anti-Materiel Rifle"|"AR-11 Arbitrator"|"AR-2 Coyote"|"AR-23 Liberator"|"AR-23A Liberator Carbine"|"AR-23C Liberator Concussive"|"AR-23P Liberator Penetrator"|"AR-32 Pacifier"|"AR-59 Suppressor"|"AR-61 Tenderizer"|"AR/GL-21 One-Two"|"ARC-12 Blitzer"|"ARC-3 Arc Thrower"|"AX/AR-23 Guard Dog / gun"|"AX/ARC-3 K-9 / gun"|"AX/FLAM-75 Hot Dog / gun"|"AX/LAS-5 Rover / gun"|"AX/TX-13 Dog Breath / gun"|"B/FLAM-80 Cremator"|"BR-14 Adjudicator"|"CB-9 Exploding Crossbow"|"CQC-1 One True Flag"|"CQC-19 Stun Lance"|"CQC-2 Saber"|"CQC-20 Breaching Hammer"|"CQC-30 Stun Baton"|"CQC-5 Combat Hatchet"|"CQC-9 Defoliation Tool"|"DBS-2 Double Freedom"|"EAT-17 Expendable Anti-Tank"|"EAT-411 Leveller"|"EAT-700 Expendable Napalm"|"EXO-45 Patriot Exosuit / left_gun"|"EXO-45 Patriot Exosuit / right_gun"|"EXO-49 Emancipator Exosuit / left_gun"|"EXO-49 Emancipator Exosuit / right_gun"|"EXO-51 Lumberer Exosuit / left_gun"|"EXO-51 Lumberer Exosuit / right_gun"|"EXO-55 Breakthrough Exosuit / right_gun"|"FAF-14 Spear"|"FLAM-40 Flamethrower"|"FLAM-66 Torcher"|"FRV (Super Earth variant) / gun"|"GATER Oil Rig / turret"|"GL-15 Evictor"|"GL-21 Grenade Launcher"|"GL-28 Belt-Fed Grenade Launcher"|"GL-52 De-Escalator"|"GP-20 Ultimatum"|"GR-8 Recoilless Rifle"|"JAR-5 Dominator"|"LAS-12 Sai"|"LAS-13 Trident"|"LAS-16 Sickle"|"LAS-17 Double-Edge Sickle"|"LAS-58 Talon"|"LAS-98 Laser Cannon"|"LAS-99 Quasar Cannon"|"M-1000 Maxigun"|"M-102 Gunner FRV / gun"|"M-103 Supply FRV / gun"|"M-104 Incinerator FRV / gun"|"M-105 Stalwart"|"M6C/SOCOM Pistol"|"M7S SMG"|"M90A Shotgun"|"MA5C Assault Rifle"|"MG-206 Heavy Machine Gun"|"MG-43 Machine Gun"|"MGX-42 Bullet Storm"|"MLS-4X Commando"|"MP-98 Knight"|"P-11 Stim Pistol"|"P-113 Verdict"|"P-19 Redeemer"|"P-2 Peacemaker"|"P-33 Missile Pistol"|"P-34 Breacher"|"P-35 Re-Educator"|"P-4 Senator"|"P-69 Veto"|"P-92 Warrant"|"P/40-K Bolt Pistol"|"PLAS-1 Scorcher"|"PLAS-101 Purifier"|"PLAS-15 Loyalist"|"PLAS-39 Accelerator Rifle"|"PLAS-45 Epoch"|"R-2 Amendment"|"R-2124 Constitution"|"R-36 Eruptor"|"R-4 Hyena"|"R-6 Deadeye"|"R-63 Diligence"|"R-63CS Diligence Counter Sniper"|"R-72 Censor"|"R/40-K Hot-Shot Marksman Rifle"|"RL-77 Airburst Rocket Launcher"|"RS-422 Railgun"|"S-11 Speargun"|"S-11 Speargun (spare twin)"|"SG-20 Halt"|"SG-22 Bushwhacker"|"SG-225 Breaker"|"SG-225IE Breaker Incendiary"|"SG-225SP Breaker Spray&Pray"|"SG-451 Cookout"|"SG-8 Punisher"|"SG-88 Break-Action Shotgun"|"SG-8P Punisher Plasma"|"SG-8S Slugger"|"SG-97 Sweeper"|"SMG-203 Gallant"|"SMG-32 Reprimand"|"SMG-72 Pummeler"|"SMG/FLAM-34 Stoker"|"StA-11 SMG"|"StA-52 Assault Rifle"|"StA-X3 W.A.S.P. Launcher"|"TD-110 Maelstrom / attach_tank_gun"|"TD-110 Maelstrom / slot_2"|"TD-110 Maelstrom / slot_3"|"TD-110 Maelstrom / slot_4"|"TD-220 Bastion MK XVI / attach_tank_gun"|"TD-220 Bastion MK XVI / attach_tank_gun_mg"|"TX-41 Sterilizer"|"VG-70 Variable"|"output/v1/arc/arc-12-blitzer"|"output/v1/arc/arc-3-arc-thrower"|"output/v1/arc/ax-arc-3-k-9-gun"|"output/v1/beam/40-k-meltagun"|"output/v1/beam/ax-las-5-rover-gun"|"output/v1/beam/las-13-trident"|"output/v1/beam/las-98-laser-cannon"|"output/v1/melee/cqc-1-one-true-flag"|"output/v1/melee/cqc-19-stun-lance"|"output/v1/melee/cqc-2-saber"|"output/v1/melee/cqc-20-breaching-hammer"|"output/v1/melee/cqc-30-stun-baton"|"output/v1/melee/cqc-5-combat-hatchet"|"output/v1/melee/cqc-9-defoliation-tool"|"output/v1/projectile/a-m-23-ems-mortar-sentry"|"output/v1/projectile/ac-8-autocannon"|"output/v1/projectile/apw-1-anti-materiel-rifle"|"output/v1/projectile/ar-11-arbitrator"|"output/v1/projectile/ar-2-coyote"|"output/v1/projectile/ar-23-liberator"|"output/v1/projectile/ar-23a-liberator-carbine"|"output/v1/projectile/ar-23c-liberator-concussive"|"output/v1/projectile/ar-23p-liberator-penetrator"|"output/v1/projectile/ar-32-pacifier"|"output/v1/projectile/ar-59-suppressor"|"output/v1/projectile/ar-61-tenderizer"|"output/v1/projectile/ar-gl-21-one-two"|"output/v1/projectile/ax-ar-23-guard-dog-gun"|"output/v1/projectile/br-14-adjudicator"|"output/v1/projectile/cb-9-exploding-crossbow"|"output/v1/projectile/dbs-2-double-freedom"|"output/v1/projectile/eat-17-expendable-anti-tank"|"output/v1/projectile/eat-411-leveller"|"output/v1/projectile/eat-700-expendable-napalm"|"output/v1/projectile/exo-45-patriot-exosuit-left-gun"|"output/v1/projectile/exo-45-patriot-exosuit-right-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-left-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-right-gun"|"output/v1/projectile/exo-51-lumberer-exosuit-right-gun"|"output/v1/projectile/exo-55-breakthrough-exosuit-right-gun"|"output/v1/projectile/faf-14-spear"|"output/v1/projectile/frv-super-earth-variant-gun"|"output/v1/projectile/gater-oil-rig-turret"|"output/v1/projectile/gl-15-evictor"|"output/v1/projectile/gl-21-grenade-launcher"|"output/v1/projectile/gl-28-belt-fed-grenade-launcher"|"output/v1/projectile/gl-52-de-escalator"|"output/v1/projectile/gp-20-ultimatum"|"output/v1/projectile/gr-8-recoilless-rifle"|"output/v1/projectile/jar-5-dominator"|"output/v1/projectile/las-12-sai"|"output/v1/projectile/las-16-sickle"|"output/v1/projectile/las-17-double-edge-sickle"|"output/v1/projectile/las-58-talon"|"output/v1/projectile/las-99-quasar-cannon"|"output/v1/projectile/m-1000-maxigun"|"output/v1/projectile/m-102-gunner-frv-gun"|"output/v1/projectile/m-103-supply-frv-gun"|"output/v1/projectile/m-105-stalwart"|"output/v1/projectile/m6c-socom-pistol"|"output/v1/projectile/m7s-smg"|"output/v1/projectile/m90a-shotgun"|"output/v1/projectile/ma5c-assault-rifle"|"output/v1/projectile/mg-206-heavy-machine-gun"|"output/v1/projectile/mg-43-machine-gun"|"output/v1/projectile/mgx-42-bullet-storm"|"output/v1/projectile/mls-4x-commando"|"output/v1/projectile/mp-98-knight"|"output/v1/projectile/p-11-stim-pistol"|"output/v1/projectile/p-113-verdict"|"output/v1/projectile/p-19-redeemer"|"output/v1/projectile/p-2-peacemaker"|"output/v1/projectile/p-33-missile-pistol"|"output/v1/projectile/p-34-breacher"|"output/v1/projectile/p-35-re-educator"|"output/v1/projectile/p-4-senator"|"output/v1/projectile/p-40-k-bolt-pistol"|"output/v1/projectile/p-69-veto"|"output/v1/projectile/p-92-warrant"|"output/v1/projectile/plas-1-scorcher"|"output/v1/projectile/plas-101-purifier"|"output/v1/projectile/plas-15-loyalist"|"output/v1/projectile/plas-39-accelerator-rifle"|"output/v1/projectile/plas-45-epoch"|"output/v1/projectile/r-2-amendment"|"output/v1/projectile/r-2124-constitution"|"output/v1/projectile/r-36-eruptor"|"output/v1/projectile/r-4-hyena"|"output/v1/projectile/r-40-k-hot-shot-marksman-rifle"|"output/v1/projectile/r-6-deadeye"|"output/v1/projectile/r-63-diligence"|"output/v1/projectile/r-63cs-diligence-counter-sniper"|"output/v1/projectile/r-72-censor"|"output/v1/projectile/rl-77-airburst-rocket-launcher"|"output/v1/projectile/rs-422-railgun"|"output/v1/projectile/s-11-speargun"|"output/v1/projectile/s-11-speargun-spare-twin"|"output/v1/projectile/sg-20-halt"|"output/v1/projectile/sg-22-bushwhacker"|"output/v1/projectile/sg-225-breaker"|"output/v1/projectile/sg-225ie-breaker-incendiary"|"output/v1/projectile/sg-225sp-breaker-spray-pray"|"output/v1/projectile/sg-451-cookout"|"output/v1/projectile/sg-8-punisher"|"output/v1/projectile/sg-88-break-action-shotgun"|"output/v1/projectile/sg-8p-punisher-plasma"|"output/v1/projectile/sg-8s-slugger"|"output/v1/projectile/sg-97-sweeper"|"output/v1/projectile/smg-203-gallant"|"output/v1/projectile/smg-32-reprimand"|"output/v1/projectile/smg-72-pummeler"|"output/v1/projectile/smg-flam-34-stoker"|"output/v1/projectile/sta-11-smg"|"output/v1/projectile/sta-52-assault-rifle"|"output/v1/projectile/sta-x3-w-a-s-p-launcher"|"output/v1/projectile/td-110-maelstrom-attach-tank-gun"|"output/v1/projectile/td-110-maelstrom-slot-2"|"output/v1/projectile/td-110-maelstrom-slot-3"|"output/v1/projectile/td-110-maelstrom-slot-4"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun-mg"|"output/v1/projectile/vg-70-variable"|"output/v1/spray/ax-flam-75-hot-dog-gun"|"output/v1/spray/ax-tx-13-dog-breath-gun"|"output/v1/spray/b-flam-80-cremator"|"output/v1/spray/exo-51-lumberer-exosuit-left-gun"|"output/v1/spray/flam-40-flamethrower"|"output/v1/spray/flam-66-torcher"|"output/v1/spray/m-104-incinerator-frv-gun"|"output/v1/spray/tx-41-sterilizer"
+---@alias HD2HelldiverZoneName "arm_left"|"arm_right"|"body"|"head"|"leg_left"|"leg_right"
+---@alias HD2DamageMultiplierName "critical"|"none"|"normal"|"reduced"|"symbolic"
+
+---@class HD2HelldiverZone
+---@field resource "helldiver"
+---@field path "damage_zone"
+---@field helldiver "Helldiver"
+---@field zone HD2HelldiverZoneName
+local HD2HelldiverZone = {}
+---Zone fields: zone.damage_multiplier / zone.damage_multiplier_dps (by name: HD2DamageMultiplierName; for
+---damage over time "inherit" instead of "none"), zone.durable_resistance, zone.affects_main_health and
+---zone.health (from the next spawn). Writes need allow_shared=true and allow_unverified_effect=true.
+---@return table
+function HD2HelldiverZone:describe() end
+
+---@class HD2Helldiver
+---@field resource "helldiver"
+---@field path "entity"
+---@field helldiver "Helldiver"
+local HD2Helldiver = {}
+---The type, its scope (every Helldiver this machine simulates), zones and fields: hd2.fields.helldiver.speed_*,
+---hd2.fields.helldiver.stamina_* and hd2.fields.entity.explosive_damage_percentage, each with its vanilla value,
+---reviewed range, research grade and lifecycle (docs/helldiver-fields.md).
+---@return table
+function HD2Helldiver:describe() end
+---@return HD2HelldiverZone[]
+function HD2Helldiver:zones() end
+---@param identity HD2HelldiverZoneName|integer Zone name or index (0 = head).
+---@return HD2HelldiverZone
+function HD2Helldiver:zone(identity) end
+---@return HD2HelldiverZone[]
+function HD2Helldiver:damage_zones() end
+---@param identity HD2HelldiverZoneName|integer
+---@return HD2HelldiverZone
+function HD2Helldiver:damage_zone(identity) end
+---Read-only: the Helldivers this machine simulates and which carries a private copy that a type write does
+---not reach: {status="checked", simulated, avatars={{entity, local, avatar_copy, health_copy}}} or
+---{status="unavailable", reason}.
+---@return table
+function HD2Helldiver:private_copies() end
+---@alias HD2AttackOutputId "40-K Meltagun"|"A/GM-17 Gas Mortar Sentry"|"A/M-12 Mortar Sentry"|"A/M-23 EMS Mortar Sentry"|"A/MLS-4X Rocket Sentry"|"AC-8 Autocannon"|"APW-1 Anti-Materiel Rifle"|"AR-11 Arbitrator"|"AR-2 Coyote"|"AR-23 Liberator"|"AR-23A Liberator Carbine"|"AR-23C Liberator Concussive"|"AR-23P Liberator Penetrator"|"AR-32 Pacifier"|"AR-59 Suppressor"|"AR-61 Tenderizer"|"AR/GL-21 One-Two"|"ARC-12 Blitzer"|"ARC-3 Arc Thrower"|"AX/AR-23 Guard Dog / gun"|"AX/ARC-3 K-9 / gun"|"AX/FLAM-75 Hot Dog / gun"|"AX/LAS-5 Rover / gun"|"AX/TX-13 Dog Breath / gun"|"B/FLAM-80 Cremator"|"BR-14 Adjudicator"|"CB-9 Exploding Crossbow"|"CQC-1 One True Flag"|"CQC-19 Stun Lance"|"CQC-2 Saber"|"CQC-20 Breaching Hammer"|"CQC-30 Stun Baton"|"CQC-5 Combat Hatchet"|"CQC-9 Defoliation Tool"|"DBS-2 Double Freedom"|"E/MG-101 HMG Emplacement"|"EAT-17 Expendable Anti-Tank"|"EAT-411 Leveller"|"EAT-700 Expendable Napalm"|"EXO-45 Patriot Exosuit / left_gun"|"EXO-45 Patriot Exosuit / right_gun"|"EXO-49 Emancipator Exosuit / left_gun"|"EXO-49 Emancipator Exosuit / right_gun"|"EXO-51 Lumberer Exosuit / left_gun"|"EXO-51 Lumberer Exosuit / right_gun"|"EXO-55 Breakthrough Exosuit / right_gun"|"Eagle 110mm Rocket Pods"|"Eagle 500kg Bomb"|"Eagle Airstrike"|"Eagle Cluster Bomb"|"Eagle Gas Airstrike"|"Eagle Napalm Airstrike"|"Eagle Smoke Strike"|"FAF-14 Spear"|"FLAM-40 Flamethrower"|"FLAM-66 Torcher"|"FRV (Super Earth variant) / gun"|"GATER Oil Rig / turret"|"GL-15 Evictor"|"GL-21 Grenade Launcher"|"GL-28 Belt-Fed Grenade Launcher"|"GL-52 De-Escalator"|"GP-20 Ultimatum"|"GP-31 Grenade Pistol"|"GR-8 Recoilless Rifle"|"JAR-5 Dominator"|"LAS-12 Sai"|"LAS-13 Trident"|"LAS-16 Sickle"|"LAS-17 Double-Edge Sickle"|"LAS-58 Talon"|"LAS-98 Laser Cannon"|"LAS-99 Quasar Cannon"|"M-1000 Maxigun"|"M-102 Gunner FRV / gun"|"M-103 Supply FRV / gun"|"M-104 Incinerator FRV / gun"|"M-105 Stalwart"|"M6C/SOCOM Pistol"|"M7S SMG"|"M90A Shotgun"|"MA5C Assault Rifle"|"MG-206 Heavy Machine Gun"|"MG-43 Machine Gun"|"MGX-42 Bullet Storm"|"MLS-4X Commando"|"MP-98 Knight"|"Orbital 120mm HE Barrage"|"Orbital Airburst Strike"|"Orbital EMS Strike"|"Orbital Gas Strike"|"Orbital Gatling Barrage"|"Orbital Napalm Barrage"|"Orbital Precision Strike"|"Orbital Railcannon Strike"|"Orbital Smoke Strike"|"Orbital Walking Barrage"|"P-11 Stim Pistol"|"P-113 Verdict"|"P-19 Redeemer"|"P-2 Peacemaker"|"P-33 Missile Pistol"|"P-34 Breacher"|"P-35 Re-Educator"|"P-4 Senator"|"P-69 Veto"|"P-92 Warrant"|"P/40-K Bolt Pistol"|"PLAS-1 Scorcher"|"PLAS-101 Purifier"|"PLAS-15 Loyalist"|"PLAS-39 Accelerator Rifle"|"PLAS-45 Epoch"|"R-2 Amendment"|"R-2124 Constitution"|"R-36 Eruptor"|"R-4 Hyena"|"R-6 Deadeye"|"R-63 Diligence"|"R-63CS Diligence Counter Sniper"|"R-72 Censor"|"R/40-K Hot-Shot Marksman Rifle"|"RL-77 Airburst Rocket Launcher"|"RS-422 Railgun"|"S-11 Speargun"|"S-11 Speargun (spare twin)"|"SG-20 Halt"|"SG-22 Bushwhacker"|"SG-225 Breaker"|"SG-225IE Breaker Incendiary"|"SG-225SP Breaker Spray&Pray"|"SG-451 Cookout"|"SG-8 Punisher"|"SG-88 Break-Action Shotgun"|"SG-8P Punisher Plasma"|"SG-8S Slugger"|"SG-97 Sweeper"|"SMG-203 Gallant"|"SMG-32 Reprimand"|"SMG-37 Defender"|"SMG-72 Pummeler"|"SMG/FLAM-34 Stoker"|"StA-11 SMG"|"StA-52 Assault Rifle"|"StA-X3 W.A.S.P. Launcher"|"TD-110 Maelstrom / attach_tank_gun"|"TD-110 Maelstrom / slot_2"|"TD-110 Maelstrom / slot_3"|"TD-110 Maelstrom / slot_4"|"TD-220 Bastion MK XVI"|"TD-220 Bastion MK XVI / attach_tank_gun"|"TD-220 Bastion MK XVI / attach_tank_gun_mg"|"TX-41 Sterilizer"|"VG-70 Variable"|"output/v1/arc/arc-12-blitzer"|"output/v1/arc/arc-3-arc-thrower"|"output/v1/arc/ax-arc-3-k-9-gun"|"output/v1/beam/40-k-meltagun"|"output/v1/beam/ax-las-5-rover-gun"|"output/v1/beam/las-13-trident"|"output/v1/beam/las-98-laser-cannon"|"output/v1/melee/cqc-1-one-true-flag"|"output/v1/melee/cqc-19-stun-lance"|"output/v1/melee/cqc-2-saber"|"output/v1/melee/cqc-20-breaching-hammer"|"output/v1/melee/cqc-30-stun-baton"|"output/v1/melee/cqc-5-combat-hatchet"|"output/v1/melee/cqc-9-defoliation-tool"|"output/v1/projectile/a-gm-17-gas-mortar-sentry-projectile-342"|"output/v1/projectile/a-m-12-mortar-sentry-projectile-346"|"output/v1/projectile/a-m-23-ems-mortar-sentry"|"output/v1/projectile/a-mls-4x-rocket-sentry-projectile-320"|"output/v1/projectile/ac-8-autocannon"|"output/v1/projectile/ac-8-autocannon-projectile-284"|"output/v1/projectile/apw-1-anti-materiel-rifle"|"output/v1/projectile/ar-11-arbitrator"|"output/v1/projectile/ar-2-coyote"|"output/v1/projectile/ar-23-liberator"|"output/v1/projectile/ar-23a-liberator-carbine"|"output/v1/projectile/ar-23c-liberator-concussive"|"output/v1/projectile/ar-23p-liberator-penetrator"|"output/v1/projectile/ar-32-pacifier"|"output/v1/projectile/ar-59-suppressor"|"output/v1/projectile/ar-61-tenderizer"|"output/v1/projectile/ar-gl-21-one-two"|"output/v1/projectile/ax-ar-23-guard-dog-gun"|"output/v1/projectile/br-14-adjudicator"|"output/v1/projectile/cb-9-exploding-crossbow"|"output/v1/projectile/dbs-2-double-freedom"|"output/v1/projectile/e-mg-101-hmg-emplacement-projectile-83"|"output/v1/projectile/eagle-110mm-rocket-pods-projectile-82"|"output/v1/projectile/eagle-500kg-bomb-projectile-239"|"output/v1/projectile/eagle-airstrike-projectile-170"|"output/v1/projectile/eagle-cluster-bomb-projectile-286"|"output/v1/projectile/eagle-gas-airstrike-projectile-188"|"output/v1/projectile/eagle-napalm-airstrike-projectile-141"|"output/v1/projectile/eagle-smoke-strike-projectile-130"|"output/v1/projectile/eagle-smoke-strike-projectile-16"|"output/v1/projectile/eat-17-expendable-anti-tank"|"output/v1/projectile/eat-411-leveller"|"output/v1/projectile/eat-700-expendable-napalm"|"output/v1/projectile/exo-45-patriot-exosuit-left-gun"|"output/v1/projectile/exo-45-patriot-exosuit-right-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-left-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-right-gun"|"output/v1/projectile/exo-51-lumberer-exosuit-right-gun"|"output/v1/projectile/exo-55-breakthrough-exosuit-right-gun"|"output/v1/projectile/faf-14-spear"|"output/v1/projectile/frv-super-earth-variant-gun"|"output/v1/projectile/gater-oil-rig-turret"|"output/v1/projectile/gl-15-evictor"|"output/v1/projectile/gl-21-grenade-launcher"|"output/v1/projectile/gl-28-belt-fed-grenade-launcher"|"output/v1/projectile/gl-52-de-escalator"|"output/v1/projectile/gp-20-ultimatum"|"output/v1/projectile/gp-31-grenade-pistol-projectile-263"|"output/v1/projectile/gr-8-recoilless-rifle"|"output/v1/projectile/jar-5-dominator"|"output/v1/projectile/las-12-sai"|"output/v1/projectile/las-16-sickle"|"output/v1/projectile/las-17-double-edge-sickle"|"output/v1/projectile/las-58-talon"|"output/v1/projectile/las-99-quasar-cannon"|"output/v1/projectile/m-1000-maxigun"|"output/v1/projectile/m-102-gunner-frv-gun"|"output/v1/projectile/m-103-supply-frv-gun"|"output/v1/projectile/m-105-stalwart"|"output/v1/projectile/m6c-socom-pistol"|"output/v1/projectile/m7s-smg"|"output/v1/projectile/m90a-shotgun"|"output/v1/projectile/ma5c-assault-rifle"|"output/v1/projectile/mg-206-heavy-machine-gun"|"output/v1/projectile/mg-43-machine-gun"|"output/v1/projectile/mg-43-machine-gun-projectile-49"|"output/v1/projectile/mgx-42-bullet-storm"|"output/v1/projectile/mls-4x-commando"|"output/v1/projectile/mp-98-knight"|"output/v1/projectile/orbital-120mm-he-barrage-projectile-194"|"output/v1/projectile/orbital-airburst-strike-projectile-158"|"output/v1/projectile/orbital-ems-strike-projectile-74"|"output/v1/projectile/orbital-gas-strike-projectile-197"|"output/v1/projectile/orbital-gatling-barrage-projectile-77"|"output/v1/projectile/orbital-napalm-barrage-projectile-234"|"output/v1/projectile/orbital-precision-strike-projectile-100"|"output/v1/projectile/orbital-railcannon-strike-projectile-277"|"output/v1/projectile/orbital-smoke-strike-projectile-247"|"output/v1/projectile/orbital-walking-barrage-projectile-80"|"output/v1/projectile/p-11-stim-pistol"|"output/v1/projectile/p-113-verdict"|"output/v1/projectile/p-19-redeemer"|"output/v1/projectile/p-2-peacemaker"|"output/v1/projectile/p-33-missile-pistol"|"output/v1/projectile/p-33-missile-pistol-projectile-127"|"output/v1/projectile/p-34-breacher"|"output/v1/projectile/p-35-re-educator"|"output/v1/projectile/p-4-senator"|"output/v1/projectile/p-40-k-bolt-pistol"|"output/v1/projectile/p-69-veto"|"output/v1/projectile/p-92-warrant"|"output/v1/projectile/p-92-warrant-projectile-319"|"output/v1/projectile/plas-1-scorcher"|"output/v1/projectile/plas-101-purifier"|"output/v1/projectile/plas-15-loyalist"|"output/v1/projectile/plas-39-accelerator-rifle"|"output/v1/projectile/plas-45-epoch"|"output/v1/projectile/r-2-amendment"|"output/v1/projectile/r-2124-constitution"|"output/v1/projectile/r-36-eruptor"|"output/v1/projectile/r-4-hyena"|"output/v1/projectile/r-40-k-hot-shot-marksman-rifle"|"output/v1/projectile/r-6-deadeye"|"output/v1/projectile/r-63-diligence"|"output/v1/projectile/r-63cs-diligence-counter-sniper"|"output/v1/projectile/r-72-censor"|"output/v1/projectile/rl-77-airburst-rocket-launcher"|"output/v1/projectile/rl-77-airburst-rocket-launcher-projectile-96"|"output/v1/projectile/rs-422-railgun"|"output/v1/projectile/s-11-speargun"|"output/v1/projectile/s-11-speargun-spare-twin"|"output/v1/projectile/sg-20-halt"|"output/v1/projectile/sg-22-bushwhacker"|"output/v1/projectile/sg-225-breaker"|"output/v1/projectile/sg-225ie-breaker-incendiary"|"output/v1/projectile/sg-225sp-breaker-spray-pray"|"output/v1/projectile/sg-451-cookout"|"output/v1/projectile/sg-8-punisher"|"output/v1/projectile/sg-88-break-action-shotgun"|"output/v1/projectile/sg-8p-punisher-plasma"|"output/v1/projectile/sg-8s-slugger"|"output/v1/projectile/sg-97-sweeper"|"output/v1/projectile/smg-203-gallant"|"output/v1/projectile/smg-32-reprimand"|"output/v1/projectile/smg-37-defender-projectile-150"|"output/v1/projectile/smg-37-defender-projectile-3"|"output/v1/projectile/smg-72-pummeler"|"output/v1/projectile/smg-flam-34-stoker"|"output/v1/projectile/sta-11-smg"|"output/v1/projectile/sta-52-assault-rifle"|"output/v1/projectile/sta-x3-w-a-s-p-launcher"|"output/v1/projectile/sta-x3-w-a-s-p-launcher-projectile-330"|"output/v1/projectile/td-110-maelstrom-attach-tank-gun"|"output/v1/projectile/td-110-maelstrom-slot-2"|"output/v1/projectile/td-110-maelstrom-slot-3"|"output/v1/projectile/td-110-maelstrom-slot-4"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun-mg"|"output/v1/projectile/td-220-bastion-mk-xvi-projectile-36"|"output/v1/projectile/vg-70-variable"|"output/v1/spray/ax-flam-75-hot-dog-gun"|"output/v1/spray/ax-tx-13-dog-breath-gun"|"output/v1/spray/b-flam-80-cremator"|"output/v1/spray/exo-51-lumberer-exosuit-left-gun"|"output/v1/spray/flam-40-flamethrower"|"output/v1/spray/flam-66-torcher"|"output/v1/spray/m-104-incinerator-frv-gun"|"output/v1/spray/tx-41-sterilizer"
 
 ---@class HD2AttackOutput
 ---@field resource "attack_output"
@@ -1253,15 +1298,22 @@ local HD2AttackOutputSlot = {}
 ---{output, slot, field, present, allowNone, shared}.
 ---@return table
 function HD2AttackOutputSlot:describe() end
----@alias HD2ExplosionName "B-100 Portable Hellbomb"|"Hellbomb"|"NUX-223 Hellbomb"|"Portable Hellbomb"
+---@alias HD2CatalogueExplosionName "backpack/b100_portable_hellbomb/behavior"|"backpack/lift182_warp_pack/displacement"|"enemy/assault_walker/impact"|"enemy/assault_walker/impact_2"|"enemy/assault_walker/inventory_detonation"|"enemy/big_walker_turret_cannon/impact"|"enemy/bile_titan/ability"|"enemy/bile_titan/ragdoll_crash"|"enemy/bile_titan/spray_impact"|"enemy/boomer/ability"|"enemy/boomer/impact"|"enemy/bug_larva_container_backpack/behavior"|"enemy/canister/detonation"|"enemy/conscript_backpack_lmg/detonation"|"enemy/conscript_jumppack/detonation"|"enemy/conscript_shotgun/detonation"|"enemy/crusher/ability"|"enemy/cyborg_elite/impact"|"enemy/cyborg_elite_female/inventory_detonation"|"enemy/cyborg_elite_rusher/inventory_detonation"|"enemy/dropship/behavior"|"enemy/dropship/vehicle_crash"|"enemy/dropship/vehicle_crash_2"|"enemy/gatekeeper/impact"|"enemy/gatekeeper/impact_2"|"enemy/gazer/behavior"|"enemy/gunship/behavior"|"enemy/gunship/behavior_2"|"enemy/gunship/vehicle_crash"|"enemy/gunship/vehicle_crash_2"|"enemy/hive_lord/ability"|"enemy/hive_lord/ability/shrapnel_impact"|"enemy/hive_lord/ability_10"|"enemy/hive_lord/ability_2"|"enemy/hive_lord/ability_3"|"enemy/hive_lord/ability_4"|"enemy/hive_lord/ability_5"|"enemy/hive_lord/ability_6"|"enemy/hive_lord/ability_7"|"enemy/hive_lord/ability_8"|"enemy/hive_lord/ability_9"|"enemy/hive_lord/impact"|"enemy/illuminate_attack_ship/impact"|"enemy/illuminate_attack_ship/vehicle_crash"|"enemy/illuminate_attack_ship/vehicle_crash_2"|"enemy/illuminate_war_machine/ragdoll_crash"|"enemy/illuminate_war_machine/ragdoll_crash_2"|"enemy/illuminate_warmachine_bombball/detonation"|"enemy/impaler_tentacle/ability"|"enemy/impaler_tentacle/ability_2"|"enemy/jet_champion/behavior"|"enemy/lieutenant_artillery/behavior"|"enemy/lieutenant_ivory_legion/impact"|"enemy/lieutenant_jetpack/detonation"|"enemy/obj_asset_hijack_tech_hub_nexus_machine/ability"|"enemy/power_generator/behavior"|"enemy/rupture_charger/ability"|"enemy/rupture_charger/ability_2"|"enemy/rupture_charger/ability_3"|"enemy/rupture_charger/ability_4"|"enemy/rupture_charger/ability_5"|"enemy/rupture_charger/ability_6"|"enemy/rupture_spewer/inventory_detonation"|"enemy/scavenger_gloom/behavior"|"enemy/scavenger_spitter/behavior"|"enemy/siege_engine/ability"|"enemy/siege_engine/ability_2"|"enemy/siege_engine/ability_3"|"enemy/siege_engine/ability_4"|"enemy/siege_engine/ability_5"|"enemy/siege_engine/impact"|"enemy/siege_engine/impact_2"|"enemy/soldier_rpg/behavior"|"enemy/soldier_rpg/impact"|"enemy/spawner/ragdoll_crash"|"enemy/spore_burst_bile_titan/behavior"|"enemy/spore_burst_bile_titan/spray_impact"|"enemy/spore_burst_hunter/behavior"|"enemy/spore_burst_warrior/behavior"|"enemy/tank_rocketlauncher/behavior"|"enemy/tank_turret_base/impact"|"enemy/tank_turret_rocketlauncher/backblast"|"enemy/tank_turret_rocketlauncher/impact"|"enemy/turret_autocannons/ability"|"enemy/turret_autocannons/ability_2"|"enemy/turret_autocannons/ability_3"|"enemy/turret_autocannons/ability_4"|"enemy/turret_autocannons/ability_5"|"enemy/turret_autocannons/ability_6"|"enemy/turret_autocannons/ability_7"|"enemy/turret_autocannons/behavior"|"enemy/turret_autocannons/behavior_2"|"enemy/turret_mortar/impact"|"enemy/warrior_acid/behavior"|"enemy/watcher/ability"|"enemy/watcher/vehicle_crash"|"entity/avatar_helldiver/behavior"|"entity/beamer_champion_gun/impact"|"entity/beamer_champion_gun_direct/impact"|"entity/caltrops_grenade/detonation"|"entity/caltrops_mine/detonation"|"entity/cha_battlefront_seaf_medic/inventory_detonation"|"entity/cha_hive_lord_back_shell/gib"|"entity/conscript_grenade_incendiary/detonation"|"entity/cyborg_production_unit/ability"|"entity/cyborg_siege_engine_sarcophagus/gib"|"entity/cyborg_siege_engine_sarcophagus_left_door/gib"|"entity/eagle_missile/missile_impact"|"entity/explosive_gas_chimney/ability"|"entity/habs_barrel_fuel/detonation"|"entity/helldiver_dummy/behavior"|"entity/idle_sam_site/impact"|"entity/il_city_cannon/impact"|"entity/illuminate_adept_circle/detonation"|"entity/jet_champion_grenade_he/detonation"|"entity/pathfinder_lightspear/impact"|"entity/seaf_gun/impact"|"entity/soldier_riotgun/impact"|"stratagem/aac8_autocannon_sentry/impact"|"stratagem/agm17_gas_mortar_sentry/impact"|"stratagem/am12_mortar_sentry/impact"|"stratagem/am23_ems_mortar_sentry/expiry"|"stratagem/am23_ems_mortar_sentry/impact"|"stratagem/amls4x_rocket_sentry/impact"|"stratagem/eagle_110mm_rocket_pods/impact"|"stratagem/eagle_110mm_rocket_pods/magazine_impact"|"stratagem/eagle_110mm_rocket_pods/magazine_impact_2"|"stratagem/eagle_110mm_rocket_pods/payload_impact"|"stratagem/eagle_500kg_bomb/payload_expiry"|"stratagem/eagle_500kg_bomb/payload_impact"|"stratagem/eagle_airstrike/payload_impact"|"stratagem/eagle_cluster_bomb/payload_expiry"|"stratagem/eagle_cluster_bomb/payload_expiry/shrapnel_impact"|"stratagem/eagle_gas_airstrike/payload_impact"|"stratagem/eagle_napalm_airstrike/payload_impact"|"stratagem/eagle_smoke_strike/payload_impact"|"stratagem/eat12_antitank_emplacement/impact"|"stratagem/exo45_patriot_exosuit/vehicle_crash"|"stratagem/exo45_patriot_exosuit/vehicle_crash_2"|"stratagem/m102_gunner_frv/ability"|"stratagem/m104_incinerator_frv/ability"|"stratagem/m104_incinerator_frv/ability_2"|"stratagem/md17_antitank_mines/mine"|"stratagem/md6_antipersonnel_minefield/mine"|"stratagem/md8_gas_mines/mine"|"stratagem/mdi4_incendiary_mines/mine"|"stratagem/nux223_hellbomb/behavior"|"stratagem/orbital_120mm_he_barrage/shell_impact"|"stratagem/orbital_120mm_he_barrage/shell_impact_2"|"stratagem/orbital_380mm_he_barrage/shell_impact"|"stratagem/orbital_380mm_he_barrage/shell_impact_2"|"stratagem/orbital_airburst_strike/shell_expiry"|"stratagem/orbital_airburst_strike/shell_expiry/shrapnel_impact"|"stratagem/orbital_ems_strike/shell_impact"|"stratagem/orbital_gas_strike/shell_impact"|"stratagem/orbital_gatling_barrage/shell_impact"|"stratagem/orbital_napalm_barrage/shell_impact"|"stratagem/orbital_napalm_barrage/shell_impact_2"|"stratagem/orbital_precision_strike/shell_impact"|"stratagem/orbital_railcannon_strike/orbital_expiry"|"support_weapon/40k_meltagun/overcharge"|"support_weapon/ac8_autocannon/function_impact"|"support_weapon/ac8_autocannon/impact"|"support_weapon/bflam80_cremator/ability"|"support_weapon/bmd_c4_pack/detonation"|"support_weapon/eat17_expendable_antitank/backblast"|"support_weapon/eat17_expendable_antitank/impact"|"support_weapon/eat411_leveller/impact"|"support_weapon/eat700_expendable_napalm/impact"|"support_weapon/eat700_expendable_napalm/impact/shrapnel_impact"|"support_weapon/faf14_spear/impact"|"support_weapon/gl21_grenade_launcher/impact"|"support_weapon/gl28_beltfed_grenade_launcher/impact"|"support_weapon/gl52_deescalator/impact"|"support_weapon/gr8_recoilless_rifle/backblast"|"support_weapon/gr8_recoilless_rifle/function_impact"|"support_weapon/gr8_recoilless_rifle/impact"|"support_weapon/las98_laser_cannon/ability"|"support_weapon/las99_quasar_cannon/impact"|"support_weapon/mls4x_commando/backblast"|"support_weapon/mls4x_commando/impact"|"support_weapon/ms11_solo_silo/ability"|"support_weapon/ms11_solo_silo/detonation"|"support_weapon/ms11_solo_silo/explosive_40"|"support_weapon/plas45_epoch/charge_2_expiry"|"support_weapon/plas45_epoch/impact"|"support_weapon/rl77_airburst_rocket_launcher/function_expiry"|"support_weapon/rl77_airburst_rocket_launcher/function_expiry/shrapnel_expiry"|"support_weapon/rl77_airburst_rocket_launcher/impact"|"support_weapon/s11_speargun/expiry"|"support_weapon/stax3_wasp_launcher/function_impact"|"support_weapon/stax3_wasp_launcher/impact"|"throwable/g109_urchin/detonation"|"throwable/g10_incendiary/detonation"|"throwable/g123_thermite/detonation"|"throwable/g12_high_explosive/detonation"|"throwable/g13_incendiary_impact/detonation"|"throwable/g142_pyrotech/detonation"|"throwable/g16_impact/detonation"|"throwable/g23_stun/detonation"|"throwable/g31_arc/detonation"|"throwable/g3_smoke/detonation"|"throwable/g40k_melta_mine/detonation"|"throwable/g48_giga_grenade/detonation"|"throwable/g4_gas/detonation"|"throwable/g50_seeker/detonation"|"throwable/g60_antitank_seeker/detonation"|"throwable/g6_frag/detonation"|"throwable/g7_pineapple/detonation"|"throwable/g7_pineapple/detonation/shrapnel_expiry"|"throwable/g89_smokescreen/detonation"|"throwable/g8_immolation/detonation"|"throwable/gsh39_shield/detonation"|"throwable/ted63_dynamite/detonation"|"throwable/tm1_lure_mine/detonation"|"vehicle/exo45_patriot_exosuit_slot_0/impact"|"vehicle/exo49_emancipator_exosuit_attach_turret_l/impact"|"vehicle/td110_maelstrom_slot_2/ability"|"vehicle/td110_maelstrom_slot_3/fired_ability"|"vehicle/td110_maelstrom_slot_3/fired_explosive_40"|"vehicle/td220_bastion_mk_xvi_attach_tank_gun/impact"|"weapon/cb9_exploding_crossbow/impact"|"weapon/cqc42_machete/ability"|"weapon/gl15_evictor/impact"|"weapon/gp20_ultimatum/impact"|"weapon/gp31_grenade_pistol/impact"|"weapon/p33_missile_pistol/impact"|"weapon/p34_breacher/fired_detonation"|"weapon/p34_breacher/impact"|"weapon/p40k_bolt_pistol/impact"|"weapon/plas101_purifier/charge_1_impact"|"weapon/plas101_purifier/impact"|"weapon/plas101_purifier/overcharge"|"weapon/plas15_loyalist/charge_1_impact"|"weapon/plas15_loyalist/charge_2_impact"|"weapon/plas15_loyalist/impact"|"weapon/plas1_scorcher/impact"|"weapon/plas39_accelerator_rifle/impact"|"weapon/plas39_accelerator_rifle/overcharge"|"weapon/r36_eruptor/impact"|"weapon/sg8p_punisher_plasma/impact"
+---@alias HD2ExplosionName "B-100 Portable Hellbomb"|"Cyborg Production Unit"|"Hellbomb"|"NUX-223 Hellbomb"|"Portable Hellbomb"
 ---@alias HD2StatusId "burning_heavy"|"fire"|"fire_panic"|"flamer_slowed"|"gas"|"gas_2"|"gas_confusion"|"gas_confusion_2"|"stun_large"|"stun_medium"|"stun_small"
 ---@alias HD2MagazineAttachmentId "Jet Assisted Rifle 15mm. Drum Standard"|"Karbin Rifle Standard"|"Pistol 12x20mm. Standard"|"Pistol 9x20mm. Extended"|"Plasma Medium. Canister Extended"|"Plasma Medium. Canister Standard"|"Plasma Pistol. Canister Extended"|"Plasma Pistol. Canister Pistol"|"RIFLE 9x70mm. Extended"|"RIFLE 9x70mm. Standard"|"RIFLE Drake. Short"|"RIFLE Drake. Standard"|"RIFLE Justice. Extended"|"RIFLE Justice. Short"|"RIFLE Justice. Standard"|"Rifle 5,5x50mm. Drum"|"Rifle 5,5x50mm. Drum Carbine"|"Rifle 5,5x50mm. Extended"|"Rifle 5,5x50mm. Extended Fastreload"|"Rifle 5,5x50mm. Standard"|"Rifle 5,5x50mm. Standard Fastreload"|"Rifle 8x40mm Rifle Standard"|"SHOTGUN 12g. Drum"|"SHOTGUN 12g. Drum Light"|"SHOTGUN 12g. Magazine Extended"|"SHOTGUN 12g. Magazine Extended Light"|"SMG 12x25mm. Drum"|"SMG 12x25mm. Drum Pummeler"|"SMG 12x25mm. Extended"|"SMG 12x25mm. Extended Pummeler"|"SMG 12x25mm. Standard"|"SMG 12x25mm. Standard Pummeler"|"SMG 9x20mm. Top Mounted Extended"|"SMG 9x20mm. Top Mounted Extended Solvent"|"SMG 9x20mm. Top Mounted Standard"|"SMG 9x20mm. Top Mounted Standard Solvent"|"SMG Flamer Drum Magazine"|"SMG Flamer Extended Magazine"|"SMG Flamer Standard Magazine"|"Shotgun 12g. Magazine Standard"|"Shotgun 12g. Magazine Standard Light"|"Whisper Rifle 5,5x50mm. Drum"|"Whisper Rifle 5,5x50mm. Standard"|"weapon-attachment/v1/magazine/jet-assisted-rifle-15mm-drum-standard/d973eb6ff9b6c804"|"weapon-attachment/v1/magazine/karbin-rifle-standard/e2f9b6b1f2e8fddb"|"weapon-attachment/v1/magazine/pistol-12x20mm-standard/874261a0d16e5e00"|"weapon-attachment/v1/magazine/pistol-9x20mm-extended/98939255db31bed4"|"weapon-attachment/v1/magazine/plasma-medium-canister-extended/09729aaa96113627"|"weapon-attachment/v1/magazine/plasma-medium-canister-standard/f4fa14d4afd3ea71"|"weapon-attachment/v1/magazine/plasma-pistol-canister-extended/6ec0d8e8516cbc07"|"weapon-attachment/v1/magazine/plasma-pistol-canister-pistol/b427e5ddcd7ebe62"|"weapon-attachment/v1/magazine/rifle-5-5x50mm-drum-carbine/00618531fc7a3692"|"weapon-attachment/v1/magazine/rifle-5-5x50mm-drum/fa499a29b375c6cf"|"weapon-attachment/v1/magazine/rifle-5-5x50mm-extended-fastreload/b9d2c29a3b15b591"|"weapon-attachment/v1/magazine/rifle-5-5x50mm-extended/bfc7127000978692"|"weapon-attachment/v1/magazine/rifle-5-5x50mm-standard-fastreload/b46fd3d0a10576b9"|"weapon-attachment/v1/magazine/rifle-5-5x50mm-standard/272e4c5f18bbd39e"|"weapon-attachment/v1/magazine/rifle-8x40mm-rifle-standard/892779ea0d77aeb3"|"weapon-attachment/v1/magazine/rifle-9x70mm-extended/ac5002ad314cd5a3"|"weapon-attachment/v1/magazine/rifle-9x70mm-standard/cda05894170c4de9"|"weapon-attachment/v1/magazine/rifle-drake-short/a04c9bf6b8f34a03"|"weapon-attachment/v1/magazine/rifle-drake-standard/30c524ee2906dec4"|"weapon-attachment/v1/magazine/rifle-justice-extended/621a26851cfd19a2"|"weapon-attachment/v1/magazine/rifle-justice-short/9deab1113f78adfa"|"weapon-attachment/v1/magazine/rifle-justice-standard/c52443137e402fe8"|"weapon-attachment/v1/magazine/shotgun-12g-drum-light/6848f4e70d10b9a7"|"weapon-attachment/v1/magazine/shotgun-12g-drum/c1aeebcaa7c23988"|"weapon-attachment/v1/magazine/shotgun-12g-magazine-extended-light/ce3ad89a45cec7a2"|"weapon-attachment/v1/magazine/shotgun-12g-magazine-extended/95b6103970039345"|"weapon-attachment/v1/magazine/shotgun-12g-magazine-standard-light/6304622136df620c"|"weapon-attachment/v1/magazine/shotgun-12g-magazine-standard/f9f877be8deda58d"|"weapon-attachment/v1/magazine/smg-12x25mm-drum-pummeler/4fded5f56e190410"|"weapon-attachment/v1/magazine/smg-12x25mm-drum/568bc4a451110ca0"|"weapon-attachment/v1/magazine/smg-12x25mm-extended-pummeler/946ef6b4fae7c0de"|"weapon-attachment/v1/magazine/smg-12x25mm-extended/73a27ec123b6d632"|"weapon-attachment/v1/magazine/smg-12x25mm-standard-pummeler/ea054f1cc567db3b"|"weapon-attachment/v1/magazine/smg-12x25mm-standard/6c63bd137af2da1e"|"weapon-attachment/v1/magazine/smg-9x20mm-top-mounted-extended-solvent/11156cef840b147a"|"weapon-attachment/v1/magazine/smg-9x20mm-top-mounted-extended/176c9113b2833712"|"weapon-attachment/v1/magazine/smg-9x20mm-top-mounted-standard-solvent/80bf5c7ef57ea0e0"|"weapon-attachment/v1/magazine/smg-9x20mm-top-mounted-standard/fc9cc6afc9155eb2"|"weapon-attachment/v1/magazine/smg-flamer-drum-magazine/edd0b384b4ec7242"|"weapon-attachment/v1/magazine/smg-flamer-extended-magazine/a7609a0fd1736a11"|"weapon-attachment/v1/magazine/smg-flamer-standard-magazine/e68347c558fb8b96"|"weapon-attachment/v1/magazine/whisper-rifle-5-5x50mm-drum/dc2b49810b002079"|"weapon-attachment/v1/magazine/whisper-rifle-5-5x50mm-standard/16af29c8d0590809"
+---@alias HD2ModifierAttachmentId "10g. Duckbill"|"10g. Full Choke"|"10g. Half Choke"|"10g. Standard Choke"|"12g. Duckbill"|"12g. Full Choke"|"12g. Half Choke"|"12g. Standard Choke"|"12mm. Compensator"|"12mm. Flash Hider"|"12mm. Muzzle break"|"12mm. Naked"|"5,5mm. Compensator"|"5,5mm. Flash Hider"|"5,5mm. Muzzle brake Custom Penetrator"|"5,5mm. Muzzle break"|"5.5mm. Naked"|"5mm. Muzzle brake Custom Karbin"|"8mm. Compensator"|"8mm. Flash Hider"|"8mm. Muzzle brake Custom Adjudicator"|"8mm. Muzzle brake Custom Assault Rifle Large Calibre"|"8mm. Muzzle brake Custom Tenderdizer"|"8mm. Muzzle break"|"8mm. Naked"|"9mm. Compensator"|"9mm. Flash Hider"|"9mm. Muzzle brake Custom Diligence Counter Sniper"|"9mm. Muzzle break"|"9mm. Naked"|"Angled Foregrip"|"Angled Foregrip Advanced"|"Angled Foregrip With Laser"|"Bayonet"|"COMBAT SCOPE 4x"|"DUNE WALKER SNIPER SCOPE 10x"|"Empty Flashlight"|"Empty Laser"|"Empty Laser Flashlight"|"FAF SPEAR SCOPE"|"Flamerthrower SMG Flamer"|"Flashlight"|"Grenade Launcher Grenadier"|"HOLOGRAPHIC SIGHT"|"Iron Sights"|"Laser Sight"|"Laser Sight Flashlight"|"Laser. Blaster Focus"|"Laser. Blaster Standard"|"Laser. Charge Standard"|"Laser. Standard Prism"|"MORGUNSON HOLO-SIGHT"|"Muzzle brake Custom Drake"|"No Muzzle"|"No Optics"|"No Underbarrel"|"PISTOL REFLEX SIGHT"|"REFLEX SIGHT"|"REFLEX SIGHT MKII"|"Railgun Scope"|"Revolver. Medium Barrel"|"SNIPER SCOPE 10x"|"SNIPER SCOPE 10x HELGHAST"|"SNIPER SCOPE 10x SHARK"|"Support Scope"|"TUBE REDDOT 1,5x"|"TUBE REDDOT 2x"|"Trenchgun Bayonet"|"Vertical Grip"|"Vertical Grip 45 Degree"|"Vertical Grip Advanced"|"Vertical Grip Flashlight"|"shotgun risk"|"weapon-attachment/v1/muzzle/10g-duckbill/412d31cf7c892657"|"weapon-attachment/v1/muzzle/10g-full-choke/df6e05b18c5bf733"|"weapon-attachment/v1/muzzle/10g-half-choke/26a1b11d420c9e0e"|"weapon-attachment/v1/muzzle/10g-standard-choke/e0c46031c6d99d88"|"weapon-attachment/v1/muzzle/12g-duckbill/88ac4db624cc7cd5"|"weapon-attachment/v1/muzzle/12g-full-choke/d90b64b1f815ed6a"|"weapon-attachment/v1/muzzle/12g-half-choke/500e8e282a42ea8b"|"weapon-attachment/v1/muzzle/12g-standard-choke/82080b2b4f18985a"|"weapon-attachment/v1/muzzle/12mm-compensator/1dc5e77d04dc6075"|"weapon-attachment/v1/muzzle/12mm-flash-hider/ab06e26961a0b74b"|"weapon-attachment/v1/muzzle/12mm-muzzle-break/a74cd729cb78bd66"|"weapon-attachment/v1/muzzle/12mm-naked/1095cb7881a4694a"|"weapon-attachment/v1/muzzle/5-5mm-compensator/4ec5d2257a90f4d2"|"weapon-attachment/v1/muzzle/5-5mm-flash-hider/3d6e793c78a01b06"|"weapon-attachment/v1/muzzle/5-5mm-muzzle-brake-custom-penetrator/7bf12048e90c4eb1"|"weapon-attachment/v1/muzzle/5-5mm-muzzle-break/5514c8d6d01da45c"|"weapon-attachment/v1/muzzle/5-5mm-naked/d21a607950b1d906"|"weapon-attachment/v1/muzzle/5mm-muzzle-brake-custom-karbin/5e6b1feddde8631a"|"weapon-attachment/v1/muzzle/8mm-compensator/c2eeadc4475287e6"|"weapon-attachment/v1/muzzle/8mm-flash-hider/9b8b8d87e77430dc"|"weapon-attachment/v1/muzzle/8mm-muzzle-brake-custom-adjudicator/6ecb2d389d4c40db"|"weapon-attachment/v1/muzzle/8mm-muzzle-brake-custom-assault-rifle-large-calibre/2a9594ff0c252e42"|"weapon-attachment/v1/muzzle/8mm-muzzle-brake-custom-tenderdizer/0dba21162292a318"|"weapon-attachment/v1/muzzle/8mm-muzzle-break/10170c032e91884a"|"weapon-attachment/v1/muzzle/8mm-naked/97ccfadba9738d80"|"weapon-attachment/v1/muzzle/9mm-compensator/16e4625033b594cb"|"weapon-attachment/v1/muzzle/9mm-flash-hider/7422f0065407a775"|"weapon-attachment/v1/muzzle/9mm-muzzle-brake-custom-diligence-counter-sniper/a7607ba6e4fed01b"|"weapon-attachment/v1/muzzle/9mm-muzzle-break/0d5f7ca4346eda0f"|"weapon-attachment/v1/muzzle/9mm-naked/ecad2a628cad83a7"|"weapon-attachment/v1/muzzle/laser-blaster-focus/6103d062b831b110"|"weapon-attachment/v1/muzzle/laser-blaster-standard/910f99340b319620"|"weapon-attachment/v1/muzzle/laser-charge-standard/999bbb1342467088"|"weapon-attachment/v1/muzzle/laser-standard-prism/46d19d5c80239703"|"weapon-attachment/v1/muzzle/muzzle-brake-custom-drake/fdce6eb68b7ae8fd"|"weapon-attachment/v1/muzzle/no-muzzle/d1d7fb00a8ed4495"|"weapon-attachment/v1/muzzle/revolver-medium-barrel/b6f19fd0696bf145"|"weapon-attachment/v1/optics/combat-scope-4x/8fe8dedca12e8f87"|"weapon-attachment/v1/optics/dune-walker-sniper-scope-10x/cb57c44bb274b8e7"|"weapon-attachment/v1/optics/faf-spear-scope/937147287eecd60b"|"weapon-attachment/v1/optics/holographic-sight/052c05dfd1d8bb3c"|"weapon-attachment/v1/optics/iron-sights/5c0e0df266cafbb8"|"weapon-attachment/v1/optics/morgunson-holo-sight/5280a97eb66d420a"|"weapon-attachment/v1/optics/no-optics/d1d7fb00a8ed4495"|"weapon-attachment/v1/optics/pistol-reflex-sight/1e5ccd1b7e828d3d"|"weapon-attachment/v1/optics/railgun-scope/b32a146f741b3a48"|"weapon-attachment/v1/optics/reflex-sight-mkii/161a5f1f49e18552"|"weapon-attachment/v1/optics/reflex-sight/39b63d47c41165c3"|"weapon-attachment/v1/optics/sniper-scope-10x-helghast/12d1df5b4e3c311e"|"weapon-attachment/v1/optics/sniper-scope-10x-shark/2dd987af8f7b12a6"|"weapon-attachment/v1/optics/sniper-scope-10x/07f1a4f0021dcf2a"|"weapon-attachment/v1/optics/support-scope/b02b888256e41fa1"|"weapon-attachment/v1/optics/tube-reddot-1-5x/fbbe744b87a20507"|"weapon-attachment/v1/optics/tube-reddot-2x/184551d23defaf96"|"weapon-attachment/v1/underbarrel/angled-foregrip-advanced/a0bc2ffdf4139c59"|"weapon-attachment/v1/underbarrel/angled-foregrip-with-laser/69abc1d6fa03d593"|"weapon-attachment/v1/underbarrel/angled-foregrip/d22931feed28dbe6"|"weapon-attachment/v1/underbarrel/bayonet/199e45755aadc700"|"weapon-attachment/v1/underbarrel/empty-flashlight/53e0295561a4de67"|"weapon-attachment/v1/underbarrel/empty-laser-flashlight/a0642056ab8e4eba"|"weapon-attachment/v1/underbarrel/empty-laser/3ef03725020223ce"|"weapon-attachment/v1/underbarrel/flamerthrower-smg-flamer/07949e1674b5dddd"|"weapon-attachment/v1/underbarrel/flashlight/38587c188903ebc0"|"weapon-attachment/v1/underbarrel/grenade-launcher-grenadier/0a551758e788cdbd"|"weapon-attachment/v1/underbarrel/laser-sight-flashlight/25c6efee394ddfa0"|"weapon-attachment/v1/underbarrel/laser-sight/72fb7b94663086fe"|"weapon-attachment/v1/underbarrel/no-underbarrel/d1d7fb00a8ed4495"|"weapon-attachment/v1/underbarrel/shotgun-risk/d8182ddebef78288"|"weapon-attachment/v1/underbarrel/trenchgun-bayonet/61f8422733cbcb53"|"weapon-attachment/v1/underbarrel/vertical-grip-45-degree/549dd72a320448e9"|"weapon-attachment/v1/underbarrel/vertical-grip-advanced/e3aa6f7576c06858"|"weapon-attachment/v1/underbarrel/vertical-grip-flashlight/fb1ed26d82df104f"|"weapon-attachment/v1/underbarrel/vertical-grip/0222918bcbe339ba"
+
+---@alias HD2AttachmentSlot "magazine"|"muzzle"|"optics"|"underbarrel"
+---@alias HD2WeaponAttachmentId HD2MagazineAttachmentId|HD2ModifierAttachmentId
 
 ---@class HD2WeaponAttachment
 ---@field resource "weapon_attachment"
----@field path "magazine"
+---@field path HD2AttachmentSlot
 ---@field attachment string
 local HD2WeaponAttachment = {}
+---Slot, relationship and fields; muzzle/optics/underbarrel also list compatibleWeapons, modifiers and the
+---unproven readOnlyPatches. One definition is shared by every weapon that equips it.
 ---@return table
 function HD2WeaponAttachment:describe() end
 ---Native default and uniquely proven magazine attachments for this weapon.
@@ -1270,6 +1322,15 @@ function HD2Weapon:magazine_attachments() end
 ---@param identity? string Catalog option name, attachment semanticId, or "default".
 ---@return HD2WeaponAttachment
 function HD2Weapon:magazine_attachment(identity) end
+---Attachment definitions of one slot for this weapon (magazine: magazine_attachments()).
+---@param slot HD2AttachmentSlot
+---@return HD2WeaponAttachment[]
+function HD2Weapon:attachments(slot) end
+---One slot's definition: native name, semanticId, or "default"/nil for the native resource default.
+---@param slot HD2AttachmentSlot
+---@param identity? string
+---@return HD2WeaponAttachment
+function HD2Weapon:attachment_definition(slot, identity) end
 
 ---@class HD2Fields_weapon
 ---@field crosshair_type "crosshair_type" Legacy fixed-resource field (original short-name catalog only). APW-1 Anti-Materiel Rifle: read-only, integer
@@ -1292,6 +1353,7 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field recoil_multiplier_horizontal "weapon.recoil_multiplier_horizontal"
 ---@field recoil_multiplier_vertical "weapon.recoil_multiplier_vertical"
 ---@field slot "weapon.slot"
+---@field sound "weapon.sound"
 ---@field stationary_while_firing "weapon.stationary_while_firing"
 ---@field suppressed "weapon.suppressed"
 ---@field sway "weapon.sway"
@@ -1383,6 +1445,7 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field type "damage.type"
 
 ---@class HD2Fields_vehicle
+---@field steering_response_speed "vehicle.steering_response_speed"
 
 ---@class HD2Fields_health
 ---@field default_armor "default_armor" Legacy fixed-resource field (original short-name catalog only). Bastion: read-only, integer; Maelstrom: read-only, integer
@@ -1432,6 +1495,12 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field cooldown "cooldown" Legacy fixed-resource field (original short-name catalog only). Shield Relay: reviewed writable, number
 ---@field definition_cooldown "stratagem.cooldown"
 ---@field max_uses "stratagem.max_uses"
+---@field call_in_time "stratagem.call_in_time"
+---@field calldown_code "stratagem.calldown_code"
+---@field presentation_name "stratagem.presentation.name"
+---@field presentation_name_cased "stratagem.presentation.name_cased"
+---@field presentation_description "stratagem.presentation.description"
+---@field presentation_icon "stratagem.presentation.icon"
 
 ---@class HD2Fields_shield
 ---@field durability "durability" Legacy fixed-resource field (original short-name catalog only). Shield Relay: reviewed writable, number
@@ -1465,6 +1534,14 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field movement_speed "orbital.movement_speed"
 ---@field search_radius "orbital.search_radius"
 ---@field tick_interval "orbital.tick_interval"
+---@field salvos "orbital.salvos"
+---@field shells_per_salvo "orbital.shells_per_salvo"
+---@field shell_interval "orbital.shell_interval"
+---@field shell_interval_random "orbital.shell_interval_random"
+---@field salvo_interval "orbital.salvo_interval"
+---@field salvo_interval_random "orbital.salvo_interval_random"
+---@field scatter "orbital.scatter"
+---@field salvo_scatter "orbital.salvo_scatter"
 
 ---@class HD2Fields_arc
 ---@field chain_count "arc.chain_count"
@@ -1488,11 +1565,25 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field radius "beam.radius"
 
 ---@class HD2Fields_charge
+---@field arc_distance_multiplier_min "charge.arc_distance_multiplier_min"
+---@field arc_distance_multiplier_overcharge "charge.arc_distance_multiplier_overcharge"
+---@field auto_fire_at_full "charge.auto_fire_at_full"
+---@field burst_interval_seconds "charge.burst_interval_seconds"
+---@field burst_shots "charge.burst_shots"
+---@field damage_multiplier_min "charge.damage_multiplier_min"
+---@field damage_multiplier_overcharge "charge.damage_multiplier_overcharge"
+---@field explode_at_overcharge "charge.explode_at_overcharge"
 ---@field level_1 "charge.level_1"
 ---@field level_2 "charge.level_2"
 ---@field level_3 "charge.level_3"
----@field maximum_seconds "charge.maximum_seconds"
----@field minimum_seconds "charge.minimum_seconds"
+---@field maximum_seconds "charge.maximum_seconds" Deprecated compatibility alias; use hd2.fields.charge.speed_multiplier_overcharge.
+---@field minimum_seconds "charge.minimum_seconds" Deprecated compatibility alias; use hd2.fields.charge.speed_multiplier_min.
+---@field overcharge_explosion "charge.overcharge_explosion"
+---@field overcharge_limit_seconds "charge.overcharge_limit_seconds"
+---@field penetration_multiplier_min "charge.penetration_multiplier_min"
+---@field penetration_multiplier_overcharge "charge.penetration_multiplier_overcharge"
+---@field speed_multiplier_min "charge.speed_multiplier_min"
+---@field speed_multiplier_overcharge "charge.speed_multiplier_overcharge"
 
 ---@class HD2Fields_explosion
 ---@field damage_ap_direct "explosion.damage.ap_direct"
@@ -1620,6 +1711,15 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@class HD2Fields_eagle
 ---@field uses_per_rearm "eagle.uses_per_rearm"
 ---@field rearm_time "eagle.rearm_time"
+---@field airstrike_pattern "eagle.airstrike_pattern"
+---@field drop_interval "eagle.drop_interval"
+---@field fire_duration "eagle.fire_duration"
+---@field attack_sweep_length "eagle.attack_sweep_length"
+---@field target_radius "eagle.target_radius"
+---@field attack_angle "eagle.attack_angle"
+---@field payload "eagle.payload"
+---@field bombs_per_strike "eagle.bombs_per_strike"
+---@field strafe_rounds_per_run "eagle.strafe_rounds_per_run"
 
 ---@class HD2Fields_turret
 ---@field yaw_speed "turret.yaw_speed"
@@ -1628,9 +1728,12 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field pitch_max "turret.pitch_max"
 ---@field yaw_min "turret.yaw_min"
 ---@field yaw_max "turret.yaw_max"
+---@field pitch_yaw_coupling "turret.pitch_yaw_coupling"
 
 ---@class HD2Fields_targeting
 ---@field range "targeting.range"
+---@field side_range "targeting.side_range"
+---@field rear_range "targeting.rear_range"
 
 ---@class HD2Fields_minefield
 ---@field salvos "minefield.salvos"
@@ -1643,9 +1746,24 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field constitution "zone.constitution"
 ---@field durable_resistance "zone.durable_resistance"
 ---@field explosive_damage_percentage "zone.explosive_damage_percentage"
+---@field damage_multiplier "zone.damage_multiplier"
+---@field damage_multiplier_dps "zone.damage_multiplier_dps"
 
 ---@class HD2Fields_jump
 ---@field vertical_launch_velocity "jump.vertical_launch_velocity"
+---@field launch_duration "jump.launch_duration"
+---@field launch_forward_ratio "jump.launch_forward_ratio"
+---@field sustain_thrust "jump.sustain_thrust"
+---@field sustain_duration "jump.sustain_duration"
+---@field sustain_forward_ratio "jump.sustain_forward_ratio"
+---@field sustain_start_delay "jump.sustain_start_delay"
+---@field sustain_start_speed "jump.sustain_start_speed"
+---@field sustain_cutoff_speed "jump.sustain_cutoff_speed"
+---@field air_control_acceleration "jump.air_control_acceleration"
+---@field air_control_max_speed "jump.air_control_max_speed"
+---@field takeoff_forward_speed "jump.takeoff_forward_speed"
+---@field takeoff_speed "jump.takeoff_speed"
+---@field takeoff_speed_alternate_stance "jump.takeoff_speed_alternate_stance"
 
 ---@class HD2Fields_deposit
 ---@field capacity "deposit.capacity"
@@ -1654,6 +1772,11 @@ function HD2Weapon:magazine_attachment(identity) end
 
 ---@class HD2Fields_mount
 ---@field weapon "mount.weapon"
+
+---@class HD2Fields_rotation
+---@field turn_speed "rotation.turn_speed"
+---@field acceleration "rotation.acceleration"
+---@field deceleration "rotation.deceleration"
 
 ---@class HD2Fields_warp
 ---@field distance "warp.distance"
@@ -1671,6 +1794,13 @@ function HD2Weapon:magazine_attachment(identity) end
 
 ---@class HD2Fields_hover
 ---@field duration "hover.duration"
+---@field max_horizontal_speed "hover.max_horizontal_speed"
+---@field max_vertical_speed "hover.max_vertical_speed"
+---@field vertical_acceleration_low_speed "hover.vertical_acceleration_low_speed"
+---@field vertical_acceleration_high_speed "hover.vertical_acceleration_high_speed"
+---@field vertical_speed_range_end "hover.vertical_speed_range_end"
+---@field fuel_rate_low_speed "hover.fuel_rate_low_speed"
+---@field fuel_rate_high_speed "hover.fuel_rate_high_speed"
 
 ---@class HD2Fields_attachment
 ---@field magazine_capacity "attachment.magazine_capacity"
@@ -1679,6 +1809,13 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field spare_magazines "attachment.spare_magazines"
 ---@field reload_duration "attachment.reload_duration"
 ---@field ergonomics_modifier "attachment.ergonomics_modifier"
+---@field modifier_sway "attachment.modifier.sway"
+---@field modifier_recoil_horizontal "attachment.modifier.recoil_horizontal"
+---@field modifier_recoil_vertical "attachment.modifier.recoil_vertical"
+---@field modifier_climb_horizontal "attachment.modifier.climb_horizontal"
+---@field modifier_climb_vertical "attachment.modifier.climb_vertical"
+---@field modifier_spread_horizontal "attachment.modifier.spread_horizontal"
+---@field modifier_spread_vertical "attachment.modifier.spread_vertical"
 
 ---@class HD2Fields_booster
 ---@field damage_taken_scale "booster.damage_taken_scale"
@@ -1694,6 +1831,55 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field health_floor "booster.health_floor"
 ---@field sample_drop_cap "booster.sample_drop_cap"
 ---@field burn_decay_bonus "booster.burn_decay_bonus"
+
+---@class HD2Fields_gore
+---@field whole_body_gib_damage "gore.whole_body_gib_damage"
+
+---@class HD2Fields_helldiver
+---@field speed_direction_factor "helldiver.speed.direction_factor"
+---@field speed_aim "helldiver.speed.aim"
+---@field speed_walk "helldiver.speed.walk"
+---@field speed_jog "helldiver.speed.jog"
+---@field speed_sprint "helldiver.speed.sprint"
+---@field speed_sprint_exhausted "helldiver.speed.sprint_exhausted"
+---@field speed_crouch_aim "helldiver.speed.crouch_aim"
+---@field speed_crouch_walk "helldiver.speed.crouch_walk"
+---@field speed_crouch_jog "helldiver.speed.crouch_jog"
+---@field speed_crouch_sprint "helldiver.speed.crouch_sprint"
+---@field speed_prone "helldiver.speed.prone"
+---@field speed_swim "helldiver.speed.swim"
+---@field stamina_sprint_duration "helldiver.stamina.sprint_duration"
+---@field stamina_recover_time_standing "helldiver.stamina.recover_time_standing"
+---@field stamina_recover_time_crouching "helldiver.stamina.recover_time_crouching"
+---@field stamina_recover_time_prone "helldiver.stamina.recover_time_prone"
+---@field stamina_recover_delay "helldiver.stamina.recover_delay"
+---@field stamina_cost_jump "helldiver.stamina.cost_jump"
+---@field stamina_cost_dodge "helldiver.stamina.cost_dodge"
+---@field stamina_cost_climb "helldiver.stamina.cost_climb"
+---@field stamina_cost_slide "helldiver.stamina.cost_slide"
+
+---@class HD2Fields_armor_kit
+---@field piece_weight_cape "armor_kit.piece_weight.cape"
+---@field piece_weight_torso "armor_kit.piece_weight.torso"
+---@field piece_weight_hips "armor_kit.piece_weight.hips"
+---@field piece_weight_left_leg "armor_kit.piece_weight.left_leg"
+---@field piece_weight_right_leg "armor_kit.piece_weight.right_leg"
+---@field piece_weight_left_arm "armor_kit.piece_weight.left_arm"
+---@field piece_weight_right_arm "armor_kit.piece_weight.right_arm"
+---@field piece_weight_left_shoulder "armor_kit.piece_weight.left_shoulder"
+---@field piece_weight_right_shoulder "armor_kit.piece_weight.right_shoulder"
+
+---@class HD2Fields_armor_class
+---@field rating "armor_class.rating"
+---@field speed "armor_class.speed"
+---@field stamina "armor_class.stamina"
+
+---@class HD2Fields_armor_damage_curve
+---@field at_minus_1 "armor_damage_curve.at_minus_1"
+---@field at_0 "armor_damage_curve.at_0"
+---@field at_1 "armor_damage_curve.at_1"
+---@field at_2 "armor_damage_curve.at_2"
+---@field at_3 "armor_damage_curve.at_3"
 
 ---@class HD2Fields_throwable
 ---@field starting_count "throwable.starting_count"
@@ -1744,10 +1930,16 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field jump HD2Fields_jump
 ---@field deposit HD2Fields_deposit
 ---@field mount HD2Fields_mount
+---@field rotation HD2Fields_rotation
 ---@field warp HD2Fields_warp
 ---@field hover HD2Fields_hover
 ---@field attachment HD2Fields_attachment
 ---@field booster HD2Fields_booster
+---@field gore HD2Fields_gore
+---@field helldiver HD2Fields_helldiver
+---@field armor_kit HD2Fields_armor_kit
+---@field armor_class HD2Fields_armor_class
+---@field armor_damage_curve HD2Fields_armor_damage_curve
 ---@field throwable HD2Fields_throwable
 ---@field ammunition HD2Fields_ammunition
 
@@ -1771,6 +1963,15 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field crosshair_type HD2Enum_crosshair_type
 ---@field fire_mode HD2Enum_fire_mode
 
+---@class HD2Image
+---@field resource "image"
+---@field image string
+---@field mod string
+local HD2Image = {}
+---{kind = "image", id, mod}.
+---@return table
+function HD2Image:describe() end
+
 ---@class HD2Resources
 ---@field amr "amr"
 ---@field bastion "bastion"
@@ -1779,8 +1980,44 @@ function HD2Weapon:magazine_attachment(identity) end
 ---@field maelstrom "maelstrom"
 ---@field orbital_laser "orbital_laser"
 ---@field shield_relay "shield_relay"
+local HD2Resources = {}
+---The calling mod's own image: images/<id>.png in its project, packed by the SDK build as a complete icon
+---family in the mod's archive (docs/custom-images.md). A value for hd2.fields.stratagem.presentation_icon;
+---the write is refused (ASSET_UNAVAILABLE) unless the whole family is loaded.
+---@param id string 1 to 64 lowercase letters, digits or underscores
+---@return HD2Image
+function HD2Resources.image(id) end
 
----@alias HD2EventName "mission_started"|"mission_ended"|"player_spawned"|"player_died"|"entity_spawned"|"entity_died"|"entity_killed"|"entity_damaged"|"player_damaged"|"player_healed"|"player_fired"|"player_kill_credited"|"player_hit"|"player_damage_dealt"|"weapon_equipped"|"weapon_unequipped"|"weapon_changed"|"entity_damage_pre"|"key_down"|"key_up"
+---@class HD2Model
+---@field resource "model"
+---@field model string
+---@field mod string
+---The calling mod's own model: models/<id>.json in its project, derived by the SDK build from its base
+---weapon's unit and shipped beside the vanilla resources (docs/custom-models.md). A value for a weapon
+---delivery's model (hd2.custom_stratagem, delivery.family 'weapon'); never used unless it is loaded and exact.
+---@param id string 1 to 64 lowercase letters, digits or underscores
+---@return HD2Model
+function HD2Resources.model(id) end
+
+---@class HD2GameIcon
+---@field kind "stratagem"|"booster"
+---@field name string
+---The game's own HUD icon of a stratagem or booster, for d:image (docs/game-icons.md): drawn from the game's
+---own atlas page with the game's own icon material; nothing shipped, nothing written. Drawn only while its
+---atlas page is loaded (booster icons are not during a mission). nil, code ("UNKNOWN_KIND" | "UNKNOWN_ICON")
+---and reason for an unknown name.
+---@param kind "stratagem"|"booster"
+---@param name string the name the Runtime's catalogues use
+---@return HD2GameIcon|nil
+---@return string? code
+---@return string? reason
+function HD2Resources.game_icon(kind, name) end
+---Every game icon name of a kind, sorted.
+---@param kind "stratagem"|"booster"
+---@return string[]
+function HD2Resources.game_icons(kind) end
+
+---@alias HD2EventName "mission_started"|"mission_ended"|"player_spawned"|"player_died"|"entity_spawned"|"entity_died"|"entity_killed"|"entity_damaged"|"player_damaged"|"player_healed"|"player_fired"|"player_kill_credited"|"player_hit"|"player_damage_dealt"|"weapon_equipped"|"weapon_unequipped"|"weapon_changed"|"explosion"|"entity_damage_pre"|"key_down"|"key_up"
 
 ---A world position snapshot (metres).
 ---@class HD2Vector3
@@ -1849,7 +2086,7 @@ local HD2TimerOptions = {}
 ---@class HD2Timer
 ---@field id integer|nil
 ---@field owner string
----@field state "active"|"complete"|"cancelled"|"expired"|"failed"|"rejected"
+---@field state "active"|"disabled"|"complete"|"cancelled"|"expired"|"failed"|"rejected"
 local HD2Timer = {}
 ---@return HD2Timer
 function HD2Timer:cancel() end
@@ -1860,6 +2097,12 @@ function HD2Timer:active() end
 function HD2Timer:remaining() end
 ---@return table
 function HD2Timer:describe() end
+---Pause a frame callback (hd2.on_frame); no effect on timers.
+---@return HD2Timer
+function HD2Timer:disable() end
+---Resume a paused frame callback.
+---@return HD2Timer
+function HD2Timer:enable() end
 
 ---@class HD2BindingSpec
 ---@field key string Default chord, e.g. 'F6' or 'Ctrl+Shift+F6'.
@@ -1891,7 +2134,7 @@ function HD2Binding:active() end
 ---@return table
 function HD2Binding:describe() end
 
----hd2.input
+---hd2.input: keybinds (bound chords) and any key's state. Read-only: nothing is consumed.
 ---@class HD2Input
 local HD2Input = {}
 ---Namespaced id ('author_mod.action'). Polled only while the game window has focus.
@@ -1904,9 +2147,38 @@ function HD2Input.bindings() end
 ---@param id string
 ---@return HD2Binding|nil
 function HD2Input.get(id) end
----Key names accepted in chords.
+---Key names accepted in chords; with raw=true also the names only down/pressed/released accept (CTRL, SHIFT, ALT, MOUSE1, MOUSE2).
+---@param raw? boolean
 ---@return string[]
-function HD2Input.keys() end
+function HD2Input.keys(raw) end
+---Whether a key is held now (any name of hd2.input.keys(true)). Only while the game window has the focus; the game still receives the key. Unknown names raise.
+---@param key string
+---@return boolean
+function HD2Input.down(key) end
+---True during the one update tick in which the key went down (sampled once per tick, before events, timers and frame callbacks). A key is followed from its first query on.
+---@param key string
+---@return boolean
+function HD2Input.pressed(key) end
+---True during the one update tick in which the key came up.
+---@param key string
+---@return boolean
+function HD2Input.released(key) end
+---Whether the game window has the keyboard focus.
+---@return boolean
+function HD2Input.focused() end
+---The cursor in the game window (client pixels from the top-left), or nil and why when the window does not have the focus.
+---@return HD2Mouse|nil, string|nil
+function HD2Input.mouse() end
+---EXPERIMENTAL (r51). The mouse wheel this update tick in notches (+ up, - down; fractions for smooth wheels), 0 when it did not move. Read from the engine's wheel axis and, while queried, a read-only message hook on the game window's thread (WM_MOUSEWHEEL and raw input); nothing is consumed.
+---@return number
+function HD2Input.wheel() end
+---Diagnostics of hd2.input.wheel: {hooked, disabled (why the hook is off), source (the first source that delivered a notch), engine (the engine axis is readable)}.
+---@return table
+function HD2Input.wheel_status() end
+---EXPERIMENTAL (r52). Keep the game from acting on input while a mod window is open: spec = {keyboard = true, mouse = true}, renewed every update (a 0.5 s lease); false stops. Key presses, characters, mouse button presses and the wheel become WM_NULL before the game's window sees them; releases always pass. Mods keep reading input through GetAsyncKeyState / GetCursorPos.
+---@param spec table|false
+---@return boolean, string|nil
+function HD2Input.block(spec) end
 
 ---@class HD2ValueSpec
 ---@field id string Unique within the mod.
@@ -1991,14 +2263,20 @@ function HD2Entities.list(filter) end
 
 ---A gameplay action a mod requested. A refusal never raises: status is refused with a code and a reason.
 ---@class HD2ActionHandle
----@field kind string 'explosion', 'explosion_assets', 'projectile', 'projectile_assets', 'status'.
+---@field kind string 'explosion', 'explosion_assets', 'projectile', 'projectile_assets', 'status', 'injure', 'heal_limb', 'heal_limbs', 'add_velocity'.
 ---@field owner string The mod that requested it.
 ---@field status "pending"|"waiting_for_assets"|"ready"|"requested"|"refused"|"cancelled" requested: the game accepted the request this frame.
----@field code string|nil Why it was refused (UNKNOWN_EXPLOSION, UNKNOWN_PROJECTILE, UNKNOWN_STATUS, ASSET_UNKNOWN, ASSET_UNAVAILABLE, NOT_IN_MISSION, HOST_ONLY, NO_LOCAL_AVATAR, RATE_LIMITED, CAUSE_DEPTH, QUEUE_FULL, INVALID_POSITION, INVALID_DIRECTION, INVALID_TARGET, INVALID_AMOUNT, INVALID_OPTION, TARGET_GONE, FIRER_UNSUPPORTED, EXPLOSION_UNAVAILABLE, PROJECTILE_UNAVAILABLE, STATUS_UNAVAILABLE).
+---@field code string|nil Why it was refused (UNKNOWN_EXPLOSION, UNKNOWN_PROJECTILE, UNKNOWN_STATUS, ASSET_UNKNOWN, ASSET_UNAVAILABLE, NOT_IN_MISSION, HOST_ONLY, NO_LOCAL_AVATAR, RATE_LIMITED, CAUSE_DEPTH, QUEUE_FULL, INVALID_POSITION, INVALID_DIRECTION, INVALID_TARGET, INVALID_AMOUNT, INVALID_OPTION, TARGET_GONE, FIRER_UNSUPPORTED, EXPLOSION_UNAVAILABLE, PROJECTILE_UNAVAILABLE, STATUS_UNAVAILABLE; injure: NOT_LOCAL_PLAYER, UNKNOWN_LIMB, NOT_GAME_THREAD, AVATAR_DOWNED, AVATAR_DEAD, NOT_A_HELLDIVER, LIMB_UNAVAILABLE, INJURY_UNAVAILABLE; heal_limb: PARTIAL_UNSUPPORTED, LIMB_HEAL_UNAVAILABLE; add_velocity: INVALID_VELOCITY, TOO_FAST, VELOCITY_UNAVAILABLE).
 ---@field reason string|nil
 ---@field explosion string|nil The explosion (a named explosion or a weapon name).
 ---@field projectile string|nil The projectile (its weapon).
 ---@field effect string|nil The status id.
+---@field limb string|nil The injured limb (injure).
+---@field zone string|nil The limb's damage zone (injure).
+---@field damage integer|nil The damage requested (injure).
+---@field healed string[]|nil The limbs heal_limbs restored.
+---@field velocity HD2Position|nil The velocity change requested (add_velocity, m/s).
+---@field after HD2Position|nil The avatar velocity Runtime set (add_velocity, m/s).
 ---@field position HD2Position|nil
 ---@field cause HD2EventCause|nil The event the action reacted to.
 local HD2ActionHandle = {}
@@ -2013,13 +2291,55 @@ function HD2ActionHandle:describe() end
 ---@class HD2ExplosionOptions
 ---@field position HD2Vector3|HD2Position World position (an event position works as it is).
 ---@field owner string|nil Mod id (defaults to the calling mod).
+---@field allow_unverified_effect boolean|nil Required for a catalogued explosion outside the reviewed spawn set (docs/explosions.md).
 local HD2ExplosionOptions = {}
+
+---hd2.explosions.list filter (docs/explosions.md): every key optional.
+---@class HD2ExplosionFilter
+---@field family "weapon"|"support_weapon"|"throwable"|"stratagem"|"backpack"|"vehicle"|"enemy"|"entity"|nil The owner's family.
+---@field owner string|nil A case-insensitive substring of an owner's name.
+---@field search string|nil A case-insensitive substring of the name or label.
+---@field shared boolean|nil More than one owner requests the row.
+---@field payload boolean|nil Usable as a weapon's impact or expiry explosion (its package is known).
+---@field spawn boolean|nil hd2.explosions.spawn can request it.
+---@field package_known boolean|nil A package that ships its effect is known.
+---@field reviewed_spawn boolean|nil In the reviewed spawn set (needs no acknowledgement to spawn).
+local HD2ExplosionFilter = {}
+
+---One catalogued explosion (hd2.explosions.list); no raw ids.
+---@class HD2ExplosionEntry
+---@field name string Semantic id: <family>/<owner>/<role>, e.g. weapon/r36_eruptor/impact.
+---@field label string Readable name, e.g. R-36 Eruptor (impact).
+---@field family string The owner's family.
+---@field evidence "data"|"code"|"chain" How the owners were proven.
+---@field shared boolean More than one owner requests the row: edits need allow_shared.
+---@field owners integer How many owners request it (describe() lists them).
+---@field package_known boolean A package that ships its effect is known.
+---@field mission_package boolean Its effect ships in the mission effects package (resident in every mission; never loaded).
+---@field payload boolean Usable as a weapon's impact or expiry explosion.
+---@field spawn boolean hd2.explosions.spawn can request it.
+---@field reviewed_spawn boolean In the reviewed spawn set.
+---@field legacy_name string|nil Its reviewed name (a weapon or a named explosion).
+---@field stats table inner_radius, outer_radius, shockwave_radius, shrapnel_count, standard_damage, durable_damage, ap_direct, ap_slight, ap_large, ap_extreme, demolition, stagger, push_force, shrapnel, arc, damage_row.
+local HD2ExplosionEntry = {}
+
+---hd2.explosion(name): a catalogued explosion (docs/explosions.md). The target of the explosion.* fields (allow_unverified_effect; allow_shared for a shared row), a value of terminal.explosion and of attack output explosion slots (allow_unverified_reference and allow_unverified_effect), and an argument of hd2.explosions.spawn / prepare.
+---@class HD2CatalogueExplosion
+---@field resource "explosion"
+---@field explosion string Its semantic id.
+local HD2CatalogueExplosion = {}
+---The list entry plus owners, package and editable fields.
+---@return table
+function HD2CatalogueExplosion:describe() end
+---The editable fields: {semanticFieldId, currentDefault, editable, reason, shared, range, acknowledgements}.
+---@return table[]
+function HD2CatalogueExplosion:fields() end
 
 ---hd2.explosions: request a catalogued explosion (docs/event-scripting.md).
 ---@class HD2Explosions
 local HD2Explosions = {}
----Request a catalogued explosion at a position: a named explosion ('Hellbomb' = the NUX-223 Hellbomb, 'B-100 Portable Hellbomb'), or a weapon's catalogued explosion. Host only, in a mission, credited to the local player; loads the explosion's package first when needed. Unknown explosions, raw ids and unknown packages are refused.
----@param explosion HD2ExplosionName|HD2WeaponName|HD2Explosion
+---Request a catalogued explosion at a position: a named explosion ('Hellbomb' = the NUX-223 Hellbomb, 'B-100 Portable Hellbomb'), a weapon's catalogued explosion, or any explosion of the catalogue (hd2.explosions.list({spawn = true}); outside the reviewed set with opts.allow_unverified_effect). Host only, in a mission, credited to the local player; loads the explosion's package first when needed (the mission effects package is only checked). Unknown explosions, raw ids and unknown packages are refused.
+---@param explosion HD2ExplosionName|HD2WeaponName|HD2Explosion|HD2CatalogueExplosionName|HD2CatalogueExplosion
 ---@param opts HD2ExplosionOptions
 ---@return HD2ActionHandle
 function HD2Explosions.spawn(explosion, opts) end
@@ -2028,12 +2348,21 @@ function HD2Explosions.spawn(explosion, opts) end
 ---@return HD2Explosion|nil, string|nil
 function HD2Explosions.of(weapon) end
 ---Load the explosion assets now (status ready or waiting_for_assets).
----@param explosion HD2ExplosionName|HD2WeaponName|HD2Explosion
+---@param explosion HD2ExplosionName|HD2WeaponName|HD2Explosion|HD2CatalogueExplosionName|HD2CatalogueExplosion
+---@param opts? HD2ExplosionOptions
 ---@return HD2ActionHandle
-function HD2Explosions.prepare(explosion) end
----Every explosion hd2.explosions can request.
----@return {name: string, weapon: string|nil, type: integer, source: "behavior"|"weapon", assets_known: boolean}[]
-function HD2Explosions.list() end
+function HD2Explosions.prepare(explosion, opts) end
+---Every catalogued explosion (docs/explosions.md), optionally filtered. No raw ids.
+---@param filter? HD2ExplosionFilter
+---@return HD2ExplosionEntry[]
+function HD2Explosions.list(filter) end
+---One catalogued explosion: the list entry plus owners, package and editable fields; nil and the reason when unknown.
+---@param name HD2CatalogueExplosionName|HD2CatalogueExplosion
+---@return table|nil, string|nil
+function HD2Explosions.describe(name) end
+---The reviewed spawn set (0.29's hd2.explosions.list()), each with its catalogue name.
+---@return {name: string, weapon: string|nil, source: "behavior"|"weapon", assets_known: boolean, objective: boolean|nil, catalogue: string|nil}[]
+function HD2Explosions.reviewed() end
 
 ---hd2.actions: what event scripts can make the game do.
 ---@class HD2Actions
@@ -2043,6 +2372,39 @@ local HD2Actions = {}
 ---@param opts? {owner?: string}
 ---@return number|nil, string|nil
 function HD2Actions.heal(amount, opts) end
+---Injure a limb of the LOCAL player's avatar through the game's own damage request (the VG-70 Variable's self-damage path): the limb zone loses the damage (an injured limb at 0) and main health loses the zone's share, applied by the game later in the frame. Local player only (each machine injures its own avatar; no host needed), in a mission, alive and not downed; damage a whole number from 1 to the limb zone's health (head 85, chest 60, hands 35, knees 45); 12 at once and 10 per second per mod. Not live-tested.
+---@param player HD2PlayerHandle
+---@param limb "head"|"chest"|"l_hand"|"r_hand"|"l_knee"|"r_knee"
+---@param damage integer
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2Actions.injure(player, limb, damage, opts) end
+---Every limb hd2.actions.injure accepts. Offline.
+---@return {name: string, zone: string, max_damage: integer, affects_main_health: number}[]
+function HD2Actions.limbs() end
+---Restore one limb of the LOCAL player's avatar to full through the game's own zone restore (an injured limb is healed; main health unchanged). The game has no partial limb heal: amount is 'full' (default) or a whole number covering what the limb is missing (PARTIAL_UNSUPPORTED otherwise). Local player only, in a mission, alive and not downed; 6 at once and 2 per second per mod. Not live-tested.
+---@param player HD2PlayerHandle
+---@param limb "head"|"chest"|"l_hand"|"r_hand"|"l_knee"|"r_knee"
+---@param amount? "full"|integer
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2Actions.heal_limb(player, limb, amount, opts) end
+---heal_limb(player, limb) for all six limbs, one request.
+---@param player HD2PlayerHandle
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2Actions.heal_limbs(player, opts) end
+---Add a world-space velocity (m/s, +Z up) to the LOCAL player's avatar through the game's own motion velocity setter: its current velocity plus the change. The change is at most 25 m/s and the result at most 50 m/s; 4 at once and 2 per second per mod. What ground movement does with it the next frame is not proven: an upward change is the reliable case. Not live-tested.
+---@param player HD2PlayerHandle
+---@param change HD2Vector3
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2Actions.add_velocity(player, change, opts) end
+---Use one supply of the LOCAL player's worn Supply Pack on that player, exactly as the pack's own key does (the game plays its animation, spends one supply and refills ammunition, with its own network sync; Runtime writes nothing). Refused when no Supply Pack is worn, it is empty, the player is busy or nothing needs ammunition. Local player only, in a mission; rate-limited per mod. Not live-tested.
+---@param player HD2PlayerHandle
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2Actions.resupply_from_pack(player, opts) end
 ---Every action: available or blocked, with the reason.
 ---@return table
 function HD2Actions.status() end
@@ -2065,7 +2427,7 @@ local HD2EquippedWeapon = {}
 ---@field owner string|nil Mod id (defaults to the calling mod).
 local HD2ProjectileOptions = {}
 
----hd2.projectiles: fire a catalogued weapon projectile (docs/event-scripting.md).
+---hd2.projectiles: fire a catalogued weapon projectile, or make a weapon's shots home (docs/event-scripting.md, docs/projectile-homing.md).
 ---@class HD2Projectiles
 local HD2Projectiles = {}
 ---Fire the weapon's projectile from a position in a direction through the game's own projectile function. Host only, in a mission; fired and credited by the local player (each counts as a shot in the stats); loads the weapon's package first when needed. Other players may not see it.
@@ -2080,6 +2442,241 @@ function HD2Projectiles.prepare(weapon) end
 ---Every projectile hd2.projectiles can fire.
 ---@return {weapon: string, role: string, type: integer, assets_known: boolean}[]
 function HD2Projectiles.list() end
+---Make the LOCAL player's own shots of a weapon home in flight: each shot turns toward the living enemy (or other player's Helldiver) closest to its line inside the cone and range, by at most turn_rate per second, keeping its speed. One guarded write of that shot's own velocity per update; the weapon, its projectile row and every other projectile are never written. Solo unless opts.multiplayer (experimental: other machines draw the shot flying straight, with its hit where it homed). Lasts until stop() or the session ends. The weapon is a name from homing_list() (or a catalogued projectile output id). Not live-tested.
+---@param weapon string
+---@param opts? HD2HomingOptions
+---@return HD2HomingHandle
+function HD2Projectiles.homing(weapon, opts) end
+---Every weapon whose shots can home, with the projectile types it fires (offline).
+---@return {name: string, categories: string[], types: integer[]}[]
+function HD2Projectiles.homing_list() end
+---Every active homing configuration (one per weapon and projectile type) with this mission's counts.
+---@return {owner: string, weapon: string, type: integer, target: string, shots: integer, steered: integer, writes: integer}[]
+function HD2Projectiles.homing_status() end
+---Modify the LOCAL player's own shots of a weapon (DEVELOPMENT, solo; docs/projectile-shots.md): each shot's own copy is multiplied once, right after it is fired: damage (each direct hit's damage; explosions are not scaled), armor_penetration (each direct hit's penetration lanes), speed (velocity and reference speed together), gravity, drag. The weapon, its projectile row, every DamageInfo row and every other weapon firing the same projectile (the Liberator Carbine for the AR-23 Liberator) stay vanilla. Lasts until stop() or the session ends. The weapon is a name from homing_list(). Not live-tested.
+---@param weapon string
+---@param opts? HD2ShotOptions
+---@return HD2ShotHandle
+function HD2Projectiles.modify_shots(weapon, opts) end
+---Every active shot configuration with this mission's counts.
+---@return {owner: string, weapon: string, changes: table<string, number>, shots: integer, modified: integer}[]
+function HD2Projectiles.modify_shots_status() end
+
+---@class HD2HomingOptions
+---@field target "enemy"|"friendly"|nil What the shots home on: a living catalogued enemy (default) or another player's living Helldiver (never the shooter).
+---@field turn_rate number|nil Degrees per second the shot may turn (1..1440, default 90). Fast bullets need a high rate.
+---@field cone number|nil Half angle in degrees around the shot's direction a target must be inside to be acquired (1..180, default 30).
+---@field range number|nil Metres from the shot a target may be (1..500, default 100).
+---@field arm_distance number|nil Metres the shot flies straight before it steers (0..100, default 2).
+---@field aim_height number|nil Metres above the target's root it aims at (-5..10, default 1).
+---@field retarget boolean|nil Acquire another target when the first dies (default true).
+---@field multiplayer boolean|nil Also steer with other players in the game (experimental; default false: solo only).
+---@field label string|nil Name used in the log (at most 64 characters).
+---@field owner string|nil Mod id (defaults to the calling mod).
+local HD2HomingOptions = {}
+
+---A homing configuration. A refusal never raises: status is refused with a code and a reason.
+---@class HD2HomingHandle
+---@field kind string 'projectile_homing'.
+---@field owner string The mod that configured it.
+---@field status string 'active', 'stopped' or 'refused'.
+---@field code string|nil Why it was refused (UNKNOWN_WEAPON, INVALID_OPTION, ALREADY_HOMING, LIMIT).
+---@field reason string|nil The refusal in words.
+---@field weapon string|nil The weapon.
+---@field types integer[]|nil The projectile types its shots are.
+---@field target string|nil 'enemy' or 'friendly'.
+local HD2HomingHandle = {}
+---Stop homing (shots in flight fly on as they are).
+---@return HD2HomingHandle
+function HD2HomingHandle:stop() end
+---This mission so far: own shots seen, steered, writes, target locks, shots that were not this player's, and why shots flew straight.
+---@return {shots: integer, steered: integer, writes: integer, locks: integer, others: integer, refused: table<string, integer>}|nil
+function HD2HomingHandle:stats() end
+---A copy for logs.
+---@return table
+function HD2HomingHandle:describe() end
+
+---@class HD2ShotOptions
+---@field damage number|nil Multiplier of each direct hit's damage (0.01..100).
+---@field armor_penetration number|nil Multiplier of each direct hit's penetration lanes (0.1..10; rounded by the game).
+---@field speed number|nil Multiplier of the shot's velocity and reference speed (0.1..10).
+---@field gravity number|nil Multiplier of the shot's gravity (0..20).
+---@field drag number|nil Multiplier of the shot's drag (0..20).
+---@field on_shot fun(event: table)|nil Called for each of the weapon's shots seen: kind 'modified' or 'untouched' (every multiplier 1); before/after hold damage_multiplier, penetration_multiplier, speed, reference_speed, gravity, drag, distance, damage = {id, standard, durable, armor_penetration}.
+---@field label string|nil Name used in the log (at most 64 characters).
+---@field owner string|nil Mod id (defaults to the calling mod).
+local HD2ShotOptions = {}
+
+---A shot configuration. A refusal never raises: status is refused with a code and a reason.
+---@class HD2ShotHandle
+---@field kind string 'projectile_shots'.
+---@field owner string The mod that configured it.
+---@field status string 'active', 'stopped' or 'refused'.
+---@field code string|nil Why it was refused (UNKNOWN_WEAPON, INVALID_OPTION, ALREADY_MODIFIED, LIMIT).
+---@field reason string|nil The refusal in words.
+---@field weapon string|nil The weapon.
+---@field types integer[]|nil The projectile types its shots are.
+local HD2ShotHandle = {}
+---New multipliers for the next shots (omitted ones become 1); nil, code, reason when refused.
+---@param opts HD2ShotOptions
+---@return HD2ShotHandle|nil
+function HD2ShotHandle:set(opts) end
+---Stop modifying (shots already written keep their values).
+---@return HD2ShotHandle
+function HD2ShotHandle:stop() end
+---This mission so far: own shots seen, modified, writes, untouched, others (not this player's), other_sources (another weapon), and why shots stayed vanilla.
+---@return {shots: integer, modified: integer, writes: integer, untouched: integer, others: integer, other_sources: integer, refused: table<string, integer>}|nil
+function HD2ShotHandle:stats() end
+
+---@class HD2SpawnWeightOptions
+---@field allow_unverified_effect boolean Required (true) until the live test passes.
+---@field difficulties integer[]|nil Only these difficulties (1..10); default all ten.
+---@field label string|nil Name used in the log (at most 64 characters).
+---@field owner string|nil Mod id (defaults to the calling mod).
+local HD2SpawnWeightOptions = {}
+
+---An enemy spawn weight setting. A refusal never raises: status is refused with a code and a reason. status is live.
+---@class HD2SpawnWeightHandle
+---@field kind string 'enemy_spawn_weight'.
+---@field owner string The mod that set it.
+---@field status string 'applied', 'pending', 'deferred' (waits until no mission runs), 'stopping', 'stopped', 'conflict' (another writer changed a row), 'unavailable' or 'refused'.
+---@field code string|nil Why it was refused (ACKNOWLEDGEMENT_REQUIRED, UNKNOWN_ENEMY, INVALID_MULTIPLIER, INVALID_OPTION, ALREADY_SET, NOT_IN_A_ROSTER) or the conflict.
+---@field reason string|nil The refusal in words.
+---@field enemy string The enemy as named.
+---@field multiplier number The multiplier.
+---@field types string[]|nil The entity types (16 hex digits) it covers.
+local HD2SpawnWeightHandle = {}
+---Write the vanilla weights back (a type going from 0 to positive waits until no mission runs).
+---@return HD2SpawnWeightHandle
+function HD2SpawnWeightHandle:stop() end
+---A copy for logs, with each type's status.
+---@return table
+function HD2SpawnWeightHandle:describe() end
+
+---hd2.enemies: how often each enemy type spawns (docs/enemy-spawns.md).
+---@class HD2Enemies
+local HD2Enemies = {}
+---Scale an enemy type's weight in every spawn group of the game's spawn rosters (0..10): 0 = never picked, k = k times its vanilla weight within the groups it shares. Changes which enemies spawn, not how many. A weight never goes from 0 to positive during a mission (it waits for the ship). The mission host's rosters decide. Not live-tested: needs allow_unverified_effect.
+---@param enemy string
+---@param multiplier number
+---@param opts HD2SpawnWeightOptions
+---@return HD2SpawnWeightHandle
+function HD2Enemies.spawn_weight(enemy, multiplier, opts) end
+---Every roster row with its ten vanilla weights (offline).
+---@param filter? {faction?: string, enemy?: string}
+---@return {enemy: string, entity: string, id: string|nil, faction: string, index: integer, group: string, weights: number[]}[]
+function HD2Enemies.spawn_list(filter) end
+---Every active spawn weight setting.
+---@return {owner: string, enemy: string, entity: string, multiplier: number, status: string, rows: integer}[]
+function HD2Enemies.spawn_status() end
+
+---One modifier row of a passive {key, type, value}: what EntityAttribute returns to a reader.
+---@class HD2PassiveModifier
+---@field key string The row's key, 8 hex digits (a thin hash).
+---@field key_name string The research's semantic name of the key (e.g. 'throw_range', 'movement_noise'; 'unknown_<key>' where no reader or text is known).
+---@field type string 'Set', 'Add', 'Multiply' or 'Time': how the reader combines value with its default (the reader's own code).
+---@field value number The value.
+---@field text string|nil The game's effect text (list() only).
+---@field reader string|nil list() only: the research's reader status (research/passive-effects-F5FEE03DCFDB.json): 'direct', 'data-driven' (both follow a swap), 'description-only' (stat-driven at spawn: reload, ammo, sidearm; a swap never changes it), 'armor rating' (follows the worn kit), 'none found' (Adreno's revive) or 'no effect'.
+---@field follows boolean|nil list() only: whether the row follows a slot swap (nil: unknown or no effect).
+---@field observable string|nil list() only: what to observe in play after a swap (the research).
+---@field note string|nil list() only: why the row does not follow a swap.
+---@field armor_slot_only boolean|nil list() only: every reader of the key reads the armor slot only (flags 1): a second-slot copy never reaches it.
+---@field source string|nil effective only: 'armor' or 'second' (the helmet slot).
+---@field passive integer|nil effective only: the passive id the row comes from.
+---@field name string|nil effective only: that passive's name.
+local HD2PassiveModifier = {}
+
+---One of the game's 32 armor passives (research/player-attributes-F5FEE03DCFDB.json).
+---@class HD2Passive
+---@field id integer The passive id (0-41; 4 and 22-30 are unused).
+---@field name string The game's own name (e.g. 'SERVO-ASSISTED').
+---@field description string The game's own description (its effect lines; #BONUS as the game holds it).
+---@field modifiers HD2PassiveModifier[] Its rows in the game's order.
+---@field effect_package boolean It has an effect package (17 Integrated Explosives, 19 Adreno-Defibrillator): set() loads it through core/assets (shared) before the write.
+---@field package string|nil The passive +0x30 key (8 hex digits) when it has an effect package; package_info has the package.
+---@field armor_kits integer How many armor kits carry it.
+---@field follows_swap 'full'|'partial'|'unknown' Whether its effects follow a slot swap: 'full', 'partial' (some rows follow the kit worn instead: see note), 'unknown' (19: the revive mechanism was not located).
+---@field note string|nil What does not follow a swap, in words.
+---@field stats {stat: integer, name: string, add: number, mul: number, described_by: string|nil}[] Its spawn-time stat rows (the kit worn at spawn applies them; a swap never changes them).
+---@field package_info HD2PassivePackage|nil Its effect package.
+local HD2Passive = {}
+
+---hd2.passives: every armor passive of the game (offline; docs/armor-passives.md).
+---@class HD2Passives
+local HD2Passives = {}
+---Every passive of the game with its modifier rows, by id (the research's table; no game read).
+---@return HD2Passive[]
+function HD2Passives.list() end
+---One passive by its game name (any case) or id; nil, UNKNOWN_PASSIVE, reason otherwise.
+---@param passive string|integer
+---@return HD2Passive|nil, string?, string?
+function HD2Passives.find(passive) end
+
+---@class HD2PassiveRef
+---@field id integer The passive id.
+---@field name string Its game name.
+local HD2PassiveRef = {}
+
+---@class HD2KitRef
+---@field id string The kit id (0x + 8 hex digits).
+---@field index integer|nil Its index in the game's kit table (hd2.armor_kit(index)).
+---@field name string|nil Its game name (research/armor-names-F5FEE03DCFDB.json; nil for the 33 the game's text does not name).
+---@field slot 'armor'|'helmet'|'cape'|nil Its slot.
+---@field weight 'light'|'medium'|'heavy'|nil An armor kit's weight (its armor pieces').
+---@field passive integer|nil The kit's own passive (kit +0x1C): what the game derives the slot from.
+local HD2KitRef = {}
+
+---The local player's passives as the game reads them now (hd2.player_passives()).
+---@class HD2PlayerPassives
+---@field entity integer The player entity (an avatar is mapped to it by the game).
+---@field record integer Its applied customization record (0-3).
+---@field armor_kit HD2KitRef The armor kit.
+---@field helmet_kit HD2KitRef The helmet kit (no vanilla helmet has a passive).
+---@field cape_kit HD2KitRef The cape kit.
+---@field armor_passive HD2PassiveRef The armor slot (record +0x3C).
+---@field helmet_passive HD2PassiveRef The helmet slot (record +0x38), where set() puts the second passive; 0 = none.
+---@field derived {armor: integer, second: integer} The kits' own passives (what the game puts back on a kit change).
+---@field overridden boolean A slot differs from its kit.
+---@field runtime string|nil The mod holding an override.
+---@field effective HD2PassiveModifier[] The rows a flags=3 reader finds, in order: the armor passive's, then the second passive's keys the armor lacks (the first row per key wins; no stacking).
+local HD2PlayerPassives = {}
+
+---@class HD2PlayerPassiveSpec
+---@field armor HD2PassiveName|integer|nil The armor passive (name or id); nil: the kit's own.
+---@field second HD2PassiveName|integer|false|nil A second passive in the helmet slot; nil or false: none (the kit's). INTEGRATED EXPLOSIVES is refused here (ARMOR_SLOT_ONLY).
+---@field owner string|nil Mod id (defaults to the calling mod).
+---@field allow_unverified_effect boolean Required (true) except for an armor-slot swap alone to a live-proven passive (SCOUT, ENGINEERING KIT, MED-KIT, SERVO-ASSISTED); without it set() is refused ACKNOWLEDGEMENT_REQUIRED.
+local HD2PlayerPassiveSpec = {}
+
+---An armor passive override. A refusal never raises: status is refused with a code and a reason.
+---@class HD2PlayerPassiveHandle
+---@field kind string 'player_passives'.
+---@field owner string The mod that set it.
+---@field status string 'active', 'waiting' (no record yet), 'waiting_for_assets' (an effect package loads first through core/assets; nothing is written until it is resident), 'suspended' (several players or the package is gone; the kit's values are back), 'lost' (something else wrote the slot), 'replaced', 'stopped' or 'refused'.
+---@field code string|nil Why (INVALID_OPTION, ACKNOWLEDGEMENT_REQUIRED, UNKNOWN_PASSIVE, SAME_PASSIVE, ARMOR_SLOT_ONLY, ASSET_UNAVAILABLE, PACKAGE_NOT_RESIDENT, NOT_SOLO, ALREADY_SET, UNEXPECTED_STATE, NOT_PRIVATE, GUARD_REJECTED, UNSUPPORTED_BUILD; waiting: UNAVAILABLE, NO_PLAYER, NO_RECORD, NOT_READY).
+---@field reason string|nil The reason in words.
+---@field armor HD2PassiveRef|nil The armor passive asked for.
+---@field second HD2PassiveRef|nil The second passive asked for.
+---@field notes string[]|nil What the chosen passives do not carry over a swap (reload, ammo, sidearm stats, armor rating, Adreno's unlocated revive).
+local HD2PlayerPassiveHandle = {}
+---Stop holding: the kit's own passives go back into the slots that still hold this override's values.
+---@return HD2PlayerPassiveHandle
+function HD2PlayerPassiveHandle:stop() end
+---The override and how many times it was written (re-applications after kit changes included).
+---@return {kind: string, owner: string, status: string, code: string|nil, reason: string|nil, armor: HD2PassiveRef|nil, second: HD2PassiveRef|nil, applications: integer}
+function HD2PlayerPassiveHandle:describe() end
+
+---hd2.player_passives: call it for the local player's passives (HD2PlayerPassives, or nil, code, reason); set() overrides them (DEVELOPMENT, solo; docs/armor-passives.md).
+---@class HD2PlayerPassivesApi
+local HD2PlayerPassivesApi = {}
+---Override the local player's armor passive and/or add a second passive in the helmet slot: one guarded 4-byte write per slot on the player's own record, re-applied after each kit change, until stop(). A passive with an effect package (17, 19) is loaded first through core/assets, shared with compatible peers (status waiting_for_assets; ASSET_UNAVAILABLE on failure). Readers that ignore the helmet slot (flinch, one chest-bleed site, Integrated Explosives: refused there) never see the second passive; overlapping keys do not stack; reload, ammo, sidearm stats and the armor rating follow the kit worn. Solo only (NOT_SOLO). Live-proven: the armor-slot swap to SCOUT, ENGINEERING KIT, MED-KIT, SERVO-ASSISTED.
+---@param spec HD2PlayerPassiveSpec
+---@return HD2PlayerPassiveHandle
+function HD2PlayerPassivesApi.set(spec) end
+---The held override, or nil.
+---@return {owner: string, status: string, code: string|nil, reason: string|nil, armor: HD2PassiveRef|nil, second: HD2PassiveRef|nil, applications: integer}|nil
+function HD2PlayerPassivesApi.status() end
 
 ---@class HD2StatusOptions
 ---@field buildup number|nil Buildup added (0 < buildup <= 1000, default 100). The status starts when the target's buildup reaches its susceptibility; strength and duration come from the status itself.
@@ -2098,6 +2695,753 @@ function HD2StatusEffects.apply(entity, status, opts) end
 ---Every status hd2.status can apply.
 ---@return {id: string, name: string, family: string, type: integer}[]
 function HD2StatusEffects.list() end
+
+---Options of hd2.pelican.spawn.
+---@class HD2PelicanOptions
+---@field position HD2Vector3|HD2Position Where it hovers: its anchor, the point the game's flight hovers over (at a height of its own) (required).
+---@field approach {distance: number|nil, height: number|nil}|nil Where it is created: distance metres back from the position along its heading (default 250, 0 to 1000) and height metres up (default 80, 0 to 500).
+---@field hover number|nil Seconds it stays after its release (0 < hover <= 120); nil: the game's own (it leaves at once).
+---@field facing {x: number, y: number}|nil Its horizontal heading at creation; nil: from the local player toward the position.
+---@field on_event fun(event: HD2PelicanEvent)|nil Every step: spawned, stage, hovering, released, held, departing, gone; refused, unverified, hold_refused or cargo (never expected) with code and reason. With a gun also gun_armed (turret, round, projectile, rpm, credit), gun_refused (stage, code, reason), gun_ended.
+---@field gun HD2PelicanGun|nil Its chin gun's OWN configuration (development, solo host): only this Pelican's own copies and records change, never a shared definition.
+---@field orbit HD2PelicanOrbit|nil It circles its anchor once it holds there (needs hover).
+---@field credit_to HD2PlayerHandle|nil The local player: its chin gun's kills credit that player (needs gun; solo host).
+---@field call HD2CustomStratagemCall|nil A custom stratagem call: the Pelican and its chin turret are associated with it.
+---@field owner string|nil Mod id (defaults to the calling mod).
+local HD2PelicanOptions = {}
+
+---One step of a Runtime Pelican (hd2.pelican.spawn on_event).
+---@class HD2PelicanEvent
+---@field kind "spawned"|"stage"|"hovering"|"released"|"held"|"departing"|"gone"|"refused"|"unverified"|"hold_refused"|"cargo"
+---@field entity integer|nil The Pelican's entity id.
+---@field code string|nil A refusal's code.
+---@field reason string|nil A refusal's reason.
+---@field seconds number|nil Seconds since it was spawned.
+---@field from integer|nil stage: the flight stage before.
+---@field to integer|nil stage: the flight stage now.
+---@field position HD2Vector3|nil Its position at that step.
+---@field target HD2Vector3|nil Its flight target at that step (its hover point once hovering).
+local HD2PelicanEvent = {}
+
+---A Runtime Pelican request (hd2.pelican.spawn).
+---@class HD2Pelican
+---@field status "pending"|"requested"|"refused"|"unverified"|"arriving"|"hovering"|"released"|"held"|"departing"|"gone"
+---@field code string|nil Why it was refused.
+---@field reason string|nil
+---@field entity integer|nil The Pelican's entity id once spawned.
+---@field owner string The mod that asked.
+---@field hover number|nil The hover time asked.
+---@field held number|nil The hover time applied once held.
+---@field approach {distance: number, height: number}|nil The approach used.
+---@field spawn_point HD2Vector3|nil Where it is created.
+local HD2Pelican = {}
+---True while requested or alive.
+---@return boolean
+function HD2Pelican:alive() end
+---The live Pelican now (read-only), or nil when it is not alive.
+---@return {entity: integer, stage: integer, released: boolean, position: HD2Vector3|nil, hover_point: HD2Vector3|nil, anchor: HD2Vector3|nil, cargo: boolean}|nil
+function HD2Pelican:state() end
+---A snapshot of the request.
+---@return table
+function HD2Pelican:describe() end
+
+---hd2.pelican: the game's own transport Pelican, summoned empty (docs/event-scripting.md).
+---@class HD2Pelicans
+local HD2Pelicans = {}
+---Summon an empty transport Pelican to hover over a position: it is created approach metres back and up, flies in, hovers over the position (its anchor, which the game keeps in the Pelican's own drop-position record) and leaves; with hover it stays that many seconds after its release (one guarded write of its own release time). The game's own spawn request, with no cargo and no associated entity. Host only, in a mission, at most 4 at a time; made in the Runtime's next update. A refusal never raises (status refused, code, reason).
+---@param opts HD2PelicanOptions
+---@return HD2Pelican
+function HD2Pelicans.spawn(opts) end
+---The Runtime Pelicans alive now (entity ids).
+---@return integer[]
+function HD2Pelicans.active() end
+---What hd2.pelican can do on this build, and its limits.
+---@return table
+function HD2Pelicans.status() end
+
+---The chin gun of a Runtime Pelican (hd2.pelican.spawn gun; development, solo host).
+---@class HD2PelicanGun
+---@field round "standard"|"ap4"|nil standard: its own (the MG-43's 148); ap4: the MG-206 Heavy Machine Gun's AP4 round 275.
+---@field behave_as "gatling_sentry"|nil The Gatling Sentry's AI, casing and rate, with the Runtime target lock.
+---@field rate_multiplier 1|1.5|2|nil Times the Gatling Sentry's rate read from the game (needs behave_as).
+---@field spread number|nil Its spread in mrad (above 0, at most 100), on its own WeaponData record.
+---@field recoil false|nil false: no aim recoil.
+---@field unlimited_ammo true|nil Its own magazine at the safe maximum (2047), refilled below 1500.
+---@field sound string|nil A firing sound of the catalogue (hd2.sounds.list(): a name of kind shot or loop, for example 'vehicle/maelstrom/main_gun', 'sentry/gatling', 'vehicle/bastion/hmg'; 'maelstrom_main_gun' still works) on its own weapon copy; nil or 'pelican/chin_autocannon': its own. The package of the stratagem that provides its bank is loaded first (a resident-only sound only while its package is resident); other machines apply it on their own copies. See docs/weapon-sounds.md.
+---@field face_target true|nil The body turns toward the locked target (needs behave_as).
+local HD2PelicanGun = {}
+
+---A Runtime Pelican circling its anchor (hd2.pelican.spawn orbit).
+---@class HD2PelicanOrbit
+---@field radius number|nil Metres from the anchor (5 to 150, default 40).
+---@field altitude number|nil Metres above the anchor (10 to 150, default 60).
+---@field duration number|nil Seconds (1 to 120, default 55).
+---@field period number|nil Seconds a lap (10 to 600, default 30).
+---@field entry number|nil Seconds of the spiral climb into the orbit (0 to 60, default 15).
+local HD2PelicanOrbit = {}
+
+---One firing sound of the weapon sound catalogue (hd2.sounds; docs/weapon-sounds.md). No event, bank or package id.
+---@class HD2WeaponSound
+---@field name string Its semantic name, <family>/<weapon>[/<part>] (what gun.sound takes).
+---@field label string A human name (the weapon, mount or unit).
+---@field kind "shot"|"loop" shot: an event per shot (MIDI notes when midi); loop: started when the gun starts firing and stopped when it stops.
+---@field family string The first part of its name: pelican, vehicle, sentry, emplacement, eagle, backpack, support, primary, secondary, automaton, illuminate, seaf, objective or other.
+---@field stratagem string|nil The stratagem whose call-in package provides its bank (loaded for a Pelican gun that takes it), or nil.
+---@field resident_only boolean No stratagem provides its bank: usable only while the game has a package listing it resident (for example while a player carries that weapon).
+---@field designed_rpm number The rate its weapon was designed for (its record's rate slot).
+---@field range_m number|nil How far its farthest layer carries, in metres (a heuristic reading of its bank's attenuation curves).
+---@field midi boolean Its shots post MIDI notes (several per shot, one shot interval apart).
+---@field pelican_default boolean The Pelican chin gun's own sound (taking it changes nothing).
+local HD2WeaponSound = {}
+
+---One sound event of the full catalogue (hd2.sounds.list{catalogue = 'events'}; docs/sounds.md): every Wwise event of the build, named <family>/<bank>/<event> from evidence (the event's own Wwise name where the game's code or data names it, else its id as eight hex digits).
+---@class HD2SoundEvent
+---@field name string Its catalogue name (what play, describe and asset take).
+---@field catalogue "events" Which catalogue it is from (weapon firing sounds have no such field).
+---@field family string weapons, throwables, melee, explosions (its sounds play on the game's explosion bus), stratagems, vehicles, enemies, seaf, objectives, hazards, ambience, foley, gore, voice, ui, music, cinematics, system or other: from its bank's content path.
+---@field bank string Its bank (content/audio/<bank>).
+---@field banks string[] Every bank that defines it.
+---@field faction "automaton"|"terminid"|"illuminate"|nil The faction its bank is named for.
+---@field kind "one_shot"|"loop"|"unknown"|"control" The game's own metadata: one shot, a loop (infinite, stop it), unknown (unsupported); control: it plays nothing (stops, states, switches).
+---@field range_m number|nil Its maximum attenuation distance in metres (the game's metadata); nil for a 2D or unattenuated sound.
+---@field duration_s number|nil A one-shot's longest duration in seconds (the game's metadata).
+---@field positional boolean|nil A 3D sound (true) or 2D (false).
+---@field bus string|nil The named path of the mixer bus its sounds play on.
+---@field global_effect "persistent"|"transient"|nil persistent: it would leave the sound engine changed (a state, a global game parameter or mix change or pause it does not undo): play refuses it. transient: a global stop of an element.
+---@field effects string[] state, parameter, mix, pause, stop.
+---@field wwise_name string|nil Its own Wwise name, where the game's code or data names it.
+---@field weapons string[] The weapon firing sounds (hd2.sounds.list()) that post it.
+---@field stratagem string|nil The stratagem whose call-in package provides its bank.
+---@field item string|nil The loadout item whose package provides its bank (when no stratagem does).
+---@field resident_only boolean No package Runtime can load provides its bank: usable only while the game has one resident.
+---@field parameters string[] The game parameters (RTPCs) its sounds react to ('0x<id>' when unnamed).
+---@field volume_parameters string[] Those of them that drive its volume: what handle:set_parameter can turn on its own source (a lead: the curve's direction is not read).
+---@field switch_groups string[] The switch groups its sounds react to.
+---@field state_groups string[] The state groups its sounds react to.
+local HD2SoundEvent = {}
+
+---A game parameter (RTPC) of the sound engine (hd2.sounds.parameters()).
+---@class HD2SoundParameter
+---@field name string Its name, or '0x<id>' when the game names it nowhere.
+---@field named boolean
+---@field default number|nil Its default value.
+---@field events integer How many catalogued events react to it.
+local HD2SoundParameter = {}
+
+---A switch or state group of the sound engine (hd2.sounds.switch_groups() / state_groups()).
+---@class HD2SoundGroup
+---@field name string Its name, or '0x<id>'.
+---@field named boolean
+---@field values string[] Its switches or states (names, or '0x<id>').
+---@field parameter string|nil A switch group driven by a game parameter: that parameter.
+local HD2SoundGroup = {}
+
+---A filter of hd2.sounds.list. Without catalogue: the weapon firing sounds (family, kind shot/loop, stratagem, resident_only, text). catalogue = 'events': the full event catalogue (every key below); 'all': both, each with the keys it supports.
+---@class HD2SoundFilter
+---@field catalogue "weapons"|"events"|"all"|nil Which catalogue (default weapons).
+---@field family string|nil Only this family (weapons: sentry, vehicle, support, ...; events: weapons, explosions, stratagems, enemies, ui, voice, ambience, music, ...).
+---@field kind string|nil Only this kind (weapons: shot, loop; events: one_shot, loop, unknown, control).
+---@field stratagem true|string|nil true: only sounds a stratagem provides; a name: only that stratagem's.
+---@field resident_only boolean|nil Only resident-only sounds (true) or only those a package provides (false).
+---@field text string|nil A part of the name (or label) (any case).
+---@field bank string|nil Events: only those a bank defines.
+---@field faction string|nil Events: automaton, terminid or illuminate.
+---@field bus string|nil Events: a part of the bus path ('explosion').
+---@field named boolean|nil Events: only those with (or without) their own Wwise name.
+---@field weapon true|string|nil Events: only those a weapon firing sound posts (or that one's).
+---@field global boolean|nil Events: only those with (or without) a global effect.
+local HD2SoundFilter = {}
+
+---hd2.sounds: the weapon firing-sound catalogue (docs/weapon-sounds.md), the full sound-event catalogue and playing game sound events (docs/sounds.md).
+---@class HD2Sounds
+local HD2Sounds = {}
+---Every catalogued firing sound (sorted by name), or those the filter keeps (a family name or a table); {catalogue = 'events'} lists the full event catalogue, {catalogue = 'all'} both. An invalid filter raises an error.
+---@param filter? HD2SoundFilter|string
+---@return (HD2WeaponSound|HD2SoundEvent)[]
+function HD2Sounds.list(filter) end
+---One sound by its name (or an older alias such as 'maelstrom_main_gun'), else a sound event by its catalogue name or its own Wwise name, or nil.
+---@param name string
+---@return HD2WeaponSound|HD2SoundEvent|nil
+function HD2Sounds.describe(name) end
+---Post a game sound event now: a firing-sound name ('sentry/gatling' starts its loop), a sound event's catalogue name, 'ui/<key>' (ui/stratagem_pick, ui/picker_close, ui/slot_select, ui/generic_select, ui/item_hover_select), any Wwise event name, or {id = <32-bit event id>}. Its bank must be loaded. An event that would leave the sound engine changed is refused (GLOBAL_EVENT). Rate-limited per mod. nil, code, reason when refused.
+---@param event string|{id: integer}
+---@param opts? HD2SoundPlayOptions
+---@return HD2SoundHandle|nil, string|nil, string|nil
+function HD2Sounds.play(event, opts) end
+---Whether the sound engine knows the event now (its bank is loaded).
+---@param event string|{id: integer}
+---@return boolean|nil, string|nil
+function HD2Sounds.available(event) end
+---A catalogue sound (a firing sound or a sound event) as a hd2.require_assets / hd2.asset_dependency target (its bank's package: a stratagem's call-in or a loadout item's). Raises on an unknown name.
+---@param name string
+---@return table
+function HD2Sounds.asset(name) end
+---A name the sound engine maps to a 32-bit id (what play({id = id}) posts). Every catalogued id has one generated at build time; any other is searched for about 40 ms once, then cached.
+---@param id integer
+---@return string|nil
+function HD2Sounds.name_for(id) end
+---The sound engine's game parameters (RTPCs), sorted by name.
+---@return HD2SoundParameter[]
+function HD2Sounds.parameters() end
+---The sound engine's switch groups and their switches.
+---@return HD2SoundGroup[]
+function HD2Sounds.switch_groups() end
+---The sound engine's state groups and their states (read-only: states are engine-wide and never set by Runtime).
+---@return HD2SoundGroup[]
+function HD2Sounds.state_groups() end
+
+---Which vanilla carrier a custom stratagem borrows: its carrier group (a structural pool), or the older policy fields; owned, selectable, enabled, unlimited, not in any lobby pick, never another custom stratagem's carrier, asset or delivery.
+---@class HD2CustomStratagemCarrier
+---@field group string|nil The carrier group (hd2.custom_stratagem.groups()): orbital, any_red, any, support, support_pod, expendable, sentry, emplacement, eagle; default the payload family's.
+---@field slots integer|nil A pod capacity to ask the group for (1..8; support_pod and expendable only).
+---@field beacon "offensive"|"support"|"any"|nil The beacon the player throws: offensive = a red beam, support = a blue beam. Required unless group is given.
+---@field prefer_families string[]|nil Catalogue families in order of preference ('orbital', 'eagle', 'sentry', 'emplacement', 'mine', 'support', 'backpack').
+---@field allow_families string[]|nil The only families it may take (default: the preferred ones).
+---@field exclude string[]|nil Stratagems never taken.
+---@field require_unlimited true|nil Always true: a carrier has unlimited uses.
+local HD2CustomStratagemCarrier = {}
+
+---A custom stratagem (hd2.custom_stratagem.register; development, solo host).
+---@class HD2CustomStratagemSpec
+---@field id string a-z, 0-9 and _, starting with a letter (at most 48); unique across mods.
+---@field name string Its name (the HUD).
+---@field name_cased string|nil Its cased name (the panel, the loadout).
+---@field description string Its description.
+---@field icon string|HD2ImageHandle The id of one of the mod's images (images/<id>.png, a 256 x 256 mask).
+---@field code string[] 1 to 8 directions ('up', 'down', 'left', 'right'); never equal to or the start of another custom stratagem's.
+---@field cooldown number|nil Seconds from the call-in's arrival (at most 600); nil: the carrier's own.
+---@field uses integer|nil Calls per mission, each player's own (1 to 100): the call that uses the last of them ends with a cooldown longer than any mission; nil: unlimited. Not for an Eagle (eagle.uses is per rearm).
+---@field traits string[]|nil Up to 4 ITEM TRAITS the custom panel shows after the automatic CUSTOM STRATAGEM (1 to 32 characters each, shown in upper case); nil: the payload family's.
+---@field selection 'token'|'carrier'|nil development probe (the carrier-in-slot probe, solo host): 'carrier' picks the carrier itself into the loadout slot instead of the Orbital Precision Strike token; default 'token'
+---@field carrier HD2CustomStratagemCarrier Its carrier policy.
+---@field sentry table|nil {donor, weapon = {projectile, rpm, spread, ammo, recoil}}: the donor sentry's own pod, its sentry's own weapon configured (docs/custom-stratagem-api.md).
+---@field orbital table|nil {native = true, pattern, impact_explosion} (the donor's own barrage) or a Runtime bombardment {shell, pattern, salvos, ...}.
+---@field pelican table|nil {hover, orbit = {radius, altitude, duration, period, entry}, gun = {...}, approach}: the Runtime's Pelican; gun = {round = 'native'} is its vanilla autocannon.
+---@field silo table|nil {donor = a reviewed missile silo ('MS-11 Solo Silo'), blast = an hd2.explosions name, fallback = an hd2.explosions name or nil}: the donor silo's own pod; where exactly the call's missile detonates, every watching machine requests the blast from its own copy
+---@field assets string[]|nil Stratagems whose call-in packages it needs in the mission (loaded before it can be called).
+---@field delivery "runtime"|{stratagem: string}|nil runtime (default): the carrier's own delivery never comes and the mod delivers; {stratagem = 'EAT-17 Expendable Anti-Tank'}: that vanilla support delivery's pod.
+---@field on_called fun(ctx: HD2CustomStratagemCall)|nil The call-in started.
+---@field on_beacon_created fun(ctx: HD2CustomStratagemCall)|nil Its beacon, in its first update (changed).
+---@field on_beacon_landed fun(ctx: HD2CustomStratagemCall)|nil The beacon landed: ctx.position.
+---@field on_activate fun(ctx: HD2CustomStratagemCall)|nil The beacon activated: deliver now.
+---@field on_delivered fun(ctx: HD2CustomStratagemCall)|nil A support delivery: ctx.weapons, the exact delivered weapons.
+local HD2CustomStratagemSpec = {}
+
+---One call of a custom stratagem (its callbacks' ctx).
+---@class HD2CustomStratagemCall
+---@field id string The custom stratagem.
+---@field call_id string Mission-unique: '<id>#<n>'.
+---@field n integer Its number in this mission.
+---@field player HD2PlayerHandle The caller (the local player: solo host).
+---@field slot integer|nil The loadout slot it was called from, when known.
+---@field carrier {name: string, stable_id: integer, type: integer} The vanilla carrier it borrowed.
+---@field beacon {entity: integer, network: integer|nil}|nil Its beacon.
+---@field position HD2Vector3|nil The beacon's landing position (else its activation position).
+---@field delivery string 'runtime' or the vanilla support delivery's name.
+---@field weapons HD2CustomStratagemWeapon[]|nil on_delivered: the exact delivered weapons.
+local HD2CustomStratagemCall = {}
+---A log line tagged with the call.
+---@param text string
+---@return nil
+function HD2CustomStratagemCall:log(text) end
+---Associates an entity the call spawned with it (mission-scoped).
+---@param entity integer
+---@param role? string
+---@return boolean|nil
+function HD2CustomStratagemCall:associate(entity, role) end
+---The live entities associated with the call.
+---@param role? string
+---@return integer[]
+function HD2CustomStratagemCall:spawned(role) end
+---A Runtime bombardment: the shell of `shell`'s reviewed record in `pattern`'s salvo pattern over the target (default ctx.position); shell must be one of its assets.
+---@param spec {shell: string, pattern: string, target: HD2Vector3|nil}
+---@return table|nil
+function HD2CustomStratagemCall:barrage(spec) end
+
+---A weapon a support delivery brought (exactly that entity).
+---@class HD2CustomStratagemWeapon
+---@field entity integer Its entity id.
+local HD2CustomStratagemWeapon = {}
+---Its projectiles explode as the donor's ('Orbital Gas Strike') on impact: each projectile's own copy, one round; every other weapon stays vanilla.
+---@param donor string
+---@return boolean|nil
+function HD2CustomStratagemWeapon:set_impact_explosion(donor) end
+
+---hd2.custom_stratagem: selectable custom stratagems (development, solo host; docs/custom-stratagem-api.md).
+---@class HD2CustomStratagems
+local HD2CustomStratagems = {}
+---Registers a custom stratagem of the calling mod (errors at load time on an invalid spec).
+---@param spec HD2CustomStratagemSpec
+---@return table
+function HD2CustomStratagems.register(spec) end
+---Every custom stratagem's state.
+---@return table[]
+function HD2CustomStratagems.status() end
+---What a custom stratagem uses (read-only): {group, group_source, carrier = {name, stable_id, type, beam, condensed, fallback}, carrier_weapon = {name, level}, pod = {rack, capacity, items, slots}, available, reason, state}.
+---@param id string
+---@return table|nil
+function HD2CustomStratagems.describe(id) end
+---The carrier groups: {name, beacon, families, pod, weapon, eagle, doc, payloads, defaults; expendable: members = {name, stable_id, rounds, pod_capacity, clone_class, carries, refused}}.
+---@return table[]
+function HD2CustomStratagems.groups() end
+---The call an entity belongs to: {id, call_id, n, role, player, parent}.
+---@param entity integer
+---@return table|nil
+function HD2CustomStratagems.instance_of(entity) end
+---Log every carrier candidate.
+---@param on boolean
+---@return nil
+function HD2CustomStratagems.verbose(on) end
+---The custom panel's focus to the next entry.
+---@return string
+function HD2CustomStratagems.focus_next() end
+---Selects the focused entry.
+---@return string
+function HD2CustomStratagems.select_focused() end
+---Returns the last selected slot.
+---@return string
+function HD2CustomStratagems.undo() end
+---r51, for in-game editors: a registered custom stratagem's cooldown (seconds) and uses (calls per mission) on this machine, values = {cooldown, uses}. Each player's own, from their next call; the lobby registry is unchanged. The same checks as register. True, or nil and why.
+---@param id string
+---@param values table
+---@return boolean|nil, string|nil
+function HD2CustomStratagems.tune(id, values) end
+---Back to the registered cooldown and uses.
+---@param id string
+---@return boolean|nil, string|nil
+function HD2CustomStratagems.untune(id) end
+
+---hd2.ownership: whom an associated autonomous entity's kills credit (development, solo host).
+---@class HD2Ownership
+local HD2Ownership = {}
+---Its kills credit the local player (its own no-credit tag cleared); it must belong to that player's custom stratagem call.
+---@param entity integer
+---@param player HD2PlayerHandle
+---@return {applied: boolean, already: boolean|nil, reason: string|nil}
+function HD2Ownership.credit_to_player(entity, player) end
+
+---hd2.build() details.
+---@class HD2BuildInfo
+---@field pinned string The first 12 hex digits of the executable build this Runtime is pinned to.
+---@field reason string|nil Why the status is not_ready.
+local HD2BuildInfo = {}
+
+---The cursor, read-only.
+---@class HD2Mouse
+---@field x number Client pixels from the left.
+---@field y number Client pixels from the top.
+---@field w number Client width.
+---@field h number Client height.
+---@field left boolean The left button is held.
+local HD2Mouse = {}
+
+---One mod's saved key/value data (hd2.store(); docs/mod-store.md). Values: booleans, finite numbers, strings and tables of those (arrays or string-keyed maps, no cycles, at most 16 deep). Saved about a second after a change, or at once with save().
+---@class HD2Store
+---@field owner string The mod it belongs to.
+local HD2Store = {}
+---The stored value (a copy, for a table), or default.
+---@param key string
+---@param default any
+---@return any
+function HD2Store:get(key, default) end
+---Store a value (nil removes the key). Raises on a value that cannot be saved.
+---@param key string
+---@param value any
+---@return HD2Store
+function HD2Store:set(key, value) end
+---Every key, sorted.
+---@return string[]
+function HD2Store:keys() end
+---Remove every key.
+---@return HD2Store
+function HD2Store:clear() end
+---Write now. false and the reason when it failed (the previous file is kept).
+---@return boolean, string|nil
+function HD2Store:save() end
+---{owner, keys, dirty, saved, file, load_error}.
+---@return table
+function HD2Store:describe() end
+
+---@class HD2SoundPlayOptions
+---@field position HD2Vector3|number[]|nil A world position: a 3D sound there, on a source of its own. Without position or unit the sound plays on the game world's own 2D source.
+---@field rotation number[]|nil With a position: the source's orientation, a quaternion {x, y, z, w}.
+---@field unit userdata|nil An engine Unit: the sound plays on the unit's own source and follows it.
+---@field owner string|nil
+local HD2SoundPlayOptions = {}
+
+---A posted sound.
+---@class HD2SoundHandle
+---@field state "playing"|"stopped"
+---@field playing integer The plugin's playing id.
+---@field event string
+---@field name string The name posted.
+---@field kind string shot, loop, ui, event, or a sound event's kind.
+---@field owner string
+local HD2SoundHandle = {}
+---Stop this playing instance.
+---@return boolean|nil, string|nil
+function HD2SoundHandle:stop() end
+---{state, event, name, kind, playing, owner, source (world, position or unit), own_source, controls (pause/resume/is_playing/elapsed available), controls_reason}.
+---@return table
+function HD2SoundHandle:describe() end
+---Pause this instance.
+---@return boolean|nil, string|nil, string|nil
+function HD2SoundHandle:pause() end
+---Resume this instance.
+---@return boolean|nil, string|nil, string|nil
+function HD2SoundHandle:resume() end
+---Whether the sound engine still plays it (false up to one update after it ends).
+---@return boolean|nil, string|nil, string|nil
+function HD2SoundHandle:is_playing() end
+---Seconds it has played (the engine's play position).
+---@return number|nil, string|nil, string|nil
+function HD2SoundHandle:elapsed() end
+---Set a game parameter (RTPC) on this sound's own source (a position post only).
+---@param parameter string|{id: integer}
+---@param value number
+---@return boolean|nil, string|nil, string|nil
+function HD2SoundHandle:set_parameter(parameter, value) end
+---Set a switch on this sound's own source (a position post only).
+---@param group string|{id: integer}
+---@param switch string|{id: integer}
+---@return boolean|nil, string|nil, string|nil
+function HD2SoundHandle:set_switch(group, switch) end
+---Post a trigger on this sound's own source (a position post only).
+---@param trigger string|{id: integer}
+---@return boolean|nil, string|nil, string|nil
+function HD2SoundHandle:post_trigger(trigger) end
+
+---hd2.ui: mod screen overlays (docs/ui-overlay.md).
+---@class HD2UI
+---@field MAX_LAYER integer The highest layer (1023).
+---@field DEFAULT_LAYER integer The default base layer (1011).
+local HD2UI = {}
+---The calling mod's overlay opts.id (default 'main'): created on first use, the same object afterwards.
+---@param opts? HD2OverlayOptions
+---@return HD2Overlay
+function HD2UI:overlay(opts) end
+---Every overlay's status.
+---@return table[]
+function HD2UI:overlays() end
+---A colour as overlays take it ({r, g, b[, a]} or '#RRGGBB[AA]') -> {r, g, b, a}; nil when invalid.
+---@param c number[]|string
+---@return number[]|nil
+function HD2UI:colour(c) end
+---The cursor capture's state: holders, disabled, the game's saved values and what the engine reports now.
+---@return table
+function HD2UI:cursor() end
+
+---@class HD2OverlayOptions
+---@field id string|nil 1 to 48 letters, digits, _ . - (default 'main').
+---@field layer integer|nil The base layer of its band, 1..1023 (default 1011); an item's z is added to it.
+---@field visible boolean|nil Default true.
+---@field owner string|nil
+local HD2OverlayOptions = {}
+
+---A mod's screen overlay: rectangles and text in the game's Ui World, over the HUD and under the game's menus (the Noesis UI always draws above). Coordinates are GUI pixels from the top-left.
+---@class HD2Overlay
+---@field owner string
+---@field id string
+---@field layer integer
+---@field width number|nil The screen width in GUI pixels (after the first frame).
+---@field height number|nil
+---@field scale number|nil The screen against 1920 x 1080 (the smaller ratio).
+local HD2Overlay = {}
+---Set the draw function: called every frame while shown; it describes the whole frame. Unchanged items make no engine call.
+---@param fn fun(d: HD2OverlayFrame, dt: number)
+---@return HD2Overlay
+function HD2Overlay:draw(fn) end
+---@param on? boolean
+---@return HD2Overlay
+function HD2Overlay:show(on) end
+---@return HD2Overlay
+function HD2Overlay:hide() end
+---The cursor in overlay coordinates.
+---@return {x: number, y: number, left: boolean}|nil, string|nil
+function HD2Overlay:mouse() end
+---The width of text in pixels.
+---@param text string
+---@param size? number
+---@param font? "body"|"title"|"mono"
+---@return number
+function HD2Overlay:text_width(text, size, font) end
+---{owner, id, state, reason, layer, visible, width, height, items, frames, engine_calls, refused, first_refusal}.
+---@return table
+function HD2Overlay:status() end
+---Remove its primitives, its GUI and its frame callback.
+---@return HD2Overlay
+function HD2Overlay:close() end
+---EXPERIMENTAL (r50): while shown, the engine shows the cursor, stops clipping it and drops the mouse focus so the camera stops turning; opts {camera = false} keeps the focus. free_cursor(false) gives it back.
+---@param on? boolean
+---@param opts? table
+---@return HD2Overlay
+function HD2Overlay:free_cursor(on, opts) end
+
+---What one frame of an overlay shows (the d of overlay:draw). Invalid items are refused (counted in status()), never passed to the engine.
+---@class HD2OverlayFrame
+---@field width number
+---@field height number
+---@field scale number
+local HD2OverlayFrame = {}
+---A filled rectangle; (x, y) its top-left corner. colour {r, g, b[, a]} 0-255 or '#RRGGBB[AA]' (default white). z is added to the overlay's layer.
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param colour? number[]|string
+---@param z? integer
+---@return nil
+function HD2OverlayFrame:rect(x, y, w, h, colour, z) end
+---A line of text (1-160 printable bytes); (x, y) its top-left corner (or top-centre / top-right with align).
+---@param text string|number
+---@param x number
+---@param y number
+---@param opts? HD2OverlayTextOptions
+---@return nil
+function HD2OverlayFrame:text(text, x, y, opts) end
+---One of the mod's own images (hd2.resources.image) through the game's icon material, or one of the game's own HUD icons (hd2.resources.game_icon; docs/game-icons.md); (x, y) its top-left corner. Drawn once its resources are loaded; an image partly off screen is dropped. One colour set per mod image per overlay (r50); a game icon may take several.
+---@param image table
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param opts? HD2OverlayImageOptions
+---@return nil
+function HD2OverlayFrame:image(image, x, y, w, h, opts) end
+---@param text string
+---@param size? number
+---@param font? "body"|"title"|"mono"
+---@return number
+function HD2OverlayFrame:text_width(text, size, font) end
+
+---@class HD2OverlayTextOptions
+---@field size number|nil Pixels (4-256, default 18).
+---@field colour number[]|string|nil
+---@field font "body"|"title"|"mono"|nil body / title: the FS Sinclair fonts the Runtime ships; mono: the engine's monaco.
+---@field align "left"|"center"|"right"|nil
+---@field z integer|nil
+local HD2OverlayTextOptions = {}
+
+---player:weapon_state() (docs/player-equipment.md).
+---@class HD2WeaponState
+---@field name string|nil
+---@field type string|nil
+---@field slot string
+---@field entity_id integer
+---@field fire_rate number|nil Its current rounds per minute.
+---@field rate_slots number[]|nil Its rate selector's three slots.
+---@field own_record boolean It has its own ProjectileWeapon copy.
+---@field projectile integer|nil The projectile type it fires.
+---@field feed "magazine"|"heat"|"rounds"|"other"
+---@field magazine {rounds: integer, chambered: integer, capacity: integer}|nil
+---@field spread {horizontal: number, vertical: number}|nil Milliradians.
+---@field recoil {horizontal: number, vertical: number}|nil Its aim recoil per shot.
+---@field wind_up boolean
+---@field heat boolean
+local HD2WeaponState = {}
+
+---d:image options.
+---@class HD2OverlayImageOptions
+---@field colours table|nil {r =, g =, b =}: the colours of the image's R, G and B masks (overlay colours; alpha = strength). Default white R and G, a 0.2 black shadow on B.
+---@field colour number[]|string|nil Vertex colour (tint and alpha); default white.
+---@field z integer|nil Added to the overlay layer.
+local HD2OverlayImageOptions = {}
+
+---mod:choice declaration.
+---@class HD2ChoiceSpec
+---@field id string 1-40 letters, digits, _ or -.
+---@field values any[] 1-64 values, no two the same (a following choice may repeat); every one is validated when an ensure binds the choice.
+---@field default integer|nil 1-based index (default 1).
+---@field labels string[]|nil Readable names, for describe() and logs.
+---@field follow HD2ScriptChoice|nil r51: another script choice of the same mod this one follows: it always selects the same index (it cannot be set itself), may repeat values and has exactly as many; a bound ensure proves the two together, index by index (e.g. the rate-of-fire selector binding that a fire_rate.modes list with two or more rates needs).
+local HD2ChoiceSpec = {}
+
+---A script choice (mod:choice).
+---@class HD2ScriptChoice
+local HD2ScriptChoice = {}
+---The selected value (a copy of a plain table).
+---@return any
+function HD2ScriptChoice:get() end
+---Select the value equal to `value` (reference handles by identity, tables element by element); false when it is not one of the values.
+---@param value any
+---@return boolean
+function HD2ScriptChoice:set(value) end
+---Select by 1-based index.
+---@param index integer
+---@return boolean
+function HD2ScriptChoice:select(index) end
+---The declaration and the selected value.
+---@return table
+function HD2ScriptChoice:describe() end
+
+---A passive's effect package (research/passive-effects-F5FEE03DCFDB.json; the generated core/assets catalogue entry).
+---@class HD2PassivePackage
+---@field key string The passive +0x30 key (8 hex digits).
+---@field catalogue string The core/assets catalogue key ('passive/17').
+---@field package string The package id the game resolves the key to.
+---@field contents string What the package holds (resource types).
+---@field armor_slot_only string[] Its effect rows read from the armor slot only (17: death_explosion): set() refuses it as the second passive (ARMOR_SLOT_ONLY).
+---@field loads string How set() loads it.
+local HD2PassivePackage = {}
+
+---The community wiki's values for a kit (where a wiki page matched): NOT read from the game.
+---@class HD2ArmorKitWiki
+---@field source 'wiki' Always wiki.
+---@field name string The wiki's name.
+---@field match 'exact'|'contained'|'fuzzy' How the wiki page matched the game name.
+---@field class string|nil The wiki's weight class (armor).
+---@field armor_rating number|nil The wiki's armor rating (armor).
+---@field speed number|nil The wiki's speed (armor).
+---@field stamina_regen number|nil The wiki's stamina regen (armor).
+---@field passive string|nil The wiki's passive name.
+---@field passive_agrees boolean|nil The wiki's passive is the game's.
+local HD2ArmorKitWiki = {}
+
+---One of the game's 411 kits (research/armor-names-F5FEE03DCFDB.json; read-only, offline).
+---@class HD2ArmorKit
+---@field index integer Its index in the kit table (0-410).
+---@field id string The kit id (0x + 8 hex digits).
+---@field slot 'armor'|'helmet'|'cape' Its slot (kit +0x28).
+---@field weight 'light'|'medium'|'heavy'|nil Armor only: its weight (its armor pieces').
+---@field passive integer Its passive (kit +0x1C; 0 for every helmet and cape).
+---@field passive_name string That passive's game name.
+---@field set string|nil Its set id.
+---@field dlc string|nil Its dlc id.
+---@field rarity string 'common' or 'heroic'.
+---@field name string|nil Its game name (378 of 411 resolved; armors and their helmets often share one).
+---@field description string|nil Its game description.
+---@field same_name integer How many kits carry this name (0: unnamed).
+---@field wiki HD2ArmorKitWiki|nil The community wiki's values where a page matched (not the game's).
+local HD2ArmorKit = {}
+
+---@class HD2ArmorKitFilter
+---@field slot 'armor'|'helmet'|'cape'|nil Only this slot.
+---@field weight 'light'|'medium'|'heavy'|nil Only armor of this weight.
+---@field passive HD2PassiveName|integer|nil Only kits with this passive.
+---@field name string|nil Only kits with this game name (any case).
+local HD2ArmorKitFilter = {}
+
+---hd2.armor_stats: armor rating, speed and stamina (DEVELOPMENT, not live-tested; docs/armor-stats.md). No armor stores its own numbers: each armor piece has a weight (light, medium, heavy) that indexes three per-weight tables in game.dll.
+---@class HD2ArmorStatsApi
+local HD2ArmorStatsApi = {}
+---An armor kit by id (0x1F9BFA78, "1F9BFA78") or game name (any case; a name several kits share raises AMBIGUOUS_ARMOR_KIT with their ids): the target of the armor_kit.piece_weight.<slot> fields. Unknown: raises UNKNOWN_ARMOR_KIT.
+---@param identity string|integer
+---@return HD2ArmorKitTarget
+function HD2ArmorStatsApi.kit(identity) end
+---Every armor kit of the build with its vanilla stats (offline).
+---@return HD2ArmorKitSummary[]
+function HD2ArmorStatsApi.kits() end
+---A weight class: its table values (armor value, speed and stamina factors). Writable with allow_shared and allow_unverified_effect: the tables sit in game.dll pages that are executable at run time, and only their exact 4-byte entries are written, as reviewed executable data.
+---@param name "light"|"medium"|"heavy"
+---@return HD2ArmorClassTarget
+function HD2ArmorStatsApi.class(name) end
+---The avatar damage curve (damage multiplier by armor value). Writable like the class tables (reviewed executable data).
+---@return HD2ArmorDamageCurveTarget
+function HD2ArmorStatsApi.damage_curve() end
+---The local player's own avatar members: the armor bonus and the stamina factor (DEVELOPMENT, solo).
+---@return HD2ArmorPlayer
+function HD2ArmorStatsApi.player() end
+
+---An armor kit (hd2.armor_stats.kit). Fields hd2.fields.armor_kit.piece_weight_<slot> (the weight of its armor piece in that slot, written in every body); every player wearing the kit reads them: allow_shared=true and allow_unverified_effect=true. The armor rating follows on the next hit, the speed and stamina factors at the next armor apply (a respawn or a kit change).
+---@class HD2ArmorKitTarget
+---@field resource "armor_kit"
+---@field armor_kit string The kit id (8 hex digits).
+local HD2ArmorKitTarget = {}
+---Its pieces per slot, the stats they give now (rating, speed, stamina_regen, armor_value, damage_multiplier, speed_factor, stamina_factor, class; live when the game is readable, else the research's), its passive, the vanilla stats and its fields.
+---@return table
+function HD2ArmorKitTarget:describe() end
+---Its piece weight fields with their vanilla weight, range and lifecycle.
+---@return table[]
+function HD2ArmorKitTarget:fields() end
+---The change list {field, expect, value} that puts every armor piece (or the slots given) at a weight, for hd2.transaction / hd2.ensure. It adds no acknowledgement.
+---@param weight "light"|"medium"|"heavy"|integer
+---@param slots? string[]
+---@return table[]
+function HD2ArmorKitTarget:changes(weight, slots) end
+---The stats the kit would give with these slot weights (the tables now, the stocky body).
+---@param weights table<string, "light"|"medium"|"heavy"|integer>
+---@return table
+function HD2ArmorKitTarget:preview(weights) end
+
+---One armor kit of the build (hd2.armor_stats.kits()).
+---@class HD2ArmorKitSummary
+---@field id string Kit id (8 hex digits).
+---@field name string|nil Its game name.
+---@field passive integer Its passive id.
+---@field passive_name string|nil Its passive's game name.
+---@field class string The armory class label (the torso piece's weight).
+---@field vanilla table {rating, speed, stamina, armor_value, speed_factor, stamina_factor, damage_multiplier}.
+local HD2ArmorKitSummary = {}
+
+---A weight class (hd2.armor_stats.class / hd2.armor_class). Fields hd2.fields.armor_class.rating / speed / stamina: one f32 entry per class table in game.dll, written as reviewed executable data, for every Helldiver on this machine (allow_shared and allow_unverified_effect; docs/armor-stats.md).
+---@class HD2ArmorClassTarget
+---@field resource "armor_class"
+---@field armor_class "light"|"medium"|"heavy"
+local HD2ArmorClassTarget = {}
+---rating {value (armor value A), display (50 + 50 x A), vanilla}, speed {value, display (500 x factor), vanilla}, stamina {value, display (100 x (2 - F)), vanilla}, damage_multiplier, source, editable = true and executable_data (why the page is accepted).
+---@return table
+function HD2ArmorClassTarget:describe() end
+---Its three fields: armor_class.rating, speed and stamina (writable).
+---@return table[]
+function HD2ArmorClassTarget:fields() end
+
+---The avatar damage curve (hd2.armor_stats.damage_curve()). Fields hd2.fields.armor_damage_curve.at_minus_1 .. at_3: the damage multiplier at each armor value, written as reviewed executable data like the class tables.
+---@class HD2ArmorDamageCurveTarget
+---@field resource "armor_damage_curve"
+local HD2ArmorDamageCurveTarget = {}
+---{points = {{armor_value, damage}}, vanilla, source, editable = true, executable_data}.
+---@return table
+function HD2ArmorDamageCurveTarget:describe() end
+---Its five fields: armor_damage_curve.at_minus_1 .. at_3 (writable).
+---@return table[]
+function HD2ArmorDamageCurveTarget:fields() end
+
+---The local player's avatar members (hd2.armor_stats.player(); DEVELOPMENT, solo, not live-tested). A refusal never raises: status refused with a code and a reason.
+---@class HD2ArmorPlayer
+local HD2ArmorPlayer = {}
+---The members now, or nil, code, reason.
+---@return HD2ArmorPlayerState|nil, string?, string?
+function HD2ArmorPlayer:describe() end
+---Write armor_bonus (live, every hit) and / or stamina_factor (live until the game next applies the armor: a respawn or a kit change). Each member must hold the game's own value or this Runtime's.
+---@param spec HD2ArmorPlayerSpec
+---@return HD2ArmorPlayerResult
+function HD2ArmorPlayer:set(spec) end
+---Put the game's own values back (armor bonus 0, the kit's derived stamina factor) where a member still holds this Runtime's value.
+---@return HD2ArmorPlayerResult
+function HD2ArmorPlayer:restore() end
+
+---hd2.armor_stats.player():set options.
+---@class HD2ArmorPlayerSpec
+---@field armor_bonus? number -1..3: added to the armor value of every hit on the avatar (the sum clamped to -1..3).
+---@field stamina_factor? number 0.1..3: scales stamina drain AND regen and the jump / dive / climb / slide costs (light armor 0.75, medium 1, heavy 1.5).
+---@field allow_unverified_effect boolean Required: not live-tested.
+---@field owner? string The mod name for the log (default: the calling mod).
+local HD2ArmorPlayerSpec = {}
+
+---The outcome of a per-player write or restore.
+---@class HD2ArmorPlayerResult
+---@field status string 'APPLIED', 'UNCHANGED' or 'refused'.
+---@field code string|nil Why it was refused: NOT_SOLO, NO_LOCAL_AVATAR, UNEXPECTED_STATE, OUT_OF_RANGE, ...
+---@field reason string|nil
+---@field armor_bonus number|nil The value now.
+---@field stamina_factor number|nil The value now.
+---@field writes integer|nil
+---@field verified boolean|nil Read back.
+---@field skipped string[]|nil restore: members left alone.
+local HD2ArmorPlayerResult = {}
+
+---The local player's armor members now (hd2.armor_stats.player():describe()).
+---@class HD2ArmorPlayerState
+---@field entity integer The player entity.
+---@field avatar integer The avatar entity.
+---@field slot integer Its avatar manager slot (the game's own map).
+---@field armor_bonus number The armor modifier (0; -1 under a status effect).
+---@field stamina_factor number The stamina factor the game applied (or this Runtime's).
+---@field armor_kit table|nil {id, name, passive}.
+---@field derived table|nil What the kit gives now: {rating, speed, stamina_regen, armor_value, damage_multiplier, speed_factor, stamina_factor, ...}.
+---@field effective_armor_value number|nil What a hit uses: clamp(A + bonus, -1, 3) when the bonus is not 0.
+---@field overridden boolean A member holds this Runtime's value.
+local HD2ArmorPlayerState = {}
 
 ---An entity. Every live query re-resolves it through the game (same mission, still in the health manager's hash, same type and descriptor) and returns nil once it is gone; the fields are a snapshot.
 ---@class HD2EntityHandle
@@ -2173,11 +3517,52 @@ function HD2PlayerHandle:position() end
 ---@param opts? {owner?: string}
 ---@return number|nil, string|nil
 function HD2PlayerHandle:heal(amount, opts) end
+---Local player only: hd2.actions.injure(player, limb, damage) for this player.
+---@param limb "head"|"chest"|"l_hand"|"r_hand"|"l_knee"|"r_knee"
+---@param damage integer
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2PlayerHandle:injure(limb, damage, opts) end
+---Local player only: hd2.actions.heal_limb(player, limb, amount).
+---@param limb "head"|"chest"|"l_hand"|"r_hand"|"l_knee"|"r_knee"
+---@param amount? "full"|integer
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2PlayerHandle:heal_limb(limb, amount, opts) end
+---Local player only: hd2.actions.heal_limbs(player).
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2PlayerHandle:heal_limbs(opts) end
+---Local player only: hd2.actions.add_velocity(player, change).
+---@param change HD2Vector3
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2PlayerHandle:add_velocity(change, opts) end
 ---Local player only: what the avatar holds now (its wielder slot 0), re-read on every call. nil and the reason when nothing is in hand, the player is dead or not spawned, or it is another player.
 ---@return HD2EquippedWeapon|nil, string|nil
 function HD2PlayerHandle:equipped_weapon() end
 ---@return table
 function HD2PlayerHandle:describe() end
+---The local player's primary, secondary, support, backpack, held item and throwable (with count), each with its catalog name. Local player only.
+---@return table|nil, string|nil
+function HD2PlayerHandle:loadout() end
+---The item in hand and the slot it is in. Local player only.
+---@return table|nil, string|nil
+function HD2PlayerHandle:held_weapon() end
+---What the weapon in hand fires with now, from its own instance (the values a template change reaches only after the weapon is built again). Local player only; read-only.
+---@return HD2WeaponState|nil, string|nil
+function HD2PlayerHandle:weapon_state() end
+---The worn backpack: catalog name and its live supply/ammo count, capacity and owner flag. Local player only.
+---@return table|nil, string|nil
+function HD2PlayerHandle:backpack() end
+---Rounds in the magazine and spare magazines (or the backpack count for backpack-fed weapons) of the held weapon or the given slot. Local player only.
+---@param slot? "primary"|"secondary"|"support"
+---@return table|nil, string|nil
+function HD2PlayerHandle:ammo(slot) end
+---hd2.actions.resupply_from_pack(player) for this player.
+---@param opts? {owner?: string}
+---@return HD2ActionHandle
+function HD2PlayerHandle:resupply_from_pack(opts) end
 
 ---A mission began: the game entered its Mission state with a game_mode object. Also reported when Runtime first sees a mission already in progress (first_observation).
 ---@class HD2Event_mission_started : HD2Event
@@ -2409,6 +3794,22 @@ local HD2Event_weapon_unequipped = {}
 ---@field current HD2EquippedWeapon|nil What is in hand now.
 local HD2Event_weapon_changed = {}
 
+---An explosion this machine's game will detonate: a request seen in the game's explosion queue (the game processes it in its next update), or one Runtime requested (hd2.explosions.spawn). Requests the game queues and processes within one update before Runtime's next look are not seen: see docs/events.md#explosions. Not live-tested.
+---@class HD2Event_explosion : HD2Event
+---@field name string|nil The explosion type's name in the explosion catalogue (docs/explosions.md), the name hd2.explosions.describe / spawn and hd2.explosion take: 'weapon/r36_eruptor/impact', 'stratagem/nux223_hellbomb/behavior'; nil when uncatalogued. It names the explosion, not who caused it.
+---@field position HD2Position Where it detonates (a read-only snapshot).
+---@field observed "queue"|"request" 'queue': read from the game's explosion queue. 'request': requested by Runtime (its cause names the mod), reported from the request.
+---@field source_id integer|nil The source entity the request names (a weapon for its shell, an explosive for itself), or nil.
+---@field source_type string|nil The source entity's type (16 hex digits), read when observed; nil when it no longer resolves (an explosive is usually gone by then).
+---@field source_name string|nil The source type's catalogued name (a weapon, throwable or stratagem payload), or nil.
+---@field owner_id integer|nil The owner entity the request names (often a player avatar).
+---@field owner_type string|nil The owner entity's type (16 hex digits), or nil.
+---@field owner_name string|nil The owner type's catalogued name, or nil.
+---@field creditor_peer string|nil The peer id (16 hex digits) the request credits (kills and damage go to that player), or nil.
+---@field player HD2PlayerHandle|nil The credited player when that peer is in the player list.
+---@field local_player boolean The local player is credited.
+local HD2Event_explosion = {}
+
 ---Blocked: A pre-damage callback would have to run inside the native damage path before it applies (game.dll 0x9235F0). Runtime patches no game code, and nothing read at damage time can scale one attacker's or one weapon's damage: every multiplier there is global (Vitality, the relation table, mission modifiers) or belongs to the target (research/event-combat-F5FEE03DCFDB.json). Observe damage with entity_damaged.
 ---@class HD2Event_entity_damage_pre : HD2Event
 local HD2Event_entity_damage_pre = {}
@@ -2443,6 +3844,7 @@ local HD2Event_key_up = {}
 ---@alias HD2WeaponEquippedEvent HD2Event_weapon_equipped
 ---@alias HD2WeaponUnequippedEvent HD2Event_weapon_unequipped
 ---@alias HD2WeaponChangedEvent HD2Event_weapon_changed
+---@alias HD2ExplosionEvent HD2Event_explosion
 ---@alias HD2EntityDamagePreEvent HD2Event_entity_damage_pre
 ---@alias HD2KeyDownEvent HD2Event_key_down
 ---@alias HD2KeyUpEvent HD2Event_key_up
@@ -2498,6 +3900,7 @@ function HD2Events.mission_id() end
 ---@overload fun(name: "weapon_equipped", callback: fun(event: HD2Event_weapon_equipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "weapon_unequipped", callback: fun(event: HD2Event_weapon_unequipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "weapon_changed", callback: fun(event: HD2Event_weapon_changed), opts?: HD2SubscribeOptions): HD2Subscription
+---@overload fun(name: "explosion", callback: fun(event: HD2Event_explosion), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "key_down", callback: fun(event: HD2Event_key_down), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "key_up", callback: fun(event: HD2Event_key_up), opts?: HD2SubscribeOptions): HD2Subscription
 ---@param name HD2EventName
@@ -2523,6 +3926,7 @@ function HD2Events.on(name, callback, opts) end
 ---@overload fun(name: "weapon_equipped", callback: fun(event: HD2Event_weapon_equipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "weapon_unequipped", callback: fun(event: HD2Event_weapon_unequipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "weapon_changed", callback: fun(event: HD2Event_weapon_changed), opts?: HD2SubscribeOptions): HD2Subscription
+---@overload fun(name: "explosion", callback: fun(event: HD2Event_explosion), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "key_down", callback: fun(event: HD2Event_key_down), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(name: "key_up", callback: fun(event: HD2Event_key_up), opts?: HD2SubscribeOptions): HD2Subscription
 ---@param name HD2EventName
@@ -2548,6 +3952,11 @@ function HD2ModContext:after(seconds, callback, opts) end
 ---@param opts? HD2TimerOptions
 ---@return HD2Timer
 function HD2ModContext:every(seconds, callback, opts) end
+---Every update tick (see hd2.on_frame).
+---@param callback fun(dt: number, handle: HD2Timer)
+---@param opts? HD2TimerOptions
+---@return HD2Timer
+function HD2ModContext:on_frame(callback, opts) end
 ---@param id string
 ---@param spec HD2BindingSpec
 ---@return HD2Binding
@@ -2564,11 +3973,18 @@ function HD2ModContext:subscriptions() end
 ---@param spec HD2ValueSpec
 ---@return HD2ScriptValue
 function HD2ModContext:value(spec) end
+---A script choice owned by this mod: any field value (numbers, booleans, strings, reference handles, plain tables such as a calldown code), selected from code and bound to one hd2.ensure value like a script value (r50).
+---@param spec HD2ChoiceSpec
+---@return HD2ScriptChoice
+function HD2ModContext:choice(spec) end
 ---Run fn as this mod.
 ---@param fn fun(...): any
 ---@param ... any
 ---@return any
 function HD2ModContext:run(fn, ...) end
+---This mod's saved key/value data (see hd2.store).
+---@return HD2Store
+function HD2ModContext:store() end
 ---
 ---@overload fun(self: HD2ModContext, name: "mission_started", callback: fun(event: HD2Event_mission_started), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "mission_ended", callback: fun(event: HD2Event_mission_ended), opts?: HD2SubscribeOptions): HD2Subscription
@@ -2587,6 +4003,7 @@ function HD2ModContext:run(fn, ...) end
 ---@overload fun(self: HD2ModContext, name: "weapon_equipped", callback: fun(event: HD2Event_weapon_equipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "weapon_unequipped", callback: fun(event: HD2Event_weapon_unequipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "weapon_changed", callback: fun(event: HD2Event_weapon_changed), opts?: HD2SubscribeOptions): HD2Subscription
+---@overload fun(self: HD2ModContext, name: "explosion", callback: fun(event: HD2Event_explosion), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "key_down", callback: fun(event: HD2Event_key_down), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "key_up", callback: fun(event: HD2Event_key_up), opts?: HD2SubscribeOptions): HD2Subscription
 ---@param name HD2EventName
@@ -2612,6 +4029,7 @@ function HD2ModContext:on(name, callback, opts) end
 ---@overload fun(self: HD2ModContext, name: "weapon_equipped", callback: fun(event: HD2Event_weapon_equipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "weapon_unequipped", callback: fun(event: HD2Event_weapon_unequipped), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "weapon_changed", callback: fun(event: HD2Event_weapon_changed), opts?: HD2SubscribeOptions): HD2Subscription
+---@overload fun(self: HD2ModContext, name: "explosion", callback: fun(event: HD2Event_explosion), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "key_down", callback: fun(event: HD2Event_key_down), opts?: HD2SubscribeOptions): HD2Subscription
 ---@overload fun(self: HD2ModContext, name: "key_up", callback: fun(event: HD2Event_key_up), opts?: HD2SubscribeOptions): HD2Subscription
 ---@param name HD2EventName
@@ -2624,7 +4042,8 @@ function HD2ModContext:once(name, callback, opts) end
 ---@field fields HD2Fields
 ---@field enums HD2Enums
 ---@field resources HD2Resources
----@field version string
+---@field version string the compatibility version, MAJOR.MINOR.PATCH (every SDK wrapper compares it)
+---@field version_label string the full version of this build (e.g. 0.30.0)
 ---@field api_version integer
 ---@field events HD2Events
 ---@field input HD2Input
@@ -2633,6 +4052,15 @@ function HD2ModContext:once(name, callback, opts) end
 ---@field actions HD2Actions
 ---@field projectiles HD2Projectiles
 ---@field status HD2StatusEffects
+---@field pelican HD2Pelicans
+---@field sounds HD2Sounds
+---@field custom_stratagem HD2CustomStratagems
+---@field ownership HD2Ownership
+---@field ui HD2UI
+---@field passives HD2Passives
+---@field player_passives HD2PlayerPassivesApi|fun(): HD2PlayerPassives|nil, string?, string?
+---@field armor_stats HD2ArmorStatsApi
+---@field armor_class fun(name: "light"|"medium"|"heavy"): HD2ArmorClassTarget
 local hd2 = {}
 ---@alias HD2WeaponName "AMR"|"APW-1 Anti-Materiel Rifle"|"AR-11 Arbitrator"|"AR-2 Coyote"|"AR-23 Liberator"|"AR-23A Liberator Carbine"|"AR-23C Liberator Concussive"|"AR-23P Liberator Penetrator"|"AR-32 Pacifier"|"AR-59 Suppressor"|"AR-61 Tenderizer"|"AR/GL-21 One-Two"|"ARC-12 Blitzer"|"BR-14 Adjudicator"|"CB-9 Exploding Crossbow"|"CQC-19 Stun Lance"|"CQC-2 Saber"|"CQC-30 Stun Baton"|"CQC-42 Machete"|"CQC-5 Combat Hatchet"|"CQC-73 Entrenchment Tool"|"DBS-2 Double Freedom"|"FLAM-66 Torcher"|"GL-15 Evictor"|"GP-20 Ultimatum"|"GP-31 Grenade Pistol"|"JAR-5 Dominator"|"LAS-12 Sai"|"LAS-13 Trident"|"LAS-16 Sickle"|"LAS-17 Double-Edge Sickle"|"LAS-5 Scythe"|"LAS-58 Talon"|"LAS-7 Dagger"|"M6C/SOCOM Pistol"|"M7S SMG"|"M90A Shotgun"|"MA5C Assault Rifle"|"MP-98 Knight"|"P-11 Stim Pistol"|"P-113 Verdict"|"P-19 Redeemer"|"P-2 Peacemaker"|"P-33 Missile Pistol"|"P-34 Breacher"|"P-35 Re-Educator"|"P-4 Senator"|"P-69 Veto"|"P-72 Crisper"|"P-92 Warrant"|"P/40-K Bolt Pistol"|"PLAS-1 Scorcher"|"PLAS-101 Purifier"|"PLAS-15 Loyalist"|"PLAS-39 Accelerator Rifle"|"R-2 Amendment"|"R-2124 Constitution"|"R-36 Eruptor"|"R-4 Hyena"|"R-6 Deadeye"|"R-63 Diligence"|"R-63CS Diligence Counter Sniper"|"R-72 Censor"|"R/40-K Hot-Shot Marksman Rifle"|"SG-20 Halt"|"SG-22 Bushwhacker"|"SG-225 Breaker"|"SG-225IE Breaker Incendiary"|"SG-225SP Breaker Spray&Pray"|"SG-451 Cookout"|"SG-8 Punisher"|"SG-8P Punisher Plasma"|"SG-8S Slugger"|"SG-97 Sweeper"|"SMG-203 Gallant"|"SMG-32 Reprimand"|"SMG-37 Defender"|"SMG-72 Pummeler"|"SMG/FLAM-34 Stoker"|"StA-11 SMG"|"StA-52 Assault Rifle"|"VG-70 Variable"|"amr"|"jar5"
 ---@param name HD2WeaponName
@@ -2663,7 +4091,8 @@ function hd2.booster(name) end
 ---@param name HD2ThrowableName
 ---@return HD2Throwable
 function hd2.throwable(name) end
----@param identity HD2MagazineAttachmentId
+---Any slot's attachment definition by semanticId or unique native name.
+---@param identity HD2WeaponAttachmentId
 ---@return HD2WeaponAttachment
 function hd2.weapon_attachment(identity) end
 ---A drop-pod rack by name or semantic ID (see sdk/PodPayloadCapabilities.json).
@@ -2685,14 +4114,24 @@ function hd2.enemy(name) end
 ---@param name HD2StructureName
 ---@return HD2Enemy
 function hd2.structure(name) end
----Reviewed enemy / structure names, optionally filtered by kind and faction.
----@param filter? {kind?: "enemy"|"structure", faction?: "terminids"|"automatons"|"illuminate"|"neutral"}
----@return string[]
-function hd2.enemies(filter) end
+---Reviewed enemy / structure names (call it: hd2.enemies(filter), optionally filtered by kind and faction),
+---and how often each enemy type spawns (hd2.enemies.spawn_weight; docs/enemy-spawns.md).
+---@type HD2Enemies|fun(filter?: {kind?: "enemy"|"structure", faction?: "terminids"|"automatons"|"illuminate"|"neutral"}): string[]
+hd2.enemies = {}
+---The Helldiver type (avatar_helldiver; docs/helldiver-fields.md): movement speeds, stamina and body zones of every
+---Helldiver this machine simulates. Every write needs allow_shared=true and allow_unverified_effect=true.
+---@param name? "Helldiver"
+---@return HD2Helldiver
+function hd2.helldiver(name) end
 ---A catalogued attack output by semantic ID or owner weapon name (see docs/attack-outputs.md).
 ---@param identity HD2AttackOutputId
 ---@return HD2AttackOutput
 function hd2.attack_output(identity) end
+---A catalogued explosion by semantic id or label (docs/explosions.md, sdk/ExplosionCatalogue.json): the target
+---of the explosion.* fields, a payload value and a spawn argument.
+---@param name HD2CatalogueExplosionName|string
+---@return HD2CatalogueExplosion
+function hd2.explosion(name) end
 ---Mods that need a newer HD2Runtime (HD2Runtime 0.28.0+). The SDK wrapper of every mod reports here before its
 ---own version check fails closed; HD2Runtime logs each mod and shows one update warning per session on the ship.
 hd2.compatibility = {}
@@ -2737,6 +4176,12 @@ function HD2Diagnostics.write_conflicts() end
 ---(docs/legacy-sdk-compatibility.md).
 ---@return table[]
 function HD2Diagnostics.operations() end
+---Per-mod CPU time (always on, quiet; HD2Runtime 0.30.0+): every call into a mod (event listeners, timers,
+---keybinds, its main file, custom stratagem callbacks) and every update the Runtime runs for it, by its own time.
+---{timed, single_call_seconds, share_seconds, window_seconds, owners = {owner, total_seconds, calls, max_seconds,
+---max_label, last_window}[]}, the most time first. A slow call or a high share is logged as PERFORMANCE.
+---@return table
+function HD2Diagnostics.performance() end
 ---@type HD2Diagnostics
 hd2.diagnostics = {}
 ---Run once after a delay in game seconds (fractions work; 0 = the next update tick; math.random(1, 10) gives a random delay). The timer belongs to the calling mod; scope=mission cancels it when the mission ends.
@@ -2745,12 +4190,17 @@ hd2.diagnostics = {}
 ---@param opts? HD2TimerOptions
 ---@return HD2Timer
 function hd2.after(seconds, callback, opts) end
----Run repeatedly (at least 0.05 s apart). Missed intervals are skipped, never replayed.
+---Run repeatedly (at least 0.05 s apart; hd2.on_frame runs a callback every frame). Missed intervals are skipped, never replayed.
 ---@param seconds number
 ---@param callback fun(timer: HD2Timer)
 ---@param opts? HD2TimerOptions
 ---@return HD2Timer
 function hd2.every(seconds, callback, opts) end
+---Run a callback on every update tick with the tick's dt in seconds, after events and timers. Same owner, id and scope rules as hd2.every; handle:cancel() removes it, :disable() / :enable() pause it. Keep the work small.
+---@param callback fun(dt: number, handle: HD2Timer)
+---@param opts? HD2TimerOptions
+---@return HD2Timer
+function hd2.on_frame(callback, opts) end
 ---The scripting context of one mod (the same object on every call). With no id: the calling mod (the SDK wrapper scope or the running callback); it refuses to guess.
 ---@param id? string
 ---@return HD2ModContext
@@ -2761,9 +4211,24 @@ function hd2.players() end
 ---The player on this machine.
 ---@return HD2PlayerHandle|nil
 function hd2.local_player() end
----The game's state now (nil when it cannot be read).
----@return HD2GameState|nil
+---The game's state now; nil and the reason when it cannot be read (hd2.build() tells a wrong game build apart from a game not readable yet).
+---@return HD2GameState|nil, string|nil
 function hd2.game_state() end
+---The running game build against the one this Runtime was built for, without raising. Cheap to poll: each loaded build is hashed once, a wrong one included.
+---@return "matched"|"mismatched"|"not_ready", HD2BuildInfo
+function hd2.build() end
+---The calling mod's saved key/value data, kept between game sessions in its own file (docs/mod-store.md). The mod is found the way hd2.mod() finds it.
+---@return HD2Store
+function hd2.store() end
+---Every kit of the game matching the filter, by index (research/armor-names-F5FEE03DCFDB.json; read-only, offline). The wiki values are the wiki's, not the game's. A bad filter raises.
+---@param filter? HD2ArmorKitFilter
+---@return HD2ArmorKit[]
+function hd2.armor_kits(filter) end
+---One kit by index, id ('0x1F9BFA78') or game name (any case; a shared name: slot picks, else the armor first); nil, UNKNOWN_KIT, reason otherwise.
+---@param kit string|integer
+---@param slot? 'armor'|'helmet'|'cape'
+---@return HD2ArmorKit|nil, string?, string?
+function hd2.armor_kit(kit, slot) end
 ---Describe schema and prior evidence without reading memory.
 ---@param resource HD2Resource
 ---@return table

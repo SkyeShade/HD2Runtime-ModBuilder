@@ -12,8 +12,15 @@ namespace HD2RuntimeGUI.Core.Metadata;
 // are the class itself (main health block), its damage zones and the rows its mounted weapons reach (direct-hit / explosion DamageInfo,
 // ProjectileSettings, ExplosionSettings). Only published field instances become controls; ranges, sentinels, read-only reasons, opt-ins
 // and shared rows are exactly as published, and nothing is matched by display text.
+// 0.30.0 adds the whole-body gib threshold (gore.whole_body_gib_damage, on the class itself): its value rule is narrower than its range
+// ("-1, or 0 < value <= 100000": disabledValue -1 turns bursting off, and 0 is not accepted), with semantics, lifecycle and research.
 public sealed record EnemyFieldDefinition(string DisplayName, string Type, string? Unit, string ApiFieldConstant, string? Acknowledgement,
-    string? AcknowledgementReason, string Evidence, double[] Range, FieldLiveEvidence? LiveEvidence = null, Dictionary<string, string>? AcknowledgementByKind = null);
+    string? AcknowledgementReason, string Evidence, double[] Range, FieldLiveEvidence? LiveEvidence = null, Dictionary<string, string>? AcknowledgementByKind = null,
+    string? Semantics = null, string? Lifecycle = null, double? DisabledValue = null, string? ValueRule = null, string? Research = null)
+{
+    // A field with a disabled value accepts exactly that value, or a value above 0 within the range (Runtime's published rule).
+    public bool Accepts(double value) => value >= Range[0] && value <= Range[1] && (DisabledValue is not double off || value == off || value > 0);
+}
 public sealed record EnemyWikiZonePair(string WikiZone, int Zone, bool Unambiguous);
 public sealed record EnemyWikiEvidence(string Page, string Kind, string? AnatomyLabel, int ZonesMatched, EnemyWikiZonePair[] ZonePairs);
 public sealed record EnemyIdentity(string Basis, string Path, EnemyWikiEvidence? WikiEvidence);
@@ -68,7 +75,9 @@ public sealed record EnemyClass(string Name, string ClassName, string? WikiName,
 public sealed record EnemyTargetJson(string Resource, string Enemy, string Path, string? Zone = null, string? Attack = null);
 public sealed record EnemyFieldInstance(string InstanceKey, string SemanticFieldId, JsonElement CurrentDefault, bool Editable, EnemyTargetJson Target,
     string OperationGroup, string? Acknowledgement = null, string? AcknowledgementReason = null, string? Reason = null, FieldLiveEvidence? LiveEvidence = null,
-    bool? Shared = null, bool? AllowSharedRequired = null, string? BackingObjectId = null, string[]? SharedConsumers = null, bool? DynamicConsumersPossible = null);
+    bool? Shared = null, bool? AllowSharedRequired = null, string? BackingObjectId = null, string[]? SharedConsumers = null, bool? DynamicConsumersPossible = null,
+    // 0.30.0 gore fields: when a write applies (effect) and the value that disables the field.
+    FieldEffect? Effect = null, double? DisabledValue = null);
 public sealed record EnemySummary(int Classes, int Enemies, int Structures, int WikiNamed, int WithWikiCandidates, int SharedHealthRecords,
     int FieldInstances, int WritableFieldInstances, int Proven, int Acknowledged, int Zones, int Attacks, int ClassesWithAttacks, int AttackFieldInstances,
     int AttacksNamedForClass, int AttacksWithRowWikiMatch);
@@ -124,7 +133,10 @@ public static class EnemyAuthoringReader
     public const string Enemy = "enemy", Structure = "structure";
     public const string EntityPath = "entity", ZonePath = "damage_zone", AttackPath = "attack";
     public static readonly string[] Kinds = [Enemy, Structure];
-    public static readonly string[] Tiers = ["gameplay_proven_member", "schema_wiki_correlated", "mount_chain_structural", "live_proven"];
+    // 0.30.0 adds native_code_proven (the gib threshold: the native evaluator is pinned, the in-game effect not yet confirmed).
+    public static readonly string[] Tiers = ["gameplay_proven_member", "schema_wiki_correlated", "mount_chain_structural", "live_proven", "native_code_proven"];
+    // Field families on a class's own (entity) target: its health block and, from 0.30.0, its gore record.
+    private static bool EntityFamily(string family) => family is "entity" or "gore";
     private static readonly Regex SemanticIdPattern = new(@"\Aenemy/v1/[a-z][a-z0-9_]{0,31}/[a-z0-9_]{1,128}\z", RegexOptions.CultureInvariant);
     private static readonly Regex ClassPattern = new(@"\A[a-z0-9][a-z0-9_.]{0,159}\z", RegexOptions.CultureInvariant);
     private static readonly Regex NamePattern = new(@"\A[A-Za-z0-9][A-Za-z0-9 .'/_-]{0,159}\z", RegexOptions.CultureInvariant);
@@ -161,7 +173,8 @@ public static class EnemyAuthoringReader
             foreach (var (id, d) in c.Model.Fields)
                 Check(Api.IsMatch(d.ApiFieldConstant) && d.Type is "integer" or "number" && !string.IsNullOrWhiteSpace(d.DisplayName) && Tiers.Contains(d.Evidence)
                     && d.Range is [var min, var max] && min <= max && d.Acknowledgement is null or "allow_unverified_effect"
-                    && (d.Acknowledgement == null) == (d.AcknowledgementReason == null) && id.Split('.')[0] is "entity" or "zone" or "damage" or "projectile" or "explosion"
+                    && (d.Acknowledgement == null) == (d.AcknowledgementReason == null) && id.Split('.')[0] is "entity" or "gore" or "zone" or "damage" or "projectile" or "explosion"
+                    && (d.DisabledValue is not double off || off >= d.Range[0] && off <= d.Range[1] && !string.IsNullOrWhiteSpace(d.ValueRule))
                     && (d.AcknowledgementByKind ?? []).All(p => Kinds.Contains(p.Key) && p.Value == "allow_unverified_effect"));
             var classes = new Dictionary<string, EnemyClass>(StringComparer.Ordinal);
             var names = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -199,10 +212,10 @@ public static class EnemyAuthoringReader
                     ZonePath => f.Target.Attack == null && cls.Zone(f.Target.Zone ?? "") != null,
                     AttackPath => f.Target.Zone == null && cls.Attack(f.Target.Attack ?? "") != null,
                     _ => false,
-                } && Domain(cls, f.Target) == f.SemanticFieldId.Split('.')[0]);
+                } && (Domain(cls, f.Target) == f.SemanticFieldId.Split('.')[0] || f.Target.Path == EntityPath && EntityFamily(f.SemanticFieldId.Split('.')[0])));
                 // Writable fields carry a baseline inside the published range; read-only ones say why (sentinels, flags, attack chains).
                 Check(f.Editable
-                    ? f.CurrentDefault.ValueKind == JsonValueKind.Number && f.CurrentDefault.GetDouble() >= def.Range[0] && f.CurrentDefault.GetDouble() <= def.Range[1]
+                    ? f.CurrentDefault.ValueKind == JsonValueKind.Number && def.Accepts(f.CurrentDefault.GetDouble()) && f.DisabledValue == def.DisabledValue
                         && (def.Type != "integer" || f.CurrentDefault.GetDouble() == Math.Floor(f.CurrentDefault.GetDouble())) && f.Reason == null
                     : !string.IsNullOrWhiteSpace(f.Reason) && f.CurrentDefault.ValueKind is JsonValueKind.Number or JsonValueKind.Null);
                 // Opt-ins: the definition's own, or the per-kind gate Runtime publishes on the instance (structure health).
@@ -217,16 +230,19 @@ public static class EnemyAuthoringReader
                     Check(f.Shared == true && f.AllowSharedRequired == true && !string.IsNullOrWhiteSpace(f.BackingObjectId) && f.DynamicConsumersPossible == true
                         && f.SharedConsumers is { Length: > 0 } consumers && consumers.SequenceEqual(a.SharedWithClasses) && consumers.All(byName.ContainsKey) && consumers.Contains(cls.Name));
                 }
-                else Check(f.Shared == null && f.AllowSharedRequired == null && f.BackingObjectId == null && f.SharedConsumers == null);
+                // A gore record (0.30.0) is per class and publishes its own backing object; health records use the class's.
+                else Check(f.Shared == null && f.AllowSharedRequired == null && f.SharedConsumers == null
+                    && (f.BackingObjectId == null || f.SemanticFieldId.StartsWith("gore.", StringComparison.Ordinal)));
                 Check(f.LiveEvidence == null || f.Editable && def.LiveEvidence is { } live && live.Family == f.LiveEvidence.Family && (live.AppliesToKinds ?? Kinds).Contains(cls.Kind));
                 adapted.Add(Adapt(cls, f, def, byName));
             }
-            // Every class publishes its six entity fields, six fields per zone and fields for every attack it lists.
+            // Every class publishes its six entity fields, six fields per zone and fields for every attack it lists (gore fields are on
+            // the classes that have a gore record only).
             var perClass = adapted.GroupBy(f => f.Target.Enemy!).ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
             foreach (var x in c.Classes)
             {
                 var own = perClass.GetValueOrDefault(x.SemanticId) ?? [];
-                Check(own.Count(f => f.Target.Path == EntityPath) == c.Model.Fields.Keys.Count(k => k.StartsWith("entity.", StringComparison.Ordinal))
+                Check(own.Count(f => f.Target.Path == EntityPath && f.SemanticFieldId.StartsWith("entity.", StringComparison.Ordinal)) == c.Model.Fields.Keys.Count(k => k.StartsWith("entity.", StringComparison.Ordinal))
                     && x.Zones.All(z => own.Count(f => f.Target.Zone == z.Id) == c.Model.Fields.Keys.Count(k => k.StartsWith("zone.", StringComparison.Ordinal)))
                     && x.Attacks.All(a => own.Any(f => f.Target.Attack == a.Id)));
             }
@@ -262,8 +278,10 @@ public static class EnemyAuthoringReader
         var attack = f.Target.Attack is { } id ? c.Attack(id) : null;
         var target = new EntityTarget(c.Kind, f.Target.Path, Zone: f.Target.Zone, Attack: f.Target.Attack, Enemy: c.SemanticId, EnemyClass: c.ClassName);
         // One patch/transaction per target object (the class, one zone or one attack row): independent objects are never bundled into one plan.
-        var operation = "enemy-op:" + c.SemanticId + "|" + f.Target.Path + "|" + (f.Target.Zone ?? f.Target.Attack ?? "");
-        var backing = attack != null ? f.BackingObjectId! : c.BackingObjectId;
+        // A gore record (0.30.0) is its own object beside the class's health record: its own backing object and operation.
+        var gore = f.SemanticFieldId.StartsWith("gore.", StringComparison.Ordinal);
+        var operation = "enemy-op:" + c.SemanticId + "|" + f.Target.Path + "|" + (f.Target.Zone ?? f.Target.Attack ?? "") + (gore ? "|gore" : "");
+        var backing = attack != null || gore ? f.BackingObjectId! : c.BackingObjectId;
         // Consumers are published by Runtime name, which changes when a wiki name is proven later; they are bound by class semantic ID.
         var consumers = (attack != null ? f.SharedConsumers! : c.HealthRecordConsumers).Select(n => new EntityConsumer(Enemy: byName[n].SemanticId)).ToArray();
         var shared = attack != null ? f.Shared == true : c.SharedHealthRecord;
@@ -272,11 +290,11 @@ public static class EnemyAuthoringReader
         return new EntityField(Key(c.Kind, c.SemanticId, f.Target.Path, f.Target.Zone ?? f.Target.Attack, f.SemanticFieldId), f.SemanticFieldId, d.DisplayName, d.Type, d.Unit,
             f.CurrentDefault.Clone(), f.Editable, f.Reason, target, backing, operation, operation, "patch_or_transaction",
             attack != null ? f.AllowSharedRequired == true : c.AllowSharedRequired, shared, consumers, backing, ReviewedScopeComplete: !dynamic,
-            DynamicConsumersPossible: dynamic, BackingObjectKind: attack?.Row ?? "HealthComponent", Domain: f.SemanticFieldId.Split('.')[0],
+            DynamicConsumersPossible: dynamic, BackingObjectKind: attack?.Row ?? (gore ? "GoreComponent" : "HealthComponent"), Domain: f.SemanticFieldId.Split('.')[0],
             ApiFieldConstant: d.ApiFieldConstant, PlanPhase: 1, DependsOn: [],
             Evidence: new EntityEvidence(live != null ? "live_proven" : d.Evidence, ProvenOn: live?.Tests, Proof: live == null ? null : live.Family + " (" + live.Date + ")"),
-            Provenance: "EnemyAuthoringCapabilities (" + d.Evidence.Replace('_', ' ') + (attack != null ? ", " + attack.Row + " row" : ", HealthComponent") + ")",
-            Acknowledgement: f.Acknowledgement ?? d.Acknowledgement, Range: new EntityRange(d.Range[0], d.Range[1], d.Type == "integer"),
+            Provenance: "EnemyAuthoringCapabilities (" + d.Evidence.Replace('_', ' ') + (attack != null ? ", " + attack.Row + " row" : gore ? ", GoreComponent" : ", HealthComponent") + ")",
+            Acknowledgement: f.Acknowledgement ?? d.Acknowledgement, Range: new EntityRange(d.Range[0], d.Range[1], d.Type == "integer", d.ValueRule, d.DisabledValue),
             AcknowledgementReason: f.AcknowledgementReason ?? d.AcknowledgementReason);
     }
 }

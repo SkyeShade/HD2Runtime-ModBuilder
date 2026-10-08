@@ -1,10 +1,16 @@
 @inject BuilderWorkspace Workspace
 @* One published support-weapon scalar as a compact row. Shared and unverified-effect guards stay visible as badges. *@
 @* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
-@{ var saved = Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey); var edited = saved != null && !Workspace.OptionOnly(saved); }
+@* 1.7.0 (Runtime 0.30.0): an edit that would replace another saved edit (one native value written through two fields, the overcharge explosion
+   reference and the overcharge explosion row) asks inside the row first; a field written through another field's edit shows that edit. *@
+@{ var saved = Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey); var edited = saved != null && !Workspace.OptionOnly(saved);
+   var through = saved == null ? Workspace.SupportWrittenThrough(Field) : null; }
 <div class="field-row @(edited ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
-    <div class="field-name"><span>@Field.Display.Name</span>@if (!string.IsNullOrEmpty(Field.Value.Unit)) { <small class="field-unit">@Field.Value.Unit!.Replace('_', ' ')</small> }
+    <div class="field-name"><span>@Name</span>@if (!string.IsNullOrEmpty(UnitText)) { <small class="field-unit">@UnitText</small> }
         <span class="field-flags">
+            @if (ChargeFields.Is(Field) && ChargeFields.Deprecated(Field)) { <span class="badge" data-charge-flag="deprecated">@T["Charge.Badge.Deprecated"]</span> }
+            @if (ChargeFields.Is(Field) && ChargeFields.Dormant(Field)) { <span class="badge" data-charge-flag="dormant" title="@T["Charge.Badge.Dormant.Tooltip"]">@T["Charge.Badge.Dormant"]</span> }
+            @if (ChargeFields.Hazard(Field)) { <span class="badge amber" data-charge-flag="hazard" title="@Field.Operation.AcknowledgementReason">@T["Charge.Badge.Hazard"]</span> }
             @if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge amber" data-flag="allow_shared" title="@T["SupportField.Shared.Tooltip"]">@T["Common.Shared"]</span> }
             @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">@T["SupportField.EffectUnproven"]</span> }
             @if (Field.Reticle?.Evidence is { GameplayProven: true } proven) { <span class="badge green" data-gameplay-proven title="@proven.GameplaySource">@T["SupportField.GameplayProven"]</span> }
@@ -20,11 +26,19 @@
             <StatusReferenceSelect Allowed="allowed" AllowNone="none" Value="@StatusValue" Label="@Field.Display.Name" Disabled="@(Workspace.Project == null)"
                 Changed="v => Commit(System.Text.Json.JsonSerializer.Serialize(v))" />
         }
+        else if (Field.IsOverchargeExplosion)
+        {
+            <select @key="InputVersion" value="@StringValue" disabled="@(Workspace.Project == null)" aria-label="@Name" data-overcharge-explosion
+                @onchange="e => Commit(System.Text.Json.JsonSerializer.Serialize(e.Value?.ToString() ?? string.Empty))">
+                @foreach (var option in Field.Charge?.AllowedValues ?? []) { <option value="@option">@(option == Field.SupportWeapon ? T.Format("Charge.Explosion.Own", option) : option)</option> }
+            </select>
+        }
         else if (AuthoredTypes.Composition.Contains(Field.Value.Type)) { <span class="readonly-value" data-support-composition-value>@Display(saved?.DesiredValue ?? Field.Value.Baseline)</span> }
-        else if (Field.Value.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Field.Display.Name" /> }
-        else { <input type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@Field.Display.Name" /> }
+        else if (Field.Value.Type == "boolean") { <input @key="InputVersion" type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange="BooleanChanged" aria-label="@Name" /> }
+        else { <input @key="InputVersion" type="number" step="@(Field.Value.Type == "integer" ? "1" : "any")" min="@Field.Charge?.Min" max="@Field.Charge?.Max" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@Name" /> }
     </div>
-    @if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("SupportField.BaseToDesired.Html", Display(saved.ExpectedValue), Display(saved.DesiredValue))</div> }
+    @if (through is { } t) { <div class="field-baseline modified-value" data-written-through="@t.Field.InstanceKey">@T.Markup("Support.SameBytes.Through.Html", ChargeText.Named(T, t.Field), Display(t.Change.DesiredValue))</div> }
+    else if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("SupportField.BaseToDesired.Html", Display(saved.ExpectedValue), Display(saved.DesiredValue))</div> }
     else { <div class="field-baseline subtle" data-baseline="@Format(Field.Value.Baseline)">@T.Format("SupportField.Base", Display(Field.Value.Baseline))</div> }
     <div class="field-tools">
         @if (Field.Writable || saved != null) { <OptionToggle Key="@ModOptionsService.SupportKey(Field.InstanceKey)" Changed="Changed" /> }
@@ -38,23 +52,64 @@
             @if (UnverifiedEffect) { <p><strong>@T["SupportField.EffectUnproven.Label"]</strong> @Field.Operation.AcknowledgementReason</p> }
             <p>@Field.Provenance.Baseline · @Field.Provenance.Ownership</p><p>@Field.Backing.SemanticType · @Field.Target.AttackRole</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
+    @if (Pending is { } pending)
+    {
+        var reason = pending.Replaced[0].Reason;
+        <div class="field-wide support-replace" role="alertdialog" data-support-replace="@reason">
+            <p>@(reason switch { SupportReplacement.OverchargeRowEdit => T["Support.Replace.OverchargeRows"],
+                SupportReplacement.OverchargeReference => T.Format("Support.Replace.OverchargeReference", Field.SupportWeapon), _ => T["Support.Replace.SameBytes"] })</p>
+            <ul>@foreach (var r in pending.Replaced) { <li>@T.Format("Support.Replace.Item", ChargeText.Named(T, r.Field), DisplayOf(r.Field, r.Change.DesiredValue))</li> }</ul>
+            <div class="support-replace-actions">
+                <button class="primary" @onclick="Confirm" data-support-replace-confirm>@(reason switch { SupportReplacement.OverchargeRowEdit => T["Support.Replace.OverchargeRows.Confirm"],
+                    SupportReplacement.OverchargeReference => T["Support.Replace.OverchargeReference.Confirm"], _ => T.Format("Support.Replace.SameBytes.Confirm", DisplayOf(Field, pending.Parsed)) })</button>
+                <button @onclick="Cancel" data-support-replace-cancel>@T["Common.Cancel"]</button></div>
+        </div>
+    }
+    @if (saved == null && through == null && SameBytes.Count > 0)
+    { <p class="field-wide subtle" data-same-bytes>@T.Format("Support.SameBytes.Info", string.Join(", ", SameBytes.Select(f => ChargeText.Named(T, f))))</p> }
+    @if (Field.IsOverchargeExplosion && Field.Charge?.Donors?.GetValueOrDefault(StringValue) is { } donor)
+    {
+        <p class="field-wide subtle" data-overcharge-donor>@donor.Summary@if (StringValue != Field.SupportWeapon && donor.PackageDependency != null) { <span> · @T.Format("Charge.Explosion.Package", donor.PackageDependency)</span> }</p>
+        @if (StringValue != Field.SupportWeapon)
+        { <div class="field-wide"><AckPanel Title="@OptInWarnings.Title(T, CompositionOptIns.Reference)" Kind="unverified" Description="@T.Format("Charge.Explosion.Reference", Field.SupportWeapon, StringValue)" /></div> }
+    }
+    @* 0.30.0 (docs/fire-rate-modes.md): the older fire_rate field writes only the default (Y) slot of a weapon with a rate selector. *@
+    @if (Field.SemanticFieldId == FireRateModes.LegacyField && Workspace.Selector(CompositionKind.Support, Field.SupportWeapon)?.Rates is { } rates && rates.Baseline.Count(r => r != 0) > 1)
+    { <p class="field-wide subtle" data-fire-rate-y-slot>@T["FireRate.LegacyYSlot"]</p> }
+    @if (Notes != null) { <div class="field-wide">@Notes</div> }
     @* allow_unverified_effect is acknowledged once per group in SupportAuthoringEditor's panel. *@
     @if (saved != null && Workspace.SupportIssue(saved) is { } issue)
     {
         <div class="field-wide"><p class="notice warning">@issue</p>
-            @if (saved.CapabilityEvidence != SupportChangeService.Evidence(Field) || !BaselineMatches(saved)) { <button @onclick="Review">@T["SupportField.AcceptBaseline"]</button> }</div>
+            @if (saved.CapabilityEvidence != SupportChangeService.Evidence(Field) || !BaselineMatches(saved)) { <button @onclick="Review">@T["SupportField.AcceptBaseline"]</button> }
+            else if (Workspace.SupportReplacedBy(Field.InstanceKey, saved.DesiredValue.GetRawText()).Count > 0) { <button @onclick="KeepThis" data-support-keep>@T["Support.Replace.KeepThis"]</button> }</div>
     }
     @if (Error != null) { <p class="field-wide notice warning" role="alert">@Error</p> }
 </div>
 @code {
     [Parameter, EditorRequired] public SupportField Field { get; set; } = null!;
     [Parameter] public EventCallback Changed { get; set; }
+    // A charge editor's name, unit and inline notes (SupportChargePanel); the published name and unit otherwise.
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Unit { get; set; }
+    [Parameter] public RenderFragment? Notes { get; set; }
     private string? Error;
+    private string Name => Label ?? Field.Display.Name;
+    private string? UnitText => Unit ?? Field.Value.Unit?.Replace('_', ' ');
+    private IReadOnlyList<SupportField> SameBytes => Workspace.Metadata?.SupportAuthoring is { } catalog ? ChargeFields.SameBytes(catalog, Field) : [];
+    // An edit waiting for the user's answer: the value and the saved edits it would replace. InputVersion re-creates the input on cancel.
+    private (string Value, System.Text.Json.JsonElement Parsed, IReadOnlyList<SupportReplaced> Replaced)? Pending;
+    private int InputVersion;
     // 0.24.0+: Runtime requires allow_unverified_effect=true for this field.
     // 1.4.0: an exact value a live test proved on this weapon (liveEvidence.values) is written without the opt-in.
     private bool UnverifiedEffect => Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey) is { } c
         ? CompositionOptIns.EffectFor(Field, c.DesiredValue) : Field.Operation.Acknowledgement == "allow_unverified_effect";
-    private string Value => Format(Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline);
+    private string Value => Format(Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue
+        ?? Workspace.SupportWrittenThrough(Field)?.Change.DesiredValue ?? Field.Value.Baseline);
+    private string StringValue => (Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline) is { ValueKind: System.Text.Json.JsonValueKind.String } v
+        ? v.GetString()! : "";
+    // A replaced edit's value: in this row's spelling when it is the same kind of value (the same native value written through another role).
+    private string DisplayOf(SupportField f, System.Text.Json.JsonElement value) => f.Value.Type == Field.Value.Type ? Display(value) : value.ToString();
     private string StatusValue => (Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline) is { ValueKind: System.Text.Json.JsonValueKind.String } v
         ? v.GetString()! : StatusReference.None;
     private string Display(System.Text.Json.JsonElement value) => Field.Value.Type == "boolean" && value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False
@@ -75,7 +130,17 @@
     private bool BaselineMatches(SupportChange c)
     { try { return SupportScalar.Equal(Field, c.ExpectedValue, Field.Value.Baseline); } catch (InvalidDataException) { return false; } }
     private async Task Run(Func<Task> work) { try { await work(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
-    private Task Commit(string value) => Run(() => Workspace.SetSupportAsync(Field.InstanceKey, value));
+    private Task Commit(string value)
+    {
+        var replaced = Workspace.SupportReplacedBy(Field.InstanceKey, value);
+        if (replaced.Count == 0) { Pending = null; return Run(() => Workspace.SetSupportAsync(Field.InstanceKey, value)); }
+        using var doc = System.Text.Json.JsonDocument.Parse(value);
+        Pending = (value, doc.RootElement.Clone(), replaced); Error = null; return Task.CompletedTask;
+    }
+    private Task Confirm() => Pending is { } p ? Run(async () => { await Workspace.SetSupportReplacingAsync(Field.InstanceKey, p.Value); Pending = null; }) : Task.CompletedTask;
+    private void Cancel() { Pending = null; InputVersion++; }
+    // A saved edit Runtime would refuse next to another (ChargeFields.Issues): keep this one, drop the other.
+    private Task KeepThis() => Run(() => Workspace.SetSupportReplacingAsync(Field.InstanceKey, Workspace.Project!.SupportChanges.Single(c => c.InstanceKey == Field.InstanceKey).DesiredValue.GetRawText()));
     private Task BooleanChanged(ChangeEventArgs e) => Commit((bool)e.Value! ? "true" : "false");
     private Task Reset() => Run(() => Workspace.ResetSupportAsync(instance: Field.InstanceKey));
     // Re-saves the desired value (as saved JSON: lists and names are not their Lua spelling) against today's baseline.

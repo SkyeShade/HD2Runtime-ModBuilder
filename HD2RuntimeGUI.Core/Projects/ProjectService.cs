@@ -74,6 +74,12 @@ public static class ProjectIdentity
         : Regex.IsMatch(v, @"\A[a-z0-9_]{1,64}\z");
     private static bool Scalar(System.Text.Json.JsonElement v) => v.ValueKind is not (System.Text.Json.JsonValueKind.Undefined or System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array);
     private static bool NumberOrBool(System.Text.Json.JsonElement v) => v.ValueKind is System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False;
+    // 0.30.0 values as saved: a call-in code is a list of up to 16 short direction names, a presentation value a stratagem name or, as a
+    // desired value only, a project image ({"image": id}). The published length, directions and sources are checked when the project is built.
+    private static bool StratagemValue(string type, System.Text.Json.JsonElement v, bool expect) => type == StratagemField.CalldownCode
+        ? v.ValueKind == System.Text.Json.JsonValueKind.Array && v.GetArrayLength() is >= 1 and <= 16
+            && v.EnumerateArray().All(d => d.ValueKind == System.Text.Json.JsonValueKind.String && d.GetString()!.Length is > 0 and <= 16)
+        : v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString()!.Length is > 0 and <= 256 : !expect && Generation.StratagemPresentation.Image(v) != null;
     // 0.26.0 fire_mode.modes: 1-4 distinct named modes.
     private static bool ModeList(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Array && v.GetArrayLength() is >= 1 and <= 4
         && v.EnumerateArray().All(m => m.ValueKind == System.Text.Json.JsonValueKind.String && Metadata.FireModes.Native.ContainsKey(m.GetString()!))
@@ -102,8 +108,21 @@ public static class ProjectIdentity
     // functions, function projectiles, armory presentation, status references) and sub-target edits (underbarrels).
     // Format 12: additional files packaged into the exported ZIP (ModProject.PackagedFiles) and HD2Arsenal presentation (ModProject.Arsenal);
     // older ModBuilder versions reject the format instead of dropping either when they save.
+    // Format 14 (1.7.0): experimental custom content (ModProject.CustomContent), the 0.30.0 overcharge explosion reference (a support
+    // edit of charge.overcharge_explosion: a weapon name), and 0.30.0 call-in codes and stratagem presentation (a custom icon's PNG in
+    // CustomContent.Images); older ModBuilder versions reject the format.
+    // Format 14 (1.7.0) also covers Helldiver edits (EntityChange.Resource "helldiver", Runtime 0.30.0 development), including enum values.
+    // Format 14 (1.7.0) also covers 0.30.0 muzzle, optics and underbarrel stat modifier edits (weapon_attachment paths other than magazine).
+    // Format 14 also covers 0.30.0 armor: kit / class / damage curve edits (EntityChange resources armor_kit, armor_class, armor_damage_curve)
+    // and the local player's armor values and passive override (ModProject.PlayerArmor).
     private static bool Composition(string fieldType) => AuthoredTypes.Composition.Contains(fieldType);
-    public static int RequiredFormat(ModProject p) => p.PackagedFiles is { Count: > 0 } || p.Arsenal != null ? 12 : p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 }
+    private static bool OverchargeExplosion(SupportChange c) => c.FieldType == Metadata.SupportField.OverchargeExplosionReference;
+    // A charge weapon's published name ('RS-422 Railgun', 'PLAS-45 Epoch'); the SDK checks it is one of the field's allowed values.
+    private static bool WeaponName(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.String && v.GetString()!.Length is > 0 and <= 256 && !v.GetString()!.Any(char.IsControl);
+    private static bool Armor(ModProject p) => p.PlayerArmor != null || p.EntityChanges.Any(c => ArmorAuthoringReader.IsArmor(c.Resource));
+    private static bool Stratagem030(string fieldType) => fieldType is StratagemField.CalldownCode or StratagemField.Presentation;
+    public static int RequiredFormat(ModProject p) => p.CustomContent != null || Armor(p) || p.SupportChanges.Any(OverchargeExplosion) || p.StratagemChanges.Any(c => Stratagem030(c.FieldType))
+        || p.EntityChanges.Any(c => c.Resource == HelldiverAuthoringReader.Resource || AttachmentModifierReader.IsModifierPath(c.Resource, c.Path)) ? 14 : p.PackagedFiles is { Count: > 0 } || p.Arsenal != null ? 12 : p.CustomLua != null || p.AttackOutputChanges is { Count: > 0 } || p.OutputRowChanges is { Count: > 0 }
         || p.EntityChanges.Any(c => c.Linked != null || c.FieldType == Metadata.WeaponCapability.StatusReference)
         || p.WeaponChanges.Any(c => Composition(c.FieldType) || c.Subweapon != null) || p.SupportChanges.Any(c => Composition(c.FieldType))
         || p.CompositionChanges.Any(c => c.Scalar is { } s && Composition(s.FieldType)) ? 11 :
@@ -116,10 +135,13 @@ public static class ProjectIdentity
     // Format 13 (1.6.0): option-only edits, kept at their vanilla value for their in-game option (Generation.ModOptionsService.HasOption).
     // Older ModBuilder versions remove vanilla-valued edits when they open a project, which would drop the option; they reject the format
     // instead. Telling an option-only edit from an ordinary one needs the SDK's vanilla values.
-    public static int RequiredFormat(ModProject p, SdkMetadata sdk) => Generation.ModOptionsService.HasOptionOnlyEdits(p, sdk) ? 13 : RequiredFormat(p);
+    public static int RequiredFormat(ModProject p, SdkMetadata sdk) => Math.Max(Generation.ModOptionsService.HasOptionOnlyEdits(p, sdk) ? 13 : 0, RequiredFormat(p));
     public static void Validate(ModProject p)
     {
-        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13) || p.Id == Guid.Empty) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedFormat"));
+        if (p.FormatVersion is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14) || p.Id == Guid.Empty) throw new InvalidDataException(CoreText.Get("Messages.Project.UnsupportedFormat"));
+        // Custom content: its structure only (CustomContent.CustomContentShape); what a Runtime would refuse is reported where it is edited.
+        if (p.CustomContent is { } custom && (p.FormatVersion < 14 || !CustomContent.CustomContentShape.Valid(custom)))
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCustomContent"));
         // Additional packaged files: their shape only. A destination that is not a safe ZIP path is reported where it is edited and refused at
         // export (Generation.PackagedFiles), so a hand-edited project still opens.
         if (p.PackagedFiles is { } packaged && (packaged.Count > Generation.PackagedFiles.MaxFiles || packaged.Any(f => f == null || f.Source == null || f.Destination == null
@@ -129,6 +151,12 @@ public static class ProjectIdentity
         if (p.Arsenal is { } arsenal && (arsenal.Description?.Length > 16 * Generation.Arsenal.MaxDescription
                 || arsenal.Icon is { } icon && (icon.Length > 1024 || icon.Any(char.IsControl))))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidArsenal"));
+        // The local player's armor values and passives: their shape only (finite numbers, passive ids, a second passive other than the armor one);
+        // the published ranges and passives are checked against the SDK where they are edited and at build time (Generation.ArmorPlayerLua).
+        if (p.PlayerArmor is { } armor && (p.FormatVersion < 14 || armor.IsEmpty || armor.ArmorBonus is { } bonus && (!double.IsFinite(bonus) || Math.Abs(bonus) > 1000)
+                || armor.StaminaFactor is { } factor && (!double.IsFinite(factor) || Math.Abs(factor) > 1000) || armor.PassiveArmor is < 0 or > 255
+                || armor.PassiveSecond is < 1 or > 255 || armor.PassiveSecond != null && armor.PassiveSecond == armor.PassiveArmor))
+            throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidPlayerArmor"));
         if (p.CustomLua is { } lua && (lua.Source == null || lua.Source.Length > CustomLuaSettings.MaxLength || lua.Source.Contains('\0')))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidCustomLua"));
         // Attack outputs: semantic weapon / role / output identities and the published opt-ins only.
@@ -181,6 +209,7 @@ public static class ProjectIdentity
                 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z") || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z")
                 || !(c.FieldType == Metadata.WeaponCapability.FireModeSet ? ModeList(c.ExpectedValue) && ModeList(c.DesiredValue)
                     : Composition(c.FieldType) ? CompositionValue(c.FieldType, c.ExpectedValue, true) && CompositionValue(c.FieldType, c.DesiredValue, false)
+                    : OverchargeExplosion(c) ? p.FormatVersion >= 14 && WeaponName(c.ExpectedValue) && WeaponName(c.DesiredValue)
                     : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue)))) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidSupportOverrides"));
         foreach (var c in p.SupportChanges) SemVersion.Parse(c.BaselineSdkVersion);
         foreach (var a in p.SupportApprovals) if (a.Key.Length > 256 || !a.Key.StartsWith("support-scope/v1/", StringComparison.Ordinal) || !Regex.IsMatch(a.Value, @"\A[a-f0-9]{64}\z")) throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidSupportApproval"));
@@ -193,8 +222,9 @@ public static class ProjectIdentity
                 || c.Group.Length > 120 || c.Notes?.Length > 4000
                 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")
                 || c.EffectAcknowledgement != null && !Regex.IsMatch(c.EffectAcknowledgement, @"\A[a-f0-9]{64}\z")
-                // 0.26.0 mission uses: an integer count or Runtime's 'unlimited'.
+                // 0.26.0 mission uses: an integer count or Runtime's 'unlimited'. 0.30.0 call-in codes and presentation values.
                 || !(c.FieldType == Metadata.StratagemUses.Type ? Uses(c.ExpectedValue) && Uses(c.DesiredValue)
+                    : Stratagem030(c.FieldType) ? StratagemValue(c.FieldType, c.ExpectedValue, true) && StratagemValue(c.FieldType, c.DesiredValue, false)
                     : c.FieldType is "number" or "integer" or "boolean" && NumberOrBool(c.ExpectedValue) && NumberOrBool(c.DesiredValue))))
             throw new InvalidDataException(CoreText.Get("Messages.Project.InvalidStratagemOverrides"));
         foreach (var c in p.StratagemChanges) SemVersion.Parse(c.BaselineSdkVersion);
@@ -219,6 +249,9 @@ public static class ProjectIdentity
                     // 0.26.0 adds reload duration and ergonomics modifier (numbers) to the four integer ammo fields.
                     ("weapon_attachment", "magazine") => c.Zone == null && c.Mount == null && c.FieldType is "integer" or "number"
                         && Regex.IsMatch(c.Entity, @"\Aweapon-attachment/v1/magazine/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
+                    // 1.7.0 (format 14): 0.30.0 muzzle, optics and underbarrel stat modifiers; Entity is the semantic ID of a definition of that slot.
+                    ("weapon_attachment", var slot) when AttachmentModifierReader.Slots.Contains(slot) => c.Zone == null && c.Mount == null && c.Slot == null && c.Attack == null
+                        && c.Effect == null && c.Linked == null && c.FieldType == "number" && AttachmentModifierReader.ValidChange(slot, c.Entity),
                     // 0.24.0+ boosters: Entity is the published booster name; only its reviewed sub-targets carry fields (more targets from 0.25.0).
                     ("booster", var boosterPath) when BoosterAuthoringReader.Paths.Contains(boosterPath) => c.Zone == null && c.Mount == null && BoosterAuthoringReader.ValidName(c.Entity),
                     // 0.26.0 vehicle weapons: Entity is the published weapon key; the weapon itself, or one of its attack objects.
@@ -240,6 +273,17 @@ public static class ProjectIdentity
                             EnemyAuthoringReader.AttackPath => c.Zone == null && EnemyAuthoringReader.ValidAttack(c.Attack),
                             _ => false,
                         },
+                    // 1.7.0 (Runtime 0.30.0 development): the Helldiver type; Entity is "Helldiver", a zone field names one published body zone.
+                    (HelldiverAuthoringReader.Resource, var helldiverPath) => c.Entity == HelldiverAuthoringReader.Entity && c.Mount == null && c.Slot == null && c.Attack == null
+                        && c.Effect == null && c.Linked == null && c.FieldType is "integer" or "number" or EntityField.EnumType && helldiverPath switch
+                        {
+                            HelldiverAuthoringReader.EntityPath => c.Zone == null,
+                            HelldiverAuthoringReader.ZonePath => HelldiverAuthoringReader.ValidZone(c.Zone),
+                            _ => false,
+                        },
+                    // 0.30.0 armor: a kit's piece weight (Entity = the kit id), a weight class value (light / medium / heavy) or a damage curve point.
+                    (var armorResource, var armorPath) when ArmorAuthoringReader.IsArmor(armorResource) => c.Zone == null && c.Mount == null && c.Slot == null && c.Attack == null
+                        && c.Effect == null && c.Linked == null && ArmorAuthoringReader.ValidTarget(armorResource, armorPath, c.Entity, c.SemanticFieldId),
                     _ => false,
                 })
                 || c.SharedConsumers != null && (!Generation.EntityChangeService.IsEnemy(c.Resource) || c.SharedConsumers.Length is 0 or > 256 || c.SharedConsumers.Any(n => string.IsNullOrWhiteSpace(n) || n.Length > 256))
@@ -247,11 +291,14 @@ public static class ProjectIdentity
                 || c.Linked != null && !(c.Resource == "backpack" && c.Path is "linked" or "damage_zone" || c.Resource == "vehicle_weapon" && c.Linked == BackpackLinkedEntity.Drone)
                 || (c.FieldType switch
                 {
+                    _ when ArmorAuthoringReader.IsArmor(c.Resource) => !ArmorAuthoringReader.ValidValue(c.Resource, c.FieldType, c.ExpectedValue) || !ArmorAuthoringReader.ValidValue(c.Resource, c.FieldType, c.DesiredValue),
                     EntityField.ReferenceType => c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.String || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.String
                         || !Regex.IsMatch(c.DesiredValue.GetString()!, @"\Amounted-weapon/v1/[a-z0-9-]{1,96}/[0-9a-f]{16}\z"),
                     EntityField.PickupType => !PodPayloadReader.ValidValue(c.ExpectedValue) || !PodPayloadReader.ValidValue(c.DesiredValue),
                     // 1.4.0: a mounted-weapon status slot holds a status key or 'none'.
                     Metadata.WeaponCapability.StatusReference => c.Resource != "vehicle_weapon" || !Generation.EntityScalar.ValidStatusKey(c.ExpectedValue) || !Generation.EntityScalar.ValidStatusKey(c.DesiredValue),
+                    // 1.7.0: a published enum value is its name ('normal', 'reduced').
+                    EntityField.EnumType => !Generation.EntityScalar.ValidEnumName(c.ExpectedValue) || !Generation.EntityScalar.ValidEnumName(c.DesiredValue),
                     _ => c.FieldType is not ("integer" or "number") || c.ExpectedValue.ValueKind != System.Text.Json.JsonValueKind.Number || c.DesiredValue.ValueKind != System.Text.Json.JsonValueKind.Number,
                 })
                 || c.Group.Length > 120 || c.Notes?.Length > 4000 || !Regex.IsMatch(c.CapabilityEvidence, @"\A[a-f0-9]{64}\z")
@@ -294,9 +341,21 @@ public sealed class JsonProjectStore(AppPaths paths) : IProjectStore
         return library;
     }
     public async Task<IReadOnlyList<ProjectSummary>> ListAsync() => (await ReadLibraryAsync()).Projects.OrderByDescending(p => p.ModifiedAt).ToArray();
+    // A project with custom content is read through its JSON, so CustomContentMigrations can bring an older custom content section up to
+    // date first; every other project is read exactly as before.
+    private static async Task<ModProject> ReadAsync(string file)
+    {
+        if (new FileInfo(file).Length > 8 * 1024 * 1024) throw new InvalidDataException("JSON file exceeds the size limit.");
+        var bytes = await File.ReadAllBytesAsync(file);
+        if (bytes.AsSpan().IndexOf("\"customContent\""u8) < 0) return await JsonStorage.ReadAsync<ModProject>(file);
+        var node = System.Text.Json.Nodes.JsonNode.Parse(bytes, documentOptions: new System.Text.Json.JsonDocumentOptions { MaxDepth = 64 })?.AsObject()
+            ?? throw new InvalidDataException("Empty JSON document.");
+        CustomContent.CustomContentMigrations.Migrate(node);
+        return System.Text.Json.JsonSerializer.Deserialize<ModProject>(node, JsonStorage.Options) ?? throw new InvalidDataException("Empty JSON document.");
+    }
     public async Task<ModProject> LoadAsync(Guid id)
     {
-        var project = await JsonStorage.ReadAsync<ModProject>(paths.ProjectFile(id));
+        var project = await ReadAsync(paths.ProjectFile(id));
         ProjectIdentity.Validate(project);
         if (project.Id != id) throw new InvalidDataException(CoreText.Get("Messages.Project.IdentityMismatch"));
         return project;
@@ -326,7 +385,7 @@ public sealed class JsonProjectStore(AppPaths paths) : IProjectStore
     }
     public async Task<ModProject> ImportAsync(string file)
     {
-        var project = await JsonStorage.ReadAsync<ModProject>(file);
+        var project = await ReadAsync(file);
         ProjectIdentity.Validate(project);
         // Keep one managed project root. Opening a removed project re-registers its file.
         if (File.Exists(paths.ProjectFile(project.Id)) && !Path.GetFullPath(file).Equals(paths.ProjectFile(project.Id), StringComparison.OrdinalIgnoreCase))
@@ -372,7 +431,11 @@ public sealed class ProjectService(IProjectStore store, AppPaths paths) : IProje
         // Format 12: the copy packages the same additional files (the same files on disk) and keeps the Arsenal presentation.
         project.PackagedFiles = source.PackagedFiles?.Select(f => new PackagedFile { Source = f.Source, Destination = f.Destination }).ToList();
         project.Arsenal = source.Arsenal is { } arsenal ? new() { Description = arsenal.Description, Icon = arsenal.Icon } : null;
-        if (project.PackagedFiles != null || project.Arsenal != null) project.FormatVersion = Math.Max(project.FormatVersion, ProjectIdentity.RequiredFormat(project));
+        // Format 14: the copy has its own copy of the custom content (same ids: they are identities within one mod, and the copy is another mod).
+        project.CustomContent = source.CustomContent == null ? null
+            : System.Text.Json.JsonSerializer.Deserialize<CustomContentSection>(System.Text.Json.JsonSerializer.Serialize(source.CustomContent, JsonStorage.Options), JsonStorage.Options);
+        foreach (var assignment in project.CustomContent?.Assignments ?? []) assignment.Id = Guid.NewGuid();
+        if (project.PackagedFiles != null || project.Arsenal != null || project.CustomContent != null) project.FormatVersion = Math.Max(project.FormatVersion, ProjectIdentity.RequiredFormat(project));
         await store.SaveAsync(project); return project;
     }
     public async Task RenameAsync(ModProject project, string name)

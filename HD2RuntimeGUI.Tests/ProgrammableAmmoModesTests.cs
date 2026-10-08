@@ -19,7 +19,9 @@ public sealed class ProgrammableAmmoModesTests
     private const string Hmg = "MG-206 Heavy Machine Gun", Autocannon = "AC-8 Autocannon", Apw = "APW-1 Anti-Materiel Rifle";
     private const string Out = "output/v1/projectile/";
     private const string Concussive = Out + "ar-23c-liberator-concussive", Hyena = Out + "r-4-hyena", DeEscalator = Out + "gl-52-de-escalator", Scorcher = Out + "plas-1-scorcher";
-    private static Task<(BuilderWorkspace W, Core.Metadata.SdkMetadata Sdk)> Fresh(TestEnvironment e) => ExportFixtureTests.Fresh(e, "Ammo Modes");
+    // SDK 0.28.1, whose mode cards these tests describe. The 0.30.0 SDK publishes the AC-8 Autocannon's and RL-77 Airburst's feed
+    // presentation as null (an upstream regression, docs/runtime030-integration-plan.md "Runtime-side fixes", item 5).
+    private static Task<(BuilderWorkspace W, Core.Metadata.SdkMetadata Sdk)> Fresh(TestEnvironment e) => ExportFixtureTests.Fresh(e, "Ammo Modes", "0.28.1");
     private static AmmoModes Modes(BuilderWorkspace w, string kind, string weapon) => w.AmmoModes(kind, weapon) ?? throw new InvalidOperationException(weapon);
     // The generated request that writes one field (the ensure(...) block containing it).
     private static string Operation(string lua, string text) => Regex.Split(lua, @"(?=add\(function\(\) return )").Single(b => b.Contains(text, StringComparison.Ordinal));

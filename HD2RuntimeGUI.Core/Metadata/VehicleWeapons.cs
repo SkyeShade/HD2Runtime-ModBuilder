@@ -14,7 +14,15 @@ public sealed record VehicleWeaponFieldInstance(string InstanceKey, string Weapo
     string[] OtherConsumers, string? Acknowledgement, string? GameplayEvidence, string BackingComponent,
     // 0.28.0: the projectile a mounted weapon fires (a unified projectile host, hd2.vehicle(v):weapon(mount):attack(role)), and the
     // exact live-proven values of a write (their writes drop the acknowledgement).
-    VehicleProjectileReference? ProjectileReference = null, FieldLiveEvidence? LiveEvidence = null, string[]? LiveProvenValues = null);
+    VehicleProjectileReference? ProjectileReference = null, FieldLiveEvidence? LiveEvidence = null, string[]? LiveProvenValues = null,
+    // 0.30.0 mounted turret motion (turret.yaw_speed / pitch_speed / pitch_min / pitch_max / yaw_min / yaw_max): the published range and why,
+    // an ordering constraint between related fields (null when none), when the write applies and why it needs allow_unverified_effect.
+    double? Min = null, double? Max = null, string? RangeReason = null, string[]? Order = null, string? Lifecycle = null, string? AppliesWhen = null,
+    string? AcknowledgementReason = null)
+{
+    // Turret motion on a mount (0.30.0; docs/runtime030-integration-plan.md, Phase 5.2): its limit pairs are kept ordered (EntityOrder).
+    [JsonIgnore] public bool IsMountedTurretMotion => SemanticFieldId.StartsWith("turret.", StringComparison.Ordinal);
+}
 public sealed record VehicleProjectileReference(string ReferenceKind, string CompatibilityClass, string ReferenceRole, WeaponProjectileSource ProjectileSource);
 // 0.28.0: a mounted weapon carried by something other than a vehicle, for example a Guard Dog drone (hd2.backpack(name):drone():weapon()).
 public sealed record VehicleWeaponCarrier(string Kind, string Backpack, string Api, string[] Chain)
@@ -201,13 +209,15 @@ public static class VehicleWeaponReader
         var target = new EntityTarget("vehicle_weapon", f.Target.Path, Weapon: f.Weapon, Attack: f.Target.Attack, Linked: carried ? BackpackLinkedEntity.Drone : null);
         // One transaction per target and native component; all of a vehicle's operations form one plan.
         var operation = "vehicle-weapon-op:" + f.Weapon + "|" + f.Target.Path + "|" + (f.Target.Attack ?? "") + "|" + f.BackingComponent;
-        var reason = !AuthoredTypes.VehicleWeapon(f, carried) ? AuthoredTypes.NotAuthoredReason : f.ApiFieldConstant == null ? NoApiConstantReason : null;
+        var reason = !AuthoredTypes.VehicleWeapon(f, carried) || f.IsMountedTurretMotion && !AuthoredTypes.MountedTurretMotion ? AuthoredTypes.NotAuthoredReason
+            : f.ApiFieldConstant == null ? NoApiConstantReason : null;
         return new EntityField(f.InstanceKey, f.SemanticFieldId, f.DisplayName, f.Type, f.Unit, f.Baseline.Clone(), f.Writable && reason == null, reason, target,
             owner, operation, "vehicle-weapon-plan:" + vehicle, "patch_or_transaction", f.AllowSharedRequired, f.Scope != "weapon_local", [], owner,
             ReviewedScopeComplete: f.Scope == "weapon_local", DynamicConsumersPossible: f.Scope is "shared_projectile" or "shared_damage" or "shared_explosion" or "shared_beam" or "shared_arc",
             BackingObjectKind: f.BackingComponent, Domain: f.SemanticFieldId.Split('.')[0], ApiFieldConstant: f.ApiFieldConstant ?? "", PlanPhase: 1, DependsOn: [],
             Evidence: new EntityEvidence(f.GameplayEvidence != null ? "gameplay_proven" : "structural_reference", ReferenceMod: f.GameplayEvidence),
             Provenance: "VehicleWeaponCapabilities (" + f.Scope + ", " + f.BackingComponent + ")", Acknowledgement: f.Acknowledgement,
-            LiveProvenValues: f.LiveProvenValues, SharedRow: sharedRow);
+            LiveProvenValues: f.LiveProvenValues, SharedRow: sharedRow, Min: f.Min, Max: f.Max, RangeReason: f.RangeReason, AcknowledgementReason: f.AcknowledgementReason,
+            Lifecycle: f.Lifecycle, AppliesWhen: f.AppliesWhen, Order: f.Order);
     }
 }

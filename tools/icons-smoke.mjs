@@ -56,7 +56,8 @@ try {
         report.stratagemCount = await evaluate("document.querySelector('[data-stratagem-icon-count]').innerText");
         report.boosterCount = await evaluate("document.querySelector('[data-booster-icon-count]')?.innerText");
         report.mismatch = await count('[data-icon-library-mismatch]'); report.error = await evaluate("document.querySelector('[data-icon-import-error]')?.innerText ?? null");
-        assert(report.stratagemCount.startsWith('84 of 95'), report.stratagemCount);
+        assert(report.stratagemCount.startsWith('93 of 95'), report.stratagemCount); // HUD sprites: all of 0.25.1's stratagems but SG-88 and CQC-72
+        report.spriteBuildMismatch = await evaluate("document.querySelector('[data-hud-sprite-mismatch]')?.innerText ?? null"); // expected null on game build F5FEE03DCFDB
     }
     // Authoring pages need a project.
     await go('library'); await evaluate("[...document.querySelectorAll('button')].find(b => b.innerText.includes('Create New Mod')).click()"); await waitFor("document.querySelector('#mod-name')", 'create dialog');
@@ -65,12 +66,12 @@ try {
     await waitFor("!!document.querySelector('[data-overview]') && !document.querySelector('.activity')", 'project created');
     await go('stratagems'); await sleep(800);
     report.stratagems = await evaluate(`(() => { const rows = [...document.querySelectorAll('.weapon-list [data-stratagem]')];
-        return { listed: rows.length, svg: rows.filter(r => r.querySelector('.game-icon img')).length,
+        return { listed: rows.length, icons: rows.filter(r => r.querySelector('.game-icon img')).length, hud: rows.filter(r => r.querySelector('.game-icon[data-icon-source=hud] img')).length,
           fallbacks: rows.filter(r => r.querySelector('.game-icon.fallback')).map(r => r.dataset.stratagem + ' [' + r.querySelector('.game-icon').dataset.iconState + '] ' + r.querySelector('.game-icon').title) }; })()`);
     await screenshot('icons-' + mode + '-stratagems');
     await go('boosters'); await sleep(600);
-    report.boosters = { listed: await count('[data-booster-item]'), svg: await count('[data-booster-item] .game-icon img') };
-    if (mode !== 'off') { assert.equal(report.stratagems.listed, 93); assert.equal(report.stratagems.svg, 84); assert.equal(report.boosters.svg, 18); }
-    else { assert.equal(report.stratagems.svg, 0); assert.equal(report.boosters.svg, 0); }
+    report.boosters = { listed: await count('[data-booster-item]'), icons: await count('[data-booster-item] .game-icon img') };
+    if (mode !== 'off') { assert.equal(report.stratagems.listed, 93); assert.equal(report.stratagems.icons, 93); assert.equal(report.stratagems.hud, 93); assert.equal(report.boosters.icons, 20); }
+    else { assert.equal(report.stratagems.icons, 0); assert.equal(report.boosters.icons, 0); }
     console.log(JSON.stringify(report, null, 1)); console.log('icons smoke passed: ' + mode);
 } finally { socket.close(); }

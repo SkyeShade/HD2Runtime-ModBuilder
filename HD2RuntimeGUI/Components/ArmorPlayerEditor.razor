@@ -1,0 +1,112 @@
+@inject BuilderWorkspace Workspace
+@* The local player's own armor values (hd2.armor_stats.player():set) and the passive override (hd2.player_passives.set): HD2Runtime 0.30.0
+   development, solo only. The mod sets them at load (and the values again after every respawn); nothing here is a field patch. Every value and
+   choice Runtime would refuse is refused where it is edited; the opt-in Runtime needs is written by itself (warnings only). *@
+@{ var catalog = Workspace.ArmorCatalog; var armor = Workspace.Project?.PlayerArmor; }
+@if (catalog != null)
+{
+    var passives = catalog.Passives;
+    var bonus = catalog.Range("player.armor_bonus"); var stamina = catalog.Range("player.stamina_factor");
+    @if (Error != null) { <p class="notice warning" role="alert" data-armor-player-error>@Error</p> }
+    @if (!ModifiedOnly || armor?.HasStats == true)
+    {
+        <section class="panel category-panel cat-armor" data-armor-player>
+            <h2>@T["Armor.Player.Title"]</h2>
+            @if (!ModifiedOnly) { <p>@T["Armor.Player.Help"]</p> }
+            <div class="stat-grid">
+                @Value("armor_bonus", T["Armor.Player.ArmorBonus"], armor?.ArmorBonus, bonus, "0.1", T["Armor.Player.ArmorBonus.Base"], T["Armor.Player.ArmorBonus.Help"], v => Workspace.SetPlayerArmorBonusAsync(v))
+                @Value("stamina_factor", T["Armor.Player.StaminaFactor"], armor?.StaminaFactor, stamina, "0.05", T["Armor.Player.StaminaFactor.Base"], T["Armor.Player.StaminaFactor.Help"], v => Workspace.SetPlayerStaminaFactorAsync(v))
+            </div>
+            @if (!ModifiedOnly || armor?.HasStats == true)
+            {
+                <AckPanel Title="@T["Armor.Player.Solo.Title"]" Kind="unverified" Description="@T["Armor.Player.Solo.Description"]" PanelAttributes='@(new() { ["data-armor-solo"] = "values" })' />
+            }
+        </section>
+    }
+    @if (passives != null && (!ModifiedOnly || armor?.HasPassives == true))
+    {
+        var chosen = armor?.PassiveArmor is { } a ? passives.Find(a) : null; var second = armor?.PassiveSecond is { } s ? passives.Find(s) : null;
+        var proven = armor?.HasPassives == true && !ArmorPlayerLua.NeedsUnverified(armor, passives);
+        <section class="panel category-panel cat-armor" data-armor-passives>
+            <h2>@T["Armor.Passives.Title"]</h2>
+            @if (!ModifiedOnly) { <p>@T["Armor.Passives.Help"]</p> }
+            <div class="filter-grid armor-passive-pickers">
+                <label>@T["Armor.Passives.Armor"]
+                    <select @key="Revision" data-armor-passive="armor" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetPlayerPassivesAsync(Id(e.Value), armor?.PassiveSecond))">
+                        <option value="" selected="@(chosen == null)">@T["Armor.Passives.KitOwn"]</option>
+                        @foreach (var p in passives.Passives.OrderBy(p => p.Name, StringComparer.Ordinal)) { <option value="@p.Id" selected="@(chosen?.Id == p.Id)">@p.Name@(p.LiveProvenArmorSwap ? " · " + T["Armor.Passives.LiveProvenShort"] : "")</option> }
+                    </select></label>
+                <label>@T["Armor.Passives.Second"]
+                    <select @key="Revision" data-armor-passive="second" disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetPlayerPassivesAsync(armor?.PassiveArmor, Id(e.Value)))">
+                        <option value="" selected="@(second == null)">@T["Armor.Passives.None"]</option>
+                        @foreach (var p in passives.Passives.OrderBy(p => p.Name, StringComparer.Ordinal))
+                        {
+                            var refused = !p.AllowedAsSecond ? T.Format("Armor.Passives.Refused", p.SecondRefusal) : p.Id == chosen?.Id ? T["Armor.Passives.RefusedSame"] : null;
+                            <option value="@p.Id" disabled="@(refused != null)" selected="@(second?.Id == p.Id)">@p.Name@(refused != null ? " · " + refused : "")</option>
+                        }
+                    </select></label>
+            </div>
+            @if (armor?.HasPassives == true)
+            {
+                <div class="armor-passive-cards">
+                    @if (chosen != null) { @Card(chosen, T["Armor.Passives.ArmorSlot"], false) }
+                    @if (second != null) { @Card(second, T["Armor.Passives.HelmetSlot"], true) }
+                </div>
+                <p class="subtle"><code data-armor-passive-lua>@ArmorPlayerLua.PassiveCall(armor, passives)</code></p>
+                <button class="reset-action small" data-armor-passives-reset @onclick="() => Run(() => Workspace.ResetPlayerArmorAsync(stats: false))">@T["Armor.Passives.Reset"]</button>
+            }
+            <AckPanel Title="@T["Armor.Passives.Solo.Title"]" Kind="unverified" Description="@(proven ? T["Armor.Passives.Proven.Description"] : T["Armor.Passives.Solo.Description"])" PanelAttributes='@(new() { ["data-armor-solo"] = "passives", ["data-armor-proven"] = proven ? "true" : "false" })' />
+            <AckPanel Title="@T["Armor.Passives.NotCarried.Title"]" Kind="unverified" Description="@T["Armor.Passives.NotCarried.Description"]" PanelAttributes='@(new() { ["data-armor-not-carried"] = "" })' />
+            @foreach (var p in new[] { chosen, second }.OfType<ArmorPassive>().Where(p => p.EffectPackage != null).DistinctBy(p => p.Id))
+            {
+                <AckPanel Title="@T.Format("Armor.Passives.Package.Title", p.Name)" Kind="shared" Description="@T.Format("Armor.Passives.Package.Description", p.EffectPackage!.CatalogueKey, p.EffectPackage.Contents)" PanelAttributes='@(new() { ["data-armor-package"] = p.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) })' />
+            }
+        </section>
+    }
+}
+@code {
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    // Bumped when an edit is refused, so the boxes show the saved values again instead of the refused input.
+    private int Revision;
+    private static int? Id(object? value) => int.TryParse(value?.ToString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id) ? id : null;
+    private RenderFragment Value(string key, string label, double? value, double[] range, string step, string baseText, string help, Func<double?, Task> save) => __builder =>
+    {
+        <div class="field-row @(value != null ? "modified" : "")" data-armor-player-field="@key">
+            <div class="field-name"><span>@label</span>@if (value != null) { <span class="field-flags"><span class="badge modified-badge">@T["Common.Modified"]</span></span> }</div>
+            <div class="field-value"><input @key="Revision" type="number" step="@step" min="@Armor.Number(range[0])" max="@Armor.Number(range[1])" value="@(value is { } v ? Armor.Number(v, "0.###") : "")" placeholder="@baseText"
+                disabled="@(Workspace.Project == null)" aria-label="@label" @onchange="e => Run(() => save(Parse(e.Value)))" /></div>
+            <div class="field-baseline subtle">@(value is { } x ? T.Format("Armor.Player.Set", Armor.Number(x, "0.###"), baseText) : T.Format("EntityField.Base", baseText))</div>
+            <div class="field-tools">@if (value != null) { <button class="reset-action small" @onclick="() => Run(() => save(null))">@T["EntityField.Reset"]</button> }
+                <details class="field-info"><summary title="@T["EntityField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body"><p>@help</p>
+                    <p>@T.Markup("EntityField.Range.Html", Armor.Number(range[0]), Armor.Number(range[1]))</p><code>@key</code></div></details></div>
+        </div>
+    };
+    // An empty box removes the value; anything else must be a number (the range is checked when it is saved).
+    private static double? Parse(object? value)
+    {
+        var text = value?.ToString()?.Trim() ?? "";
+        if (text.Length == 0) return null;
+        return double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : double.NaN;
+    }
+    private RenderFragment Card(ArmorPassive p, string slot, bool asSecond) => __builder =>
+    {
+        <div class="armor-passive-card" data-armor-passive-card="@p.Id">
+            <div class="eyebrow">@slot</div><strong>@p.Name</strong>
+            <div class="field-badges">
+                <span class="badge @(p.FollowsSwap == "full" ? "" : "amber")" data-follows-swap="@p.FollowsSwap" title="@T["Armor.Passives.Follows.Tooltip"]">@Follows(p.FollowsSwap)</span>
+                @if (!asSecond && p.LiveProvenArmorSwap) { <span class="badge green" data-live-proven>@T["Armor.Passives.LiveProven"]</span> }
+                @if (p.ArmorSlotOnlyKeys.Length > 0) { <span class="badge amber" title="@T.Format("Armor.Passives.ArmorSlotOnly.Tooltip", string.Join(", ", p.ArmorSlotOnlyKeys))">@T["Armor.Passives.ArmorSlotOnly"]</span> }
+                @if (p.EffectPackage != null) { <span class="badge amber">@T["Armor.Passives.EffectPackage"]</span> }</div>
+            <p data-armor-passive-description>@PassiveText.Description(p)</p>
+            @if (p.Note != null) { <p class="subtle" data-armor-passive-note>@p.Note</p> }
+            @if (asSecond && p.ArmorSlotOnlyKeys.Length > 0) { <p class="notice warning">@T.Format("Armor.Passives.SecondIgnored", string.Join(", ", p.ArmorSlotOnlyKeys))</p> }
+        </div>
+    };
+    private string Follows(string followsSwap) => followsSwap switch
+    {
+        "full" => T["Armor.Passives.Follows.Full"], "partial" => T["Armor.Passives.Follows.Partial"], "unknown" => T["Armor.Passives.Follows.Unknown"], _ => followsSwap,
+    };
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; StateHasChanged(); await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; Revision++; StateHasChanged(); } }
+}

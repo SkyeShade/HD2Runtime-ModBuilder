@@ -1,0 +1,10 @@
+@* The one experimental notice of a custom content page: small, violet, never blocking. What it targets comes from the target adapter. *@
+<div class="custom-banner" role="note" data-custom-experimental>
+    <span class="badge experimental">@T["CustomContent.Experimental"]</span>
+    <p>@T.Format("CustomContent.Banner", Workspace.CustomTarget.RuntimeLabel, Workspace.CustomTarget.MinimumRuntime)
+        @if (CustomContentTargets.OverrideIssue is { } issue) { <br /><span class="subtle" data-custom-schema-override>@T.Format("CustomContent.Banner.SchemaOverride", issue)</span> }
+        else if (Workspace.CustomTarget.Schema.Source != "bundled") { <br /><span class="subtle" data-custom-schema-override>@T.Format("CustomContent.Banner.SchemaSource", Workspace.CustomTarget.Schema.Source)</span> }</p>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+}

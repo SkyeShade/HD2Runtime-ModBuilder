@@ -84,7 +84,10 @@
 }
 @code {
     [Parameter] public EventCallback Changed { get; set; }
+    // A host to open ("<kind>|<weapon>|<attack>"): returning to its selector from a custom projectile chosen or created there.
+    [Parameter] public string? InitialHost { get; set; }
     private string Tab = "hosts", Search = "", KindFilter = "", Selected = "";
+    protected override void OnInitialized() { if (InitialHost != null) Selected = InitialHost; }
     private bool WritableOnly;
     private void Select(string tab) { Tab = tab; Selected = ""; if (tab == "hosts" && KindFilter is "stratagem" or "spare_row") KindFilter = ""; }
     private bool Match(string text, string kind) => (KindFilter == "" || kind == KindFilter) && (Search.Length == 0 || text.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase));

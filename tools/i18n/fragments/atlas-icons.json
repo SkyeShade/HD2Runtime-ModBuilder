@@ -1,0 +1,32 @@
+[
+ {
+  "key": "Icons.StratagemCount.Sources",
+  "en": "{0} of {1} stratagems show their game icon ({2} HUD sprites · {3} vector icons).",
+  "zh": "{1} 个战略配备中有 {0} 个显示其游戏图标（{2} 个 HUD 图标 · {3} 个矢量图标）。",
+  "comment": "{0}: stratagems with an imported icon; {1}: all stratagems; {2}: icons from the game's HUD texture atlases; {3}: icons from the game's vector icon library"
+ },
+ {
+  "key": "Icons.NoGameIcon",
+  "en": "No game icon: {0}.",
+  "zh": "无游戏图标：{0}。",
+  "comment": "{0}: comma-separated stratagem and booster names that have no game icon"
+ },
+ {
+  "key": "Icons.SpriteBuild.Game",
+  "en": "ModBuilder's HUD icon list was made for game build {0}, but your game is build {1} (it was likely updated). Icons the game moved show their vector icon or a category glyph until ModBuilder is updated.",
+  "zh": "ModBuilder 的 HUD 图标列表是为游戏版本 {0} 制作的，而你的游戏版本为 {1}（游戏很可能已更新）。在 ModBuilder 更新之前，游戏中已变动的图标会显示其矢量图标或类别字形。",
+  "comment": "Warning; {0}: game build of the bundled HUD sprite list; {1}: build of the installed game"
+ },
+ {
+  "key": "Icons.SpriteBuild.Sdk",
+  "en": "ModBuilder's HUD icon list was made for game build {0}, but HD2Runtime SDK {2} was researched on build {1}. Some icons may differ until ModBuilder is updated.",
+  "zh": "ModBuilder 的 HUD 图标列表是为游戏版本 {0} 制作的，而 HD2Runtime SDK {2} 是在版本 {1} 上研究的。在 ModBuilder 更新之前，部分图标可能有所不同。",
+  "comment": "Warning; {0}: game build of the bundled HUD sprite list; {1}: game build the SDK was researched on; {2}: SDK version"
+ },
+ {
+  "key": "Messages.Icons.Reason.ReaderUpdated",
+  "en": "ModBuilder now reads more icons from the game.",
+  "zh": "ModBuilder 现在能从游戏中读取更多图标。",
+  "comment": "Why the icons are imported again (icon cache from an older ModBuilder)"
+ }
+]

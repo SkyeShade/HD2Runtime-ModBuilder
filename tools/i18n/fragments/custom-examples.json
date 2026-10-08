@@ -1,0 +1,12 @@
+[
+  {
+    "key": "CustomStratagems.Gallery.FromModBuilder",
+    "en": "Simple example",
+    "zh": "简单示例"
+  },
+  {
+    "key": "CustomStratagems.Gallery.FromRuntime",
+    "en": "HD2Runtime example",
+    "zh": "HD2Runtime 示例"
+  }
+]

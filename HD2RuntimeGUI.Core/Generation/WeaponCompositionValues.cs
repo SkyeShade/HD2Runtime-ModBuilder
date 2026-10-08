@@ -92,7 +92,7 @@ public static class FunctionProjectile
         if (sdk.AttackOutputs is not { } catalog) return [];
         var own = catalog.Own(weapon);
         return catalog.Outputs
-            .Where(o => o.Family == "projectile" && o.SelectableAsProjectileReference && (o.ReferenceScope is not { Length: > 0 } scope || scope.Contains(Field)) && o.SemanticId != own?.SemanticId)
+            .Where(o => o.Family == "projectile" && o.SelectableAsProjectileReference && o.Offered && (o.ReferenceScope is not { Length: > 0 } scope || scope.Contains(Field)) && o.SemanticId != own?.SemanticId)
             .Select(o => new FunctionDonor(o, own?.CompatibilityClass != null && o.CompatibilityClass != own.CompatibilityClass,
                 liveValues?.Contains(o.SemanticId) == true || catalog.ProvenCompositions.Any(p => p.Host == weapon && p.Output == o.SemanticId && p.Mechanism == AttackOutputHost.ProgrammableAmmo)))
             .OrderBy(d => d.LiveProven ? 0 : 1).ThenBy(d => d.Output.ReferenceScope != null ? 0 : 1).ThenBy(d => d.Output.Label, StringComparer.OrdinalIgnoreCase).ToArray();
@@ -195,7 +195,17 @@ public static class CompositionOptIns
     public static bool EffectFor(WeaponCapability f, JsonElement value) => NeedsEffect(f.Acknowledgement, LiveValues(f), f.Type, f.CurrentDefault, value);
     public static bool ReferenceFor(WeaponCapability f, JsonElement value) => NeedsReference(LiveValues(f), f.Type, f.CurrentDefault, value);
     public static bool EffectFor(SupportField f, JsonElement value) => NeedsEffect(f.Operation.Acknowledgement, LiveValues(f), f.Value.Type, f.Value.Baseline, value);
-    public static bool ReferenceFor(SupportField f, JsonElement value) => NeedsReference(LiveValues(f), f.Value.Type, f.Value.Baseline, value);
+    // 0.30.0: an overcharge explosion other than the weapon's reviewed one (Runtime: value ~= expect) needs allow_unverified_reference.
+    public static bool ReferenceFor(SupportField f, JsonElement value) => f.IsOverchargeExplosion
+        ? !JsonElement.DeepEquals(value, f.Value.Baseline) : NeedsReference(LiveValues(f), f.Value.Type, f.Value.Baseline, value);
+    // 0.30.0: a projectile donor (kind projectile_donor) as the function projectile is live-tested nowhere; Runtime requires both opt-ins for
+    // it whatever the field publishes (require_unverified_donor), so the write carries them unconditionally.
+    public static bool Donor(SdkMetadata? sdk, string type, JsonElement value) => type == WeaponCapability.FunctionProjectileReference
+        && Compared(type, value) is { } token && FunctionProjectile.IsOutput(token) && sdk?.AttackOutputs?.Output(token)?.IsDonor == true;
+    public static bool EffectFor(SdkMetadata? sdk, WeaponCapability f, JsonElement value) => EffectFor(f, value) || Donor(sdk, f.Type, value);
+    public static bool ReferenceFor(SdkMetadata? sdk, WeaponCapability f, JsonElement value) => ReferenceFor(f, value) || Donor(sdk, f.Type, value);
+    public static bool EffectFor(SdkMetadata? sdk, SupportField f, JsonElement value) => EffectFor(f, value) || Donor(sdk, f.Value.Type, value);
+    public static bool ReferenceFor(SdkMetadata? sdk, SupportField f, JsonElement value) => ReferenceFor(f, value) || Donor(sdk, f.Value.Type, value);
 }
 
 // The Lua handle of a player-weapon authoring target: a weapon, or a sub-target reached through its parent

@@ -1,0 +1,38 @@
+{
+ "format": "hd2runtime-custom-stratagems/1",
+ "stratagems": [
+  {
+   "id": "pelican_flyover",
+   "name": "PELICAN FLYOVER",
+   "name_cased": "Pelican Flyover",
+   "description": "A Pelican hovers over the beacon and fires its own chin gun.",
+   "icon": {
+    "image": "pelican_flyover",
+    "source": "images/pelican_flyover.png"
+   },
+   "code": [
+    "left",
+    "up",
+    "right",
+    "down",
+    "left",
+    "up"
+   ],
+   "cooldown": 240,
+   "uses": 2,
+   "carrier": {
+    "beacon": "offensive",
+    "prefer_families": [
+     "orbital"
+    ]
+   },
+   "payload": {
+    "family": "pelican",
+    "hover": 60,
+    "gun": {
+     "round": "native"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+@* Every check of one custom object, grouped by area: ✓ holds, ℹ worth knowing, ⚗ experimental Runtime machinery, ⚠ may not behave as hoped,
+   ✕ refuses the build. Multiplayer hints are informational: networking is the Runtime's. *@
+@{ var list = Diagnostics.Where(d => Areas == null || Areas.Contains(d.Area)).ToArray(); }
+@if (list.Length == 0) { <p class="subtle">@T["CustomContent.Checks.None"]</p> }
+@foreach (var group in list.GroupBy(d => d.Area))
+{
+    <div class="check-group" data-check-area="@group.Key">
+        @if (ShowAreas) { <h4>@CustomLabels.Area(T, group.Key)</h4> }
+        <ul class="check-list">
+            @foreach (var d in group.OrderBy(d => d.Severity == CustomSeverity.Error ? 0 : d.Severity == CustomSeverity.Warning ? 1 : d.Severity == CustomSeverity.Experimental ? 2 : d.Severity == CustomSeverity.Info ? 3 : 4))
+            { <li class="@CustomLabels.SeverityCss(d.Severity)" data-check="@CustomLabels.SeverityCss(d.Severity)" data-check-field="@d.Field"><span class="mark" aria-hidden="true">@CustomLabels.Mark(d.Severity)</span><span>@(d.Runtime && d.Field is { } field ? field + ": " : "")@d.Message</span></li> }
+        </ul>
+    </div>
+}
+@code {
+    // The owner's diagnostics (Workspace.CustomDiagnosticsFor): a new list after every save, so the checklist re-renders with them.
+    [Parameter, EditorRequired] public IReadOnlyList<CustomDiagnostic> Diagnostics { get; set; } = [];
+    [Parameter] public IReadOnlyCollection<string>? Areas { get; set; }
+    [Parameter] public bool ShowAreas { get; set; } = true;
+}

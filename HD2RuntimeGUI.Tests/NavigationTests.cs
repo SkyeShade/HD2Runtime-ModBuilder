@@ -13,14 +13,16 @@ public sealed class NavigationTests
         using var e = new TestEnvironment(); var sdk = await Current(e);
         var nav = Navigation.Build(sdk, null);
         // Vehicles and Backpacks are Support stratagems (Stratagems → Support tabs), not separate sidebar destinations.
-        Assert.Equal(["overview", "player-weapons", "throwables", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "stratagems:mission", "boosters", "enemies", "structures", "projectiles", "changes", "scripting", "lua", "export", "research"],
+        Assert.Equal(["overview", "player-weapons", "throwables", "stratagems", "stratagems:support", "stratagems:offensive", "stratagems:defensive", "stratagems:mission", "boosters", "helldiver", "armor", "enemies", "structures", "projectiles", "changes", "scripting", "lua", "export", "custom-stratagems", "custom-projectiles", "research"],
             nav.Select(i => i.Page));
         var labels = nav.Select(i => i.Label).ToArray();
         // "Vehicles" is now the hd2.vehicle destination (page "vehicles"), never the legacy mapped "vehicle" builder category.
         foreach (var hidden in new[] { "Legacy mapped stratagems", "Equipment", "Weapons" }) Assert.DoesNotContain(hidden, labels);
         Assert.DoesNotContain(nav, i => sdk.Builders.ContainsKey(i.Page));
         Assert.Equal(Navigation.Research, nav.Single(i => i.Page == "research").Section);
-        Assert.All(nav.Where(i => i.Page != "research"), i => Assert.Equal(Navigation.Workspace, i.Section));
+        // 1.7.0: experimental custom content is its own group, never mixed with edits of existing objects.
+        Assert.All(nav.Where(i => i.Page is "custom-stratagems" or "custom-projectiles"), i => { Assert.Equal(Navigation.Custom, i.Section); Assert.Equal(Navigation.CustomCssClass, i.CssClass); });
+        Assert.All(nav.Where(i => i.Page is not ("research" or "custom-stratagems" or "custom-projectiles")), i => Assert.Equal(Navigation.Workspace, i.Section));
     }
     [Fact] public async Task Navigation_is_complete_without_a_project_and_uses_neutral_counts()
     {

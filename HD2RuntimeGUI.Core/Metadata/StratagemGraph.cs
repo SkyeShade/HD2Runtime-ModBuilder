@@ -9,8 +9,9 @@ public sealed record StratagemWeaponNode(string Entity, string Weapon, string Ti
 public sealed record StratagemZoneNode(StratagemDamageZone Zone, StratagemField[] Fields);
 public sealed record StratagemShieldNode(StratagemShieldConfig Config, StratagemField[] Fields);
 // Stats are the physical base (entity health/armor and other deployed-entity fields); zones and the shield projector stay separate nodes.
+// Components are the entity's own turret, targeting sensor and minefield thrower (deployed_entity():turret() / targeting() / minefield()).
 public sealed record StratagemEntityNode(string Entity, StratagemEntityIdentity Identity, StratagemField[] Stats, StratagemWeaponNode[] Weapons,
-    StratagemZoneNode[] Zones, StratagemShieldNode? Shield);
+    StratagemZoneNode[] Zones, StratagemShieldNode? Shield, StratagemFieldGroup[]? Components = null);
 
 // Presentation graph for one stratagem: Stratagem → Deployed Entity → Mounted Weapon(s) → Attack branches.
 // Nodes are grouped only by the published semantic target identity of each canonical instance; no native relationship
@@ -20,7 +21,8 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
 {
     public IEnumerable<StratagemField> AllFields => Definition.Concat(EagleRearm).Concat(Attacks.SelectMany(a => a.Fields))
         .Concat(Entities.SelectMany(e => e.Stats.Concat(e.Zones.SelectMany(z => z.Fields)).Concat(e.Shield?.Fields ?? [])
-            .Concat(e.Weapons.SelectMany(w => w.Groups.SelectMany(g => g.Fields).Concat(w.Attacks.SelectMany(a => a.Fields))))));
+            .Concat(e.Weapons.SelectMany(w => w.Groups.SelectMany(g => g.Fields).Concat(w.Attacks.SelectMany(a => a.Fields))))
+            .Concat((e.Components ?? []).SelectMany(g => g.Fields))));
     public static StratagemGraph Build(StratagemCatalog c, string name, Func<StratagemField, bool>? include = null)
     {
         var root = c.Root(name) ?? throw new InvalidDataException("Unknown stratagem.");
@@ -48,19 +50,31 @@ public sealed record StratagemGraph(StratagemDefinition Root, StratagemField[] D
                     .Where(z => include == null || z.Fields.Length > 0).ToArray();
                 var shieldFields = fields.Where(f => f.Target.Path == "shield" && f.Target.Entity == entity).ToArray();
                 var shield = root.DeployedEntity.Shield is { } config && (include == null || shieldFields.Length > 0) ? new StratagemShieldNode(config, shieldFields) : null;
-                return new StratagemEntityNode(entity, root.DeployedEntity, stats, weapons, zones, shield);
-            }).Where(e => include == null || e.Stats.Length > 0 || e.Weapons.Length > 0 || e.Zones.Length > 0 || e.Shield != null).ToArray();
+                var components = fields.Where(f => f.Target.Entity == entity && f.Target.Path is "turret" or "targeting" or "minefield").GroupBy(f => f.Target.Path)
+                    .OrderBy(g => Array.IndexOf(ComponentOrder, g.Key)).Select(g => new StratagemFieldGroup(g.Key, ComponentTitle(g.Key), g.ToArray())).ToArray();
+                return new StratagemEntityNode(entity, root.DeployedEntity, stats, weapons, zones, shield, components);
+            }).Where(e => include == null || e.Stats.Length > 0 || e.Weapons.Length > 0 || e.Zones.Length > 0 || e.Shield != null || e.Components!.Length > 0).ToArray();
         return new(root, fields.Where(f => f.Target.Path == "stratagem").ToArray(), fields.Where(f => f.Target.Path == "eagle_rearm").ToArray(),
             entities, AttackNodes(attacks.Where(a => a.Entity == null)), root.DeployedEntity?.BlockedFields ?? []);
     }
     public static string Title(string identity) => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(identity.Replace('_', ' '));
-    public static string WeaponGroup(StratagemField f) => f.SemanticFieldId == "weapon.capacity" || f.Domain is "magazine" or "rounds" ? "ammo" : f.Domain;
-    private static int WeaponGroupOrder(string key) => key switch { "ammo" => 0, "weapon" => 1, "heat" => 2, "heatsink" => 3, _ => 4 };
+    // 0.30.0 sentry handling fields are grouped by what they tune: spread, recoil (drift and climb), the Gatling's wind-up and the beam.
+    public static string WeaponGroup(StratagemField f) => f.SemanticFieldId == "weapon.capacity" || f.Domain is "magazine" or "rounds" ? "ammo"
+        : f.Domain == "weapon" && f.SemanticFieldId.EndsWith("_spread", StringComparison.Ordinal) ? "spread"
+        : f.Domain == "weapon" && f.SemanticFieldId.Contains("recoil", StringComparison.Ordinal) ? "recoil" : f.Domain;
+    private static int WeaponGroupOrder(string key) => key switch { "ammo" => 0, "weapon" => 1, "spread" => 2, "recoil" => 3, "windup" => 4, "beam" => 5, "heat" => 6, "heatsink" => 7, _ => 8 };
+    private static readonly string[] ComponentOrder = ["turret", "targeting", "minefield"];
+    private static string ComponentTitle(string path) => path switch
+    {
+        "turret" => CoreText.Get("Stratagem.Group.Turret"), "targeting" => CoreText.Get("Stratagem.Group.Targeting"), "minefield" => CoreText.Get("Stratagem.Group.Minefield"),
+        _ => Title(path),
+    };
     // Display titles (UI language); group keys and attack kinds stay the logic. Unknown groups and kinds show as published.
     private static string WeaponGroupTitle(string key) => key switch
     {
         "ammo" => CoreText.Get("Stratagem.Group.Ammo"), "weapon" => CoreText.Get("Stratagem.Group.Weapon"), "heat" => CoreText.Get("Stratagem.Group.Heat"),
-        "heatsink" => CoreText.Get("Stratagem.Group.Heatsinks"), _ => Title(key),
+        "heatsink" => CoreText.Get("Stratagem.Group.Heatsinks"), "spread" => CoreText.Get("Stratagem.Group.Spread"), "recoil" => CoreText.Get("Stratagem.Group.Recoil"),
+        "windup" => CoreText.Get("Stratagem.Group.Windup"), "beam" => CoreText.Get("Stratagem.Group.Beam"), _ => Title(key),
     };
     // Labels come from the published settings kind and path; the parent role is used only when it names a published attack.
     public static string AttackTitle(StratagemAttack a, IReadOnlyCollection<StratagemAttack> siblings)

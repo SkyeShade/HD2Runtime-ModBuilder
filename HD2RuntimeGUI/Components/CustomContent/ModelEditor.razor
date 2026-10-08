@@ -1,0 +1,99 @@
+@* A weapon variant's own model: the variant weapon's unit with its own colours per material zone (docs/custom-models.md). Nothing of the game
+   is stored in the project: the export derives the unit, material and colour table from the user's installed game, and refuses when the
+   installed base is not the reviewed one. The debug palette gives each zone an unmistakable colour, to learn which zone is which part. *@
+@{
+    var variant = Stratagem.Delivery.Variant ?? new VariantDelivery();
+    var model = Workspace.FindCustomModel(variant.Model);
+    var owner = CustomDiagnostic.StratagemOwner(Stratagem.Id);
+}
+<div class="model-editor" data-model-editor>
+    @if (model == null)
+    {
+        <p class="field-help">@T["CustomStratagem.Model.Help"]</p>
+        <button class="custom-outline" disabled="@(Busy || string.IsNullOrEmpty(variant.Weapon))" data-model-create @onclick="Create">@T["CustomStratagem.Model.Create"]</button>
+        @if (string.IsNullOrEmpty(variant.Weapon)) { <p class="field-reason">@T["CustomContent.Model.NeedsWeapon"]</p> }
+    }
+    else
+    {
+        <p class="subtle" data-model-id>@T.Format("CustomStratagem.Model.Summary", model.Id, model.Base)</p>
+        <div class="segmented" role="group" data-model-palette-mode>
+            <button class="@(model.Debug ? "active" : "")" disabled="@Busy" data-model-debug @onclick="() => EditModel(m => m.Debug = true)">@T["CustomStratagem.Model.Debug"]</button>
+            <button class="@(!model.Debug ? "active" : "")" disabled="@Busy" data-model-custom @onclick="() => EditModel(m => { m.Debug = false; if (m.All == null && m.Zones.Count == 0) m.All = Accent; })">@T["CustomStratagem.Model.Colours"]</button>
+        </div>
+        @if (model.Debug) { <p class="field-help">@T["CustomStratagem.Model.Debug.Help"]</p> }
+        <div class="zone-grid" data-model-zones>
+            @if (!model.Debug)
+            {
+                <div class="zone-row all"><span class="zone-name">@T["CustomStratagem.Model.AllZones"]</span>
+                    <input type="color" value="@(model.All ?? "#808080")" disabled="@Busy" aria-label="@T["CustomStratagem.Model.AllZones"]" data-model-all @onchange="e => EditModel(m => m.All = Colour(e.Value))" />
+                    @if (model.All != null) { <button class="quiet" disabled="@Busy" @onclick="() => EditModel(m => m.All = null)">@T["CustomStratagem.Model.KeepBase"]</button> } else { <span class="subtle">@T["CustomStratagem.Model.Base"]</span> }</div>
+            }
+            @for (var zone = 0; zone < 8; zone++)
+            {
+                var key = zone.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var debug = CustomModelCompiler.DebugColours[zone];
+                var own = model.Zones.GetValueOrDefault(key);
+                var shown = model.Debug ? debug : own ?? model.All;
+                <div class="zone-row" data-model-zone="@key">
+                    <span class="zone-swatch" style="background:@(shown ?? "transparent")" title="@(shown ?? T["CustomStratagem.Model.Base"])"></span>
+                    <span class="zone-name">@T.Format("CustomStratagem.Model.Zone", key) <small class="subtle" title="@T["CustomStratagem.Model.DebugColour"]"><span class="zone-dot" style="background:@debug"></span>@debug</small></span>
+                    @if (!model.Debug)
+                    {
+                        <input type="color" value="@(own ?? model.All ?? "#808080")" disabled="@Busy" aria-label="@T.Format("CustomStratagem.Model.Zone", key)" @onchange="e => EditModel(m => m.Zones[key] = Colour(e.Value))" />
+                        @if (own != null) { <button class="quiet" disabled="@Busy" @onclick="() => EditModel(m => m.Zones.Remove(key))">@T["CustomStratagem.Model.UseAll"]</button> }
+                    }
+                </div>
+            }
+        </div>
+        <label>@T["CustomStratagem.Model.Use"]</label>
+        <div class="segmented" role="group" data-model-use>
+            <button class="@(variant.ModelUse != VariantDelivery.ModelCheck ? "active" : "")" disabled="@Busy" @onclick="() => Edit(s => s.Delivery.Variant!.ModelUse = null)">@T["CustomStratagem.Model.Apply"]</button>
+            <button class="@(variant.ModelUse == VariantDelivery.ModelCheck ? "active" : "")" disabled="@Busy" @onclick="() => Edit(s => s.Delivery.Variant!.ModelUse = VariantDelivery.ModelCheck)">@T["CustomStratagem.Model.Check"]</button>
+        </div>
+        <p class="field-help">@(variant.ModelUse == VariantDelivery.ModelCheck ? T["CustomStratagem.Model.Check.Help"] : T["CustomStratagem.Model.Apply.Help"])</p>
+        <div class="actions">
+            <button class="custom-outline" disabled="@(Busy || Checking)" data-model-check-game @onclick="CheckGame">@T["CustomStratagem.Model.CheckGame"]</button>
+            <button class="quiet danger-text" disabled="@Busy" data-model-remove @onclick="() => Run.InvokeAsync(() => Workspace.RemoveCustomModelAsync(Stratagem.Id))">@T["CustomStratagem.Model.Remove"]</button>
+        </div>
+        @if (GameStatus is { } status) { <p class="field-issue @(GameOk ? "pass" : "error danger-text")" data-model-game-status>@(GameOk ? "✓ " : "✕ ")@status</p> }
+    }
+    @foreach (var issue in Workspace.CustomDiagnosticsFor(owner).Where(d => d.Severity is CustomSeverity.Error or CustomSeverity.Warning && d.About("payload.model")))
+    { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error danger-text" : "warning")" data-field-issue="payload.model">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    private const string Accent = "#A78BFA";
+    private bool Checking, GameOk; private string? GameStatus;
+    private Task Edit(Action<CustomStratagem> edit) => Run.InvokeAsync(() => Workspace.EditCustomStratagemAsync(Stratagem.Id, edit));
+    private Task EditModel(Action<CustomModel> edit) => Stratagem.Delivery.Variant?.Model is { } id ? Run.InvokeAsync(() => Workspace.EditCustomModelAsync(id, edit)) : Task.CompletedTask;
+    private Task Create() => Run.InvokeAsync(async () => { await Workspace.CreateCustomModelAsync(Stratagem.Id); GameStatus = null; });
+    // An <input type=color> gives #rrggbb; the model keeps the SDK's #RRGGBB.
+    private static string? Colour(object? value) => value is string s && System.Text.RegularExpressions.Regex.IsMatch(s, "^#[0-9a-fA-F]{6}$") ? s.ToUpperInvariant() : null;
+    // Derives the model from the installed game now (nothing is written): the export would do the same, so this tells whether it will work.
+    private async Task CheckGame()
+    {
+        Checking = true; GameStatus = null;
+        try
+        {
+            var model = Workspace.FindCustomModel(Stratagem.Delivery.Variant?.Model);
+            if (model == null || Workspace.Project == null) return;
+            var data = Environment.GetEnvironmentVariable("HD2_GAME_DATA") is { Length: > 0 } env && Directory.Exists(env) ? env : HD2RuntimeGUI.Core.GameAssets.GameIconStore.DefaultGameDataPath();
+            if (data == null) { GameOk = false; GameStatus = T["CustomContent.Build.ModelNoGame"]; return; }
+            var resource = Workspace.Project.ResourceId;
+            var (ok, message) = await Task.Run(() =>
+            {
+                var bases = ModelBases.Read(CustomModelCompiler.BundledBases());
+                if (!bases.TryGetValue(model.Base, out var facts)) return (false, T.Format("CustomContent.Build.ModelBase", model.Id, model.Base));
+                var derived = CustomModelCompiler.Derive(resource, model.Id, model.Base, HD2RuntimeGUI.Core.Generation.ModExporter.Palette(model), facts,
+                    CustomModelCompiler.GameParts(data, CustomModelCompiler.BaseKeys(facts)));
+                return (true, T.Format("CustomStratagem.Model.GameOk", model.Base, facts.Build, data, derived.Record.Sha256.Unit[..12]));
+            });
+            (GameOk, GameStatus) = (ok, message);
+        }
+        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException) { GameOk = false; GameStatus = e.Message; }
+        finally { Checking = false; }
+    }
+}

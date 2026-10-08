@@ -1,0 +1,70 @@
+@* How a delivered weapon presents itself (an expendable clone, a weapon variant): the text its prompt, map label and weapon panel show, and the
+   icon of its marker and prompt. The custom stratagem's own name and icon by default; the donor's own (expendables only); or the author's,
+   with an icon of its own imported as a PNG (kept in the project and compiled into the mod like the stratagem's icon). *@
+@{
+    var p = Presentation(Stratagem) ?? new DeliveredPresentation();
+    var donor = Stratagem.Delivery.Family == DeliveryFamily.Expendable;
+    var image = p.IconMode == DeliveredPresentation.Custom ? Workspace.CustomImageOf(p.Icon) : null;
+    var owner = CustomDiagnostic.StratagemOwner(Stratagem.Id);
+}
+<div class="presentation-editor" data-presentation-editor>
+    <div class="custom-fields">
+        <div class="custom-field" data-custom-field="payload.presentation.name">
+            <label>@T["CustomStratagem.Presentation.Name"]</label>
+            <div class="segmented" role="group" data-presentation-name-mode>
+                <button class="@(p.NameMode == DeliveredPresentation.Stratagem ? "active" : "")" disabled="@Busy" @onclick="() => Edit(x => { x.NameMode = DeliveredPresentation.Stratagem; x.Name = null; })">@T["CustomStratagem.Presentation.Stratagem"]</button>
+                @if (donor) { <button class="@(p.NameMode == DeliveredPresentation.Donor ? "active" : "")" disabled="@Busy" @onclick="() => Edit(x => { x.NameMode = DeliveredPresentation.Donor; x.Name = null; })">@T["CustomStratagem.Presentation.Donor"]</button> }
+                <button class="@(p.NameMode == DeliveredPresentation.Custom ? "active" : "")" disabled="@Busy" data-presentation-name-custom @onclick="() => Edit(x => { x.NameMode = DeliveredPresentation.Custom; x.Name ??= Stratagem.Name; })">@T["CustomStratagem.Presentation.Custom"]</button>
+            </div>
+            @if (p.NameMode == DeliveredPresentation.Custom)
+            { <input value="@p.Name" maxlength="64" disabled="@Busy" aria-label="@T["CustomStratagem.Presentation.Name"]" data-presentation-name @onchange="e => Edit(x => x.Name = (e.Value as string)?.Trim() is { Length: > 0 } v ? v : null)" /> }
+            else { <p class="field-help">@(p.NameMode == DeliveredPresentation.Donor ? T["CustomStratagem.Presentation.Name.Donor"] : T.Format("CustomStratagem.Presentation.Name.Stratagem", Stratagem.Name))</p> }
+            @Issues("payload.presentation.name") @Issues("payload.presentation")
+        </div>
+        <div class="custom-field" data-custom-field="payload.presentation.icon">
+            <label>@T["CustomStratagem.Presentation.Icon"]</label>
+            <div class="segmented" role="group" data-presentation-icon-mode>
+                <button class="@(p.IconMode == DeliveredPresentation.Stratagem ? "active" : "")" disabled="@Busy" @onclick="() => Edit(x => { x.IconMode = DeliveredPresentation.Stratagem; x.Icon = null; })">@T["CustomStratagem.Presentation.Stratagem"]</button>
+                @if (donor) { <button class="@(p.IconMode == DeliveredPresentation.Donor ? "active" : "")" disabled="@Busy" @onclick="() => Edit(x => { x.IconMode = DeliveredPresentation.Donor; x.Icon = null; })">@T["CustomStratagem.Presentation.Donor"]</button> }
+                <button class="@(p.IconMode == DeliveredPresentation.Custom ? "active" : "")" disabled="@Busy" data-presentation-icon-custom @onclick="UseOwnIcon">@T["CustomStratagem.Presentation.OwnIcon"]</button>
+            </div>
+            @if (p.IconMode == DeliveredPresentation.Custom)
+            {
+                <div class="presentation-icon">
+                    <span class="custom-icon md @(image == null ? "missing" : "")">@if (Workspace.CustomIconUri(p.Icon) is { } uri) { <img src="@uri" alt="" /> } else { <span>◇</span> }</span>
+                    <div class="actions">
+                        <button class="custom-outline" disabled="@Busy" data-presentation-import @onclick="Import">@T["CustomStratagem.Icon.Import"]</button>
+                        <button class="quiet" disabled="@Busy" @onclick="Placeholder">@T["CustomStratagem.Icon.Placeholder"]</button>
+                    </div>
+                </div>
+            }
+            else { <p class="field-help">@(p.IconMode == DeliveredPresentation.Donor ? T["CustomStratagem.Presentation.Icon.Donor"] : T["CustomStratagem.Presentation.Icon.Stratagem"])</p> }
+            @Issues("payload.presentation.icon")
+        </div>
+    </div>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Inject] private IPackagedFilePicker Picker { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    private static DeliveredPresentation? Presentation(CustomStratagem s) => s.Delivery.Family == DeliveryFamily.Variant ? s.Delivery.Variant?.Presentation : s.Delivery.Expendable?.Presentation;
+    // Edits the presentation; one that is back to the defaults is not saved at all.
+    private Task Edit(Action<DeliveredPresentation> edit) => Run.InvokeAsync(() => Workspace.EditCustomStratagemAsync(Stratagem.Id, s =>
+    {
+        var p = Presentation(s) ?? new DeliveredPresentation();
+        edit(p);
+        var value = p.IsDefault ? null : p;
+        if (s.Delivery.Family == DeliveryFamily.Variant) (s.Delivery.Variant ??= new()).Presentation = value; else (s.Delivery.Expendable ??= new()).Presentation = value;
+    }));
+    // Its own icon starts as a generated placeholder (an icon it already has is kept).
+    private Task UseOwnIcon() => Presentation(Stratagem) is { IconMode: DeliveredPresentation.Custom } ? Task.CompletedTask : Placeholder();
+    private Task Placeholder() => Run.InvokeAsync(() => Workspace.SetCustomWeaponIconAsync(Stratagem.Id, CustomIconCompiler.Placeholder(Stratagem.Id + "_weapon"), null));
+    private Task Import() => Run.InvokeAsync(async () => { if (await Picker.PickIconAsync() is { } path) await Workspace.ImportCustomWeaponIconAsync(Stratagem.Id, path); });
+    private RenderFragment Issues(string field) => __builder =>
+    {
+        foreach (var issue in Workspace.CustomDiagnosticsFor(CustomDiagnostic.StratagemOwner(Stratagem.Id)).Where(d => d.Field == field && d.Severity is CustomSeverity.Error or CustomSeverity.Warning))
+        { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error danger-text" : "warning")" data-field-issue="@field">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+    };
+}

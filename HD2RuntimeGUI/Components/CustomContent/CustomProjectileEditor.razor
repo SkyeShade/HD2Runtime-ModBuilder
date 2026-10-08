@@ -1,0 +1,262 @@
+@* One custom projectile: a vanilla base projectile with whole components taken from other vanilla projectiles (the Runtime's own model:
+   visual, damage, impact explosion, ballistics), the weapons that fire it, what uses it, its checks and the definition the build writes.
+   It is a NEW object with its own id, never an edit of a vanilla projectile (those are in the Projectile Builder and the weapon editors). *@
+@{ var p = Workspace.FindCustomProjectile(Id); }
+@if (p == null)
+{
+    <section class="panel"><p>@T["CustomProjectile.Missing"]</p><button class="custom-outline" @onclick="() => Back.InvokeAsync()">@T["CustomProjectiles.BackToList"]</button></section>
+}
+else
+{
+    var owner = CustomDiagnostic.ProjectileOwner(p.Id);
+    var state = Workspace.CustomState(owner);
+    var graph = Workspace.CustomGraph();
+    var uses = graph.UsedBy(CustomNodeKind.Projectile, p.Id);
+    var assignments = Workspace.CustomContent?.Assignments.Where(a => a.Projectile == ContentRef.Custom(p.Id)).ToArray() ?? [];
+    var draft = Workspace.CustomDraft is { } d && d.ProjectileId == p.Id ? d : null;
+    <div class="custom-editor" data-custom-projectile-editor="@p.Id">
+        <p class="custom-editor-nav"><button class="link-button" data-custom-back @onclick="() => Back.InvokeAsync()">← @T["CustomProjectiles.BackToList"]</button>
+            @if (draft == null && ReturnHost is { } from) { <button class="link-button" data-custom-return @onclick="() => Navigator.ReturnTo(from)">← @T.Format("CustomProjectile.BackToWeapon", from.Label)</button> }</p>
+        @* Created from a weapon's projectile selector: the weapon keeps what it fires until this is completed here (or cancelled). *@
+        @if (draft != null)
+        {
+            var errors = Workspace.CustomDiagnosticsFor(owner).Where(x => x.Severity == CustomSeverity.Error).ToArray();
+            <section class="custom-draft" aria-label="@T["CustomProjectile.Draft.Label"]" data-custom-draft="@draft.Origin.Label">
+                <p><strong>@(draft.CopyOf != null ? T.Format("CustomProjectile.Draft.TitleCopy", draft.CopyOf, draft.Origin.Label) : T.Format("CustomProjectile.Draft.Title", draft.Origin.Label))</strong>
+                    @T.Format("CustomProjectile.Draft.Help", draft.Origin.Weapon)</p>
+                @if (errors.Length > 0) { <p class="field-issue error danger-text" data-draft-not-ready>@CustomLabels.Mark(CustomSeverity.Error) @T.Plural("CustomProjectile.Draft.NotReady", errors.Length, errors[0].Message)</p> }
+                else { <p class="field-issue" data-draft-ready>@CustomLabels.Mark(CustomSeverity.Pass) @T.Format("CustomProjectile.Draft.Ready", draft.Origin.Label)</p> }
+                <div class="actions">
+                    <button class="custom-primary" disabled="@(Busy || errors.Length > 0)" data-draft-complete @onclick="() => Complete(false)">@T.Format("CustomProjectile.Draft.Complete", draft.Origin.Weapon)</button>
+                    <button disabled="@Busy" data-draft-cancel @onclick="CancelDraft">@T["CustomProjectile.Draft.Cancel"]</button>
+                </div>
+                @if (DraftConflict != null)
+                {
+                    <div class="swap-prompt" role="group" data-draft-conflict><p>@DraftConflict</p>
+                        <div class="swap-actions"><button class="custom-primary" disabled="@Busy" data-draft-replace @onclick="() => Complete(true)">@T["CustomProjectile.Assign.Replace"]</button>
+                            <button class="link-button" @onclick="() => DraftConflict = null">@T["CustomProjectile.Draft.KeepEditing"]</button></div></div>
+                }
+            </section>
+        }
+        <section class="panel category-panel cat-custom">
+            <div class="custom-editor-header"><span class="custom-icon lg" aria-hidden="true"><span>➶</span></span>
+                <div><h2>@p.Name</h2><code data-custom-id>@p.Id</code>
+                    <div class="field-badges"><span class="category-pill static cat-custom"><span class="cat-dot" aria-hidden="true"></span>@T["CustomContent.Badge.CustomProjectile"]</span>
+                        <span class="badge experimental">@T["CustomContent.Experimental"]</span>
+                        <span class="badge state-badge @CustomLabels.StateCss(state)" data-custom-state="@CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span>
+                        <span class="badge custom" data-fired-by="@assignments.Length">@T.Plural("CustomProjectiles.FiredBy.Count", assignments.Length)</span></div></div></div>
+            <div class="actions">
+                <button class="custom-outline" disabled="@Busy" data-custom-duplicate @onclick="Duplicate">@T["CustomContent.Duplicate"]</button>
+                <button class="quiet danger-text" disabled="@Busy" data-custom-delete @onclick="() => Delete(null, false)">@T["CustomContent.Delete"]</button>
+            </div>
+            @if (Blocked is { } blocked)
+            {
+                <div class="custom-delete" role="group" data-custom-delete-references>
+                    <p><strong>@T.Format("CustomProjectile.Delete.Referenced", p.Name)</strong></p>
+                    <ul class="used-by">@foreach (var use in blocked) { <li>@UseLabel(use)</li> }</ul>
+                    <div class="actions">
+                        @if (Workspace.CustomProjectiles.Any(o => o.Id != p.Id))
+                        {
+                            <select value="@(Replacement ?? "")" aria-label="@T["CustomProjectile.Delete.ReplaceWith"]" @onchange="e => Replacement = e.Value as string">
+                                <option value="">@T["CustomProjectile.Delete.ReplaceWith"]</option>
+                                @foreach (var other in Workspace.CustomProjectiles.Where(o => o.Id != p.Id)) { <option value="@other.Id">@other.Name (@other.Id)</option> }
+                            </select>
+                            <button class="custom-primary" disabled="@(Busy || string.IsNullOrEmpty(Replacement))" data-delete-replace @onclick="() => Delete(ContentRef.Custom(Replacement!), false)">@T["CustomProjectile.Delete.Replace"]</button>
+                        }
+                        <button class="danger" disabled="@Busy" data-delete-remove-references @onclick="() => Delete(null, true)">@T["CustomProjectile.Delete.RemoveReferences"]</button>
+                        <button @onclick="() => Blocked = null">@T["Common.Cancel"]</button>
+                    </div>
+                </div>
+            }
+            @if (Error != null) { <p class="notice warning" role="alert" data-custom-error>@Error</p> }
+        </section>
+
+        <details class="ia-section" data-section="identity" open>
+            <summary>@T["CustomProjectile.Section.Identity"] <small>@T["CustomProjectile.Section.Identity.Hint"]</small></summary>
+            <div class="ia-body">
+                <div class="custom-fields">
+                    <div class="custom-field"><label for="projectile-name">@T["CustomProjectile.Name"]</label>
+                        <input id="projectile-name" value="@p.Name" maxlength="64" disabled="@Busy" @onchange="e => Rename(e.Value as string ?? string.Empty)" />
+                        @Issues(owner, "name")</div>
+                    <div class="custom-field"><label>@T["CustomStratagem.Id"] <small>@(draft is { IdFollowsName: true } && uses.Count == 0 ? T["CustomProjectile.Id.FollowsName"] : T["CustomProjectile.Id.Hint"])</small></label><code>@p.Id</code>
+                        <p class="field-help">@T.Format("CustomProjectile.RuntimeId", CustomIds.RuntimeProjectileId(Workspace.Project!.ResourceId, p.Id))</p>
+                        <details data-custom-change-id><summary class="subtle">@T["CustomStratagem.Id.Change"]</summary>
+                            <div class="custom-warning"><p>@T.Plural("CustomProjectile.Id.Warning", uses.Count)</p></div>
+                            <div class="input-action"><input value="@NewId" placeholder="@p.Id" @oninput="e => NewId = e.Value as string" aria-label="@T["CustomStratagem.Id"]" data-custom-new-id />
+                                <button class="custom-outline" disabled="@(Busy || string.IsNullOrWhiteSpace(NewId) || NewId == p.Id)" data-custom-apply-id @onclick="() => ChangeId(p.Id)">@T["CustomStratagem.Id.Apply"]</button></div>
+                        </details>
+                        @Issues(owner, "id")</div>
+                </div>
+                <div class="custom-field"><label for="projectile-description">@T["CustomProjectile.Description"] <small>@T["CustomProjectile.Description.Hint"]</small></label>
+                    <textarea id="projectile-description" rows="2" maxlength="4000" disabled="@Busy" @onchange="e => Edit(x => x.Description = (e.Value as string)?.Trim() is { Length: > 0 } v ? v : null)">@p.Description</textarea></div>
+            </div>
+        </details>
+
+        <details class="ia-section" data-section="composition" open>
+            <summary>@T["CustomProjectile.Section.Composition"] <small>@T["CustomProjectile.Section.Composition.Hint"]</small></summary>
+            <div class="ia-body">
+                <div class="custom-field" data-projectile-field="base"><label for="projectile-base">@T["CustomProjectiles.Base"] <small>@T["CustomContent.Field.Required"]</small></label>
+                    <OutputPicker Id="projectile-base" Value="@NullIfEmpty(p.Base)" Busy="Busy" Changed="v => Edit(x => x.Base = v ?? string.Empty)" />
+                    <p class="field-help">@T["CustomProjectiles.Base.Help"]</p>
+                    @Issues(owner, "base")</div>
+                @foreach (var (component, evidence) in Workspace.CustomTarget.ProjectileComponents)
+                {
+                    var value = Component(p, component);
+                    <div class="custom-field" data-projectile-field="@component">
+                        <label for="@("projectile-" + component)">@ComponentLabel(component) @if (evidence != null) { <small class="badge @(evidence == "verified" ? "green" : "")" data-component-evidence="@evidence">@(evidence == "verified" ? T["CustomProjectiles.Evidence.Verified"] : T["CustomProjectiles.Evidence.Observed"])</small> }</label>
+                        <OutputPicker Id="@("projectile-" + component)" Value="@value" Optional="true" RequirePackage="@(component != "ballistics")" Busy="Busy" Changed="v => Edit(x => SetComponent(x, component, v))" />
+                        <p class="field-help">@ComponentHelp(component)</p>
+                        @Issues(owner, component)</div>
+                }
+            </div>
+        </details>
+
+        <details class="ia-section" data-section="fired-by" open>
+            <summary>@T["CustomProjectile.Section.FiredBy"] <small>@T["CustomProjectile.Section.FiredBy.Hint"]</small></summary>
+            <div class="ia-body">
+                @if (assignments.Length == 0) { <p class="subtle" data-fired-by-empty>@T["CustomProjectile.FiredBy.None"]</p> }
+                @foreach (var a in assignments)
+                {
+                    <div class="change-row @(a.Enabled ? "" : "disabled-row")" data-assignment="@CustomContentGraph.WeaponKey(a)">
+                        <label class="switch-label"><input type="checkbox" role="switch" checked="@a.Enabled" disabled="@Busy" aria-label="@T["Common.On"]" @onchange="() => Run(() => Workspace.ToggleCustomAssignmentAsync(a.Id))" /></label>
+                        <div class="change-name"><strong>@a.Weapon</strong><small>@T.Format("CustomProjectile.FiredBy.Attack", a.AttackRole.Replace('_', ' '))</small>
+                            <CustomChecklist Diagnostics="Workspace.CustomDiagnosticsFor(CustomDiagnostic.AssignmentOwner(a.Id))" ShowAreas="false" /></div>
+                        <button class="custom-outline" @onclick="() => OpenWeapon.InvokeAsync(a.Weapon)">@T["CustomProjectile.FiredBy.Open"]</button>
+                        <button class="quiet danger-text" disabled="@Busy" aria-label="@T["CustomProjectile.FiredBy.Remove"]" title="@T["CustomProjectile.FiredBy.Remove"]" @onclick="() => Run(() => Workspace.RemoveCustomAssignmentAsync(a.Id))">×</button>
+                    </div>
+                }
+                @{ var hosts = Hosts(); }
+                @if (hosts.Count > 0)
+                {
+                    <div class="custom-assign" data-assign-form>
+                        <label>@T["CustomProjectile.Assign.Weapon"]<select value="@(AssignHost ?? "")" @onchange="e => { AssignHost = e.Value as string; PendingConflict = null; }" data-assign-host>
+                            <option value="">@T["CustomContent.Field.Choose"]</option>
+                            @foreach (var (weapon, role) in hosts) { <option value="@(weapon + "#" + role)">@weapon@(role == "primary" ? "" : " · " + role.Replace('_', ' '))</option> }
+                        </select></label>
+                        <button class="custom-primary" disabled="@(Busy || string.IsNullOrEmpty(AssignHost))" data-assign-submit @onclick="() => Assign(p.Id, false)">@T["CustomProjectile.Assign.Submit"]</button>
+                    </div>
+                    @if (PendingConflict != null)
+                    {
+                        <div class="swap-prompt" role="group" data-assign-conflict><p>@PendingConflict</p>
+                            <div class="swap-actions"><button class="custom-primary" data-assign-replace @onclick="() => Assign(p.Id, true)">@T["CustomProjectile.Assign.Replace"]</button>
+                                <button class="link-button" @onclick="() => PendingConflict = null">@T["Common.Cancel"]</button></div></div>
+                    }
+                }
+            </div>
+        </details>
+
+        @if (uses.Any(u => u.From.Kind == CustomNodeKind.Stratagem))
+        {
+            <details class="ia-section" data-section="used-by" open>
+                <summary>@T["CustomProjectile.Section.UsedBy"]</summary>
+                <div class="ia-body"><ul class="used-by">@foreach (var use in uses.Where(u => u.From.Kind == CustomNodeKind.Stratagem)) { <li>@UseLabel(use)</li> }</ul></div>
+            </details>
+        }
+
+        <details class="ia-section" data-section="checks" open>
+            <summary>@T["CustomStratagem.Section.Checks"] <small>@T["CustomProjectile.Section.Checks.Hint"]</small></summary>
+            <div class="ia-body"><CustomChecklist Diagnostics="Workspace.CustomDiagnosticsFor(owner)" /></div>
+        </details>
+
+        <details class="ia-section custom-preview" data-section="generated">
+            <summary>@T["CustomStratagem.Section.Generated"] <small>@T.Format("CustomStratagem.Section.Generated.Hint", Workspace.CustomTarget.RuntimeLabel)</small></summary>
+            <div class="ia-body"><pre data-custom-definition>@Workspace.CustomProjectilePreview(p.Id)</pre></div>
+        </details>
+    </div>
+}
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public EventCallback Back { get; set; }
+    [Parameter] public EventCallback<string> Open { get; set; }
+    [Parameter] public EventCallback<string> OpenWeapon { get; set; }
+    [Parameter] public EventCallback<string> OpenStratagem { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    // The weapon attack this projectile was opened from (its selector's Open), to go back to.
+    [Parameter] public CustomProjectileHost? ReturnHost { get; set; }
+    [Inject] private BuilderNavigator Navigator { get; set; } = default!;
+    private bool Busy; private string? Error, NewId, AssignHost, PendingConflict, Replacement, DraftConflict;
+    private IReadOnlyList<CustomEdge>? Blocked;
+    protected override void OnParametersSet() { NewId = null; }
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (CustomReferenceException e) { Blocked = e.Uses; }
+        catch (CustomAssignmentConflictException e) { PendingConflict = e.Message; }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+    private Task Edit(Action<CustomProjectile> edit) => Run(() => Workspace.EditCustomProjectileAsync(Id, edit));
+    private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
+    private static string? Component(CustomProjectile p, string component) => component switch
+    {
+        "visual" => p.Visual, "damage" => p.Damage, "impactExplosion" => p.ImpactExplosion, "ballistics" => p.Ballistics, _ => null,
+    };
+    private static void SetComponent(CustomProjectile p, string component, string? value)
+    {
+        switch (component)
+        {
+            case "visual": p.Visual = value; break;
+            case "damage": p.Damage = value; break;
+            case "impactExplosion": p.ImpactExplosion = value; break;
+            case "ballistics": p.Ballistics = value; break;
+        }
+    }
+    private string ComponentLabel(string component) => CustomLabels.Role(T, component);
+    private string ComponentHelp(string component) => component switch
+    {
+        "visual" => T["CustomProjectiles.Component.Visual.Help"], "damage" => T["CustomProjectiles.Component.Damage.Help"],
+        "impactExplosion" => T["CustomProjectiles.Component.ImpactExplosion.Help"], _ => T["CustomProjectiles.Component.Ballistics.Help"],
+    };
+    // Player weapon attacks whose fired projectile Runtime can write (the hosts a carrier swap can use).
+    private IReadOnlyList<(string Weapon, string Role)> Hosts()
+    {
+        if (Workspace.Metadata?.AttackOutputs is not { } catalog || Workspace.Metadata.PlayerWeapons is not { } weapons) return [];
+        return [.. catalog.ProjectileSources.Where(s => s.HostKind == AttackProjectileSource.PlayerKind && catalog.Host(weapons, s.Weapon, s.Attack, out _) != null)
+            .Select(s => (s.Weapon, s.Attack)).Distinct().OrderBy(h => h.Weapon, StringComparer.OrdinalIgnoreCase).ThenBy(h => h.Attack, StringComparer.Ordinal)];
+    }
+    private Task Assign(string id, bool discard) => Run(async () =>
+    {
+        var host = AssignHost!.Split('#', 2);
+        await Workspace.AssignCustomProjectileAsync(host[0], host[1], id, discard);
+        PendingConflict = null; AssignHost = null;
+    });
+    private Task Duplicate() => Run(async () => { var copy = await Workspace.DuplicateCustomProjectileAsync(Id); await Open.InvokeAsync(copy); });
+    private Task ChangeId(string id) => Run(async () => { var next = NewId!.Trim(); await Workspace.ChangeCustomProjectileIdAsync(id, next); await Open.InvokeAsync(next); });
+    // The name; a draft's id follows it while nothing refers to the draft (the editor then shows it under its new id).
+    private Task Rename(string name) => Run(async () => { var id = await Workspace.RenameCustomProjectileAsync(Id, name); if (id != Id) await Open.InvokeAsync(id); });
+    // Deleting the draft ends its flow: back to the weapon it was created for, which keeps what it fires.
+    private Task Delete(ContentRef? replacement, bool removeReferences) => Run(async () =>
+    {
+        var origin = Workspace.CustomDraft is { } d && d.ProjectileId == Id ? d.Origin : null;
+        await Workspace.DeleteCustomProjectileAsync(Id, replacement, removeReferences);
+        Blocked = null;
+        if (origin != null) Navigator.ReturnTo(origin); else await Back.InvokeAsync();
+    });
+    private Task Complete(bool discard) => Run(async () =>
+    {
+        try { var origin = await Workspace.CompleteCustomProjectileDraftAsync(discard); DraftConflict = null; Navigator.ReturnTo(origin); }
+        catch (CustomAssignmentConflictException e) { DraftConflict = e.Message; }
+    });
+    private Task CancelDraft() => Run(async () => { if (await Workspace.CancelCustomProjectileDraftAsync() is { } origin) Navigator.ReturnTo(origin); });
+    private RenderFragment UseLabel(CustomEdge use) => __builder =>
+    {
+        if (use.From.Kind == CustomNodeKind.Weapon)
+        {
+            var parts = use.From.Id.Split('#', 2);
+            <span>@T.Format("CustomProjectile.UsedBy.Weapon", parts[0], parts[1].Replace('_', ' '))</span>
+        }
+        else
+        {
+            var s = Workspace.FindCustomStratagem(use.From.Id);
+            <span class="custom-chip">@T["CustomContent.Badge.CustomStratagem"] <code>@use.From.Id</code></span> <span>@(s?.NameCased ?? s?.Name) · @CustomLabels.Role(T, use.Role)</span>
+            <button class="link-button" @onclick="() => OpenStratagem.InvokeAsync(use.From.Id)">@T["Common.Edit"]</button>
+        }
+    };
+    private RenderFragment Issues(string owner, string field) => __builder =>
+    {
+        foreach (var issue in Workspace.CustomDiagnosticsFor(owner).Where(d => d.Field == field && d.Severity is CustomSeverity.Error or CustomSeverity.Warning))
+        { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error danger-text" : "warning")" data-field-issue="@field">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+    };
+}

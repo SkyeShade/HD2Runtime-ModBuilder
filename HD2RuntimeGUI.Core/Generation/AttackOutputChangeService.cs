@@ -103,14 +103,19 @@ public static class AttackOutputChangeService
             Validate(sdk, c);
             if (c.IsPlayer && project.ProjectileChanges.Any(p => p.Enabled && p.Weapon == c.Weapon && p.AttackRole == c.AttackRole))
                 throw new InvalidDataException(CoreText.Format("Messages.Build.Output.SwapConflict", c.Weapon));
-            var (target, field, expect) = HostLua(sdk, c);
             // Player ids keep their original digest; other hosts add their kind.
             var key = c.IsPlayer ? project.ResourceId + "\n" + c.Weapon + "\n" + c.AttackRole : project.ResourceId + "\n" + c.Kind + "\n" + c.Weapon + "\n" + c.AttackRole;
-            var body = "{\n    id=" + LuaGenerator.Quote("output-" + SupportChangeService.Hash(key)[..24]) + ",\n    target=" + target + ",\n";
-            foreach (var flag in FlagOrder.Where(c.Acknowledgements.Contains)) body += "    " + flag + "=true,\n";
-            body += "    field=" + field + ",\n    expect=" + expect + ",\n    value=hd2.attack_output(" + LuaGenerator.Quote(c.Output) + "),\n}";
-            output.Add(OptionBindings.Wrap(null, "patch", body, c.EnsureEnabled, []));
+            output.Add(Operation(c, sdk, "output-" + SupportChangeService.Hash(key)[..24]));
         }
         return output;
+    }
+    // One output swap as its guarded patch (also the carrier swap of a custom projectile assignment, CustomContent/Runtime030Target).
+    public static string Operation(AttackOutputChange c, SdkMetadata sdk, string id)
+    {
+        var (target, field, expect) = HostLua(sdk, c);
+        var body = "{\n    id=" + LuaGenerator.Quote(id) + ",\n    target=" + target + ",\n";
+        foreach (var flag in FlagOrder.Where(c.Acknowledgements.Contains)) body += "    " + flag + "=true,\n";
+        body += "    field=" + field + ",\n    expect=" + expect + ",\n    value=hd2.attack_output(" + LuaGenerator.Quote(c.Output) + "),\n}";
+        return OptionBindings.Wrap(null, "patch", body, c.EnsureEnabled, []);
     }
 }

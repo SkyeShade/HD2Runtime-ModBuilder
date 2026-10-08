@@ -12,6 +12,11 @@
             <div class="project-label @(Workspace.Project == null ? "empty" : "")">@(Workspace.Project?.DisplayName ?? T["Nav.NoProject"])</div>
             @foreach (var item in nav.Where(i => i.Section == Navigation.Workspace)) { @NavButton(item) }
         </nav>
+        @* 1.7.0: experimental custom content (new Runtime-owned objects), its own violet group. *@
+        <nav class="nav-group custom-nav" aria-label="@T["Nav.Custom.Aria"]" data-nav-group="custom">
+            <div class="nav-caption custom">@T["Nav.Custom.Caption"] <span class="badge experimental">@T["CustomContent.Experimental"]</span></div>
+            @foreach (var item in nav.Where(i => i.Section == Navigation.Custom)) { @NavButton(item) }
+        </nav>
         <nav class="nav-group research" aria-label="@T["Nav.Research.Aria"]">
             <div class="nav-caption">@T["Nav.Research.Caption"]</div>
             @foreach (var item in nav.Where(i => i.Section == Navigation.Research)) { @NavButton(item) }
@@ -50,11 +55,15 @@
         else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => { StratagemCategory = c; StratagemSupportTab = null; }" SupportTab="@StratagemSupportTab" Changed="RefreshWeaponUI" /> }
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "boosters") { <Boosters Changed="RefreshWeaponUI" /> }
+        else if (Page == "helldiver") { <HelldiverPage Changed="RefreshWeaponUI" /> }
+        else if (Page == "armor") { <Armor Changed="RefreshWeaponUI" /> }
         else if (Page == "throwables") { <Throwables Changed="RefreshWeaponUI" /> }
         else if (Page == "scripting") { <CustomLuaPage Changed="RefreshWeaponUI" /> }
         else if (Page == "enemies") { <Enemies Kind="@EnemyAuthoringReader.Enemy" Changed="RefreshWeaponUI" /> }
         else if (Page == "structures") { <Enemies Kind="@EnemyAuthoringReader.Structure" Changed="RefreshWeaponUI" /> }
-        else if (Page == "projectiles") { <ProjectileOutputs Changed="RefreshWeaponUI" /> }
+        else if (Page == "projectiles") { <ProjectileOutputs InitialHost="@ProjectileHostSelection" Changed="RefreshWeaponUI" /> }
+        else if (Page == "custom-stratagems") { <CustomStratagems Selected="@CustomStratagemSelection" SelectedChanged="id => CustomStratagemSelection = id" @bind-StartCreating="CustomStratagemCreate" Changed="RefreshWeaponUI" /> }
+        else if (Page == "custom-projectiles") { <CustomProjectiles Selected="@CustomProjectileSelection" SelectedChanged="CustomProjectileSelected" ReturnHost="@CustomReturnHost" OpenWeapon="EditWeapon" OpenStratagem="OpenCustomStratagem" Changed="RefreshWeaponUI" /> }
         else if (Page == "research") { <SnapshotBrowser /> }
         else if (Page == "settings")
         {
@@ -82,16 +91,19 @@
                     var sdkIcons = Workspace.Metadata ?? Workspace.SdkStatus?.Installed;
                     var boosters = sdkIcons?.Entities?.Boosters?.Boosters ?? [];
                     <p class="subtle" data-icon-status>@T.Markup("Icons.Status.Html", Icons.Count("booster"), Icons.Count("stratagem"), icons.ImportedAt.ToLocalTime().ToString(T["Common.DateTime.Format"], T.Culture), icons.GameDataPath)
-                        @if (boosters.Length > 0) { <span data-booster-icon-count>@T.Format("Icons.BoosterCount", boosters.Count(b => Icons.BoosterIcon(b) is { } k && Icons.Svg("booster", k) != null), boosters.Length)@(" ")</span> }
-                        @if (sdkIcons?.Stratagems is { } catalog && catalog.Stratagems.Any(s => s.UiIcon != null))
+                        @if (boosters.Length > 0) { <span data-booster-icon-count>@(" ")@T.Format("Icons.BoosterCount", boosters.Count(b => Icons.BoosterIconUri(b) != null), boosters.Length)@(" ")</span> }
+                        @if (sdkIcons?.Stratagems is { } catalog)
                         {
-                            var roots = catalog.Stratagems;
-                            <span data-stratagem-icon-count>@(T.Format("Icons.StratagemCount", roots.Count(s => GameIconStore.StratagemIconKey(s) is { } k && Icons.Svg("stratagem", k) != null), roots.Length,
-                                roots.Count(s => s.UiIcon?.State == "resolved"), roots.Count(s => s.UiIcon?.State == "empty_template"), roots.Count(s => s.UiIcon?.State == "unbound"), roots.Count(s => s.UiIcon?.State == "no_native_root")))</span>
+                            var roots = catalog.Stratagems; var shown = roots.Count(s => Icons.StratagemIcon(s) != null); var hud = roots.Count(s => Icons.SpriteUri(GameIconStore.Stratagem, s.Name) != null);
+                            <span data-stratagem-icon-count>@T.Format("Icons.StratagemCount.Sources", shown, roots.Length, hud, shown - hud)</span>
+                            @if (roots.Where(s => Icons.StratagemIcon(s) == null).Select(s => s.Name).Concat(boosters.Where(b => Icons.BoosterIconUri(b) == null).Select(b => b.Name)).ToArray() is { Length: > 0 } none)
+                            { <span data-icon-missing>@(" ")@T.Format("Icons.NoGameIcon", string.Join(", ", none))</span> }
                             @if (catalog.UiIconContract is { } contract && Icons.StratagemLibrarySha is { } sha && !sha.Equals(contract.LibrarySha256, StringComparison.OrdinalIgnoreCase))
                             { <span class="notice warning" data-icon-library-mismatch>@T.Format("Icons.LibraryMismatch", sdkIcons.Version)</span> }
-                        }
-                        else { <span>@T.Format("Icons.NoStratagemIdentities", sdkIcons?.Version)</span> }</p>
+                        }</p>
+                    @* The bundled HUD sprite list against the installed game's build (or the SDK's): a warning only; icons keep their fallbacks. *@
+                    @if (Icons.SpriteBuildMismatch(sdkIcons?.AttackOutputs?.Build) is { } mismatch)
+                    { <p class="notice warning" data-hud-sprite-mismatch>@(mismatch.Game ? T.Format("Icons.SpriteBuild.Game", mismatch.Sprites, mismatch.Other) : T.Format("Icons.SpriteBuild.Sdk", mismatch.Sprites, mismatch.Other, sdkIcons?.Version))</p> }
                 }
                 else { <p class="subtle" data-icon-status>@(T[!Icons.AutoImportEnabled ? "Icons.None.AutoOff" : GameIconStore.DefaultGameDataPath() is null ? "Icons.None.NoInstall" : "Icons.None.Auto"])</p> }
                 @if (Icons.LastError != null) { <p class="notice warning" data-icon-import-error>@T.Format("Icons.AutoImportFailed", Icons.LastError)</p> }
@@ -108,9 +120,10 @@
                 <div class="notice warning" role="alert"><span>@T.Format("Home.BuildReview", Workspace.BuildError)</span>
                     @if (Workspace.WeaponWithOrphanedObjectEdits is { } orphanWeapon)
                     { @if (Page != "player-weapons") { <button data-fix-projectile @onclick="() => EditWeapon(orphanWeapon)">@T.Format("Home.BuildReview.OpenWeapon", orphanWeapon)</button> } }
+                    else if (Workspace.CustomBuildIssue is { } customIssue) { <button class="custom-outline" data-fix-custom @onclick="() => OpenCustomIssue(customIssue)">@T["Home.BuildReview.OpenCustom"]</button> }
                     else { <button @onclick='() => Navigate("changes")'>@T["Changes.Review"]</button> }</div>
             }
-            @if (Page == "player-weapons") { <PlayerWeaponsEditor InitialWeapon="@EditingWeapon" Changed="RefreshWeaponUI" Review='() => Navigate("changes")' /> }
+            @if (Page == "player-weapons") { <PlayerWeaponsEditor InitialWeapon="@EditingWeapon" InitialAttack="@EditingAttack" Changed="RefreshWeaponUI" Review='() => Navigate("changes")' /> }
             else if (Page == "lua") { <LuaPreview Source="@Workspace.LuaPreview" /> }
             else if (Page == "overview")
             {
@@ -145,6 +158,7 @@
                                 <button data-rebind @onclick="() => Run(Workspace.RebindToInstalledSdkAsync)">@(Workspace.SdkStatus?.LocalSource != null ? T.Format("Overview.Rebind.ToLocal", Workspace.SdkStatus.Installed.Version) : T["Overview.Rebind.ToInstalled"])</button></div>
                         }
                     </section>
+                    <CustomStratagemsOverview Open="OpenCustomStratagem" OpenAll='() => { CustomStratagemSelection = null; Navigate("custom-stratagems"); }' New="NewCustomStratagem" />
                     <ModOptionsOverview Changed="RefreshWeaponUI" />
                     <section class="panel overview-details" data-project-details><h2>@T["Overview.Details.Title"]</h2>
                         <form class="details-form" @onsubmit="SaveDetails" @onsubmit:preventDefault>
@@ -160,7 +174,11 @@
                         @if (Workspace.Metadata.Entities?.Throwables != null) { <button @onclick='() => Navigate("throwables")'>@T["Nav.Throwables"]</button> }
                         @if (Workspace.Metadata.Stratagems != null) { <button @onclick='() => NavigateTo("stratagems")'>@T["Nav.Stratagems"]</button> }
                         @if (Workspace.Metadata.Entities?.Boosters != null) { <button @onclick='() => Navigate("boosters")'>@T["Nav.Boosters"]</button> }
+                        @if (Workspace.Metadata.Entities?.Helldiver != null) { <button data-quick-helldiver @onclick='() => Navigate("helldiver")'>@T["Nav.Helldiver"]</button> }
+                        @if (Workspace.Metadata.Entities?.Armor != null) { <button data-quick-armor @onclick='() => Navigate("armor")'>@T["Nav.Armor"]</button> }
                         @if (Workspace.Metadata.Entities?.Enemies != null) { <button data-quick-enemies @onclick='() => Navigate("enemies")'>@T["Nav.Enemies"]</button><button @onclick='() => Navigate("structures")'>@T["Nav.Structures"]</button> }
+                        <button class="custom-outline" data-quick-custom-stratagems @onclick='() => Navigate("custom-stratagems")'>@T["Nav.CustomStratagems"]</button>
+                        <button class="custom-outline" data-quick-custom-projectiles @onclick='() => Navigate("custom-projectiles")'>@T["Nav.CustomProjectiles"]</button>
                     </nav>
                 </div>
             }
@@ -170,7 +188,14 @@
                 <SupportChanges Changed="RefreshWeaponUI" />
                 <ProjectileBuilderChanges Changed="RefreshWeaponUI" />
                 <StratagemChanges Changed="RefreshWeaponUI" />
+                <CustomContentChanges OpenStratagem="OpenCustomStratagem" OpenProjectile="OpenCustomProjectile" OpenWeapon="EditWeapon" />
                 <EntityChanges Changed="RefreshWeaponUI" />
+                @if (Workspace.Project?.PlayerArmor != null)
+                {
+                    <section class="panel" data-armor-player-change><div class="panel-heading"><h2><span class="category-pill static cat-armor"><span class="cat-dot" aria-hidden="true"></span>@T["Nav.Armor"]</span>@T["Changes.Armor.Title"]</h2>
+                        <button @onclick='() => Navigate("armor")'>@T["Changes.Armor.Open"]</button></div>
+                        <ArmorPlayerEditor ModifiedOnly="true" Changed="RefreshWeaponUI" /></section>
+                }
                 @if (Workspace.Project?.CustomLua is { } customLua)
                 {
                     <section class="panel" data-custom-lua-change><div class="panel-heading"><h2>@T["Changes.CustomLua.Title"]</h2><span class="badge @(customLua.Enabled ? "modified-badge" : "")">@(customLua.Enabled ? T["Changes.CustomLua.Included"] : T["Changes.CustomLua.NotIncluded"])</span></div>
@@ -191,6 +216,8 @@
             else if (Page == "export")
             {
                 <section class="panel"><h2>@T["Export.Title"]</h2><p>@T.Format("Export.Help", active.SdkVersion, active.RuntimeApi)</p><label for="export-directory">@T["Export.Directory.Label"]</label><div class="input-action"><input id="export-directory" @bind="ExportDirectory" /><button @onclick="SaveExportDirectory">@T["Export.Directory.Save"]</button></div><p class="subtle">@T["Export.Reproducible"]</p>@if (Workspace.Metadata?.Has028 == true) { <p class="subtle" data-export-apply-timing>@T.Markup("Export.ApplyTiming.Html", "registered operations settled")</p> }<button class="primary" @onclick="BuildExport">@T["Export.BuildButton"]</button></section>
+                @if (CustomContentBuild.Has(active))
+                { <p class="custom-notice" data-export-custom>@T.Format("Export.CustomContent", CustomContentBuild.RequiredRuntime(active, Workspace.Metadata!, Workspace.CustomTarget), Workspace.CustomTarget.RuntimeLabel)</p> }
                 <ArsenalPresentationPanel Changed="RefreshWeaponUI" />
                 <PackagedFilesPanel Changed="RefreshWeaponUI" />
                 @if (Workspace.LastExport != null) { <section class="panel export-success" role="status"><span class="badge green">@T["Export.Succeeded"]</span><h2>@T["Export.Complete"]</h2><code class="path">@Workspace.LastExport</code><button @onclick="() => Run(Workspace.OpenExportAsync)">@T["Export.OpenFolder"]</button></section> }

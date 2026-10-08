@@ -44,7 +44,7 @@ public sealed class CapabilityAuditTests(ITestOutputHelper output)
             ("SG-20 Halt (ModBuilder#2)", "HaltRegressionTests: every Halt variant isolates each operation in pcall with unique ids and keeps the unrelated edits; the four Runtime issue variants export and validate against HD2Runtime 0.28.0 (tools/validate-exports.py, with isolation probes)."),
             ("Old projects", "OldProjectCompatibilityTests: seven projects saved by ModBuilder 1.3.1 itself open on their own SDK in both languages with 1.3.1's operations, rebind to 0.28.0 keeping every edit, and export and validate against HD2Runtime 0.28.0."),
             ("Language-independent exports", "LocalizationTests.A_project_generates_the_same_lua_json_and_zip_in_every_ui_language and An_older_project_opens_the_same_in_either_language; OldProjectCompatibilityTests compares generated Lua in both languages."),
-            ("SDK pin", "SdkPinTests: the bundled SDK is byte-identical to the HD2Runtime 0.28.0 release asset; a same-version build with other content is reported, never taken for the pin."),
+            ("SDK pin", "SdkPinTests: the bundled SDK is byte-identical to the HD2Runtime " + SdkPin.Version + " SDK archive; a same-version build with other content is reported, never taken for the pin."),
         ];
         return new("ModBuilder " + Core.BuildInfo.Version + " capability coverage (HD2Runtime " + report.SdkVersion + ")", SdkPin.RuntimeCommit, SdkPin.SdkCommit, sdkSha,
             neutral.Count, locales, regressions);

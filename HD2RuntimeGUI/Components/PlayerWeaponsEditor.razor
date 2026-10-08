@@ -31,6 +31,8 @@
                 .Where(s => s is not (FieldPresentation.Advanced or "Heat" or "Heatsinks")).Distinct().OrderBy(Order).ToArray();
             var damageSection = sections.FirstOrDefault(s => s is "Damage" or "Status Effects");
             var advanced = rows.Where(r => r.Section == FieldPresentation.Advanced).ToArray();
+            // 0.30.0 muzzle, optics and underbarrel modifiers: their own section, right after Ammo / Magazine (or after the sections when it has none).
+            var modifiersAfter = sections.Contains("Ammo / Magazine") ? "Ammo / Magazine" : null;
             <section class="panel authoring-summary" data-authoring-summary="@weapon.Name">
                 <div class="summary-main"><h2>@weapon.Name</h2><div class="field-badges"><span class="badge">@weapon.Slot</span><span class="badge">@weapon.Category</span>@foreach (var family in weapon.ImplementationFamilies) { <span class="badge">@family.Replace('_', ' ')</span> }</div></div>
                 <div class="summary-stats">
@@ -61,14 +63,25 @@
                             var target = Workspace.EffectiveProjectile(weapon.Name, attack.Role);
                             var swap = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == weapon.Name && c.AttackRole == attack.Role);
                             var orphaned = Workspace.OrphanedObjectEdits(weapon.Name, attack.Role).Count > 0;
-                            <details class="composition-line" data-composition-attack="@attack.Role" open="@(swap != null || orphaned)">
-                                <summary><span class="subtle">@(attacks.Length > 1 ? T.Format("WeaponEditor.Projectile.LabelWithRole", attack.Role.Replace('_', ' ')) : T["WeaponEditor.Projectile.Label"])</span> <strong data-projectile-object="@target.Weapon" data-projectile-role="@target.AttackRole">@target.Label</strong>
+                            // 1.7.0: a custom projectile the attack fires instead (experimental; a typed reference, never a vanilla donor). Its
+                            // selector is the attack's projectile selector below (vanilla and custom groups).
+                            var customProjectile = Workspace.CustomAssignment(weapon.Name, attack.Role);
+                            var customState = customProjectile == null ? CustomSeverity.Pass : new[] { CustomDiagnostic.AssignmentOwner(customProjectile.Id), CustomDiagnostic.ProjectileOwner(customProjectile.Projectile.Id) }.Max(Workspace.CustomState);
+                            <details class="composition-line" data-composition-attack="@attack.Role" open="@(swap != null || orphaned || customProjectile != null || attack.Role == InitialAttack)">
+                                <summary><span class="subtle">@(attacks.Length > 1 ? T.Format("WeaponEditor.Projectile.LabelWithRole", attack.Role.Replace('_', ' ')) : T["WeaponEditor.Projectile.Label"])</span>
+                                    @if (customProjectile != null)
+                                    {
+                                        <strong data-projectile-custom="@customProjectile.Projectile.Id">@(Workspace.FindCustomProjectile(customProjectile.Projectile.Id)?.Name ?? customProjectile.Projectile.Id)</strong><span class="custom-chip" data-custom-reference>@T["CustomContent.Chip.Custom"] <code>@customProjectile.Projectile.Id</code></span>
+                                        @if (customState is CustomSeverity.Error or CustomSeverity.Warning) { <span class="badge state-badge @CustomLabels.StateCss(customState)" data-custom-reference-state="@CustomLabels.StateCss(customState)">@CustomLabels.State(T, customState)</span> }
+                                    }
+                                    else { <strong data-projectile-object="@target.Weapon" data-projectile-role="@target.AttackRole">@target.Label</strong> }
                                     @if (swap != null) { <span class="badge modified-badge">@T["WeaponEditor.Replaced"]</span> }
                                     @if (orphaned) { <span class="badge amber" data-projectile-needs-attention>@T["WeaponEditor.NeedsAttention"]</span> }<span class="composition-action">@T["WeaponEditor.ChangeProjectile"]</span></summary>
                                 @* 0.28.0 development SDKs publish the active projectile source: donors are chosen through it. *@
                                 @if (Workspace.Metadata?.AttackOutputs != null) { <AttackOutputSelector @key="(weapon.Name, attack.Role)" Weapon="@weapon.Name" Attack="attack" Changed="FieldChanged" /> }
                                 else { <ProjectileSelector @key="(weapon.Name, attack.Role)" Weapon="@weapon.Name" Attack="attack" Changed="FieldChanged" /> }
-                                @foreach (var phase in Phases.Where(p => !explosions.Any(e => e.Attack == attack && e.Phase == p)))
+                                @* A custom projectile replaces the attack's own projectile: its explosions are the custom projectile's, not editable here. *@
+                                @foreach (var phase in Phases.Where(p => customProjectile == null && !explosions.Any(e => e.Attack == attack && e.Phase == p)))
                                 { <TerminalEditor @key="(weapon.Name, attack.Role, target, phase)" Weapon="@weapon.Name" Role="@attack.Role" Phase="@phase" Changed="FieldChanged" /> }
                             </details>
                         }
@@ -104,7 +117,9 @@
                         @if (domains != null) { <CompositionApprovals Weapon="@weapon.Name" Changes="Workspace.Project!.CompositionChanges" Domains="domains" /> }
                     }
                 </section>
+                @if (key == modifiersAfter) { <WeaponAttachmentModifiers @key="weapon.Name" Weapon="@weapon.Name" Changed="FieldChanged" /> }
             }
+            @if (modifiersAfter == null) { <WeaponAttachmentModifiers @key="weapon.Name" Weapon="@weapon.Name" Changed="FieldChanged" /> }
             @* 1.4.0: nested sub-targets (the underbarrel a weapon's default underbarrel item names), each its own target, never flattened. *@
             @foreach (var (info, target) in Workspace.Subweapons(weapon.Name))
             { <SubweaponSection @key="info.Name" Info="info" Target="target" EditableOnly="EditableOnly" Changed="FieldChanged" /> }
@@ -134,6 +149,10 @@
     [Parameter] public EventCallback Changed { get; set; }
     [Parameter] public EventCallback Review { get; set; }
     [Parameter] public string? InitialWeapon { get; set; }
+    // The attack whose Projectile section opens in view (returning from a custom projectile chosen or created for it).
+    [Parameter] public string? InitialAttack { get; set; }
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private bool RevealAttack;
     private const string HeatSection = "Heat / Heatsink";
     private static readonly string[] Phases = ["impact", "expiry"];
     private string Search = "", Slot = "", Category = "", Family = "", Selected = "";
@@ -141,7 +160,13 @@
     private string? Error;
     // Role == null: a weapon-level field. Otherwise an object scalar of the attack's effective projectile or explosion.
     private sealed record Row(string Section, WeaponCapability Field, string? Role = null, string Kind = "projectile", string? Phase = null, object? Target = null);
-    protected override void OnInitialized() => Selected = InitialWeapon ?? "";
+    protected override void OnInitialized() { Selected = InitialWeapon ?? ""; RevealAttack = InitialAttack != null; }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!RevealAttack) return;
+        RevealAttack = false;
+        await JS.InvokeVoidAsync("builderView.reveal", $"[data-composition-attack=\"{InitialAttack}\"]");
+    }
     private IEnumerable<PlayerWeapon> Visible(PlayerWeaponCatalog c) => c.Weapons.Where(w =>
         (w.Name.Contains(Search, StringComparison.OrdinalIgnoreCase) || w.Category.Contains(Search, StringComparison.OrdinalIgnoreCase)) &&
         (Slot == "" || w.Slot == Slot) && (Category == "" || w.Category == Category) && (Family == "" || w.ImplementationFamilies.Contains(Family)) &&

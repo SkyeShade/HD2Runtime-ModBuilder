@@ -1,0 +1,53 @@
+@* 0.30.0 Jump Pack and Hover Pack movement (the published "movement" group: jump.* and hover.*, one JumppackComponent record per pack).
+   Fields are grouped by the phase of the flight they shape, as Runtime's backpack-authoring docs describe it. jump.vertical_launch_velocity
+   keeps its id; 0.30.0 corrected it to a thrust in m/s² (the stored value is unchanged), so it is labelled as one for every SDK. *@
+@if (Fields.Count > 0)
+{
+    @if (!ModifiedOnly && Fields.Any(f => f.Effect?.AppliesWhen == "next_frame")) { <p class="subtle" data-movement-live>@T["Movement.Live"]</p> }
+    @foreach (var phase in Phases.Where(p => Fields.Any(f => Phase(f) == p)))
+    {
+        var fields = Fields.Where(f => Phase(f) == phase).ToArray();
+        <div class="movement-phase" data-movement-phase="@phase">
+            <h3 class="group-title">@PhaseTitle(phase)</h3>
+            @if (!ModifiedOnly && PhaseHelp(phase) is { } help) { <p class="subtle">@help</p> }
+            <div class="stat-grid">
+                @foreach (var f in fields)
+                {
+                    var thrust = f.SemanticFieldId == LaunchThrust;
+                    <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@(thrust ? T["Movement.LaunchThrust"] : null)" UnitOverride="@(thrust ? ThrustUnit : null)" Tiers="Tiers" Changed="Changed" />
+                }
+            </div>
+            @if (fields.FirstOrDefault(f => f.SemanticFieldId == LaunchThrust && f.Unit != ThrustUnit) is { } renamed)
+            { <p class="subtle" data-movement-renamed>@T.Format("Movement.LaunchThrust.Renamed", renamed.DisplayName)</p> }
+        </div>
+    }
+}
+@code {
+    // The movement group's fields as BackpackEditor shows them (in the Changes view: only the edited ones).
+    [Parameter, EditorRequired] public IReadOnlyList<EntityField> Fields { get; set; } = [];
+    [Parameter] public IReadOnlyDictionary<string, string>? Tiers { get; set; }
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private const string LaunchThrust = "jump.vertical_launch_velocity", ThrustUnit = "meters_per_second_squared";
+    // Phase ids are keys (data-movement-phase); their headings and help are ModBuilder's text.
+    private static readonly string[] Phases = ["takeoff", "launch", "sustain", "air_control", "hover", "other"];
+    private static string Phase(EntityField f) => f.SemanticFieldId switch
+    {
+        LaunchThrust or "jump.launch_duration" or "jump.launch_forward_ratio" => "launch",
+        var id when id.StartsWith("jump.sustain_", StringComparison.Ordinal) => "sustain",
+        var id when id.StartsWith("jump.air_control_", StringComparison.Ordinal) => "air_control",
+        var id when id.StartsWith("jump.takeoff_", StringComparison.Ordinal) => "takeoff",
+        var id when id.StartsWith("hover.", StringComparison.Ordinal) => "hover",
+        _ => "other",
+    };
+    private string PhaseTitle(string phase) => phase switch
+    {
+        "takeoff" => T["Movement.Phase.Takeoff"], "launch" => T["Movement.Phase.Launch"], "sustain" => T["Movement.Phase.Sustain"],
+        "air_control" => T["Movement.Phase.AirControl"], "hover" => T["Movement.Phase.Hover"], _ => T["Movement.Phase.Other"],
+    };
+    private string? PhaseHelp(string phase) => phase switch
+    {
+        "takeoff" => T["Movement.Phase.Takeoff.Help"], "launch" => T["Movement.Phase.Launch.Help"], "sustain" => T["Movement.Phase.Sustain.Help"],
+        "air_control" => T["Movement.Phase.AirControl.Help"], "hover" => T["Movement.Phase.Hover.Help"], _ => null,
+    };
+}

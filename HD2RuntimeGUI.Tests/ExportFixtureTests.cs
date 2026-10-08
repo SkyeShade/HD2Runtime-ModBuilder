@@ -14,9 +14,9 @@ public sealed class ExportFixtureTests
 {
     public const string Author = "ModBuilder fixtures";
     private static IEnumerable<string> Outputs() => new[] { Path.Combine(AppContext.BaseDirectory, "export-fixtures"), Environment.GetEnvironmentVariable("HD2_EXPORT_OUT") }.OfType<string>();
-    public static async Task<(BuilderWorkspace W, SdkMetadata Sdk)> Fresh(TestEnvironment e, string name)
+    public static async Task<(BuilderWorkspace W, SdkMetadata Sdk)> Fresh(TestEnvironment e, string name, string version = SdkPin.Version)
     {
-        var sdk = await SdkFixtures.Install(e, SdkPin.Version); var w = e.Workspace();
+        var sdk = await SdkFixtures.Install(e, version); var w = e.Workspace();
         await w.CreateAsync(new(name, Author, "mods/modbuilder_fixtures/" + name.ToLowerInvariant().Replace(' ', '_').Replace('-', '_'), "1.0.0"), sdk);
         return (w, sdk);
     }
@@ -143,6 +143,31 @@ public sealed class ExportFixtureTests
         RequiresPinned(manifest); Assert.Equal(13, w.Project!.FormatVersion);
         Assert.Contains("hd2.vehicle('TD-110 Maelstrom'):weapon('slot_3')", lua); Assert.Contains("expect=1100,", lua);
         for (var i = 0; i < keys.Length; i++) Assert.Contains("value=option_option_only_" + i, lua);
+    }
+
+    // 1.7.0 (Runtime 0.30.0): support-weapon charge, the shapes of Runtime's RailgunChargeTest and EpochExplosionsTest: charge times (the
+    // ARC-3's deliberately out of order: accepted with a CHARGE ORDER notice), the new charge fields, another weapon's overcharge explosion,
+    // the Epoch's charge-level rows (one write of the shared damage row) and a deprecated id on a weapon that never reads it.
+    [Fact] public async Task F10_support_charge()
+    {
+        using var e = new TestEnvironment(); var (w, sdk) = await Fresh(e, "F10 Support Charge");
+        string Key(string weapon, string field, string? role = null) => sdk.SupportAuthoring!.FieldInstances
+            .Single(f => f.SupportWeapon == weapon && f.SemanticFieldId == field && f.Target.AttackRole == role).InstanceKey;
+        const string Rail = "RS-422 Railgun", Epoch = "PLAS-45 Epoch", Arc = "ARC-3 Arc Thrower";
+        await w.SetSupportAsync(Key(Rail, "charge.level_2"), "2"); await w.SetSupportAsync(Key(Rail, "charge.level_3"), "8");
+        await w.SetSupportAsync(Key(Rail, "charge.auto_fire_at_full"), "true"); await w.SetSupportAsync(Key(Rail, "charge.speed_multiplier_min"), "0.5");
+        await w.SetSupportAsync(Key(Rail, "charge.overcharge_limit_seconds"), "5"); await w.SetSupportAsync(Key(Rail, "charge.overcharge_explosion"), "\"PLAS-45 Epoch\"");
+        await w.SetSupportAsync(Key(Arc, "charge.burst_shots"), "3"); await w.SetSupportAsync(Key(Arc, "charge.burst_interval_seconds"), "0.25");
+        await w.SetSupportAsync(Key(Arc, "charge.level_2"), "0.5");
+        await w.SetSupportAsync(Key("40-K Meltagun", "charge.minimum_seconds"), "0.8");
+        await w.SetSupportAsync(Key(Epoch, "charge.explode_at_overcharge"), "true");
+        await w.SetSupportAsync(Key(Epoch, "projectile.velocity", "full_charge"), "60");
+        await w.SetSupportAsync(Key(Epoch, "explosion.outer_radius", "full_charge_impact"), "12");
+        await w.SetSupportAsync(Key(Epoch, "explosion.damage.standard_damage", "overcharge_explosion"), "1");
+        await w.SetSupportAsync(Key(Epoch, "explosion.damage.push_force", "overcharge_explosion"), "0");
+        var (manifest, lua) = await Export(w, "F10-support-charge");
+        RequiresPinned(manifest); Assert.Equal(14, w.Project!.FormatVersion);
+        Assert.Contains("allow_unverified_reference=true,", lua); Assert.Contains(":attack('full_charge_impact'):explosion()", lua);
     }
 
     [Theory]

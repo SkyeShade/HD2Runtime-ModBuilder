@@ -16,6 +16,7 @@
                 <span class="badge @(change != null ? "modified-badge" : "")">@(change != null ? T["Common.Modified"] : host != null ? T["Composition.Guarded"] : T["Common.ReadOnly"])</span></div>
             <p class="@(change != null ? "modified-value" : "subtle")" data-attack-fires>@T.Markup("AttackOutput.Fires.Html", fired?.Label ?? entry.Own?.Label ?? Weapon)
                 @if (change == null) { <span class="subtle">@(" " + T["AttackOutput.OwnProjectile"])</span> }</p>
+            @if (change != null && fired is { IsDonor: true }) { <p class="donor-chosen"><DonorDetail Output="fired" /></p> }
             @if (entry.Carrier is { } backpack) { <p class="subtle" data-host-carrier>@T.Format("ProjectileBuilder.Host.Carrier", backpack)</p> }
             @if (change != null && change.Weapon != Weapon) { <p class="notice" data-same-entity-swap>@T.Format("ProjectileBuilder.Host.SetThrough", change.Weapon)</p> }
             else if (same.Count > 0) { <p class="subtle" data-same-entity>@T.Format("ProjectileBuilder.Host.SameEntity", string.Join(", ", same))</p> }
@@ -27,7 +28,12 @@
             @if (host == null) { <p class="notice" data-host-readonly>@entry.Reason</p> }
             else
             {
-                <ProjectileDonorList Host="host" Selected="@change?.Output" Busy="Busy" Choose="Choose" />
+                @* The same two groups as a player weapon's selector; the target says whether this host can fire a custom projectile. *@
+                <div class="projectile-picker" data-projectile-picker="@Role">
+                    <div class="picker-group vanilla-group" data-vanilla-group><div class="picker-group-label">@T["ProjectilePicker.Vanilla"]</div>
+                        <ProjectileDonorList Host="host" Selected="@change?.Output" Busy="Busy" Choose="Choose" /></div>
+                    <CustomProjectileGroup Host="new(Kind, Weapon, Role)" Changed="Changed" />
+                </div>
                 @if (change != null)
                 {
                     <button class="reset-action" data-host-reset @onclick="() => Run(() => Workspace.SetHostOutputAsync(Kind, change.Weapon, Role, null))">@T["Projectile.Reset"]</button>
@@ -54,8 +60,8 @@
     private IReadOnlyDictionary<string, string> Reasons(AttackOutputHost host, AttackOutput? output, IReadOnlyList<string> same) => new Dictionary<string, string>
     {
         ["allow_shared"] = same.Count > 0 ? T.Format("ProjectileBuilder.Host.SameEntity", string.Join(", ", same)) : T["AttackOutput.Reason.Shared"],
-        ["allow_unverified_effect"] = host.EffectReason ?? T["AttackOutput.Reason.Effect"],
-        ["allow_unverified_reference"] = T.Format("AttackOutput.Reason.CrossClass", host.Weapon, host.CompatibilityClass.Replace('_', ' '), output?.Label ?? T["AttackOutput.Reason.CrossClass.Donor"],
+        ["allow_unverified_effect"] = output is { IsDonor: true } ? T.Format("AttackOutput.Reason.Donor", output.Label) : host.EffectReason ?? T["AttackOutput.Reason.Effect"],
+        ["allow_unverified_reference"] = output is { IsDonor: true } ? T.Format("AttackOutput.Reason.Donor", output.Label) : T.Format("AttackOutput.Reason.CrossClass", host.Weapon, host.CompatibilityClass.Replace('_', ' '), output?.Label ?? T["AttackOutput.Reason.CrossClass.Donor"],
             output?.CompatibilityClass?.Replace('_', ' ') ?? T["AttackOutput.Reason.CrossClass.Different"]),
     };
     private async Task Run(Func<Task> action)

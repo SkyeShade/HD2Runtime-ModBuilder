@@ -57,7 +57,7 @@
                 <details class="reference-item" data-reference-class="@name" open="@(Search.Length > 0)"><summary><code>@name</code> <span class="subtle">@c.Doc</span></summary>
                     @foreach (var f in c.Fields ?? []) { <div data-reference-member="@f[0]"><code>@f[0]</code> <small class="subtle">@(f.Length > 1 ? f[1] : "")@(f.Length > 2 && f[2].Length > 0 ? " · " + f[2] : "")</small></div> }
                     @foreach (var m in c.Methods ?? []) { <div class="reference-method" data-reference-member="@m.Name"><code>@m.Signature</code><small class="subtle">@m.Doc</small>
-                        <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, ApiPath(catalog, name, m.Name))" /></div> }
+                        <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, ScriptingReference.ApiPath(catalog, Workspace.Metadata?.LuaApi, name, m.Name))" /></div> }
                 </details>
             }
         }
@@ -88,7 +88,4 @@
     [Parameter] public EventCallback<string> Insert { get; set; }
     private string Section = "events", Search = "";
     private bool Match(params string?[] values) => Search.Trim().Length == 0 || values.Any(v => v?.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase) == true);
-    // The call path of an API class method (hd2.actions.heal) where the hd2 table has a field of that class; else Class.method.
-    private static string ApiPath(EventCatalog catalog, string type, string method) =>
-        catalog.Api.Fields.FirstOrDefault(f => f.Length > 1 && f[1] == type) is { } field ? "hd2." + field[0] + "." + method : type + "." + method;
 }

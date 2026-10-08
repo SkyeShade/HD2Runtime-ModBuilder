@@ -1,0 +1,37 @@
+{
+ "format": "hd2runtime-custom-stratagems/1",
+ "stratagems": [
+  {
+   "id": "quick_mg_sentry",
+   "name": "QUICK MG SENTRY",
+   "name_cased": "Quick MG Sentry",
+   "description": "The A/MG-43 Machine Gun Sentry as it is, on a shorter cooldown.",
+   "icon": {
+    "image": "quick_mg_sentry",
+    "source": "images/quick_mg_sentry.png"
+   },
+   "code": [
+    "down",
+    "right",
+    "up",
+    "left",
+    "left",
+    "right"
+   ],
+   "cooldown": 60,
+   "carrier": {
+    "beacon": "support",
+    "prefer_families": [
+     "sentry"
+    ],
+    "allow_families": [
+     "sentry"
+    ]
+   },
+   "payload": {
+    "family": "sentry",
+    "donor": "A/MG-43 Machine Gun Sentry"
+   }
+  }
+ ]
+}

@@ -1,0 +1,344 @@
+[
+ {
+  "key": "Messages.Build.Stratagem.Code.Invalid",
+  "en": "A call-in code is a list of {0} to {1} directions, each one of: {2}.",
+  "zh": "呼叫代码是由 {0} 到 {1} 个方向组成的列表，每个方向须为以下之一：{2}。",
+  "comment": "{0}: shortest code length; {1}: longest code length; {2}: the allowed direction names, comma-separated"
+ },
+ {
+  "key": "Messages.Build.Stratagem.NotAllowedValue",
+  "en": "{0} takes only its published values: {1}.",
+  "zh": "{0} 只接受其已发布的取值：{1}。",
+  "comment": "{0}: field name; {1}: the allowed values, comma-separated"
+ },
+ {
+  "key": "Messages.Build.Stratagem.Presentation.Value",
+  "en": "{0} takes the name of a catalogued stratagem.",
+  "zh": "{0} 只接受目录中某个战备的名称。",
+  "comment": "{0}: field name"
+ },
+ {
+  "key": "Messages.Build.Stratagem.Presentation.ValueOrImage",
+  "en": "{0} takes the name of a catalogued stratagem or the mod's own image.",
+  "zh": "{0} 只接受目录中某个战备的名称，或本模组自己的图片。",
+  "comment": "{0}: field name"
+ },
+ {
+  "key": "Messages.Build.Stratagem.Presentation.Source",
+  "en": "{0} is not a stratagem {1} can take its value from.",
+  "zh": "“{1}”不能从“{0}”取值。",
+  "comment": "{0}: stratagem name chosen as the source; {1}: field name"
+ },
+ {
+  "key": "Messages.Build.Stratagem.Presentation.ImageMissing",
+  "en": "The icon image '{0}' is no longer in this project. Import the icon again or choose a stratagem's icon.",
+  "zh": "图标图片“{0}”已不在本项目中。请重新导入图标，或改用某个战备的图标。",
+  "comment": "{0}: image id"
+ },
+ {
+  "key": "StratagemPresentation.CustomImage",
+  "en": "Own icon ({0})",
+  "zh": "自有图标（{0}）",
+  "comment": "{0}: image id"
+ },
+ {
+  "key": "Stratagem.Group.Spread",
+  "en": "Spread",
+  "zh": "散布"
+ },
+ {
+  "key": "Stratagem.Group.Recoil",
+  "en": "Recoil",
+  "zh": "后坐力"
+ },
+ {
+  "key": "StratagemField.Timing.Live",
+  "en": "Live",
+  "zh": "即时生效"
+ },
+ {
+  "key": "StratagemField.Timing.Spawn",
+  "en": "Next deployment",
+  "zh": "下次部署生效"
+ },
+ {
+  "key": "StratagemField.Timing.NextCall",
+  "en": "Next call",
+  "zh": "下次呼叫生效"
+ },
+ {
+  "key": "StratagemField.Timing.NextBeacon",
+  "en": "Next beacon",
+  "zh": "下个信标生效"
+ },
+ {
+  "key": "StratagemField.Timing.Unverified",
+  "en": "Set before deploying",
+  "zh": "请在部署前设置"
+ },
+ {
+  "key": "StratagemField.Sentinel.SameAsRange",
+  "en": "Same as range",
+  "zh": "与索敌范围相同"
+ },
+ {
+  "key": "StratagemField.Sentinel.Info",
+  "en": "{0} means: {1}",
+  "zh": "{0} 表示：{1}",
+  "comment": "{0}: the special value; {1}: its meaning as published by HD2Runtime (English)"
+ },
+ {
+  "key": "StratagemField.ReadTiming.Info",
+  "en": "When the game reads it: {0}",
+  "zh": "游戏读取时机：{0}",
+  "comment": "{0}: HD2Runtime's note on when the game reads the field (English)"
+ },
+ {
+  "key": "StratagemField.Pattern.Option",
+  "en": "Pattern {0}: {1} bombs, {2} m long, {3} m wide",
+  "zh": "模式 {0}：{1} 枚炸弹，长 {2} 米，宽 {3} 米",
+  "comment": "{0}: pattern number; {1}: bombs; {2}: length in metres; {3}: width in metres"
+ },
+ {
+  "key": "StratagemField.Pattern.UsedBy",
+  "en": "{0} ({1})",
+  "zh": "{0}（{1}）",
+  "comment": "{0}: a pattern's description; {1}: the Eagles that use it natively, comma-separated"
+ },
+ {
+  "key": "StratagemCode.Title",
+  "en": "Call-in code",
+  "zh": "呼叫代码"
+ },
+ {
+  "key": "StratagemCode.Label",
+  "en": "Call-in code",
+  "zh": "呼叫代码"
+ },
+ {
+  "key": "StratagemCode.Apply",
+  "en": "Apply code",
+  "zh": "应用代码"
+ },
+ {
+  "key": "StratagemCode.Discard",
+  "en": "Discard",
+  "zh": "放弃"
+ },
+ {
+  "key": "StratagemCode.TooShort",
+  "en": "A code needs at least {0} input.",
+  "zh": "代码至少需要 {0} 个输入。",
+  "comment": "{0}: the shortest code length (1)"
+ },
+ {
+  "key": "StratagemCode.Equal.Title",
+  "en": "Same code as another stratagem",
+  "zh": "与其他战备的代码相同"
+ },
+ {
+  "key": "StratagemCode.Equal.Description",
+  "en": "This is also the game's own code for {0}. Which stratagem the game calls when two equipped stratagems share a code is not proven, so the mod writes HD2Runtime's allow_unverified_effect opt-in for it.",
+  "zh": "这也是游戏中 {0} 的原生代码。两个已装备战备代码相同时游戏会呼叫哪一个尚未得到证实，因此模组会为此写入 HD2Runtime 的 allow_unverified_effect 选项。",
+  "comment": "{0}: stratagem names, comma-separated"
+ },
+ {
+  "key": "StratagemCode.Overlap",
+  "en": "This code starts, or is the start of, the code of {0}. While both are equipped and the shorter one is available, the game calls the shorter one, so the longer one cannot be called.",
+  "zh": "此代码与 {0} 的代码存在前缀重叠。两者同时装备且较短者可用时，游戏会呼叫较短的那个，较长的那个将无法呼叫。",
+  "comment": "{0}: stratagem names, comma-separated"
+ },
+ {
+  "key": "StratagemCode.Clash.Prompt",
+  "en": "This project already gives this code to {0}. Two stratagems with one code may call the wrong one.",
+  "zh": "本项目已把此代码分配给 {0}。两个战备使用同一代码时可能会呼叫错误的战备。",
+  "comment": "{0}: stratagem names, comma-separated"
+ },
+ {
+  "key": "StratagemCode.Clash.RestoreOthers",
+  "en": "Apply and restore their own codes",
+  "zh": "应用，并恢复它们的原生代码"
+ },
+ {
+  "key": "StratagemCode.Clash.KeepBoth",
+  "en": "Apply and keep both",
+  "zh": "应用，并保留两者"
+ },
+ {
+  "key": "StratagemCode.Clash.Applied",
+  "en": "This project gives this code to {0} as well.",
+  "zh": "本项目也把此代码分配给了 {0}。",
+  "comment": "{0}: stratagem names, comma-separated"
+ },
+ {
+  "key": "StratagemCode.Clash.RestoreOne",
+  "en": "Restore {0}'s own code",
+  "zh": "恢复 {0} 的原生代码",
+  "comment": "{0}: stratagem name"
+ },
+ {
+  "key": "StratagemCode.Clash.RestoreSelf",
+  "en": "Restore this stratagem's own code",
+  "zh": "恢复此战备的原生代码"
+ },
+ {
+  "key": "StratagemCode.Clash.Restored",
+  "en": "Restored the own code of {0}.",
+  "zh": "已恢复 {0} 的原生代码。",
+  "comment": "{0}: stratagem names, comma-separated"
+ },
+ {
+  "key": "StratagemCode.Hud",
+  "en": "HD2Runtime redraws this stratagem's HUD slot with the new arrows once it changes the code, and again when it restores it.",
+  "zh": "HD2Runtime 修改代码后会用新箭头重绘此战备的 HUD 栏位，恢复时也会再次重绘。"
+ },
+ {
+  "key": "StratagemCode.Uncatalogued",
+  "en": "a stratagem outside the catalogue (for example a mission stratagem)",
+  "zh": "目录外的战备（例如任务战备）"
+ },
+ {
+  "key": "StratagemLook.Title",
+  "en": "Presentation",
+  "zh": "外观"
+ },
+ {
+  "key": "StratagemLook.ApplyTiming",
+  "en": "Applies aboard the ship, before the mission: reopen the loadout screen after a change. During a mission the menu name follows at once, but the HUD slot keeps its icon until the next mission. Only this machine sees it.",
+  "zh": "请在飞船上、任务开始前生效：修改后重新打开配装界面。任务中菜单名称会立即更新，但 HUD 栏位的图标要到下一次任务才会改变。只有本机能看到。"
+ },
+ {
+  "key": "StratagemLook.TakeFrom",
+  "en": "Take it from",
+  "zh": "取自"
+ },
+ {
+  "key": "StratagemLook.Own",
+  "en": "{0} (its own)",
+  "zh": "{0}（自身）",
+  "comment": "{0}: the stratagem's own name"
+ },
+ {
+  "key": "StratagemLook.LookLike",
+  "en": "Look like another stratagem",
+  "zh": "外观仿照其他战备"
+ },
+ {
+  "key": "StratagemLook.LookLike.Choose",
+  "en": "Choose a stratagem…",
+  "zh": "选择战备…"
+ },
+ {
+  "key": "StratagemLook.LookLike.Prompt",
+  "en": "The icon shows the mod's own image. Take everything else from {0}, or replace the image too?",
+  "zh": "图标当前使用本模组自己的图片。仅从 {0} 取其他外观，还是连图片一起替换？",
+  "comment": "{0}: stratagem name"
+ },
+ {
+  "key": "StratagemLook.LookLike.KeepImage",
+  "en": "Keep my icon",
+  "zh": "保留我的图标"
+ },
+ {
+  "key": "StratagemLook.LookLike.ReplaceImage",
+  "en": "Replace my icon too",
+  "zh": "连图标一起替换"
+ },
+ {
+  "key": "StratagemLook.Image.Import",
+  "en": "Use your own icon (PNG)…",
+  "zh": "使用自己的图标（PNG）…"
+ },
+ {
+  "key": "StratagemLook.Image.Remove",
+  "en": "Back to the stratagem's own icon",
+  "zh": "恢复战备自身图标"
+ },
+ {
+  "key": "StratagemLook.Image.Help",
+  "en": "A 256 × 256 PNG, kept in the project and compiled into the mod's own archive when it is exported (red art becomes the category colour, white stays white). Live-proven on the Orbital 120mm HE Barrage.",
+  "zh": "256 × 256 的 PNG，保存在项目中，并在导出时编译进模组自己的资源包（红色部分显示为类别颜色，白色保持白色）。已在轨道 120 毫米高爆弹幕上实测验证。"
+ },
+ {
+  "key": "StratagemOrbital.Title",
+  "en": "Barrage pattern",
+  "zh": "弹幕模式"
+ },
+ {
+  "key": "StratagemOrbital.Vanilla",
+  "en": "Vanilla: {0} salvos of {1} shells ({2} shells per call), {3} s between shells, {4} s between salvos.",
+  "zh": "原版：{0} 轮齐射，每轮 {1} 发（每次呼叫共 {2} 发），炮弹间隔 {3} 秒，齐射间隔 {4} 秒。",
+  "comment": "{0}: salvos; {1}: shells per salvo; {2}: shells per call; {3}: seconds between shells; {4}: seconds between salvos"
+ },
+ {
+  "key": "StratagemOrbital.Edited",
+  "en": "This mod: {0} salvos of {1} shells ({2} shells per call), {3} s between shells, {4} s between salvos.",
+  "zh": "本模组：{0} 轮齐射，每轮 {1} 发（每次呼叫共 {2} 发），炮弹间隔 {3} 秒，齐射间隔 {4} 秒。",
+  "comment": "{0}: salvos; {1}: shells per salvo; {2}: shells per call; {3}: seconds between shells; {4}: seconds between salvos"
+ },
+ {
+  "key": "StratagemOrbital.ShellTypes.One",
+  "en": "Each salvo fires {0} shell type.",
+  "zh": "每轮齐射使用 {0} 种炮弹。",
+  "comment": "{0}: number of shell types a salvo cycles through"
+ },
+ {
+  "key": "StratagemOrbital.ShellTypes.Other",
+  "en": "Each salvo cycles through {0} shell types in order, starting again at every salvo.",
+  "zh": "每轮齐射按顺序轮换 {0} 种炮弹，每轮重新开始。",
+  "comment": "{0}: number of shell types a salvo cycles through"
+ },
+ {
+  "key": "StratagemOrbital.Notes",
+  "en": "How the pattern is read",
+  "zh": "模式的读取方式"
+ },
+ {
+  "key": "StratagemOrbital.Salvos",
+  "en": "Salvos",
+  "zh": "齐射"
+ },
+ {
+  "key": "StratagemOrbital.Shells",
+  "en": "Shells in a salvo",
+  "zh": "每轮炮弹"
+ },
+ {
+  "key": "StratagemEagle.Title",
+  "en": "Eagle attack",
+  "zh": "飞鹰攻击"
+ },
+ {
+  "key": "StratagemEagle.Shared",
+  "en": "This jet's record is also read by {0}: its edits are written with HD2Runtime's allow_shared opt-in.",
+  "zh": "此战机的记录也会被 {0} 读取：其修改会附带 HD2Runtime 的 allow_shared 选项写入。",
+  "comment": "{0}: the other readers of the jet's record, comma-separated"
+ },
+ {
+  "key": "StratagemEagle.Bombs",
+  "en": "Drops {0} bombs per strike over {1} m.",
+  "zh": "每次打击投下 {0} 枚炸弹，覆盖 {1} 米。",
+  "comment": "{0}: bombs per strike; {1}: pattern length in metres"
+ },
+ {
+  "key": "StratagemEagle.Payload.Airstrike",
+  "en": "Bombs",
+  "zh": "炸弹"
+ },
+ {
+  "key": "StratagemEagle.Payload.Strafe",
+  "en": "Strafe",
+  "zh": "扫射"
+ },
+ {
+  "key": "StratagemEagle.Payload.Rocket",
+  "en": "Rockets",
+  "zh": "火箭"
+ },
+ {
+  "key": "StratagemSentry.Engagement",
+  "en": "Beyond {0} m the sentry never engages, whatever its targeting range (hard-coded in the game).",
+  "zh": "无论索敌范围多大，此哨戒炮都不会攻击 {0} 米以外的目标（游戏内硬编码）。",
+  "comment": "{0}: metres"
+ }
+]

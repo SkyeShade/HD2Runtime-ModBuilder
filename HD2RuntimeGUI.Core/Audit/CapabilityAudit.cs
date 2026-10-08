@@ -52,18 +52,23 @@ public static class CapabilitySurfaces
         [("support_weapon", "scalar/" + WeaponCapability.TraitSet)] = "Stratagems › Support › armory presentation",
         [("support_weapon", "scalar/" + WeaponCapability.ArmorPenetrationLabel)] = "Stratagems › Support › armory presentation",
         [("support_weapon", "reference/" + WeaponCapability.StatusReference)] = "Stratagems › Support › status effects",
+        [("support_weapon", "reference/" + SupportField.OverchargeExplosionReference)] = "Stratagems › Support › charge",
         [("stratagem", "number")] = "Stratagems › stratagem fields", [("stratagem", "integer")] = "Stratagems › stratagem fields",
         [("stratagem", "stratagem_uses")] = "Stratagems › mission uses",
+        [("stratagem", StratagemField.CalldownCode)] = "Stratagems › call-in code", [("stratagem", StratagemField.Presentation)] = "Stratagems › presentation",
         [("vehicle", "number")] = "Stratagems › Support › vehicle", [("vehicle", "integer")] = "Stratagems › Support › vehicle",
         [("vehicle", EntityField.ReferenceType)] = "Stratagems › Support › vehicle mounts",
         [("backpack", "number")] = "Stratagems › Support › backpack", [("backpack", "integer")] = "Stratagems › Support › backpack",
         [("vehicle_weapon", "number")] = "Stratagems › Support › vehicle weapons", [("vehicle_weapon", "integer")] = "Stratagems › Support › vehicle weapons",
         [("vehicle_weapon", WeaponCapability.StatusReference)] = "Stratagems › Support › vehicle weapons (status slots)",
-        [("weapon_attachment", "number")] = "Player Weapons › magazine attachments", [("weapon_attachment", "integer")] = "Player Weapons › magazine attachments",
+        [("weapon_attachment", "number")] = "Player Weapons › magazine attachments; muzzle, optics and underbarrel modifiers", [("weapon_attachment", "integer")] = "Player Weapons › magazine attachments",
         [("booster", "number")] = "Boosters", [("booster", "integer")] = "Boosters",
         [("pod_rack", "integer")] = "Stratagems › drop-pod contents", [("pod_rack", EntityField.PickupType)] = "Stratagems › drop-pod contents",
         [("throwable", "number")] = "Throwables", [("throwable", "integer")] = "Throwables",
         [("enemy", "number")] = "Enemies", [("enemy", "integer")] = "Enemies", [("structure", "number")] = "Structures", [("structure", "integer")] = "Structures",
+        [("helldiver", "number")] = "Player", [("helldiver", "integer")] = "Player", [("helldiver", EntityField.EnumType)] = "Player › body zones",
+        // 0.30.0 armor stats: kit piece weights (enum), the weight class tables and the damage curve.
+        [("armor_kit", "enum")] = "Armor › kits", [("armor_class", "number")] = "Armor › classes and damage curve", [("armor_damage_curve", "number")] = "Armor › classes and damage curve",
     };
     // Player-weapon underbarrels (hd2.weapon(parent):underbarrel()) have their own nested section once this build authors them.
     public static readonly IReadOnlyDictionary<string, string> Subweapons = new Dictionary<string, string>
@@ -89,6 +94,8 @@ public static class CapabilitySurfaces
     public static string? ModePresentation => "Projectiles › mode label and icon";
     // Custom Lua (src/addon.lua) with the event reference, pickers, snippets and autocomplete.
     public const string CustomLua = "Custom Lua › event reference, pickers and snippets";
+    // The local player's armor values (hd2.armor_stats.player():set) and passive override (hd2.player_passives.set): calls, not field instances.
+    public const string ArmorPlayer = "Armor › player (solo)";
 }
 
 /// <summary>Capabilities deliberately left out, each with its justification. Keys are "area|capability|type" (type may be "*").</summary>
@@ -97,7 +104,14 @@ public static class CapabilityExemptions
     public static readonly IReadOnlyDictionary<string, (CapabilityClass Class, string Reason)> Entries = new Dictionary<string, (CapabilityClass, string)>
     {
         ["attack_output|builder class CUSTOM_ROW|*"] = (CapabilityClass.RUNTIME_READ_ONLY, "Runtime 0.28.0 does not support custom rows (projectileBuilder.classes.CUSTOM_ROW.supported = false)."),
+        // HD2Runtime 0.30.0 surfaces that are loaded, modelled and shown read-only (AuthoredTypes) until their editors land
+        // (docs/runtime030-integration-plan.md). Each names its phase.
+        // b3f42ec: a weapon's own firing sound (offline only in the Runtime); read-only until the firing sound editor lands.
+        ["player_weapon|weapon.sound|weapon_sound"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Firing sound (weapon.sound): shown read-only until its editor lands with the next SDK binding."),
+        ["support_weapon|weapon.sound|scalar/weapon_sound"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Firing sound (weapon.sound): shown read-only until its editor lands with the next SDK binding."),
     };
+    private static (CapabilityClass, string) Deferred030(string phase, string editor) =>
+        (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "HD2Runtime 0.30.0: shown read-only until its editor (" + editor + ") lands, docs/runtime030-integration-plan.md Phase " + phase + ".");
     public static (CapabilityClass Class, string Reason)? Find(string area, string capability, string type) =>
         Entries.TryGetValue(area + "|" + capability + "|" + type, out var e) || Entries.TryGetValue(area + "|" + capability + "|*", out e) ? e : null;
 }
@@ -115,10 +129,20 @@ public static class CapabilityAudit
         ["AttachmentEffectOwnership.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Research graph behind the attachment catalogs; authoring uses AttachmentOptionCapabilities and MagazineAttachmentCapabilities"),
         ["AttachmentPresetGraph.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Research graph of native attachment presets; not a write surface"),
         ["AttachmentSelectionCapabilities.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Research view of attachment selection; the writable attachment fields are in MagazineAttachmentCapabilities"),
-        ["WeaponAttachmentCatalog.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Research catalog of attachments; the writable attachment fields are in MagazineAttachmentCapabilities"),
+        ["WeaponAttachmentCatalog.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Research catalog of attachments (its modifierAuthoring summary included); the writable attachment fields are in MagazineAttachmentCapabilities and WeaponAttachmentModifierCapabilities"),
         ["OutputCompositionCapabilities.json"] = (CapabilityClass.RUNTIME_READ_ONLY, "Research verdict: a projectile weapon cannot fire another output family (beam) while keeping its weapon; no write surface"),
         ["WeaponFireRateCapabilities.json"] = (CapabilityClass.NOT_APPLICABLE, "Per-weapon summary of fire_rate.modes; the authored fields are the per-field metadata in the weapon catalogs"),
         ["WeaponMovementCapabilities.json"] = (CapabilityClass.NOT_APPLICABLE, "Per-weapon summary of weapon.stationary_while_firing; the authored field is in the weapon catalogs"),
+        // 0.30.0 development SDK.
+        ["CustomStratagemSchema.json"] = (CapabilityClass.SUPPORTED_UI, "Custom stratagem schema; the custom content builder bundles the same schema byte for byte (CustomContent/Targets)"),
+        ["ModelBaseCapabilities.json"] = (CapabilityClass.SUPPORTED_UI, "Custom model bases; the custom content builder bundles the same facts (CustomContent/Targets)"),
+        ["WeaponSoundCatalogue.json"] = (CapabilityClass.SUPPORTED_UI, "Sound catalogue of hd2.sounds: the Custom Lua sound picker and the Pelican gun sound (embedded byte for byte, Scripting/Bundled)"),
+        // 0.30.0 development SDK at b3f42ec.
+        ["HudIconSprites.json"] = (CapabilityClass.SUPPORTED_UI, "HUD sprite names of stratagem and booster icons, read from the installed game's texture atlases (embedded byte for byte, GameAssets/Bundled)"),
+        ["HelldiverFieldCapabilities.json"] = (CapabilityClass.SUPPORTED_UI, "Helldiver speed, stamina, explosion damage and body-zone fields (hd2.helldiver()): the Player page"),
+        ["WeaponAttachmentModifierCapabilities.json"] = (CapabilityClass.SUPPORTED_UI, "Muzzle, optics and underbarrel stat modifiers: read, validated and edited in Player Weapons › muzzle, optics and underbarrel"),
+        ["ExplosionCatalogue.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "The catalogued explosions (edits, payloads, spawns): not read yet; their editor is planned with the next SDK binding"),
+        ["SoundEventCatalogue.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Every game sound event for hd2.sounds scripting; the sound pickers use WeaponSoundCatalogue"),
     };
 
     /// <param name="sdkFiles">Every entry of the SDK archive (name → bytes); the audit classifies each file and reads the raw event actions.</param>
@@ -164,6 +188,18 @@ public static class CapabilityAudit
         if (sdk.Entities is { } en)
             foreach (var resource in en.AllFields.GroupBy(f => f.Target.Resource).OrderBy(g => g.Key, StringComparer.Ordinal))
                 Fields(resource.Key, resource, f => f.SemanticFieldId + (f.Target.Linked is { } l ? " [" + l + "]" : ""), f => f.Type, f => f.Editable, f => f.Reason);
+        // ---- 0.30.0 armor: the local player's set() options and the two passive slots of hd2.player_passives.set (ModProject.PlayerArmor).
+        if (sdk.Entities?.Armor is { } armor)
+        {
+            foreach (var option in armor.Player.AtLeastOne.Order(StringComparer.Ordinal))
+                entries.Add(new("armor_player", option, armor.Player.Options[option].Type, CapabilityClass.SUPPORTED_UI, 1, 1, 0, CapabilitySurfaces.ArmorPlayer, null));
+            if (armor.Passives is { } passives)
+                foreach (var slot in passives.Set.AtLeastOne.Order(StringComparer.Ordinal))
+                {
+                    var allowed = slot == "second" ? passives.Passives.Count(p => p.AllowedAsSecond) : passives.Passives.Length;
+                    entries.Add(new("player_passives", slot, "passive", CapabilityClass.SUPPORTED_UI, passives.Passives.Length, allowed, passives.Passives.Length - allowed, CapabilitySurfaces.ArmorPlayer, null));
+                }
+        }
 
         // ---- Attack outputs: projectile hosts, donors, builder slots and mode presentation.
         if (sdk.AttackOutputs is { } ao)
@@ -177,12 +213,18 @@ public static class CapabilityAudit
                     c == CapabilityClass.RUNTIME_READ_ONLY ? "shown read-only with Runtime's reason (" + string.Join("; ", g.Select(s => s.Status).Distinct().Order()) + ")"
                         : c == CapabilityClass.MISSING_UI ? "host kind not handled by the attack-output editor" : null));
             }
-            foreach (var g in ao.Outputs.GroupBy(o => (o.Family, o.SelectableAsProjectileReference)).OrderBy(g => g.Key.Family, StringComparer.Ordinal).ThenBy(g => g.Key.SelectableAsProjectileReference))
+            foreach (var g in ao.Outputs.Where(o => o.Offered).GroupBy(o => (o.Family, o.SelectableAsProjectileReference)).OrderBy(g => g.Key.Family, StringComparer.Ordinal).ThenBy(g => g.Key.SelectableAsProjectileReference))
             {
                 var selectable = g.Key.SelectableAsProjectileReference;
                 var c = selectable ? (CapabilitySurfaces.ProjectileHosts.Count > 0 ? CapabilityClass.SUPPORTED_UI : CapabilityClass.MISSING_UI) : CapabilityClass.RUNTIME_READ_ONLY;
                 entries.Add(new("attack_output", "donor output (" + g.Key.Family + ")", selectable ? "selectable" : "not selectable", c, g.Count(), selectable ? g.Count() : 0, selectable ? 0 : g.Count(),
                     c == CapabilityClass.SUPPORTED_UI ? "Projectile output picker (one donor pool)" : null, selectable ? null : "shown with Runtime's blocked reason"));
+            }
+            // 0.30.0 projectile donors this build lists but does not offer yet (AuthoredTypes.ProjectileDonors).
+            if (ao.Outputs.Where(o => !o.Offered).ToArray() is { Length: > 0 } donors)
+            {
+                var key = "donor output (" + AttackOutput.DonorKind + ")"; var ex = CapabilityExemptions.Find("attack_output", key, "*");
+                entries.Add(new("attack_output", key, "not offered", ex?.Class ?? CapabilityClass.MISSING_UI, donors.Length, 0, donors.Length, null, ex?.Reason ?? AuthoredTypes.NotAuthoredReason));
             }
             var rows = ao.Outputs.Where(o => o.Slots != null).ToArray();
             if (rows.Length > 0)
@@ -230,6 +272,8 @@ public static class CapabilityAudit
         {
             var top = name.Contains('/') ? name[..(name.IndexOf('/') + 1)] : name;
             if (top is "docs/" or "templates/" or "tools/") { files.Add(new(name, CapabilityClass.NOT_APPLICABLE, top == "docs/" ? "Runtime documentation (linked from the references)" : "Runtime SDK tooling / templates; never run by ModBuilder")); continue; }
+            // 0.30.0: the SDK's custom stratagem example projects and project schema (two examples are bundled as templates; the builder writes the project form itself).
+            if (top is "fixtures/" or "schemas/") { files.Add(new(name, CapabilityClass.NOT_APPLICABLE, "Runtime SDK custom stratagem examples / project schema; two examples are bundled as templates and the builder writes the project form itself")); continue; }
             if (name == Scripting.LuaApiIndex.StubPath) { files.Add(new(name, CapabilityClass.SUPPORTED_UI, "LuaLS stub: custom Lua autocomplete")); continue; }
             if (FileUses.TryGetValue(name, out var use)) { files.Add(new(name, use.Class, use.Use)); continue; }
             files.Add(IsRead(name) ? new(name, CapabilityClass.SUPPORTED_UI, "read, validated and cross-checked by SdkCache")
@@ -250,7 +294,9 @@ public static class CapabilityAudit
         Add("mounted / carried weapons", sdk.Entities?.VehicleWeapons?.Vehicles.Sum(v => v.Mounts.Count(m => m.Weapon != null)));
         Add("boosters", sdk.Entities?.Boosters?.Boosters.Length); Add("throwables", sdk.Entities?.Throwables?.Throwables.Count());
         Add("magazine attachments", sdk.Entities?.Attachments?.Attachments.Count()); Add("drop-pod racks", sdk.Entities?.Pods?.Racks.Length);
-        Add("enemy and structure classes", sdk.Entities?.Enemies?.Classes.Length); Add("entity field instances (all)", sdk.Entities?.AllFields.Count());
+        Add("muzzle, optics and underbarrel attachments", sdk.Entities?.AttachmentModifiers?.Attachments.Length);
+        Add("enemy and structure classes", sdk.Entities?.Enemies?.Classes.Length); Add("helldiver field instances", sdk.Entities?.Helldiver?.FieldInstances.Length); Add("entity field instances (all)", sdk.Entities?.AllFields.Count());
+        Add("armor kits", sdk.Entities?.Armor?.Kits.Length); Add("armor passives", sdk.Entities?.Armor?.Passives?.Passives.Length);
         Add("attack outputs", sdk.AttackOutputs?.Outputs.Length); Add("projectile sources", sdk.AttackOutputs?.ProjectileSources.Length);
         Add("events", sdk.Events?.Events.Length); Add("status effects", sdk.StatusEffects?.Statuses.Count); Add("armory traits", sdk.Presentation?.Traits.Count);
         Add("weapons with feeds", sdk.Feeds?.Weapons.Count); Add("live evidence families", sdk.LiveEvidence?.Families.Count);
@@ -298,7 +344,7 @@ public static class CapabilityAudit
         var s = new StringBuilder();
         string N(int n) => n.ToString("N0", CultureInfo.InvariantCulture);
         s.Append("# ").Append(ctx.Title).Append("\n\n");
-        s.Append("## Runtime 0.28 SDK\n\n");
+        s.Append("## Runtime SDK\n\n");
         s.Append("- HD2Runtime ").Append(r.SdkVersion).Append(", release commit `").Append(ctx.RuntimeCommit).Append("`, SDK generated at `").Append(ctx.SdkCommit).Append("`\n");
         s.Append("- SDK archive SHA-256 `").Append(ctx.SdkArchiveSha256).Append("`\n");
         s.Append("- Capabilities audited: **").Append(N(r.Entries.Count)).Append("** (").Append(N(r.Entries.Sum(e => e.Instances))).Append(" published instances); SDK files: ").Append(N(r.Files.Count)).Append("\n\n");

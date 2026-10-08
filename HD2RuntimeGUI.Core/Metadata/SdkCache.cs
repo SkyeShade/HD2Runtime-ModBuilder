@@ -53,7 +53,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
     public static IReadOnlySet<string> ConsumedFiles { get; } = GraphFiles.Where(n => n != Scripting.LuaApiIndex.CacheName).ToHashSet(StringComparer.Ordinal);
     private static IEnumerable<string> GraphFiles => PlayerWeaponCompositionReader.FileNames.Concat(AdvancedCapabilitiesReader.FileNames).Append(PlayerWeaponHeatCatalogReader.FileName).Append(CompositionPlanCapabilitiesReader.FileName).Append(SupportAuthoringReader.FileName).Append(StratagemCatalogReader.FileName).Append(EntityAuthoringReader.VehicleFile).Append(EntityAuthoringReader.BackpackFile).Append(MagazineAttachmentReader.FileName).Append(BoosterAuthoringReader.FileName)
         .Append(VehicleWeaponReader.FileName).Append(PodPayloadReader.FileName).Append(WeaponFireModeReader.FileName).Append(AssetDependencyReader.FileName).Append(ThrowableAuthoringReader.FileName).Append(EnemyAuthoringReader.FileName)
-        .Append(EventCatalogReader.FileName).Append(AttackOutputReader.FileName).Concat(SupplementalCatalogReader.FileNames).Append(Scripting.LuaApiIndex.CacheName);
+        .Append(EventCatalogReader.FileName).Append(AttackOutputReader.FileName).Concat(SupplementalCatalogReader.FileNames).Concat(PlayerArmorFiles.All).Append(Scripting.LuaApiIndex.CacheName);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<SdkRelease, SdkPayload> inspected = new();
     private sealed record SdkPayload(byte[] Metadata, byte[]? Capabilities, byte[]? Ammo, IReadOnlyDictionary<string, byte[]>? Composition = null);
@@ -171,6 +171,17 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 if (!sdk.Has027) throw new InvalidDataException("Enemy authoring metadata requires SDK 0.27.0 or newer.");
                 sdk = sdk with { Entities = sdk.Entities.WithEnemies(EnemyAuthoringReader.Read(enemies, sdk.Version)) };
             }
+            // Helldiver fields (HelldiverFieldCapabilities.json, hd2.helldiver): read whenever present.
+            if (payload.Composition!.GetValueOrDefault(HelldiverAuthoringReader.FileName) is { } helldiver) sdk = sdk with { Entities = sdk.Entities.WithHelldiver(HelldiverAuthoringReader.Read(helldiver)) };
+
+            // Muzzle, optics and underbarrel stat modifiers (WeaponAttachmentModifierCapabilities.json): read whenever present.
+            if (payload.Composition!.GetValueOrDefault(AttachmentModifierReader.FileName) is { } modifiers)
+                sdk = sdk with { Entities = sdk.Entities!.WithAttachmentModifiers(AttachmentModifierReader.Read(modifiers, sdk.Version, sdk.PlayerWeapons!, sdk.Entities.Attachments)) };
+
+            // Armor stats and armor passives (ArmorStatsCapabilities.json, ArmorPassiveCatalog.json): read whenever present.
+            if (payload.Composition.GetValueOrDefault(PlayerArmorFiles.ArmorStats) is { } armorStats)
+                sdk = sdk with { Entities = sdk.Entities!.WithArmor(ArmorAuthoringReader.Read(armorStats, payload.Composition.GetValueOrDefault(PlayerArmorFiles.ArmorPassives), sdk.Version)) };
+
             // Event scripting (EventCatalog.json), attack outputs / active projectile sources (AttackOutputCapabilities.json) and the SDK's
             // LuaLS stub (autocomplete): unreleased 0.28.0 development SDKs. Read whenever present; the two catalogs are required from 0.28.0.
             if (payload.Composition.GetValueOrDefault(EventCatalogReader.FileName) is { } events) sdk = sdk with { Events = EventCatalogReader.Read(events, sdk.Version) };
@@ -466,6 +477,7 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         AttackOutputReader.FileName => AttackOutputReader.MaxBytes,
         SupplementalCatalogReader.StatusFile or SupplementalCatalogReader.PresentationFile or SupplementalCatalogReader.FeedFile or SupplementalCatalogReader.LiveEvidenceFile => SupplementalCatalogReader.MaxBytes,
         Scripting.LuaApiIndex.CacheName => Scripting.LuaApiIndex.MaxBytes,
+        PlayerArmorFiles.Helldiver or PlayerArmorFiles.AttachmentModifiers or PlayerArmorFiles.ArmorStats or PlayerArmorFiles.ArmorPassives => PlayerArmorFiles.MaxBytes(name),
         _ => PlayerWeaponCompositionReader.MaxBytes,
     };
     public static void ValidateEntryPath(string name)

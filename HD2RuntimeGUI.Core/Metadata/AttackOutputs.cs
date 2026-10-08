@@ -9,7 +9,12 @@ namespace HD2RuntimeGUI.Core.Metadata;
 // attack's own reference; INDIRECT: the default ammunition's projectile, patched in when the weapon is built; AMBIGUOUS / BLOCKED:
 // nothing writable), and which catalogued outputs a projectile host can fire instead, with their package, proof and opt-ins.
 public sealed record AttackOutputOwner(string Kind, string Name);
-public sealed record AttackOutputPackage(string? Name, bool Known, bool AutoLoad);
+// 0.30.0: via says how Runtime loads a donor's package (the owner weapon, the owner entity's loadout package, ...). Omitted when absent, so the
+// evidence of saved swaps (which hashes the package) is unchanged.
+public sealed record AttackOutputPackage(string? Name, bool Known, bool AutoLoad,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Via = null);
+// 0.30.0 projectile donors: the flight of the donor projectile (velocity, mass, whether a unit drives it).
+public sealed record AttackOutputFlight(double? Velocity, double? Mass, bool? UnitDriven);
 public sealed record AttackOutputAcknowledgements(string[] SameClass, string[] CrossClass);
 public sealed record AttackOutputLiveProof(string DonorOutput, string[] Tests, string[] ProvenOnHosts);
 public sealed record AttackOutputChain(bool ImpactExplosion, bool ExpiryExplosion, bool Submunition, bool ArcOnImpact);
@@ -40,12 +45,22 @@ public sealed record AttackOutput(string SemanticId, string Family, string Kind,
     // 0.28.0: builder slots and mode presentation of a selectable row; referenceScope limits where a row may be referenced (the spare
     // twin and the EMS Mortar donor only as a programmable-ammunition projectile); fieldEffect describes a donor's lingering field.
     AttackOutputPresentation? Presentation = null, AttackOutputSlots? Slots = null, string[]? ReferenceScope = null,
-    System.Text.Json.JsonElement? FieldEffect = null, AttackOutputSpareTwin? SpareTwin = null)
+    System.Text.Json.JsonElement? FieldEffect = null, AttackOutputSpareTwin? SpareTwin = null,
+    // 0.30.0 projectile donors (kind projectile_donor): a projectile a stratagem (Eagle payload, orbital shell, sentry round), player or
+    // support weapon fires, offered as a donor only. No builder slots or presentation; its role, names, projectile type, member and flight.
+    string? Role = null, string[]? Names = null, int? ProjectileType = null, int? Member = null, AttackOutputFlight? Flight = null)
 {
     public const string FunctionAmmoScope = "function_ammo.projectile";
+    public const string DonorKind = "projectile_donor";
+    // The live-evidence family Runtime records for the 0.30.0 donors (pending until a live test passes).
+    public const string DonorEvidence = "projectile_more_donors";
+    [JsonIgnore] public bool IsDonor => Kind == DonorKind;
+    // A donor is offered to projectile selectors only once this build authors donors (AuthoredTypes.ProjectileDonors).
+    [JsonIgnore] public bool Offered => !IsDonor || AuthoredTypes.ProjectileDonors;
     // A row with a reference scope may be referenced only where the scope names (not as an attack's projectile).
     [JsonIgnore] public bool AttackReferenceAllowed => ReferenceScope is not { Length: > 0 };
-    [JsonIgnore] public string Label => Owner.Name;
+    // A donor is named as Runtime names it, "<owner> (projectile <type>)": an owner may have several (the SMG-37 Defender, the Eagle Smoke Strike).
+    [JsonIgnore] public string Label => IsDonor && Names is [var name, ..] ? name : Owner.Name;
     [JsonIgnore] public string KindLabel => Kind.Replace('_', ' ');
 }
 // Kind (0.28.0): player_weapon (absent before), support_weapon or vehicle_weapon (Weapon is then "<vehicle> / <mount>"). sharedEntity names
@@ -119,11 +134,12 @@ public sealed class AttackOutputCatalog
     public AttackOutput? Output(string semanticId) => Outputs.FirstOrDefault(o => o.SemanticId == semanticId);
     public AttackProjectileSource? Source(string weapon, string role) => ProjectileSources.FirstOrDefault(s => s.Weapon == weapon && s.Attack == role);
     public AttackProjectileSource? Source(string kind, string weapon, string role) => ProjectileSources.FirstOrDefault(s => s.HostKind == kind && s.Weapon == weapon && s.Attack == role);
-    // The row an owner's own attack fires (a player, support or mounted weapon: owner names are unique across kinds in the catalog).
-    public AttackOutput? OwnedBy(string owner) => Outputs.FirstOrDefault(o => o.Owner.Name == owner);
+    // The row an owner's own attack fires (a player, support or mounted weapon: owner names are unique across kinds in the catalog). From
+    // 0.30.0 an owner may also own donor rows (the SMG-37 Defender, the GP-31): those are never its own row.
+    public AttackOutput? OwnedBy(string owner) => Outputs.FirstOrDefault(o => o.Owner.Name == owner && !o.IsDonor);
     public AmmunitionSource? Ammunition(string weapon) => AmmunitionSources.FirstOrDefault(a => a.Weapon == weapon);
     // The output a player weapon's own attack fires (its own row, the baseline of a swap).
-    public AttackOutput? Own(string weapon) => Outputs.FirstOrDefault(o => o.Owner.Name == weapon && o.Family == "projectile");
+    public AttackOutput? Own(string weapon) => Outputs.FirstOrDefault(o => o.Owner.Name == weapon && o.Family == "projectile" && !o.IsDonor);
 
     // A host whose fired projectile Runtime can write, or null with Runtime's reason (AMBIGUOUS, BLOCKED, or not a projectile attack).
     public AttackOutputHost? Host(PlayerWeaponCatalog weapons, string weapon, string role, out string reason)
@@ -147,9 +163,12 @@ public sealed class AttackOutputCatalog
     // ammunition row's own opt-ins (allow_shared, allow_unverified_effect); support and mounted hosts their field's (allow_unverified_effect, and
     // allow_shared for one weapon entity in several mounts), where a live-proven donor drops allow_unverified_effect but never allow_shared.
     // A donor owned by neither a player nor a support weapon needs a catalogued package (the Guard Dog gun has none: ASSET_UNAVAILABLE).
-    // The host's own row, and a mount that is the same weapon entity, are its baseline, not donors.
+    // The host's own row, and a mount that is the same weapon entity, are its baseline, not donors. 0.30.0 projectile donors (kind
+    // projectile_donor) are live-tested on no host: Runtime requires their own allow_unverified_reference and allow_unverified_effect on
+    // every write, whatever the class, mechanism or host (a weapon's second projectile is a donor even for its own weapon).
     public IReadOnlyList<AttackOutputDonor> Donors(AttackOutputHost host) => Outputs
-        .Where(o => o.Family == "projectile" && o.SelectableAsProjectileReference && o.AttackReferenceAllowed && o.Owner.Name != host.Weapon && host.SharedEntity?.Contains(o.Owner.Name) != true)
+        .Where(o => o.Family == "projectile" && o.SelectableAsProjectileReference && o.AttackReferenceAllowed && o.Offered
+            && (o.IsDonor || o.Owner.Name != host.Weapon && host.SharedEntity?.Contains(o.Owner.Name) != true))
         .Select(o =>
         {
             var cross = o.CompatibilityClass != host.CompatibilityClass;
@@ -159,6 +178,7 @@ public sealed class AttackOutputCatalog
                 + host.CompatibilityClass.Replace('_', ' ') + " outputs."
                 : !o.Package.AutoLoad && o.Owner.Kind is not (AttackProjectileSource.PlayerKind or AttackProjectileSource.SupportKind) ? DonorAssetRefusal(o) : null;
             var extra = !cross ? o.Acknowledgements!.SameClass : proven ? [] : host.Ammunition?.CrossClassAcknowledgements ?? o.Acknowledgements!.CrossClass;
+            if (o.IsDonor) extra = [.. extra, .. cross ? o.Acknowledgements!.CrossClass : o.Acknowledgements!.SameClass];
             var baseline = live ? host.BaseAcknowledgements.Where(a => a != "allow_unverified_effect") : host.BaseAcknowledgements;
             return new AttackOutputDonor(o, cross, refusal == null, refusal, [.. baseline.Concat(extra).Distinct().Order(StringComparer.Ordinal)], proven || live);
         })
@@ -170,6 +190,7 @@ public sealed class AttackOutputCatalog
             o.Family != "projectile" ? new UnavailableOutput(o, "INCOMPATIBLE_OUTPUT_FAMILY", o.BlockedReason ?? o.Family)
             : !o.SelectableAsProjectileReference ? new UnavailableOutput(o, "NOT_SELECTABLE", o.BlockedReason ?? CoreText.Get("Messages.Output.NotSelectable"))
             : !o.AttackReferenceAllowed ? new UnavailableOutput(o, "OUTPUT_SCOPE", CoreText.Format("Messages.Output.ScopeOnly", string.Join(", ", o.ReferenceScope!)))
+            : !o.Offered ? new UnavailableOutput(o, "NOT_AUTHORED", AuthoredTypes.NotAuthoredReason)
             : null)
         .OfType<UnavailableOutput>().OrderBy(u => u.Output.Family, StringComparer.Ordinal).ThenBy(u => u.Output.Label, StringComparer.OrdinalIgnoreCase).ToArray();
 }
@@ -247,7 +268,9 @@ public static class AttackOutputReader
         Check(builder.SpareTwins.All(t => outputs.TryGetValue(t.Output, out var o) && o.SpareTwin?.TwinOf == t.TwinOf && outputs.ContainsKey(t.TwinOf)));
         foreach (var o in c.Outputs)
         {
-            Check((o.SelectableAsProjectileReference && o.Family == "projectile") == (o.Slots != null) && (o.Slots != null) == (o.Presentation != null));
+            // 0.30.0 donors are selectable projectiles without builder slots or presentation (they are not rows a mod rebuilds).
+            Check((o.SelectableAsProjectileReference && o.Family == "projectile" && !o.IsDonor) == (o.Slots != null) && (o.Slots != null) == (o.Presentation != null));
+            Check(!o.IsDonor || o.Family == "projectile" && o.SelectableAsProjectileReference && o.Package.Known && o.Names is { Length: > 0 } && o.Flight != null);
             Check(o.ReferenceScope is null || o.ReferenceScope.SequenceEqual([AttackOutput.FunctionAmmoScope]));
             Check(o.SpareTwin == null || o.SpareTwin.TwinOf != o.SemanticId && outputs.ContainsKey(o.SpareTwin.TwinOf) && o.ReferenceScope != null);
             if (o.Slots is not { } slots) continue;

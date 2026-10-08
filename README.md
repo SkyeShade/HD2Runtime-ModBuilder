@@ -12,11 +12,12 @@ HD2Runtime ModBuilder is a Windows app for building Helldivers 2 gameplay mods o
 - **Review, then Build / Export.** Changes lists every edit; Lua Preview shows the exact generated source; Build / Export writes a mod-manager-ready ZIP, with the HD2Arsenal description and icon you set and any additional files you attach to the project.
 - **Your own game icons.** Stratagem and booster icons are read from your local Helldivers 2 installation and stored on your PC. No game artwork is shipped.
 - **Optional in-game Mod Options.** Expose values as sliders and choices, with one master toggle, in the game's MODS menu (CowboyBingus Mod Options Menu, HD2Runtime SDK 0.25+). A field you have not edited can be exposed too: it keeps its vanilla value, which then becomes the option's default.
+- **Experimental: custom stratagems and custom projectiles.** Create new stratagems (name, icon, call-in code, delivery family) and new projectiles that existing weapons can fire, for HD2Runtime 0.30.0's custom stratagem API. They have their own tabs with a small *Experimental* badge, kept apart from edits of existing game objects, and stored in ModBuilder's own model, so a project survives Runtime API changes (see [Custom content](#custom-content-experimental-hd2runtime-0300)).
 - **Updates itself.** New ModBuilder releases are offered in the app and installed with one click.
 
 ## Download
 
-1. Download **`HD2Runtime-ModBuilder-v1.6.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
+1. Download **`HD2Runtime-ModBuilder-v1.7.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
 2. Extract it to a folder you can write to (for example `Documents\HD2Runtime ModBuilder`).
 3. Run **`HD2RuntimeModBuilder.exe`**.
 
@@ -32,7 +33,7 @@ HD2Runtime ModBuilder checks [GitHub Releases](https://github.com/SkyeShade/HD2R
 
 Updating 1.0.0 to 1.0.1 or later replaces `HD2RuntimeGUI.exe` with `HD2RuntimeModBuilder.exe`. A taskbar pin or shortcut to the old exe needs to be pinned again.
 
-Release notes: [1.6.0](docs/release-notes/v1.6.0.md) · [1.5.0](docs/release-notes/v1.5.0.md) · [1.4.3](docs/release-notes/v1.4.3.md) · [1.4.2](docs/release-notes/v1.4.2.md) · [1.4.1](docs/release-notes/v1.4.1.md) · [1.4.0](docs/release-notes/v1.4.0.md) · [1.3.1](docs/release-notes/v1.3.1.md) · [1.3.0](docs/release-notes/v1.3.0.md) · [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
+Release notes: [1.7.0](docs/release-notes/v1.7.0.md) · [1.6.0](docs/release-notes/v1.6.0.md) · [1.5.0](docs/release-notes/v1.5.0.md) · [1.4.3](docs/release-notes/v1.4.3.md) · [1.4.2](docs/release-notes/v1.4.2.md) · [1.4.1](docs/release-notes/v1.4.1.md) · [1.4.0](docs/release-notes/v1.4.0.md) · [1.3.1](docs/release-notes/v1.3.1.md) · [1.3.0](docs/release-notes/v1.3.0.md) · [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
 
 ## Why "HD2RuntimeGUI" still appears
 
@@ -43,6 +44,12 @@ The product was renamed from HD2RuntimeGUI to HD2Runtime ModBuilder, and the rep
 - the source project/namespace names;
 - the `HD2RuntimeGUI.exe` compatibility copy in the release ZIP.
 
+## License
+
+HD2Runtime ModBuilder is licensed under [CC BY-NC-SA 4.0](LICENSE). You may use, modify and fork it and share your changes, as long as you credit SkyeShade and HD2Runtime ModBuilder with a link to this repository, do not use it commercially, and release your changes under the same license.
+
+The names HD2Runtime, HD2R and HD2Runtime ModBuilder, the reticle icon and the wordmark are not part of the license: a modified version you distribute needs its own name and icon (see [TRADEMARKS.md](TRADEMARKS.md)). Mods you build with ModBuilder are yours and are not covered by its license. Third-party material and the contributed Simplified Chinese translation keep their own terms ([THIRD_PARTY.md](THIRD_PARTY.md)).
+
 ---
 
 ## For developers
@@ -51,7 +58,7 @@ The product was renamed from HD2RuntimeGUI to HD2Runtime ModBuilder, and the rep
 git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
 ```
 
-A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.6.0 is built against **HD2Runtime SDK 0.28.1** (release [v0.28.1](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.28.1), `96ab2d2`; 0.28.0's capabilities: the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.28.0**, **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK.
+A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.7.0 is built against **HD2Runtime SDK 0.30.0** (see [SDK 0.30 authoring](#sdk-030-authoring); projects bound to the 0.30.0-dev SDK of the 1.7.0 test builds keep working) and also supports **0.28.1** (release [v0.28.1](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.28.1), `96ab2d2`; 0.28.0's capabilities: the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.28.0**, **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK. Its experimental custom content targets the **HD2Runtime 0.30.0** custom stratagem API through a bundled copy of Runtime's `CustomStratagemSchema.json`, independent of the bound SDK.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 4,555 entries, 121 field definitions (102 writable, 19 read-only, 9 derived)** in SDK 0.28.0. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
@@ -59,7 +66,7 @@ This repository is separate from HD2Runtime. The app does not launch the game, d
 
 ## Navigation
 
-The sidebar lists only public authoring destinations: **Overview, Player Weapons, Stratagems** (Support · Offensive · Defensive), **Boosters** (SDK 0.24.0+), **Changes, Lua Preview, Build / Export**, with **Snapshot Research** in a separate Developer / Research group. Legacy mapped-resource categories (the old mapped Vehicles and Equipment resources and legacy mapped stratagems) are no longer navigation destinations. Vehicles and backpacks live under **Stratagems → Support**, which has All Support, Support Weapons, Vehicles, Backpacks and Other / Standalone tabs built from SDK families and published call-in links; a vehicle or backpack stratagem opens one editor with its call-in and the delivered entity. Existing legacy changes still appear on Changes and can be edited, toggled or removed there. Navigation stays visible without a project; project destinations then show "Select or create a project to begin editing." Counts come from the installed SDK; the Changes count appears only with an open project.
+The sidebar lists only public authoring destinations: **Overview, Player Weapons, Stratagems** (Support · Offensive · Defensive), **Boosters** (SDK 0.24.0+), **Changes, Lua Preview, Build / Export**, with **Snapshot Research** in a separate Developer / Research group. Since 1.7.0 a **Custom Content · Experimental** group between them holds **Custom Stratagems** and **Custom Projectiles** (new Runtime-owned objects, never edits of existing ones). Legacy mapped-resource categories (the old mapped Vehicles and Equipment resources and legacy mapped stratagems) are no longer navigation destinations. Vehicles and backpacks live under **Stratagems → Support**, which has All Support, Support Weapons, Vehicles, Backpacks and Other / Standalone tabs built from SDK families and published call-in links; a vehicle or backpack stratagem opens one editor with its call-in and the delivered entity. Existing legacy changes still appear on Changes and can be edited, toggled or removed there. Navigation stays visible without a project; project destinations then show "Select or create a project to begin editing." Counts come from the installed SDK; the Changes count appears only with an open project.
 
 Stratagem categories come from published families: Support (`support`, blue), Offensive (`orbital`, `eagle`, red) and Defensive (`sentry`, `emplacement`, `mine`, including the Shield Generator Relay, green). Boosters are their own domain and use yellow. Reusable `cat-support` / `cat-offensive` / `cat-defensive` / `cat-booster` classes set a `--cat` token used by pills, dots, list accents and panel headers.
 
@@ -75,11 +82,11 @@ Each stratagem is presented as one object:
 
 Fields are compact rows with name, value, baseline and short safety badges (shared, effect unproven, evidence tier). Details sit behind each row's ⓘ.
 
-**Game icons** are imported locally: automatically at startup when a Helldivers 2 install is detected and none are imported, from the prompt on the Boosters page, or from Settings → Game icons (removing them there turns automatic import off until the next manual import). ModBuilder reads the game's own vector icon libraries (`content/ui/shared/resources/generated_icons/stratagem_icons` and `booster_icons`) read-only from your installed Helldivers 2 data folder, fat or slim edition. It converts them to SVG in the local data folder. Game assets are not part of this repository or its releases.
+**Game icons** are imported locally: automatically at startup when a Helldivers 2 install is detected and none are imported, from the prompt on the Boosters page, or from Settings → Game icons (removing them there turns automatic import off until the next manual import). ModBuilder reads the icons the game's HUD draws from its texture atlases, read-only from your installed Helldivers 2 data folder, fat or slim edition, and stores them as PNG in the local data folder. Stratagem sprites are masks: ModBuilder paints them in each stratagem's accent colour (from the game's loadout icon library, else its family's) and white, as the HD2R Editor does. The game's vector icon libraries (`content/ui/shared/resources/generated_icons/stratagem_icons` and `booster_icons`) are converted to SVG as the fallback. Game assets are not part of this repository or its releases.
 
 Icons attach only through published identities:
-- **Boosters:** Runtime's `identity.uiIcon` for the booster's native member must match the game template's own binding. That covers 18 of 20 boosters; Integrated Extinguishers and Surplus EAT Allocation have none.
-- **Stratagems:** ModBuilder uses `uiIcon.iconKey` when the SDK publishes it with state `resolved` (HD2Runtime after 0.24.0: native stratagem type → the game's own icon binding). SDK 0.24.0 publishes none, so stratagems show category-coloured glyphs until a Runtime release includes it.
+- **HUD sprites first:** HD2Runtime's `sdk/HudIconSprites.json` (bundled byte for byte) names the atlas sprite of each stratagem (`StratagemInfo` +0xB0) and booster (the native booster table), by display name. That covers 94 of 96 stratagems and all 20 boosters. SG-88 and CQC-72 have no call-in stratagem, so no sprite; they keep the category glyph with the list's reason. Settings warns when your game build differs from the build the list was made for.
+- **Vector icons as the fallback**, for an item whose sprite cannot be read: a booster's `identity.uiIcon` when it matches the game template's own binding (18 of 20), a stratagem's `uiIcon.iconKey` when the SDK publishes it with state `resolved` (84; HD2Runtime after 0.24.0).
 
 See [readability pass notes](docs/readability-pass.md).
 
@@ -165,6 +172,100 @@ ModBuilder 1.4.2 bundles HD2Runtime 0.28.1 (`96ab2d2`), which publishes the same
 - **Coverage.** `CapabilityAudit` classifies every published capability; at 1.4.0 none is missing (COVERAGE.md in the release candidate).
 - **Halt hardening.** Every generated operation is built inside `pcall`, so one that cannot be built is logged and the rest still register.
 
+## SDK 0.30 authoring
+
+ModBuilder 1.7.0 bundles HD2Runtime 0.30.0; new projects bind to it, and a project keeps the SDK it is bound to until you rebind it. Rebinding a
+0.28.x project keeps its edits and writes the opt-ins 0.30 newly requires (the PLAS-45 Epoch's damage fields). Every export states the
+Runtime it needs in `requires.hd2runtime.min_version`: the bound SDK, raised to 0.30.0 by any 0.30 field, projectile donor or custom content.
+A project bound to the 0.30.0-dev SDK of the 1.7.0 test builds opens and exports on it (HD2Runtime 0.30.0 loads mods that declare
+0.30.0-dev) until you rebind it to 0.30.0.
+See [the integration plan](docs/runtime030-integration-plan.md) for what each item maps to.
+
+- **Stratagems.** Call-in codes on every stratagem (an arrow editor; a code equal to a native one carries the opt-in and a warning; a code
+  another edit uses is resolved in place), presentation (name, cased name, description and icon from another stratagem, or your own PNG
+  icon), call-in time, the orbital barrage pattern, the Eagle attack (landing pattern, timings, sweep, radius, angle) and sentry spread,
+  recoil, wind-up, beam rate, coupling and side/rear range.
+- **Vehicles, backpacks and enemies.** Vehicle and Exosuit handling, mounted turret speeds and limits (crossed limit pairs are caught where
+  they are typed), Jump and Hover Pack movement by flight phase, and the Terminid whole-body gib threshold with a *Disable bursting* switch.
+  Fields Runtime publishes as dormant on an object say so.
+- **Support weapon charge.** Charge stages, bursts and hazards on the Railgun, Epoch, ARC-3 and Meltagun; the Epoch's and Railgun's new
+  attack roles (a shared damage row kept in sync in place); the overcharge explosion reference; charge times shown in seconds and
+  deprecated ids fixed in place.
+- **Projectile donors.** HD2Runtime 0.30's 32 donors (Eagle payloads, orbital shells, sentry rounds, second projectiles) in every projectile
+  selector, with their emitter, flight and package loading; every donor write carries both opt-ins.
+- **Custom Lua.** The 0.30 stub (`hd2.enemies` callable, `hd2.resources`, `hd2.diagnostics.performance()`), pickers for homing, spawn
+  weights, limbs, velocity, loadout and ammunition, resupply, the Pelican and the 171 weapon sounds, new snippets and live evidence.
+
+### Player (Helldiver) fields
+
+With an SDK that publishes `HelldiverFieldCapabilities.json` (HD2Runtime 0.30.0), the **Player** page edits the Helldiver
+type, `hd2.helldiver()`: 12 movement speeds, 9 stamina values, the explosion damage every zone takes, and five values on each of the six
+body zones (damage multiplier, damage over time, durable share, share to main health and zone health). The damage multipliers are
+chosen by their published names (`normal`, `reduced`, ...). Each target (the Helldiver, or one zone) is one patch or transaction, always
+with `allow_shared` and `allow_unverified_effect`; the page explains them as warnings, never as checkboxes. These values apply to every
+Helldiver the machine simulates (in practice your own), are not live-tested, show only in a mission (the ship's Helldiver keeps a private
+copy), and zone health applies from the next spawn. The game caps speeds at 10 m/s. Number fields can be in-game options; the damage
+multipliers cannot yet, because option choices are numbers. Projects with Player edits are format 14.
+## Muzzle, optics and underbarrel attachments (HD2Runtime 0.30)
+
+Player Weapons has a **Muzzle, optics and underbarrel** section after Ammo / Magazine (`WeaponAttachmentModifierCapabilities.json`). For the
+open weapon it lists each slot's options, the native default first, and shows the stat modifiers each attachment carries: ergonomics, sway,
+horizontal and vertical recoil, climb and spread (132 fields on 44 of 73 attachments). Edits target the attachment definition through
+`hd2.weapon_attachment(semanticId)`, one request per attachment, always with `allow_shared=true, allow_unverified_effect=true`.
+
+- An attachment is shared by every weapon that can equip it. Editing it under one weapon edits it under all of them; the card lists the
+  weapons Runtime knows.
+- The effect is not live-tested yet, and which attachment is equipped can't be changed. Both are warnings, never checkboxes.
+- Only modifiers an attachment already carries are editable. The 8mm. Muzzle break's horizontal climb is read-only with Runtime's
+  blocker, and the other patched members are listed read-only.
+- Ranges: ergonomics -100 to 100, multipliers 0 to 10. Edits work with Mod Options and appear on the Changes page.
+## Armor (HD2Runtime 0.30)
+
+The **Armor** page (Workspace group) appears when the SDK publishes `ArmorStatsCapabilities.json` and `ArmorPassiveCatalog.json`. Nothing on
+it is tested in game yet, except a passive swap in the armor slot alone to SCOUT, ENGINEERING KIT, MED-KIT or SERVO-ASSISTED.
+
+- **Kits.** The 135 armor kits by game name (unnamed ones by id), with class, passive and vanilla rating, speed and stamina regen. Set
+  each piece to light, medium or heavy (or every piece at once); a live preview shows the stats with Runtime's published formulas. A kit
+  edit is one `hd2.armor_stats.kit('<id>')` request and changes the kit for every player wearing it on this machine.
+- **Classes and damage curve.** The armor value, speed factor and stamina factor of each weight class, and the damage multiplier at armor
+  values -1 to 3. These apply to every Helldiver on this machine and are not synced.
+- **Player (solo).** Your own armor bonus and stamina factor (`hd2.armor_stats.player():set`, applied at load and after every respawn) and
+  a passive override (`hd2.player_passives.set`): another armor passive, a second passive in the helmet slot, or both. Values and
+  passives Runtime would refuse are refused where you pick them. The page says what a swap does not carry and which passives load an
+  effect package.
+
+Every write carries the opt-ins Runtime asks for; the page only warns. Projects with armor edits use format 14.
+
+## Custom content (experimental, HD2Runtime 0.30.0)
+
+ModBuilder 1.7 can create **new** game content, not only change existing objects. It targets HD2Runtime 0.30.0's custom stratagem API (released; experimental with several players) and its internal custom projectile modules (solo / host only), so everything in this area is marked **Experimental**. See [docs/custom-content.md](docs/custom-content.md) for the full design.
+
+- **Custom Stratagems** (sidebar): new stratagems that HD2Runtime registers for the mod (`hd2.custom_stratagem.register`), built in a studio with a live preview of how the stratagem presents and how ready it is. Each has an internal ID (generated once, changed only explicitly), a HUD name, a panel name, a description, up to four traits, a 256 × 256 PNG icon, a graphical call-in code (↑ ↓ ← →, never another custom or a native code), a cooldown, uses per mission, a carrier (one of HD2Runtime's carrier groups that can carry the payload, or a custom beacon and family policy) and one delivery family, each showing what HD2Runtime has live-tested of it:
+  - **Orbital barrage:** a Runtime barrage of a reviewed shell in an adjustable vanilla pattern, or a vanilla barrage with each shell's impact replaced;
+  - **Eagle strike:** a vanilla Eagle's strike with its own uses, rearm time and impact;
+  - **Pelican gunship:** the game's Pelican over the beacon, its hover, approach and orbit, and its chin gun's round, Gatling behaviour, rate, spread, aim, firing sound and impact explosion;
+  - **Support pod:** a support weapon or backpack's own pod, the delivered weapon reconfigured (round, rate, spread, magazine, zero recoil, impact, converted rounds);
+  - **Expendable weapon:** a disposable clone of a reviewed expendable with its own name and marker icon (the stratagem's, the donor's, or an imported PNG), another round or an impact, and its pod's contents;
+  - **Custom pod:** a carrier pod packed with support weapons, backpacks and primaries, each reconfigurable;
+  - **Weapon variant:** a mission-scoped variant of a reviewed weapon with another round, its own presentation and a **recoloured model** (debug palette or per-zone colours, derived from your installed game at export);
+  - **Sentry:** a vanilla sentry with its own gun, including its firing sound;
+  - **Missile silo:** a silo whose missile detonates as another explosion, with a fallback;
+  - **Scripted (Lua):** nothing (or a vanilla pod) is delivered and Lua callbacks do the rest.
+
+  The editor shows only the chosen family's fields, with ranges, units, defaults and choices from Runtime's schema; what Runtime refuses stays visible, disabled, with its reason. **Advanced: Lua** holds, per stratagem, a setup chunk, all five callbacks (`on_called`, `on_beacon_created`, `on_beacon_landed`, `on_activate`, `on_delivered`) and extra registration fields, in ModBuilder's Lua editor with completion from HD2Runtime 0.30's own API (`ctx:` included) and snippets. A mod holds up to 16 custom stratagems: while one is open, a strip above its editor lists the others (switch, **+ Add another**), and **Overview** lists them too. **Templates** are simple examples, one per delivery family (support drop, sentry, Eagle, Pelican, silo), plus two of HD2Runtime's own examples (EAT-40 Expendable Gas and Orbital Gas Barrage); **Import Runtime project…** reads an SDK `custom_stratagems.json`; the list can be copied back in that format.
+- **Custom Projectiles** (sidebar): new projectiles with their own IDs, Runtime's hybrid-row model: a vanilla base projectile with whole components (visual, direct damage, impact explosion, ballistics) taken from other catalogued vanilla projectiles. **From a template → Clone a vanilla projectile…** starts from an exact copy of any projectile the SDK maps (107 in SDK 0.28.1; the 19 whose asset package is unknown are listed, disabled, with Runtime's reason). A clone is just a base with no components, which Runtime already defines as a copy of that row, so no SDK change is involved. The build swaps the weapon to Runtime's carrier projectile (an ordinary guarded projectile swap) and binds Runtime's weapon projectile replacement at mission start. These use Runtime **development modules** (`runtime/custom_projectiles`, `api/actions`) that `hd2` does not export yet; they are host only and live-verified on the SMG-32 Reprimand.
+- **Choosing a custom projectile for a weapon:** every projectile selector has two groups, **Vanilla** and a violet **Custom — Experimental** group. This covers a player weapon's Projectile section, the Projectile Builder's hosts, support and mounted weapons, and programmable-ammunition modes.
+  - Choosing a custom projectile stores a typed reference (`{"kind": "custom_projectile", "id": …}`), never a vanilla projectile ID. Choosing a vanilla projectile replaces it again.
+  - **+ Create New Custom Projectile…** opens a draft in the Custom Projectile Builder, starting from what the attack fires now. The weapon keeps what it fires until the draft is ready and **Assign to … and return** completes it. **Cancel and return** (or deleting the draft) deletes it and leaves the weapon unchanged.
+  - While nothing uses the draft, its ID follows its name. Afterwards, renaming keeps the ID, and **Change ID** moves every reference.
+  - With a custom projectile assigned, the selector can open it, rename it, start a **Duplicate and edit…** draft (the copy replaces it only when completed) or fire the weapon's own projectile again.
+  - An invalid custom projectile shows its errors right in the weapon's selector, with a link to fix it.
+  - Conflicts are asked where the choice is made. This includes a vanilla swap or edits on the attack, and the target's one-attack-at-a-time limit (assigning moves the custom projectile from the other attack).
+  - Where the target cannot bind a custom projectile, the group says why. That is currently support weapons, mounted weapons and ammunition modes: the 0.30 target binds player weapons only.
+- **Validation** is immediate and shown where each object is edited: ✓ what holds, ℹ what to know, ⚗ experimental machinery, ⚠ warnings, ✕ errors that refuse the build. Custom stratagems are checked by a port of HD2Runtime's own SDK validator (the same checks and words, held to the SDK's output on 136 test projects). Multiplayer hints are informational: data-declared payloads can be derived by every compatible Runtime, callbacks cannot.
+- **Dependencies:** a referenced custom projectile is never deleted or renamed behind its references; deletion asks to move the uses to another projectile or remove them.
+- **Build:** one deterministic registration per custom stratagem in `src/addon.lua`, its fields exactly as HD2Runtime's SDK compiler writes them (tested byte for byte), each isolated so one refusal never stops the others; a weapon variant's model derived from the installed game into a patch of its base weapon's archive (a C# port of the SDK's model build); each icon compiled from its PNG into the game's texture and GUI material inside the mod's own archive (a C# port of the SDK's image build, byte-identical to `hd2_image.py`); the source PNGs at `images/<id>.png` beside the manifest; `custom_content` in `build-report.json`; and `requires.hd2runtime.min_version` 0.30.0-dev.
+
 ## Heat and heatsinks
 
 SDK 0.18 adds a dedicated **Heat / Heatsink** section for seven energy weapons. The typed heat companion is cross-checked against the authoring catalog for identities, fingerprints, baselines, ownership, permissions and counts. Five weapons expose 30 writable field instances (15 heat, 15 heatsink); Scythe and Dagger stay blocked by duplicate identities. Dagger's native/catalog disagreements remain visible.
@@ -236,7 +337,7 @@ See [0.17 sample projects](samples/README.md#runtime-017-samples) and [verificat
 
 ## Branding
 
-The reticle icon (`HD2RuntimeGUI/Resources/AppIcon/appicon.svg`, identical to `wwwroot/brand/modbuilder-icon.svg`) is the executable, window, taskbar and Alt-Tab icon; the build generates `appicon.ico` from it. The full HD2Runtime ModBuilder lockup appears in the sidebar, About, the empty project library and the startup splash. The brand yellow is `--brand-yellow: #FDD00E`; the Boosters category keeps its own `--booster-category-yellow`. The wordmark uses Big Shoulders Display (SIL Open Font License, `wwwroot/brand/fonts/`).
+The reticle icon (`HD2RuntimeGUI/Resources/AppIcon/appicon.svg`, identical to `wwwroot/brand/modbuilder-icon.svg`) is the executable, window, taskbar and Alt-Tab icon; the build generates `appicon.ico` from it. The full HD2Runtime ModBuilder lockup appears in the sidebar, About, the empty project library and the startup splash. The brand yellow is `--brand-yellow: #FDD00E`; the Boosters category keeps its own `--booster-category-yellow`. The Custom Stratagems and Custom Projectiles tabs use the brand yellow like every other authoring tab, with a small outlined **Experimental** badge. A reference to custom content from another tab (a projectile selector's *Custom — Experimental* group, the Changes panel) is violet, `--custom: #a78bfa`, so it stands out among edits of existing objects; nothing else in the app is violet. The wordmark uses Big Shoulders Display (SIL Open Font License, `wwwroot/brand/fonts/`).
 
 ## Languages
 
@@ -254,7 +355,8 @@ Special thanks to [@CChusky](https://github.com/CChusky) for proposing ModBuilde
 - `Metadata/`: typed capability catalog, strict readers and immutable versioned SDK cache.
 - `GitHub/`: public release discovery and bounded, validated SDK downloads.
 - `Projects/` and `Storage/`: project library and atomic JSON persistence.
-- `Generation/`: validation, semantic Lua generation, gameplay archive codec and verified ZIP packaging.
+- `Generation/`: validation, semantic Lua generation, gameplay and resource archive codecs and verified ZIP packaging.
+- `CustomContent/`: the experimental custom content engine: Runtime's custom stratagem schema reader, the target adapter (`Runtime030Target`, the only code that knows Runtime's custom content field names and Lua), validation, the dependency graph, migrations, templates and the icon compiler.
 - `Services/`: application workflows, one-use SDK update decisions, file-only snapshot inspection.
 - `Updates/`: ModBuilder's own update check, manifest and package verification, and staging.
 
@@ -266,7 +368,7 @@ GitHub access, SDK cache/readers, project storage, change validation, Lua genera
 
 This section is about the HD2Runtime SDK; ModBuilder application updates are described in [docs/app-updates.md](docs/app-updates.md).
 
-Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. ModBuilder bundles the SDK it is built against, byte-identical to the HD2Runtime release asset (1.6.0: the 0.28.1 SDK, pinned by its archive SHA-256 and a content fingerprint), so first launch works offline; on upgrade the newer bundled SDK becomes current for new projects while existing projects stay on theirs until rebound. A local development SDK with the pinned version but different contents is reported as a different build. Each ModBuilder release declares the newest HD2Runtime SDK it supports (1.6.0: **0.28.1**); newer SDK releases are reported in Settings as needing a newer ModBuilder and are never downloaded or offered, and a release whose metadata cannot be read is skipped without affecting the installed SDK.
+Startup and each new-project action check public GitHub releases without a token. Discovery identifies the runtime, SDK, ModTemplate and example-project artifacts; the application downloads **only the SDK**. ModBuilder bundles the SDK it is built against, byte-identical to the HD2Runtime release asset (1.7.0: the 0.28.1 SDK, pinned by its archive SHA-256 and a content fingerprint), so first launch works offline; on upgrade the newer bundled SDK becomes current for new projects while existing projects stay on theirs until rebound. A local development SDK with the pinned version but different contents is reported as a different build. Each ModBuilder release declares the newest HD2Runtime SDK it supports (1.7.0: **0.28.1**); newer SDK releases are reported in Settings as needing a newer ModBuilder and are never downloaded or offered, and a release whose metadata cannot be read is skipped without affecting the installed SDK.
 
 Updates validate repository, exact asset names/URLs, ZIP content types, stable semantic version, size and available SHA-256 digest. Archive inspection rejects path traversal, duplicate paths, links and excessive entry/expanded sizes. No downloaded scripts are executed. Only nineteen fixed metadata files are consumed: base metadata, authoring/ammo/heat catalogs, the four composition graphs, and the published ProjectileCompositionCapabilities, AttachmentOptionCapabilities, ExplosionAuthoringCapabilities, SupportWeaponCapabilities, SupportWeaponAuthoringCapabilities, StratagemAuthoringCapabilities, CompositionPlanCapabilities, VehicleAuthoringCapabilities, BackpackAuthoringCapabilities, MagazineAttachmentCapabilities and BoosterAuthoringCapabilities contracts (the last four only for the SDK versions that publish them, and then required). Each file is bounded by its own reader size limit. Named contracts are checked against their equivalent graph payloads; schema, fingerprints, permissions, baselines and counts must agree.
 
@@ -301,6 +403,8 @@ Project format 12 (1.5.0) adds two optional sections: `packagedFiles` (the sourc
 
 Project format 13 (1.6.0) marks **option-only edits**: an edit whose desired value is the vanilla value, kept because the field has an in-game option (`modOptions.rows[].key` names it). The JSON shape is unchanged; the format is raised only while a project has such an edit. Earlier ModBuilder versions remove vanilla-valued edits when they open a project, which would silently drop the option's operation, so their format check refuses a format-13 project instead, without writing it. An option-only edit generates Lua only while its option is bound (in-game options on, row active); removing the option removes the edit, and resetting the field removes the edit and leaves the inactive row, as for any edit.
 
+Project format 14 (1.7.0) adds the optional `customContent` section: custom stratagems, custom projectiles, the weapons that fire them and the icons' source PNGs, in ModBuilder's own semantic model with its own `version` (1). The section is omitted until a project creates custom content; earlier ModBuilder versions refuse a format-14 project without writing it. `CustomContentMigrations` brings an older section up to date when a project opens, and a section from a newer ModBuilder is refused with the reason. No Runtime field name or generated Lua is ever saved: the target adapter writes those at build time.
+
 Rebinding keeps desired values and saved baselines. Missing fields, changed types, read-only capabilities, changed shared scope and changed defaults block affected builds and appear in Changes. A changed default requires an explicit **Accept baseline** action; opening or rebinding never silently rewrites it. Older SDK cache entries remain available.
 
 ## Lua and ZIP output
@@ -311,11 +415,11 @@ Targets start with `hd2.weapon(name)` or `hd2.support_weapon(name)` and fields a
 
 The package follows the published ModTemplate archive, discovery-header, manager GUID and dependency conventions. It contains `manifest.json`, `hd2runtime.json`, `build-report.json`, `README.md`, `src/addon.lua`, and one gameplay archive plus empty stream/GPU companions under `mod/`. It requires Bingus release 15+/API 1 and the project's HD2Runtime minimum version/API. The template's Bingus check is `loader.version >= 16`.
 
-**Arsenal presentation** (Build / Export page): how HD2Arsenal shows the mod in its library. HD2Arsenal (0.36.2) builds a library entry from `manifest.json`: `Name` (the label), `Description` (plain text: it removes anything matching `<…>` and trims) and `IconPath` (an image resolved relative to the ZIP root; without it, or when the file is missing, Arsenal shows its placeholder). Its own Manifest Builder packages the icon at the ZIP root under its own name and accepts `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`; Arsenal deploys only the `mod/` patch files into the game. ModBuilder writes the same. The **Arsenal description** comes first in the manifest `Description`, followed by the dependency line every manifest description states (ModTemplate convention); the option's description stays the dependency line. The **icon** (**Select image…**) is read at every export, packaged at the ZIP root under its own file name, and named by `IconPath`. Its type must be one of those five, and its content must match that type. A missing or unreadable image, a description Arsenal would alter, or an additional file at the icon's path is shown in the section and refuses the export. Arsenal is never needed to export; without an Arsenal presentation, `manifest.json` is exactly as before.
+**Arsenal presentation** (Build / Export page): how HD2Arsenal shows the mod in its library. HD2Arsenal (0.36.2) builds a library entry from `manifest.json`: `Name` (the label), `Description` (plain text: it removes anything matching `<…>` and trims) and `IconPath` (an image resolved relative to the ZIP root; without it, or when the file is missing, Arsenal shows its placeholder). Its own Manifest Builder packages the icon at the ZIP root under its own name and accepts `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`; Arsenal deploys only the `mod/` patch files into the game. ModBuilder writes the same. The **Arsenal description** comes first in the manifest `Description`, followed by a blank line and `// ` before the dependency line every manifest description states (ModTemplate convention). Arsenal's library shows the description as one paragraph, with line breaks as spaces, so the `//` is what marks where your text ends there. The option's description stays the dependency line. The **icon** (**Select image…**) is read at every export, packaged at the ZIP root under its own file name, and named by `IconPath`. Its type must be one of those five, and its content must match that type. A missing or unreadable image, a description Arsenal would alter, or an additional file at the icon's path is shown in the section and refuses the export. Arsenal is never needed to export; without an Arsenal presentation, `manifest.json` is exactly as before.
 
 **Additional files** (Build / Export page): files from your computer that every export adds to the ZIP, for example a preview image for a mod site (Arsenal's icon is set under Arsenal presentation: Arsenal ignores images that `IconPath` does not name). Add a file with **Add file…**; it goes to the ZIP root under its own name until you change its **Path in ZIP**, and **×** removes it from the export (the file itself is untouched). The project stores the file's full path and its ZIP path; the file is read at every export, so the ZIP always carries its current bytes, unchanged. ModBuilder does not rename, convert or interpret these files: use the file name the tool you publish to expects. A ZIP path is relative, uses `/` between folders (a typed `\` becomes `/`) and must stay inside the ZIP: absolute paths, drives, `.` and `..` folders, trailing `/`, names Windows cannot extract (reserved device names such as `CON`, names ending in a dot or space, `< > : " | ? *` or control characters) and paths over 240 characters are refused. `mod/` is reserved for the generated files the mod manager installs into the game. A path may not equal a generated file or another additional file, ignoring case, nor make one path both a file and a folder. A problem (a missing source, an invalid or clashing path) is shown on the file's row, where it is fixed, and the export is refused with a message naming the file, for example `Cannot package additional file: thumbnail.png` / `Source file does not exist: C:\...`. Nothing is skipped and no generated file is overwritten. A file can be at most 64 MiB, and a project can have 32. Duplicating a project keeps its additional files.
 
-No Runtime implementation, SDK stubs, ModBuilder catalog, snapshots or research artifacts enter the package. ZIP inventory and content are reopened and verified before success. Sorted entries, fixed timestamps, deterministic IDs and stable content make unchanged exports byte-identical; additional files get the same fixed timestamp, so an unchanged project with unchanged files still exports identically, and a project without additional files exports exactly as before. Preview shows exactly the gameplay source included as `src/addon.lua`; the archive adds the template dependency/discovery wrapper. Export directory is configurable, and Explorer can select the result.
+No Runtime implementation, SDK stubs, ModBuilder catalog, snapshots or research artifacts enter the package. ZIP inventory and content are reopened and verified before success. Sorted entries, fixed timestamps, deterministic IDs and stable content make unchanged exports byte-identical; additional files get the same fixed timestamp, so an unchanged project with unchanged files still exports identically, and a project without additional files exports exactly as before. A project with custom content adds each compiled icon to the archive (then in the layout of the game's own archives, with a `.gpu_resources` companion) and each source PNG at `images/<id>.png`; a project without custom content exports exactly as before. Preview shows exactly the gameplay source included as `src/addon.lua`; the archive adds the template dependency/discovery wrapper. Export directory is configurable, and Explorer can select the result.
 
 ## Snapshot Research
 

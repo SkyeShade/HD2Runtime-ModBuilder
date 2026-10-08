@@ -94,5 +94,19 @@ public static class SdkFixtures
         using var input = zip.GetEntry(name)!.Open(); using var output = new MemoryStream(); input.CopyTo(output); return output.ToArray();
     }
     public static async Task<HD2RuntimeGUI.Core.Metadata.SdkMetadata> Install(TestEnvironment e, string version)
-    { e.GitHub.Archive = Archive(version); return await e.Cache.InstallAsync(FakeGitHub.MakeRelease(version, e.GitHub.Archive)); }
+    {
+        e.GitHub.Archive = Archive(version);
+        if (SemVersion.Parse(version).Prerelease == null) return await e.Cache.InstallAsync(FakeGitHub.MakeRelease(version, e.GitHub.Archive));
+        // A prerelease SDK (the 0.30.0-dev test SDK earlier 1.7.0 builds bundled) is never a GitHub release (GitHubReleaseClient refuses one): it
+        // is cached and current the way such a build left it, the files it adopted from its bundle (the fixture's, byte for byte).
+        using (var zip = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", $"sdk-{version}.zip")))
+        {
+            var cached = SdkCache.ConsumedFiles.Append("metadata.json").Append(PlayerWeaponCatalogReader.FileName).Append(PlayerWeaponAmmoCatalogReader.FileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(e.Paths.SdkFile(version))!);
+            foreach (var name in cached) zip.GetEntry(name)?.ExtractToFile(e.Paths.CachePath(version, name), true);
+            zip.GetEntry(HD2RuntimeGUI.Core.Scripting.LuaApiIndex.StubPath)?.ExtractToFile(e.Paths.CachePath(version, HD2RuntimeGUI.Core.Scripting.LuaApiIndex.CacheName), true);
+        }
+        File.WriteAllText(e.Paths.CachePath("current.json"), "{\"version\":\"" + version + "\"}");
+        return await e.Cache.GetVersionAsync(version);
+    }
 }

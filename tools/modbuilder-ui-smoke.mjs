@@ -81,7 +81,8 @@ try {
     await evaluate("document.querySelector('[data-about]')?.scrollIntoView({block:'center'})"); await sleep(400); await screenshot('modbuilder-about');
     report.about = await evaluate("document.querySelector('[data-about]')?.innerText.slice(0, 80)");
     console.log(JSON.stringify(report, null, 1));
-    assert.equal(report.vehicles.rows, 9); assert.equal(report.vehicles.svg, 7); assert.equal(report.backpacks.rows, 13); assert.equal(report.backpacks.svg, 10);
-    assert.equal(report.otherVehicle, 1); assert.equal(report.boosters.svg, 18);
+    // HUD sprites (1.7.0): every vehicle, backpack and booster call-in has its game icon (M-103, TD-110, Jump Pack, Rover, Hot Dog included).
+    assert.equal(report.vehicles.rows, 9); assert.equal(report.vehicles.svg, 9); assert.equal(report.backpacks.rows, 13); assert.equal(report.backpacks.svg, 13);
+    assert.equal(report.otherVehicle, 1); assert.equal(report.boosters.svg, 20);
     console.log('modbuilder ui smoke passed');
 } finally { socket.close(); }

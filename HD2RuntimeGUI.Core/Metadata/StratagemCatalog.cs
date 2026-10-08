@@ -6,8 +6,42 @@ using HD2RuntimeGUI.Core.Storage;
 namespace HD2RuntimeGUI.Core.Metadata;
 
 // 0.26.0 maxUses adds mode (finite/unlimited), range, transitions, gameplay-proven values, acknowledgement and caveat.
+// 0.30.0 barrage scheduling (orbitals) is writable: its field constants and vanilla values by semantic id, the shell types a salvo cycles
+// through, the rule, write scope, Runtime's own consumers of the record and the opt-in (no value or field: those are per field).
 public sealed record StratagemAvailability(JsonElement Value, bool Writable, string? Reason, string? Field, string? Unit,
-    string? Mode = null, double[]? Range = null, string[]? Transitions = null, JsonElement[]? GameplayProvenValues = null, string? Acknowledgement = null, string? Caveat = null);
+    string? Mode = null, double[]? Range = null, string[]? Transitions = null, JsonElement[]? GameplayProvenValues = null, string? Acknowledgement = null, string? Caveat = null,
+    Dictionary<string, string>? Fields = null, Dictionary<string, JsonElement>? Values = null, int[]? ShellTypes = null, JsonElement? ShellsPerCall = null,
+    string? Rule = null, string? WriteScope = null, string? RuntimeConsumers = null, string? AcknowledgementReason = null);
+// 0.30.0 per-stratagem capabilities. Call-in code (type calldown_code): the current arrows, 1-9 of the four directions; the HUD slot is redrawn
+// by Runtime. Presentation (type stratagem_presentation): name, cased name, description and icon fields with their resource types; applied
+// aboard the ship. A stratagem with neither (equipment without a call-in) carries only value null, writable false and Runtime's reason.
+public sealed record StratagemCalldownCapability(JsonElement Value, bool Writable, string? Reason = null, string? Field = null, int? MinLength = null, int? MaxLength = null,
+    string[]? Directions = null, string? HudSynchronization = null, FieldLiveEvidence? LiveEvidence = null);
+public sealed record StratagemPresentationCapability(JsonElement Value, bool Writable, string? Reason = null, Dictionary<string, string>? Fields = null,
+    Dictionary<string, string>? ResourceTypes = null, string? ApplyTiming = null, FieldLiveEvidence? LiveEvidence = null);
+// 0.30.0 Eagle jet (EagleComponentData of the stratagem's own jet): the attack kind, bombs per strike / strafe rounds (read-only), which
+// eagle.* fields are writable, and the jet's other native readers (a shared jet needs allow_shared).
+public sealed record StratagemEagleAttack(string Payload, bool Shared, int? BombsPerStrike, int? StrafeRoundsPerRun, Dictionary<string, string> WritableFields,
+    string[] ReadOnlyFields, bool AllowSharedRequired, string WriteScope, StratagemConsumer[] SharedConsumers);
+// 0.30.0 sentry component fields: the published fields and constants, fields excluded on this sentry (with why), fields deferred by Runtime,
+// and the hard-coded engagement distance (with a mortar's proximity sensor, which perceives without line of sight).
+public sealed record StratagemProximitySensor(string Component, int Offset, double RadiusMeters, string? Note = null);
+public sealed record StratagemEngagement(double? ScoreCutoffMeters, string? Source, double? MinimumMeters = null, StratagemProximitySensor? ProximitySensor = null);
+public sealed record StratagemDeferredField(string Field, string Reason, string? Component = null, int? Offset = null, string[]? AppliesTo = null);
+public sealed record StratagemSentryFields(string[] Fields, Dictionary<string, string> Excluded, StratagemDeferredField[] Deferred, StratagemEngagement? Engagement,
+    string WriteScope, Dictionary<string, string> Constants);
+// 0.30.0 Eagle landing patterns (eagle.airstrike_pattern; also a field's allowedValues): value, native name, bombs, length, lateral span, users.
+public sealed record StratagemPatternValue(JsonElement Value, string? Name = null, int? Bombs = null, double? LengthMeters = null, double[]? LateralMeters = null, string[]? UsedBy = null);
+public sealed record StratagemAirstrikePatterns(string Field, StratagemPatternValue[] Values, double? ExtraBombStatDefault = null, string? Rule = null);
+// 0.30.0 presentation sources: the stratagems a presentation field may take its value from, per-field exclusions, and custom images
+// (hd2.resources.image(id) for the icon).
+public sealed record StratagemCustomImages(bool Supported, string[] Fields, string? Api = null, string? Source = null, string[]? Guards = null, string? Refusal = null, string? LiveEvidence = null);
+public sealed record StratagemPresentationSources(string[] Stratagems, Dictionary<string, string[]>? Excluded = null, string? Rule = null, StratagemCustomImages? CustomImages = null)
+{
+    public bool Offers(string field, string stratagem) => Stratagems.Contains(stratagem) && Excluded?.GetValueOrDefault(field)?.Contains(stratagem) != true;
+}
+// 0.30.0: a published special value of a field and its meaning (targeting.side_range / rear_range -1 = "use targeting.range").
+public sealed record StratagemSentinelValue(JsonElement Value, string Meaning);
 public sealed record StratagemBlockedField(string Field, string Reason);
 // Published semantic identity of a deployed entity. No native component records are exposed.
 // Populated native damage zones of a deployed entity (0.23.0+). Distinct zones are never merged.
@@ -22,7 +56,9 @@ public sealed record StratagemDefinition(string Name, string Family, string Root
     StratagemAvailability CallInTime, int? UsesPerRearm, double? RearmTime,
     StratagemAvailability? BarrageScheduling, StratagemEntityIdentity? DeployedEntity = null,
     bool? MineScopeDeferred = null, bool? MineInstanceResolved = null, string? SemanticId = null, StratagemDelivers? Delivers = null,
-    StratagemUiIcon? UiIcon = null, StratagemMine? Mine = null);
+    StratagemUiIcon? UiIcon = null, StratagemMine? Mine = null,
+    StratagemCalldownCapability? CalldownCapability = null, StratagemPresentationCapability? PresentationCapability = null,
+    StratagemEagleAttack? EagleAttack = null, StratagemSentryFields? SentryFields = null);
 // Unreleased Runtime (0.28.0 development): a mine stratagem's resolved explosion (attack "mine", hd2.stratagem(name):mine()),
 // with its DamageInfo and status rows as attacks under the "mine" weapon of the deployer.
 public sealed record StratagemMine(string ExplosionAttack, bool ExplosionResolved, bool MineEntityDefined, string ExplosionAgreement,
@@ -81,8 +117,24 @@ public sealed record StratagemField(string InstanceKey, string SemanticFieldId, 
     string? Caveat = null,
     // 0.28.0: the live test family that removed allow_unverified_effect from this field (sentry turn speeds, targeting range, minefield
     // salvos, the Resupply cooldown); not part of the capability evidence hash.
-    FieldLiveEvidence? LiveEvidence = null)
+    FieldLiveEvidence? LiveEvidence = null,
+    // 0.30.0 call-in code (calldown_code): length bounds, the four directions, the HUD redraw and when a code needs allow_unverified_effect
+    // (equal to another stratagem's native code).
+    int? MinLength = null, int? MaxLength = null, string[]? Directions = null, string? HudSynchronization = null, string? AcknowledgementRule = null,
+    // 0.30.0 presentation (stratagem_presentation): resource type (localization / image), value kind and source, when it applies, custom values.
+    string? ResourceType = null, string? ValueKind = null, string? ValueSource = null, string? ApplyTiming = null, string? CustomValues = null,
+    // 0.30.0 field notes: write scope, when the game reads the field, its native reader, why the range is what it is, what it means and
+    // Runtime's own readers of the record.
+    string? WriteScope = null, string? ReadTiming = null, string? ReadTimingNote = null, string? NativeReader = null, string? RangeJustification = null,
+    string? Semantics = null, string? RuntimeConsumers = null,
+    // 0.30.0 Eagle and orbital fields: landing patterns, a read-only enum's native value, the fields a derived value follows, the extra-bomb
+    // stat, the strafe gun's rate, the shell types of a salvo and its rule.
+    StratagemPatternValue[]? AllowedValues = null, JsonElement? NativeValue = null, string[]? DerivedFrom = null, double? ExtraBombStatDefault = null,
+    double? GunRateRpm = null, int[]? ShellTypes = null, JsonElement? ShellsPerCall = null,
+    // 0.30.0 sentry fields: the hard-coded engagement distance and published special values (-1 = use targeting.range).
+    StratagemEngagement? EngagementCap = null, StratagemSentinelValue[]? SentinelValues = null)
 {
+    public const string CalldownCode = "calldown_code", Presentation = "stratagem_presentation";
     // Schema 1 publishes its reviewed scope on the backing identity; schema 2 publishes a separate scope key.
     [JsonIgnore] public string ScopeKey => SharedScopeKey ?? BackingObjectId;
 }
@@ -106,13 +158,15 @@ public sealed record StratagemSummary(int OffensiveRootsResolved, int OrbitalRoo
     int? ArmorWritable = null, int? MountedWeaponsResolved = null, int? MultiWeaponEntities = null, int? AmmoWritable = null,
     int? MountedWeaponsWithAmmo = null, int? FireRateWritable = null, int? HeatWritable = null,
     int? CanonicalBackingObjects = null, int? CanonicalOperationGroups = null,
-    Dictionary<string, int>? NativeBranchInstancesByKind = null, Dictionary<string, int>? DefensiveNativeBranchInstancesByKind = null);
+    Dictionary<string, int>? NativeBranchInstancesByKind = null, Dictionary<string, int>? DefensiveNativeBranchInstancesByKind = null,
+    int? CalldownWritable = null, int? PresentationWritable = null);
 public sealed record StratagemCatalog(int SchemaVersion, string Contract, string CanonicalCollection,
     StratagemDefinition[] Stratagems, StratagemBranch[] SemanticBranches, StratagemAttack[] Attacks,
     StratagemField[] FieldInstances, StratagemSummary Summary,
     StratagemDeployedEntityRecord[]? DeployedEntities = null, StratagemBackingObject[]? BackingObjects = null,
     StratagemOperationGroup[]? OperationGroups = null, StratagemInstanceAudit? InstanceAudit = null,
-    SupportCallInLinkage? SupportCallInLinks = null, StratagemUiIconContract? UiIconContract = null)
+    SupportCallInLinkage? SupportCallInLinks = null, StratagemUiIconContract? UiIconContract = null,
+    StratagemAirstrikePatterns? EagleAirstrikePatterns = null, StratagemPresentationSources? PresentationSources = null)
 {
     public static readonly string[] DefensiveFamilies = ["sentry", "emplacement", "mine"];
     public static bool IsDefensive(string family) => DefensiveFamilies.Contains(family);
@@ -177,7 +231,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             if (c.CanonicalCollection != "fieldInstances") throw new UnsupportedSdkException("Unsupported stratagem authoring schema.");
             var safety = doc.RootElement.GetProperty("safety");
             Check(safety.GetProperty("writes").GetInt32() == 0 && safety.GetProperty("protectionChanges").GetInt32() == 0 && safety.GetProperty("fixtureFallback").GetString() == "disabled");
-            if (v2) RejectNativeIdentifiers(doc.RootElement);
+            if (v2) RejectNativeIdentifiers(doc.RootElement, null);
             var roots = c.Stratagems.ToDictionary(w => w.Name, StringComparer.Ordinal);
             Check(roots.Count <= 400 && c.FieldInstances.Length <= 8000 && c.FieldInstances.Select(f => f.InstanceKey).Distinct().Count() == c.FieldInstances.Length);
             Check(c.SemanticBranches.All(b => !string.IsNullOrWhiteSpace(b.Id) && !string.IsNullOrWhiteSpace(b.Name) && roots.ContainsKey(b.Stratagem) && b.ChildIds != null
@@ -190,7 +244,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                     && f.Target.Resource == "stratagem" && roots.ContainsKey(f.Target.Stratagem)
                     && paths.Contains(f.Target.Path)
                     && Regex.IsMatch(f.ApiFieldConstant, @"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z")
-                    && (f.Type is "number" or "integer" or "boolean" || f.Type == StratagemUses.Type && f.SemanticFieldId == StratagemUses.Field && f.Target.Path == "stratagem"
+                    && (f.Type is "number" or "integer" or "boolean" || NewValueType(f) || f.Type == StratagemUses.Type && f.SemanticFieldId == StratagemUses.Field && f.Target.Path == "stratagem"
                         && (f.Editable
                             ? f.UnlimitedValue == StratagemUses.Unlimited && f.NativeUnlimited == uint.MaxValue && f.Transitions is { Length: > 0 }
                                 && f.Transitions.All(t => t is StratagemUses.FiniteToUnlimited or StratagemUses.UnlimitedToFinite or StratagemUses.FiniteToFinite)
@@ -217,7 +271,8 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                     && (f.Target.Attack == null || Identifier.IsMatch(f.Target.Attack)) && (f.Target.Zone == null || Identifier.IsMatch(f.Target.Zone)));
                 if (f.Target.Entity != null) Check(roots[f.Target.Stratagem].DeployedEntity != null);
                 if (v2) Check(!string.IsNullOrWhiteSpace(f.SharedScopeKey));
-                if (f.Editable) { Check(roots[f.Target.Stratagem].RootResolution == "UNIQUE"); _ = Generation.StratagemScalar.Normalize(f, f.CurrentDefault); }
+                // Scalar baselines must be of their published type; 0.30.0's list and name types are checked by NewValueType.
+                if (f.Editable) { Check(roots[f.Target.Stratagem].RootResolution == "UNIQUE"); if (!NewValueType(f)) _ = Generation.StratagemScalar.Normalize(f, f.CurrentDefault); }
                 else Check(!string.IsNullOrWhiteSpace(f.Reason));
             }
             foreach (var group in c.FieldInstances.GroupBy(f => f.OperationGroup)) Check(group.Select(f => f.BackingObjectId).Distinct().Count() == 1);
@@ -231,6 +286,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                 && c.Summary.ImportedAttackBranches == c.SemanticBranches.Length && c.Summary.NativeBackingBranches == c.Attacks.Length);
             if (v2) ValidateV2(c, roots, ok => Check(ok));
             else Check(c.Stratagems.All(s => s.DeployedEntity == null) && c.FieldInstances.All(f => f.Target.Entity == null));
+            Validate030(c, ok => Check(ok));
             // Optional icon identity: only a known state; a named icon must be a plain template key in the stratagem icon library.
             Check(c.Stratagems.All(s => s.UiIcon is null || StratagemUiIcon.States.Contains(s.UiIcon.State)
                 && (s.UiIcon.IconKey is null ? s.UiIcon.State is "unbound" or "no_native_root"
@@ -249,25 +305,79 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
                         _ => true,
                     }));
             }
-            return c;
+            // Value types this build does not author yet stay visible with Runtime's baseline, read-only (AuthoredTypes).
+            return c.FieldInstances.Any(f => f.Editable && !AuthoredTypes.StratagemField(f))
+                ? c with { FieldInstances = c.FieldInstances.Select(f => !f.Editable || AuthoredTypes.StratagemField(f) ? f : f with { Editable = false, Reason = AuthoredTypes.NotAuthoredReason }).ToArray() }
+                : c;
         }
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or ArgumentException)
         { throw new InvalidDataException("Malformed stratagem capabilities.", e); }
     }
+    // 0.30.0 value types: a call-in code (a list of the published directions within the published length) and a presentation value (the name
+    // of a catalogued stratagem; checked against presentationSources in Validate030). A read-only enum (eagle.payload) is never editable.
+    private static bool NewValueType(StratagemField f) => f.Type switch
+    {
+        StratagemField.CalldownCode => f.Target.Path == "stratagem" && f.Directions is { Length: > 0 } d && f.MinLength is int min && f.MaxLength is int max && min >= 1 && max >= min
+            && f.CurrentDefault.ValueKind == JsonValueKind.Array && f.CurrentDefault.GetArrayLength() is var n && n >= min && n <= max
+            && f.CurrentDefault.EnumerateArray().All(x => x.ValueKind == JsonValueKind.String && d.Contains(x.GetString())),
+        StratagemField.Presentation => f.Target.Path == "stratagem" && f.CurrentDefault.ValueKind == JsonValueKind.String && f.ResourceType is "localization" or "image",
+        "enum" => !f.Editable,
+        _ => false,
+    };
+    // 0.30.0 cross-checks: the per-stratagem capabilities name their own fields, the presentation sources are catalogued stratagems, an
+    // airstrike pattern field offers exactly the published patterns, and the new summary counts agree.
+    private static void Validate030(StratagemCatalog c, Action<bool> Check)
+    {
+        var names = c.Stratagems.Select(s => s.Name).ToHashSet(StringComparer.Ordinal);
+        if (c.PresentationSources is { } sources)
+            Check(sources.Stratagems.All(names.Contains) && (sources.Excluded ?? []).Values.All(l => l.All(names.Contains))
+                && c.FieldInstances.Where(f => f.Type == StratagemField.Presentation).All(f => sources.Stratagems.Contains(f.CurrentDefault.GetString())));
+        else Check(c.FieldInstances.All(f => f.Type != StratagemField.Presentation));
+        foreach (var s in c.Stratagems)
+        {
+            var own = c.FieldInstances.Where(f => f.Target.Stratagem == s.Name && f.Target.Path == "stratagem").ToArray();
+            if (s.CalldownCapability is { } code)
+                Check(code.Writable ? code.Field != null && own.Count(f => f.Type == StratagemField.CalldownCode && f.ApiFieldConstant == code.Field) == 1
+                    : !string.IsNullOrWhiteSpace(code.Reason) && own.All(f => f.Type != StratagemField.CalldownCode));
+            if (s.PresentationCapability is { } presentation)
+                Check(presentation.Writable ? presentation.Fields is { Count: > 0 } fields && presentation.ResourceTypes != null
+                        && fields.All(p => own.Count(f => f.Type == StratagemField.Presentation && f.SemanticFieldId == p.Key && f.ApiFieldConstant == p.Value
+                            && f.ResourceType == presentation.ResourceTypes.GetValueOrDefault(p.Key)) == 1)
+                    : !string.IsNullOrWhiteSpace(presentation.Reason) && own.All(f => f.Type != StratagemField.Presentation));
+            if (s.SentryFields is { } sentry) Check(sentry.Fields.All(sentry.Constants.ContainsKey) && sentry.Deferred.All(d => !string.IsNullOrWhiteSpace(d.Reason)));
+        }
+        if (c.EagleAirstrikePatterns is { } patterns)
+            Check(patterns.Values.Length > 0 && c.FieldInstances.Where(f => f.AllowedValues != null).All(f => f.ApiFieldConstant == patterns.Field
+                && f.AllowedValues!.Select(v => v.Value.GetRawText()).SequenceEqual(patterns.Values.Select(v => v.Value.GetRawText()))));
+        if (c.Summary.CalldownWritable is int calldown) Check(calldown == c.FieldInstances.Count(f => f.Editable && f.Type == StratagemField.CalldownCode));
+        if (c.Summary.PresentationWritable is int shown) Check(shown == c.Stratagems.Count(s => s.PresentationCapability is { Writable: true }));
+    }
     // Keys of count dictionaries such as summary.writableByDomain are published domain names (for example "payload"), not record properties.
     private static readonly HashSet<string> NameKeyedCounts = new(StringComparer.Ordinal) { "writableByDomain" };
-    private static void RejectNativeIdentifiers(JsonElement node, bool keysAreNames = false)
+    // 0.30.0 published member properties, allowed only where Runtime publishes them: a deferred sentry field's and a mortar's proximity
+    // sensor's component offset, and an Eagle jet's attack kind (eagleAttack.payload).
+    private static bool PublishedMember(string? parent, string name) => (parent, name) switch
+    {
+        ("deferred[]" or "proximitySensor", "offset") => true,
+        ("eagleAttack", "payload") => true,
+        _ => false,
+    };
+    // Prose explaining a field (0.30.0 reasons, provenance, native readers, range justifications, the reasons a sentry field is excluded)
+    // may cite native code addresses; value-bearing properties never carry one.
+    private static readonly HashSet<string> Prose = new(StringComparer.Ordinal)
+    { "reason", "provenance", "nativeReader", "acknowledgementReason", "rangeJustification", "excluded", "rule", "semantics", "readTimingNote", "writeScope", "note" };
+    private static void RejectNativeIdentifiers(JsonElement node, string? parent, bool keysAreNames = false, bool prose = false)
     {
         if (node.ValueKind == JsonValueKind.Object)
             foreach (var p in node.EnumerateObject())
             {
-                if (NativeProperties.Contains(p.Name) && !(keysAreNames && p.Value.ValueKind == JsonValueKind.Number))
+                if (NativeProperties.Contains(p.Name) && !(keysAreNames && p.Value.ValueKind == JsonValueKind.Number) && !PublishedMember(parent, p.Name))
                     throw new InvalidDataException("Stratagem capabilities expose native identifiers.");
-                RejectNativeIdentifiers(p.Value, NameKeyedCounts.Contains(p.Name));
+                RejectNativeIdentifiers(p.Value, p.Name, NameKeyedCounts.Contains(p.Name), prose || Prose.Contains(p.Name));
             }
-        else if (node.ValueKind == JsonValueKind.Array) foreach (var child in node.EnumerateArray()) RejectNativeIdentifiers(child);
+        else if (node.ValueKind == JsonValueKind.Array) foreach (var child in node.EnumerateArray()) RejectNativeIdentifiers(child, parent + "[]", prose: prose);
         // 0xFFFFFFFF is the documented unlimited mission-use value (0.26.0 max_uses prose), not an address or resource identifier.
-        else if (node.ValueKind == JsonValueKind.String && Regex.IsMatch(Regex.Replace(node.GetString()!, @"\b0xFFFFFFFF\b", ""), @"\b0x[0-9a-fA-F]+\b"))
+        else if (!prose && node.ValueKind == JsonValueKind.String && Regex.IsMatch(Regex.Replace(node.GetString()!, @"\b0xFFFFFFFF\b", ""), @"\b0x[0-9a-fA-F]+\b"))
             throw new InvalidDataException("Stratagem capabilities expose native identifiers.");
     }
     private static void ValidateV2(StratagemCatalog c, Dictionary<string, StratagemDefinition> roots, Action<bool> Check)

@@ -1,0 +1,236 @@
+@inject BuilderWorkspace Workspace
+@* HD2Runtime 0.30.0 gameplay actions for custom Lua (GameplayActions; docs/runtime030-integration-plan.md, Phase 8.2): homing shots, enemy spawn
+   weights, limb injury and heal, a velocity change, the local player's loadout / weapon in hand / ammunition, resupply from a worn Supply
+   Pack, the Runtime Pelican and the weapon sound catalogue, plus the mod's own images and models. A section appears only when the bound SDK's
+   stub publishes its call. Signatures, docs, option ranges and limits are the SDK's own text, shown as published; the labels are UI text. Each
+   insert is built from the published signature and never depends on the UI language. Opt-ins Runtime requires (spawn weights:
+   allow_unverified_effect) are always written into the inserted call and only explained here; nothing is a checkbox. None of these actions is
+   live-tested: the live-evidence notes say so where Runtime records a family. *@
+@{ var sdk = Workspace.Metadata; var api = sdk?.LuaApi; var evidence = sdk?.LiveEvidence; }
+@if (sdk != null && api != null)
+{
+    <div class="gameplay-actions" data-gameplay-actions>
+        @if (GameplayActions.Call(api, GameplayActions.Homing) is { } homing)
+        {
+            var options = GameplayActions.Options(sdk, GameplayActions.HomingOptions).Where(o => o.Name != "label").ToArray();
+            var invalid = Invalid(options, HomingValues);
+            <section class="action-group" data-action-group="homing">
+                <h3 class="group-title">@T["GameplayActions.Homing.Title"] <small class="subtle">@GameplayActions.Homing</small></h3>
+                <p class="subtle action-doc"><code>hd2.projectiles.@homing.Signature</code> @homing.Doc</p>
+                <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, GameplayActions.Homing)" />
+                <div class="action-form" data-homing-form>
+                    <label>@T["GameplayActions.Homing.Weapon"]
+                        <select @bind="WeaponChoice" data-homing-weapon>@foreach (var w in Weapons(sdk)) { <option value="@w">@w</option> }</select></label>
+                    @foreach (var o in options) { @OptionInput(o, HomingValues) }
+                    <small class="subtle action-form-note">@T["GameplayActions.Homing.WeaponHelp"]</small>
+                    @if (invalid != null) { <p class="notice warning action-invalid" role="alert" data-action-invalid>@invalid</p> }
+                    <button class="small" data-action-insert="homing" disabled="@(invalid != null || HomingWeapon(sdk) == null)"
+                            @onclick="() => Insert.InvokeAsync(GameplayActions.HomingCall(HomingWeapon(sdk)!, options, HomingValues))">@T["Common.Insert"]</button>
+                </div>
+            </section>
+        }
+        @if (GameplayActions.Call(api, GameplayActions.SpawnWeight) is { } spawn)
+        {
+            var enemies = sdk.Entities?.Enemies?.Of(EnemyAuthoringReader.Enemy).OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
+            var range = GameplayActions.Option(new LuaMember("multiplier", "field", null, "number", spawn.Doc));
+            var multiplier = Parse(Multiplier); var difficulties = Difficulties();
+            var invalid = multiplier == null || range.OutOfRange(multiplier.Value) != null ? T.Format("GameplayActions.OutOfRange", "multiplier", RangeText(range))
+                : difficulties == null ? T["GameplayActions.SpawnWeight.Difficulties.Invalid"] : null;
+            <section class="action-group" data-action-group="spawn-weights">
+                <h3 class="group-title">@T["GameplayActions.SpawnWeight.Title"] <small class="subtle">@GameplayActions.SpawnWeight</small></h3>
+                <p class="subtle action-doc"><code>hd2.enemies.@spawn.Signature</code> @spawn.Doc</p>
+                <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, GameplayActions.SpawnWeight)" />
+                <p class="notice action-opt-in" data-spawn-opt-in>@T.Markup("GameplayActions.SpawnWeight.OptIn.Html", "allow_unverified_effect = true")</p>
+                <div class="action-form" data-spawn-form>
+                    <label>@T["GameplayActions.SpawnWeight.Enemy"]
+                        <select @bind="Enemy" data-spawn-enemy>@foreach (var e in enemies) { <option value="@e.SemanticId">@e.Name · @e.Faction</option> }</select></label>
+                    <label>@T["GameplayActions.SpawnWeight.Multiplier"]<input type="number" step="0.5" min="@range.Min" max="@range.Max" @bind="Multiplier" @bind:event="oninput" data-spawn-multiplier /></label>
+                    <label>@T["GameplayActions.SpawnWeight.Difficulties"]<input @bind="DifficultyText" @bind:event="oninput" placeholder="7, 8, 9, 10" data-spawn-difficulties /></label>
+                    @if (invalid != null) { <p class="notice warning action-invalid" role="alert" data-action-invalid>@invalid</p> }
+                    <button class="small" data-action-insert="spawn-weight" disabled="@(invalid != null || (Enemy ?? enemies.FirstOrDefault()?.SemanticId) == null)"
+                            @onclick="() => Insert.InvokeAsync(GameplayActions.SpawnWeightCall((Enemy ?? enemies.First().SemanticId), multiplier!.Value, difficulties))">@T["Common.Insert"]</button>
+                </div>
+            </section>
+        }
+        @if (GameplayActions.Call(api, GameplayActions.Injure) is { } injure)
+        {
+            var limbs = GameplayActions.ParameterLiterals(injure, "limb"); var limb = Limb ?? limbs.FirstOrDefault();
+            var damage = int.TryParse(Damage, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var d) && d >= 1 ? d : (int?)null;
+            <section class="action-group" data-action-group="limbs">
+                <h3 class="group-title">@T["GameplayActions.Limbs.Title"] <small class="subtle">hd2.actions.injure · heal_limb · heal_limbs</small></h3>
+                <p class="subtle action-doc"><code>hd2.actions.@injure.Signature</code> @injure.Doc</p>
+                @if (GameplayActions.Call(api, GameplayActions.HealLimb) is { } healLimb) { <p class="subtle action-doc"><code>hd2.actions.@healLimb.Signature</code> @healLimb.Doc</p> }
+                <div class="action-form" data-limb-form>
+                    <label>@T["GameplayActions.Limbs.Limb"]<select @bind="Limb" data-limb>@foreach (var l in limbs) { <option value="@l">@l</option> }</select></label>
+                    <label>@T["GameplayActions.Limbs.Damage"]<input type="number" min="1" step="1" @bind="Damage" @bind:event="oninput" data-limb-damage /></label>
+                    @if (damage == null) { <p class="notice warning action-invalid" role="alert" data-action-invalid>@T["GameplayActions.Limbs.Damage.Invalid"]</p> }
+                    <span class="action-buttons">
+                        <button class="small" data-action-insert="injure" disabled="@(limb == null || damage == null)" @onclick="() => Insert.InvokeAsync(GameplayActions.InjureCall(limb!, damage!.Value))">@T.Format("GameplayActions.InsertCall", "injure")</button>
+                        @if (GameplayActions.Available(api, GameplayActions.HealLimb)) { <button class="small" data-action-insert="heal-limb" disabled="@(limb == null)" @onclick="() => Insert.InvokeAsync(GameplayActions.HealLimbCall(limb))">@T.Format("GameplayActions.InsertCall", "heal_limb")</button> }
+                        @if (GameplayActions.Available(api, GameplayActions.HealLimbs)) { <button class="small" data-action-insert="heal-limbs" @onclick="() => Insert.InvokeAsync(GameplayActions.HealLimbCall(null))">@T.Format("GameplayActions.InsertCall", "heal_limbs")</button> }
+                    </span>
+                </div>
+            </section>
+        }
+        @if (GameplayActions.Call(api, GameplayActions.AddVelocity) is { } velocity)
+        {
+            var max = GameplayActions.MaxSpeed(velocity);
+            double?[] axes = [Parse(VelocityX), Parse(VelocityY), Parse(VelocityZ)];
+            var speed = axes.All(a => a != null) ? Math.Sqrt(axes.Sum(a => a!.Value * a.Value)) : (double?)null;
+            var invalid = speed == null ? T["GameplayActions.Velocity.Invalid"] : max is { } m && speed > m ? T.Format("GameplayActions.Velocity.TooFast", ActionOption.Number(speed.Value), ActionOption.Number(m)) : null;
+            <section class="action-group" data-action-group="velocity">
+                <h3 class="group-title">@T["GameplayActions.Velocity.Title"] <small class="subtle">@GameplayActions.AddVelocity</small></h3>
+                <p class="subtle action-doc"><code>hd2.actions.@velocity.Signature</code> @velocity.Doc</p>
+                <div class="action-form" data-velocity-form>
+                    <label>x<input type="number" step="0.5" @bind="VelocityX" @bind:event="oninput" data-velocity-x /></label>
+                    <label>y<input type="number" step="0.5" @bind="VelocityY" @bind:event="oninput" data-velocity-y /></label>
+                    <label>@T["GameplayActions.Velocity.Up"]<input type="number" step="0.5" @bind="VelocityZ" @bind:event="oninput" data-velocity-z /></label>
+                    @if (invalid != null) { <p class="notice warning action-invalid" role="alert" data-action-invalid>@invalid</p> }
+                    <button class="small" data-action-insert="add-velocity" disabled="@(invalid != null)" @onclick="() => Insert.InvokeAsync(GameplayActions.AddVelocityCall(axes[0]!.Value, axes[1]!.Value, axes[2]!.Value))">@T["Common.Insert"]</button>
+                </div>
+            </section>
+        }
+        @if (GameplayActions.PlayerReads.Any(r => GameplayActions.Available(api, GameplayActions.PlayerHandle + ":" + r)) || GameplayActions.Available(api, GameplayActions.ResupplyFromPack))
+        {
+            <section class="action-group" data-action-group="player-state">
+                <h3 class="group-title">@T["GameplayActions.Player.Title"] <small class="subtle">@("player:" + string.Join(" · ", GameplayActions.PlayerReads))</small></h3>
+                @foreach (var read in GameplayActions.PlayerReads)
+                {
+                    if (GameplayActions.Call(api, GameplayActions.PlayerHandle + ":" + read) is not { } call) { continue; }
+                    var slots = GameplayActions.ParameterLiterals(call, "slot");
+                    <div class="action-row" data-player-read="@read"><span><code>player:@call.Signature</code><small class="subtle action-doc">@call.Doc</small></span>
+                        <span>@if (slots.Count > 0) { <select @bind="AmmoSlot" aria-label="@T["GameplayActions.Player.Slot"]" data-ammo-slot><option value="">@T["GameplayActions.Player.HeldSlot"]</option>@foreach (var s in slots) { <option value="@s">@s</option> }</select> }</span>
+                        <button class="small" data-action-insert="@read" @onclick="() => Insert.InvokeAsync(GameplayActions.PlayerReadCall(read, slots.Count > 0 && AmmoSlot is { Length: > 0 } slot ? slot : null))">@T["Common.Insert"]</button></div>
+                }
+                @if (GameplayActions.Call(api, GameplayActions.ResupplyFromPack) is { } resupply)
+                {
+                    <div class="action-row" data-action-resupply><span><code>hd2.actions.@resupply.Signature</code><small class="subtle action-doc">@resupply.Doc</small></span><span></span>
+                        <button class="small" data-action-insert="resupply" @onclick="() => Insert.InvokeAsync(GameplayActions.ResupplyCall())">@T["Common.Insert"]</button></div>
+                }
+            </section>
+        }
+        @{ var sounds = WeaponSounds.For(api); }
+        @if (GameplayActions.Call(api, GameplayActions.PelicanSpawn) is { } pelican)
+        {
+            var limits = sdk.Events?.Actions.Pelican;
+            var hover = Parse(Hover);
+            var invalid = Hover is { Length: > 0 } && (hover == null || hover <= 0 || limits != null && hover > limits.MaxHoverSeconds)
+                ? T.Format("GameplayActions.Pelican.Hover.Invalid", ActionOption.Number(limits?.MaxHoverSeconds ?? 120)) : null;
+            <section class="action-group" data-action-group="pelican">
+                <h3 class="group-title">@T["GameplayActions.Pelican.Title"] <small class="subtle">@GameplayActions.PelicanSpawn</small></h3>
+                <p class="subtle action-doc"><code>hd2.pelican.@pelican.Signature</code> @pelican.Doc</p>
+                @if (limits != null)
+                {
+                    <p class="subtle" data-pelican-limits>@T.Format("GameplayActions.Pelican.Limits", limits.MaxActive, limits.RateLimit.Burst, ActionOption.Number(limits.RateLimit.PerSecond), ActionOption.Number(limits.MaxHoverSeconds), limits.OtherPlayersSee)
+                        @if (limits.LiveProven) { <span class="badge green" data-live-proven>@T["EventActions.LiveProven"]</span> } else { <span class="badge" title="@T["EventActions.NotLiveTested.Tooltip"]">@T["EventActions.NotLiveTested.Label"]</span> }</p>
+                }
+                <div class="action-form" data-pelican-form>
+                    <label>@T["GameplayActions.Pelican.Hover"]<input type="number" min="0" max="@limits?.MaxHoverSeconds" @bind="Hover" @bind:event="oninput" data-pelican-hover /></label>
+                    @if (sounds.Count > 0)
+                    {
+                        <label>@T["GameplayActions.Pelican.Sound"]<select @bind="PelicanSound" data-pelican-sound><option value="">@T["GameplayActions.Pelican.OwnSound"]</option>
+                            @foreach (var s in sounds) { <option value="@s.Name">@s.Name</option> }</select></label>
+                    }
+                    @if (PelicanSound is { Length: > 0 } && GameplayActions.Options(sdk, GameplayActions.PelicanOptions).FirstOrDefault(o => o.Name == "gun")?.Doc is { } gunDoc) { <small class="subtle action-form-note">@gunDoc</small> }
+                    @if (invalid != null) { <p class="notice warning action-invalid" role="alert" data-action-invalid>@invalid</p> }
+                    <button class="small" data-action-insert="pelican" disabled="@(invalid != null)" @onclick="() => Insert.InvokeAsync(GameplayActions.PelicanCall(hover, PelicanSound is { Length: > 0 } s ? s : null))">@T["Common.Insert"]</button>
+                </div>
+            </section>
+        }
+        @if (sounds.Count > 0)
+        {
+            var shown = sounds.Where(s => (Family.Length == 0 || s.Family == Family) && (SoundSearch.Trim().Length == 0
+                || $"{s.Name} {s.Label} {s.Stratagem}".Contains(SoundSearch.Trim(), StringComparison.OrdinalIgnoreCase))).ToArray();
+            <section class="action-group" data-action-group="sounds">
+                <h3 class="group-title">@T["GameplayActions.Sounds.Title"] <small class="subtle">hd2.sounds</small></h3>
+                <p class="subtle">@T.Format("GameplayActions.Sounds.Summary", sounds.Count)</p>
+                <div class="action-form">
+                    <label>@T["Common.Search"]<input @bind="SoundSearch" @bind:event="oninput" placeholder="@(sounds.FirstOrDefault(x => x.PelicanDefault)?.Name)" data-sound-search /></label>
+                    <label>@T["GameplayActions.Sounds.Family"]<select @bind="Family" data-sound-family><option value="">@T["GameplayActions.Sounds.AllFamilies"]</option>
+                        @foreach (var f in sounds.Select(s => s.Family).Distinct().Order(StringComparer.Ordinal)) { <option value="@f">@f</option> }</select></label>
+                </div>
+                <div class="sound-list" data-sound-list="@shown.Length">
+                    @foreach (var s in shown)
+                    {
+                        <div class="action-row" data-sound="@s.Name"><span><code>@s.Name</code> <small class="subtle">@s.Label · @s.Kind · @T.Format("GameplayActions.Sounds.Rpm", ActionOption.Number(s.DesignedRpm))@(s.RangeM is { } m ? " · " + T.Format("GameplayActions.Sounds.Range", ActionOption.Number(m)) : "")</small></span>
+                            <span>@if (s.Stratagem is { } st) { <span class="badge" title="@T.Format("GameplayActions.Sounds.Stratagem.Tooltip", st)">@st</span> }
+                                @if (s.ResidentOnly) { <span class="badge amber" title="@T["GameplayActions.Sounds.ResidentOnly.Tooltip"]">@T["GameplayActions.Sounds.ResidentOnly"]</span> }
+                                @if (s.PelicanDefault) { <span class="badge">@T["GameplayActions.Sounds.PelicanDefault"]</span> }
+                                @if (GameplayActions.Available(api, GameplayActions.PelicanSpawn)) { <button class="link-button small" data-sound-use="@s.Name" @onclick="() => PelicanSound = s.Name">@T["GameplayActions.Sounds.UsePelican"]</button> }</span>
+                            <button class="small" data-action-insert="sound" @onclick="() => Insert.InvokeAsync(GameplayActions.SoundCall(s.Name))">@T["Common.Insert"]</button></div>
+                    }
+                    @if (shown.Length == 0) { <p class="subtle">@T["GameplayActions.Sounds.Empty"]</p> }
+                </div>
+            </section>
+        }
+        @if (GameplayActions.Call(api, "hd2.resources.image") is { } image)
+        {
+            <section class="action-group" data-action-group="resources">
+                <h3 class="group-title">@T["GameplayActions.Resources.Title"] <small class="subtle">hd2.resources</small></h3>
+                <p class="subtle">@T["GameplayActions.Resources.Help"]</p>
+                @foreach (var (path, call) in new[] { ("hd2.resources.image", image), ("hd2.resources.model", GameplayActions.Call(api, "hd2.resources.model")) })
+                {
+                    if (call == null) { continue; }
+                    <div class="reference-method" data-resource-call="@path"><code>hd2.resources.@call.Signature</code><small class="subtle">@call.Doc</small>
+                        <ScriptEvidenceNote Items="ScriptingReference.Evidence(evidence, path)" /></div>
+                }
+            </section>
+        }
+    </div>
+}
+@code {
+    [Parameter] public EventCallback<string> Insert { get; set; }
+    private string? Weapon, Enemy, Limb, PelicanSound, AmmoSlot;
+    private string Multiplier = "2", DifficultyText = "", Damage = "10", VelocityX = "0", VelocityY = "0", VelocityZ = "8", Hover = "30", SoundSearch = "", Family = "";
+    private readonly Dictionary<string, string> HomingValues = new(StringComparer.Ordinal);
+    private string WeaponChoice { get => Weapon ?? ""; set => Weapon = value; }
+    private static readonly string[] BooleanChoices = ["true", "false"];
+    private static string RangeText(ActionOption o) => o.Min != null || o.Max != null ? ActionOption.Number(o.Min ?? double.NegativeInfinity) + ".." + ActionOption.Number(o.Max ?? double.PositiveInfinity) : "?";
+    // Player and support weapons (named owners of the projectiles homing follows); stratagem payloads and sentries home by the names
+    // hd2.projectiles.homing_list() returns in game.
+    private static IReadOnlyList<string> Weapons(SdkMetadata sdk) => [.. (sdk.PlayerWeapons?.Weapons.Select(w => w.Name) ?? []).Concat(sdk.SupportAuthoring?.Weapons.Select(w => w.Name) ?? [])
+        .Distinct(StringComparer.Ordinal).Order(StringComparer.OrdinalIgnoreCase)];
+    private string? HomingWeapon(SdkMetadata sdk) => Weapon is { Length: > 0 } w ? w : Weapons(sdk).FirstOrDefault();
+    private static double? Parse(string? text) => double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
+    // Difficulties: empty (all ten), or whole numbers from 1 to 10; null when something else was typed.
+    private IReadOnlyList<int>? Difficulties()
+    {
+        var parts = DifficultyText.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries);
+        var values = parts.Select(p => int.TryParse(p, out var n) && n is >= 1 and <= 10 ? n : 0).ToArray();
+        return values.Contains(0) ? null : [.. values.Distinct().Order()];
+    }
+    // The first option whose typed value is outside its published range, as an inline message.
+    private string? Invalid(IReadOnlyList<ActionOption> options, IReadOnlyDictionary<string, string> values)
+    {
+        foreach (var o in options.Where(o => o.IsNumber && !o.IsBoolean && values.TryGetValue(o.Name, out var v) && v.Trim().Length > 0))
+        {
+            var value = Parse(values[o.Name]);
+            if (value == null || o.OutOfRange(value.Value) != null)
+                return T.Format("GameplayActions.OutOfRange", o.Name, RangeText(o));
+        }
+        return null;
+    }
+    // One option of an options table: its published literal choices, true / false, or a number with its range; empty keeps Runtime's default.
+    private RenderFragment OptionInput(ActionOption o, Dictionary<string, string> values) => __builder =>
+    {
+        var current = values.GetValueOrDefault(o.Name, "");
+        var hint = o.Default != null ? T.Format("GameplayActions.Option.Default", o.Default) : T["GameplayActions.Option.Unset"];
+        <label title="@o.Doc" data-action-option="@o.Name"><code>@o.Name</code>
+            @if (o.Choices.Count > 0 || o.IsBoolean)
+            {
+                <select value="@current" @onchange="e => values[o.Name] = e.Value as string ?? string.Empty">
+                    <option value="">@hint</option>
+                    @foreach (var c in o.Choices.Count > 0 ? o.Choices : BooleanChoices) { <option value="@c">@c</option> }
+                </select>
+            }
+            else if (o.IsNumber)
+            {
+                <input type="number" min="@o.Min" max="@o.Max" placeholder="@hint" value="@current" @oninput="e => values[o.Name] = e.Value as string ?? string.Empty" />
+            }
+            else
+            {
+                <input placeholder="@hint" value="@current" @oninput="e => values[o.Name] = e.Value as string ?? string.Empty" />
+            }
+        </label>
+    };
+}

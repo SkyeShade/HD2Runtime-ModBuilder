@@ -1,0 +1,33 @@
+{
+ "format": "hd2runtime-custom-stratagems/1",
+ "stratagems": [
+  {
+   "id": "hellbomb_silo",
+   "name": "HELLBOMB SILO",
+   "name_cased": "Hellbomb Silo",
+   "description": "An MS-11 Solo Silo whose missile lands with a Hellbomb's blast.",
+   "icon": {
+    "image": "hellbomb_silo",
+    "source": "images/hellbomb_silo.png"
+   },
+   "code": [
+    "down",
+    "right",
+    "up",
+    "down",
+    "up",
+    "right"
+   ],
+   "cooldown": 180,
+   "uses": 2,
+   "carrier": {
+    "group": "support"
+   },
+   "payload": {
+    "family": "silo",
+    "donor": "MS-11 Solo Silo",
+    "blast": "NUX-223 Hellbomb"
+   }
+  }
+ ]
+}

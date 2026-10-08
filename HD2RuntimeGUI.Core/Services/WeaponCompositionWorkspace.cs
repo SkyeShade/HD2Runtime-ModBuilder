@@ -132,7 +132,7 @@ public sealed partial class BuilderWorkspace
         }
         if (rates == null && inputs.Count == 0 && projectile == null) return null;
         var needs = saved.Select(s => new SelectorNeed(IsAmmoPart(s.Field.SemanticFieldId, s.Change.DesiredValue),
-            CompositionOptIns.EffectFor(s.Field, s.Change.DesiredValue) ? s.Field.AcknowledgementReason ?? "" : null, CompositionOptIns.ReferenceFor(s.Field, s.Change.DesiredValue))).ToArray();
+            CompositionOptIns.EffectFor(Metadata, s.Field, s.Change.DesiredValue) ? s.Field.AcknowledgementReason ?? DonorReason(s.Field.Type, s.Change.DesiredValue) : null, CompositionOptIns.ReferenceFor(Metadata, s.Field, s.Change.DesiredValue))).ToArray();
         return Finish(CompositionKind.Player, name, rates, inputs, projectile, needs,
             saved.Select(s => s.Change.Enabled).DefaultIfEmpty(true).All(e => e), saved.Count > 0, Issue(saved.Select(s => s.Change.Id)));
     }
@@ -170,12 +170,14 @@ public sealed partial class BuilderWorkspace
         }
         if (rates == null && inputs.Count == 0 && projectile == null) return null;
         var needs = saved.Select(s => new SelectorNeed(IsAmmoPart(s.Field.SemanticFieldId, s.Change.DesiredValue),
-            CompositionOptIns.EffectFor(s.Field, s.Change.DesiredValue) ? s.Field.Operation.AcknowledgementReason ?? "" : null, CompositionOptIns.ReferenceFor(s.Field, s.Change.DesiredValue))).ToArray();
+            CompositionOptIns.EffectFor(Metadata, s.Field, s.Change.DesiredValue) ? s.Field.Operation.AcknowledgementReason ?? DonorReason(s.Field.Value.Type, s.Change.DesiredValue) : null, CompositionOptIns.ReferenceFor(Metadata, s.Field, s.Change.DesiredValue))).ToArray();
         return Finish(CompositionKind.Support, name, rates, inputs, projectile, needs,
             saved.Select(s => s.Change.Enabled).DefaultIfEmpty(true).All(e => e), saved.Count > 0, SupportSelectorIssue(saved.Select(s => s.Change.Id)));
     }
     // One saved field of a selector group and the opt-ins it is written with (Effect: the reason when it needs allow_unverified_effect).
     private sealed record SelectorNeed(bool Ammo, string? Effect, bool Reference);
+    // Why a 0.30.0 projectile donor as the function projectile carries allow_unverified_effect when the field publishes no reason of its own.
+    private string DonorReason(string type, JsonElement value) => CompositionOptIns.Donor(Metadata, type, value) ? CoreText.Get("Composition.Selector.DonorReason") : "";
     // A field belongs to the programmable ammunition when it is the function projectile or the binding that selects it; else to the rates.
     private static bool IsAmmoPart(string field, JsonElement value) => field == FunctionProjectile.Field || NameOf(value) == WeaponFunctions.ProgrammableAmmo;
     private static WeaponSelector Finish(string kind, string weapon, SelectorRates? rates, IReadOnlyList<SelectorInput> inputs, SelectorProjectile? projectile,

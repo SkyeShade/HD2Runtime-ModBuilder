@@ -24,6 +24,25 @@
             <div class="stat-grid">@foreach (var f in main) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@EntityStats.Label(f.SemanticFieldId)" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
         </section>
     }
+    @* 0.30.0 motion tuning (Vehicle.TuningFieldInstanceKeys): FRV and tank steering response, Exosuit body rotation. Every field is written with
+       allow_unverified_effect (native-code proven, not yet shown in game): edited fields get an informational warning, never a checkbox. *@
+    var tuning = (vehicle.TuningFieldInstanceKeys ?? []).Where(fields.ContainsKey).Select(k => fields[k]).Where(Show).ToArray();
+    @if (tuning.Length > 0)
+    {
+        var exosuit = tuning.Any(f => f.Domain == "rotation");
+        <section class="panel vehicle-tuning" data-vehicle-tuning><h2>@T["Vehicle.Tuning.Title"]</h2>
+            @if (!ModifiedOnly) { <p class="subtle">@(exosuit ? T["Vehicle.Tuning.Help.Exosuit"] : T["Vehicle.Tuning.Help.Steering"])</p> }
+            <div class="stat-grid">@foreach (var f in tuning) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="catalog.EvidenceTiers" Changed="Changed" /> }</div>
+            @foreach (var when in tuning.SelectMany(f => f.Notices ?? []).Where(n => n.Kind == "lifecycle").Select(n => n.Text).Distinct()) { <p class="subtle" data-vehicle-tuning-lifecycle>@when</p> }
+            @{ var unverified = tuning.Where(f => EntityChangeService.Saved(Workspace.Project, f) is { } c && EntityScalar.AcknowledgementRequired(f, c.DesiredValue)).ToArray(); }
+            @if (unverified.Length > 0)
+            {
+                <AckPanel Title="@T["Vehicle.Tuning.Unverified.Title"]" Kind="unverified" Description="@(unverified[0].AcknowledgementReason ?? T["OptIn.UnverifiedEffect.Reason"])"
+                    Items="@unverified.Select(f => f.DisplayName).Distinct().ToArray()" ItemsLabel="@T["EntityPanel.Edited"]" PanelAttributes='@(new() { ["data-vehicle-tuning-unverified"] = Name })'>
+                    <p class="subtle">@T.Markup("OptIn.WrittenWith.Html", "allow_unverified_effect=true")</p></AckPanel>
+            }
+        </section>
+    }
     var zones = vehicle.Durability.Zones.Where(z => z.FieldInstanceKeys.Any(k => Show(fields[k]))).Where(z => ZoneFilter.Length == 0 || (z.Label + " " + z.ZoneId).Contains(ZoneFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
     @if (vehicle.Durability.Zones.Length > 0 && (!ModifiedOnly || zones.Length > 0))
     {

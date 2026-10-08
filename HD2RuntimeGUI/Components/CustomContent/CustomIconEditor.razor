@@ -1,0 +1,35 @@
+@* A custom stratagem's icon: the editable source PNG (kept in the project) and how the game draws what the build compiles from it (the
+   texture and GUI material packed into the mod, docs/custom-images.md in the HD2Runtime SDK). Automatic preparation keeps a PNG drawn as the
+   game's masks and converts red-and-white art; raw uses the pixels as given. *@
+@{ var image = Workspace.CustomImageOf(Stratagem.Icon); var issues = Workspace.CustomDiagnosticsFor(CustomDiagnostic.StratagemOwner(Stratagem.Id)).Where(d => d.Field == "icon").ToArray(); }
+<div class="custom-icon-editor" data-custom-icon-editor>
+    <figure><span class="custom-icon xl @(image == null ? "missing" : "")">@if (Workspace.CustomIconUri(Stratagem.Icon) is { } source) { <img src="@source" alt="" data-icon-source /> } else { <span>◇</span> }</span>
+        <figcaption>@T["CustomStratagem.Icon.Source"]</figcaption></figure>
+    <figure><CustomIcon Stratagem="Stratagem" Size="xl" /><figcaption>@T["CustomStratagem.Icon.InGame"]</figcaption></figure>
+    <div class="custom-icon-controls">
+        <p class="subtle">@T["CustomStratagem.Icon.Help"]</p>
+        @if (image != null)
+        {
+            <p class="subtle" data-icon-file>@T.Format("CustomStratagem.Icon.File", image.SourceName ?? T["CustomStratagem.Icon.Generated"], image.Sha256[..12], image.Id)</p>
+            <label for="icon-preparation">@T["CustomStratagem.Icon.Preparation"]</label>
+            <select id="icon-preparation" value="@image.Preparation" disabled="@Busy" @onchange="e => Run.InvokeAsync(() => Workspace.SetCustomIconPreparationAsync(Stratagem.Id, e.Value as string ?? CustomImage.Auto))">
+                <option value="@CustomImage.Auto">@T["CustomStratagem.Icon.Auto"]</option>
+                <option value="@CustomImage.Raw">@T["CustomStratagem.Icon.Raw"]</option>
+            </select>
+        }
+        <div class="actions custom-icon-actions">
+            <button class="custom-primary" disabled="@Busy" data-icon-import @onclick="Import">@(image == null ? T["CustomStratagem.Icon.Import"] : T["CustomStratagem.Icon.Replace"])</button>
+            <button class="custom-outline" disabled="@Busy" data-icon-placeholder @onclick="() => Run.InvokeAsync(() => Workspace.UsePlaceholderIconAsync(Stratagem.Id))">@T["CustomStratagem.Icon.Placeholder"]</button>
+            @if (image != null) { <button class="quiet danger-text" disabled="@Busy" data-icon-remove @onclick="() => Run.InvokeAsync(() => Workspace.RemoveCustomIconAsync(Stratagem.Id))">@T["CustomStratagem.Icon.Remove"]</button> }
+        </div>
+        @foreach (var issue in issues.Where(i => i.Severity is CustomSeverity.Error or CustomSeverity.Warning)) { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error" : "warning") danger-text" data-icon-issue>@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+    </div>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Inject] private IPackagedFilePicker Picker { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    private Task Import() => Run.InvokeAsync(async () => { if (await Picker.PickIconAsync() is { } path) await Workspace.ImportCustomIconAsync(Stratagem.Id, path); });
+}

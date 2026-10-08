@@ -1,0 +1,131 @@
+@* Custom Projectiles (experimental): NEW projectiles with their own ids, composed from vanilla projectiles, that existing weapons can fire.
+   Not the same thing as modifying a vanilla projectile (Projectile Builder, a weapon's Projectile section): both can coexist in a project. *@
+<div class="custom-content" data-custom-page="projectiles">
+    <div class="page-heading"><div><div class="eyebrow">@T["CustomContent.Eyebrow"] <span class="badge experimental">@T["CustomContent.Experimental"]</span></div>
+            <h1>@T["CustomProjectiles.Title"]</h1><p>@T["CustomProjectiles.Tagline"]</p></div>
+        <div class="actions">
+            <div class="template-menu" data-custom-templates>
+                <button class="custom-outline template-toggle" aria-expanded="@TemplatesOpen" @onclick="() => TemplatesOpen = !TemplatesOpen">@T["CustomContent.Templates"] ▾</button>
+                @if (TemplatesOpen)
+                {
+                    <div class="menu">@foreach (var template in CustomTemplates.Projectiles)
+                        { <button disabled="@Busy" data-custom-template="@template.Key" @onclick="() => FromTemplate(template.Key)"><span>@T[template.Label]</span><small>@T[template.Description]</small></button> }
+                        <div class="menu-divider" role="separator"></div>
+                        <button disabled="@Busy" data-custom-clone-open @onclick="BeginClone"><span>@T["CustomProjectiles.Clone.Open"]</span><small>@T["CustomProjectiles.Clone.MenuHelp"]</small></button></div>
+                }</div>
+            <button class="custom-primary" disabled="@Busy" data-new-custom-projectile @onclick="BeginCreate">@T["CustomProjectiles.New"]</button>
+        </div></div>
+    <ExperimentalBanner />
+    <p class="custom-notice" data-custom-projectile-distinction>@T["CustomProjectiles.Distinction"]</p>
+    @if (Error != null) { <p class="notice warning" role="alert" data-custom-error>@Error</p> }
+    @if (Creating)
+    {
+        <section class="custom-create" data-custom-create>
+            <h2>@T["CustomProjectiles.Create.Title"]</h2>
+            <label for="custom-projectile-name">@T["CustomProjectile.Name"]</label>
+            <input id="custom-projectile-name" @bind="NewName" @bind:event="oninput" maxlength="64" placeholder="@T["CustomProjectiles.Create.Placeholder"]" data-custom-new-name />
+            <small class="hint">@(CustomIds.Suggest(NewName, Workspace.CustomProjectiles.Select(p => p.Id), "projectile") is { } suggested ? T.Format("CustomStratagems.Create.IdHint", suggested) : T["CustomStratagems.Create.IdHintEmpty"])</small>
+            <label for="custom-projectile-base">@T["CustomProjectiles.Base"]</label>
+            <OutputPicker Id="custom-projectile-base" Value="@NewBase" Changed="v => NewBase = v" />
+            <div class="actions end"><button @onclick="() => Creating = false">@T["Common.Cancel"]</button>
+                <button class="custom-primary" disabled="@(Busy || string.IsNullOrWhiteSpace(NewName))" data-custom-create-submit @onclick="Create">@T["CustomProjectiles.Create.Submit"]</button></div>
+        </section>
+    }
+    @* Every vanilla projectile the SDK maps, as an exact copy to start from (its base, no components); the ones Runtime cannot use as a
+       base stay listed, disabled, with the reason. *@
+    @if (Cloning)
+    {
+        var sources = Workspace.CustomProjectileCloneSources();
+        var shown = sources.Where(s => CloneSearch.Length == 0 || $"{s.Output.Label} {s.Output.KindLabel} {s.Output.SemanticId}".Contains(CloneSearch.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+        <section class="custom-create" data-custom-clone>
+            <h2>@T["CustomProjectiles.Clone.Title"]</h2>
+            <p class="subtle">@T["CustomProjectiles.Clone.Help"] <span data-custom-clone-count>@T.Format("CustomProjectiles.Clone.Count", sources.Count(s => s.Issue == null), sources.Count)</span></p>
+            <input class="output-search" data-custom-clone-search @bind="CloneSearch" @bind:event="oninput" placeholder="@T["CustomProjectiles.Search"]" aria-label="@T["CustomProjectiles.Search"]" />
+            <div class="donor-list custom-options clone-list" role="listbox" aria-label="@T["CustomProjectiles.Clone.Title"]" data-custom-clone-list>
+                @foreach (var group in shown.GroupBy(s => s.Output.Owner.Kind))
+                {
+                    <div class="picker-group-label" role="presentation">@ProjectileDonorList.OwnerKind(T, group.Key)</div>
+                    @foreach (var (output, issue) in group)
+                    {
+                        <button class="donor custom-option @(issue == null ? "" : "refused")" role="option" aria-selected="false" disabled="@(Busy || issue != null)" data-custom-clone-source="@output.SemanticId"
+                                title="@(issue ?? output.SemanticId)" @onclick="() => Clone(output, sources)">
+                            <span class="donor-name"><strong>@output.Label</strong> <small class="subtle">@output.KindLabel@(output.CompatibilityClass is { } c ? " · " + c.Replace('_', ' ') : "")</small></span>
+                            <span class="donor-badges">@if (issue != null) { <span class="badge amber">@T["CustomProjectiles.Clone.Refused"]</span> }</span>
+                            @if (issue != null) { <small class="donor-refusal" data-clone-refusal>@issue</small> }
+                        </button>
+                    }
+                }
+                @if (shown.Length == 0) { <p class="subtle">@T["AttackOutput.Donors.Empty"]</p> }
+            </div>
+            <div class="actions end"><button @onclick="() => Cloning = false">@T["Common.Cancel"]</button></div>
+        </section>
+    }
+    @if (Selected is { } selected && Workspace.FindCustomProjectile(selected) != null)
+    {
+        <CustomProjectileEditor @key="selected" Id="@selected" Back="() => SelectedChanged.InvokeAsync(null)" Open="id => SelectedChanged.InvokeAsync(id)"
+                                OpenWeapon="OpenWeapon" OpenStratagem="OpenStratagem" ReturnHost="ReturnHost" Changed="() => Changed.InvokeAsync()" />
+    }
+    else if (Workspace.CustomProjectiles.Count == 0 && !Creating && !Cloning)
+    {
+        <section class="custom-empty" data-custom-empty><div class="empty-icon">➶</div><h2>@T["CustomProjectiles.Empty.Title"]</h2><p>@T["CustomProjectiles.Empty.Help"]</p>
+            <div class="actions"><button class="custom-primary" @onclick="BeginCreate">@T["CustomProjectiles.New"]</button>
+                <button class="custom-outline" data-custom-clone-empty @onclick="BeginClone">@T["CustomProjectiles.Clone.Open"]</button></div></section>
+    }
+    else
+    {
+        <div class="section-label">@T["CustomProjectiles.List"] <span>@Workspace.CustomProjectiles.Count</span></div>
+        <div class="custom-grid" data-custom-grid>
+            @foreach (var p in Workspace.CustomProjectiles)
+            {
+                var state = Workspace.CustomState(CustomDiagnostic.ProjectileOwner(p.Id));
+                var fired = Workspace.CustomContent?.Assignments.Count(a => a.Projectile == ContentRef.Custom(p.Id)) ?? 0;
+                var components = new[] { p.Visual, p.Damage, p.ImpactExplosion, p.Ballistics }.Count(c => c != null);
+                <article class="custom-card" data-custom-card="@p.Id">
+                    <button class="custom-card-open" @onclick="() => SelectedChanged.InvokeAsync(p.Id)">
+                        <span class="custom-icon md" aria-hidden="true"><span>➶</span></span>
+                        <span><h3>@p.Name</h3><code>@p.Id</code></span>
+                        <span class="custom-card-meta"><span>@T.Format("CustomProjectiles.Card.Base", Workspace.Metadata?.AttackOutputs?.Output(p.Base)?.Label ?? (p.Base.Length > 0 ? p.Base : T["CustomProjectiles.Card.NoBase"]))</span>
+                            <span>@T.Plural("CustomProjectiles.Card.Components", components)</span><span>@T.Plural("CustomProjectiles.FiredBy.Count", fired)</span></span>
+                        <span class="custom-card-meta"><span class="badge experimental">@T["CustomContent.Experimental"]</span>
+                            @if (Workspace.CustomDraft is { } draft && draft.ProjectileId == p.Id) { <span class="badge custom" data-card-draft>@T.Format("CustomProjectiles.Card.Draft", draft.Origin.Label)</span> }
+                            <span class="badge state-badge @CustomLabels.StateCss(state)" data-card-state="@CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span></span>
+                    </button>
+                    <div class="custom-card-actions">
+                        <button disabled="@Busy" @onclick="() => SelectedChanged.InvokeAsync(p.Id)">@T["Common.Edit"]</button>
+                        <button disabled="@Busy" data-card-duplicate @onclick="() => Duplicate(p.Id)">@T["CustomContent.Duplicate"]</button>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter] public string? Selected { get; set; }
+    [Parameter] public EventCallback<string?> SelectedChanged { get; set; }
+    [Parameter] public EventCallback<string> OpenWeapon { get; set; }
+    [Parameter] public EventCallback<string> OpenStratagem { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    // The weapon attack the open projectile was reached from (its projectile selector), to go back to.
+    [Parameter] public CustomProjectileHost? ReturnHost { get; set; }
+    private bool Busy, Creating, TemplatesOpen, Cloning; private string? Error, NewBase; private string NewName = "", CloneSearch = "";
+    private void BeginCreate() { Creating = true; Cloning = false; NewName = ""; NewBase = null; Error = null; }
+    private void BeginClone() { Cloning = true; Creating = TemplatesOpen = false; CloneSearch = ""; Error = null; }
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+    private Task Create() => Run(async () => { var id = await Workspace.CreateCustomProjectileAsync(NewName, NewBase); Creating = false; await SelectedChanged.InvokeAsync(id); });
+    private Task FromTemplate(string key) => Run(async () => { TemplatesOpen = false; var id = await Workspace.CreateCustomProjectileFromTemplateAsync(key); await SelectedChanged.InvokeAsync(id); });
+    // Named after the projectile it copies (with its kind when its owner maps several); the id is suggested from that name.
+    private Task Clone(AttackOutput output, IReadOnlyList<(AttackOutput Output, string? Issue)> sources) => Run(async () =>
+    {
+        var label = sources.Count(s => s.Output.Label == output.Label) > 1 ? output.Label + " " + output.KindLabel : output.Label;
+        var id = await Workspace.CloneVanillaProjectileAsync(output.SemanticId, T.Format("CustomProjectiles.Clone.Name", label));
+        Cloning = false; await SelectedChanged.InvokeAsync(id);
+    });
+    private Task Duplicate(string id) => Run(async () => { var copy = await Workspace.DuplicateCustomProjectileAsync(id); await SelectedChanged.InvokeAsync(copy); });
+}

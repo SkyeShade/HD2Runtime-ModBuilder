@@ -1,0 +1,71 @@
+@inject BuilderWorkspace Workspace
+@* Armor (HD2Runtime 0.30.0 development: ArmorStatsCapabilities.json and ArmorPassiveCatalog.json). Kits: a kit's piece weights with a live preview
+   of the stats they give (the published formulas). Classes and damage curve: the three weight tables and the five curve points. Player (solo): the
+   local player's armor bonus and stamina factor and the passive override, which the mod sets at load. Opt-ins are implicit (warnings only). *@
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var catalog = sdk?.Entities?.Armor; }
+<div class="page-heading cat-armor"><div><div class="eyebrow">@T.Format("EntityPanel.GuardedEyebrow", sdk?.Version)</div><h1>@T["Armor.Page.Title"]</h1><p>@T.Markup("Armor.Page.Help.Html")</p></div></div>
+@if (Workspace.BuildError is { } issue && Workspace.Project != null) { <div class="notice warning" role="alert">@T.Format("EntityPanel.BuildReview", issue)</div> }
+@if (catalog == null) { <section class="panel" data-armor-unavailable><h2>@T["Armor.Unavailable.Title"]</h2><p>@T.Format("Armor.Unavailable.Help", sdk?.Version, PlayerArmorFiles.ArmorStats)</p></section> }
+else
+{
+    var project = Workspace.Project;
+    var kitEdits = project?.EntityChanges.Count(c => c.Resource == ArmorAuthoringReader.KitResource) ?? 0;
+    var tableEdits = project?.EntityChanges.Count(c => c.Resource is ArmorAuthoringReader.ClassResource or ArmorAuthoringReader.CurveResource) ?? 0;
+    <div class="category-pills armor-tabs cat-armor" role="tablist" aria-label="@T["Armor.Tabs.Aria"]">
+        <button class="category-pill @(Tab == "kits" ? "active" : "")" role="tab" aria-selected="@(Tab == "kits")" data-armor-tab="kits" @onclick='() => Tab = "kits"'><span class="cat-dot" aria-hidden="true"></span>@T["Armor.Tab.Kits"] <small>@catalog.Kits.Length@(kitEdits > 0 ? " · " + T.Plural("Armor.Tab.Edits", kitEdits) : "")</small></button>
+        <button class="category-pill @(Tab == "classes" ? "active" : "")" role="tab" aria-selected="@(Tab == "classes")" data-armor-tab="classes" @onclick='() => Tab = "classes"'><span class="cat-dot" aria-hidden="true"></span>@T["Armor.Tab.Classes"]@if (tableEdits > 0) { <small>@T.Plural("Armor.Tab.Edits", tableEdits)</small> }</button>
+        <button class="category-pill @(Tab == "player" ? "active" : "")" role="tab" aria-selected="@(Tab == "player")" data-armor-tab="player" @onclick='() => Tab = "player"'><span class="cat-dot" aria-hidden="true"></span>@T["Armor.Tab.Player"]@if (project?.PlayerArmor != null) { <small>@T["Common.Modified"]</small> }</button>
+    </div>
+    @if (Tab == "classes") { <ArmorClassesEditor Changed="Refresh" /> }
+    else if (Tab == "player") { <ArmorPlayerEditor Changed="Refresh" /> }
+    else
+    {
+        var modified = project?.EntityChanges.Where(c => c.Resource == ArmorAuthoringReader.KitResource).Select(c => c.Entity).ToHashSet(StringComparer.Ordinal) ?? [];
+        var query = Search.Trim();
+        var kits = catalog.Kits.Where(k => (Class.Length == 0 || k.Class == Class) && (Show != "modified" || modified.Contains(k.Id))
+                && (query.Length == 0 || string.Join(" ", k.Name, k.Id, k.HexId, k.Passive.Name).Contains(query, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(k => k.Name == null ? 1 : 0).ThenBy(k => k.Label, StringComparer.OrdinalIgnoreCase).ThenBy(k => k.Index).ToArray();
+        <div class="weapon-editor"><section class="panel weapon-browser armor-browser" data-armor-browser><h2>@T.Format("Armor.List.Count", kits.Length, catalog.Kits.Length)</h2>
+            <label>@T["Common.Search"]<input id="armor-search" data-armor-search @bind="Search" @bind:event="oninput" placeholder="@T["Armor.Search.Placeholder"]" /></label>
+            <div class="filter-grid">
+                <label>@T["Armor.Filter.Class"]<select data-armor-class-filter @bind="Class"><option value="">@T["Common.All"]</option>@foreach (var w in ArmorAuthoringReader.Weights) { <option value="@w">@ClassLabel(T, w)</option> }</select></label>
+                <label>@T["Armor.Filter.Show"]<select data-armor-show @bind="Show"><option value="">@T["Common.All"]</option><option value="modified">@T["Common.Modified"]</option></select></label>
+            </div>
+            <div class="weapon-list">
+                @foreach (var k in kits)
+                {
+                    <button @key="k.Id" class="resource-item cat-armor @(Selected == k.Id ? "active" : "")" data-armor-kit="@k.Id" @onclick="() => Selected = k.Id">
+                        <strong class="@(k.Name == null ? "native-name" : "")">@k.Label</strong>
+                        <small>@ClassLabel(T, k.Class) · @k.Passive.Name@(modified.Contains(k.Id) ? " · " + T["EntityPanel.ListModified"] : "")</small>
+                        <small class="armor-list-stats">@T.Format("Armor.List.Stats", Number(k.Vanilla.Rating), Number(k.Vanilla.Speed), Number(k.Vanilla.Stamina))</small></button>
+                }
+                @if (kits.Length == 0) { <p class="subtle" data-armor-empty>@T["Armor.List.Empty"]</p> }
+            </div>
+        </section><div class="weapon-detail">
+            @if (catalog.Kit(Selected) != null) { <ArmorKitEditor Kit="@Selected" Changed="Refresh" @key="Selected" /> }
+            else
+            {
+                <section class="panel category-panel cat-armor" data-armor-summary><h2>@T["Armor.Choose.Title"]</h2>
+                    <p>@T.Format("Armor.Choose.Summary", catalog.Kits.Length, catalog.Summary.KitFieldInstances)</p>
+                    <p class="subtle">@T["Armor.Choose.Help"]</p>
+                    <ArmorClassTable Classes="Workspace.ArmorClassValues()" Curve="Workspace.ArmorCurve()" /></section>
+            }
+        </div></div>
+    }
+}
+@code {
+    [Parameter] public EventCallback Changed { get; set; }
+    private string Search = "", Selected = "", Class = "", Show = "", Tab = "kits";
+    public static string ClassLabel(IUiText t, string weight) => weight switch
+    {
+        "light" => t["Armor.Class.Light"], "medium" => t["Armor.Class.Medium"], "heavy" => t["Armor.Class.Heavy"], _ => weight,
+    };
+    public static string SlotLabel(IUiText t, string slot) => slot switch
+    {
+        "cape" => t["Armor.Slot.Cape"], "torso" => t["Armor.Slot.Torso"], "hips" => t["Armor.Slot.Hips"], "left_leg" => t["Armor.Slot.LeftLeg"], "right_leg" => t["Armor.Slot.RightLeg"],
+        "left_arm" => t["Armor.Slot.LeftArm"], "right_arm" => t["Armor.Slot.RightArm"], "left_shoulder" => t["Armor.Slot.LeftShoulder"], "right_shoulder" => t["Armor.Slot.RightShoulder"],
+        _ => slot.Replace('_', ' '),
+    };
+    public static string Number(double v, string format = "0.##") => v.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+}

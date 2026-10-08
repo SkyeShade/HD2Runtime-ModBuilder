@@ -1,0 +1,61 @@
+@inject BuilderWorkspace Workspace
+@* The weight class tables (hd2.armor_stats.class(name): armor value, speed factor, stamina factor) and the damage curve (hd2.armor_stats.damage_curve():
+   the damage multiplier at armor values -1..3). Each value is shared by every Helldiver this machine simulates, is reviewed executable data in
+   game.dll and is not synced. Only (Changes page): one class or "damage_curve". *@
+@{ var catalog = Workspace.ArmorCatalog; }
+@if (catalog != null)
+{
+    bool Saved(EntityField f) => EntityChangeService.Saved(Workspace.Project, f) != null;
+    var classes = catalog.Classes.Where(c => Only == null || Only == c.Name).Select(c => (Class: c, Fields: catalog.ClassFields(c.Name).Where(f => !ModifiedOnly || Saved(f)).ToArray())).Where(x => x.Fields.Length > 0).ToArray();
+    var curve = Only is null or ArmorAuthoringReader.CurveEntity ? catalog.CurveFields.Where(f => !ModifiedOnly || Saved(f)).ToArray() : [];
+    var edited = catalog.FieldInstances.Any(f => f.Target.Resource != ArmorAuthoringReader.KitResource && Saved(f));
+    var values = Workspace.ArmorClassValues();
+    @if (!ModifiedOnly)
+    {
+        <section class="panel category-panel cat-armor" data-armor-classes-summary><h2>@T["Armor.Classes.Title"]</h2><p>@T["Armor.Classes.Help"]</p><ArmorClassTable Classes="Workspace.ArmorClassValues()" Curve="Workspace.ArmorCurve()" /></section>
+        <AckPanel Title="@T["Armor.Classes.Shared.Title"]" Kind="shared" Description="@T["Armor.Classes.Shared.Description"]" />
+    }
+    @foreach (var (c, fields) in classes)
+    {
+        var v = values[c.Name];
+        <section class="panel" data-armor-class="@c.Name"><div class="panel-heading"><h3>@Armor.ClassLabel(T, c.Name)</h3>
+            <small class="subtle" data-armor-class-display>@T.Format("Armor.Classes.Display", Armor.Number(50 + 50 * v.ArmorValue), Armor.Number(500 * v.SpeedFactor), Armor.Number(100 * (2 - v.StaminaFactor)))</small></div>
+            <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@FieldLabel(f)" Changed="Refresh" /> }</div></section>
+    }
+    @if (curve.Length > 0)
+    {
+        <section class="panel" data-armor-curve><div class="panel-heading"><h3>@T["Armor.Curve.Title"]</h3></div>
+            @if (!ModifiedOnly) { <p class="subtle">@T.Format("Armor.Curve.Help", catalog.DamageCurve.Interpolation)</p> }
+            <div class="stat-grid">@foreach (var f in curve.OrderBy(f => Point(f))) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@T.Format("Armor.Curve.Point", Armor.Number(Point(f)), Armor.Number(50 + 50 * Point(f)))" Changed="Refresh" /> }</div></section>
+    }
+    @if (edited && Workspace.Project != null)
+    {
+        <AckPanel Title="@T["Armor.Unverified.Title"]" Kind="unverified" Description="@T["Armor.Unverified.Description"]" />
+        @if (!ModifiedOnly) { <button class="reset-action" data-armor-tables-reset @onclick="Reset">@T["Armor.Classes.Reset"]</button> }
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+}
+@code {
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public string? Only { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private string FieldLabel(EntityField f) => f.SemanticFieldId switch
+    {
+        "armor_class.rating" => T["Armor.Classes.ArmorValue"], "armor_class.speed" => T["Armor.Classes.SpeedFactor"], "armor_class.stamina" => T["Armor.Classes.StaminaFactor"],
+        _ => f.DisplayName,
+    };
+    // A curve point's armor value, from its semantic ID (at_minus_1 .. at_3).
+    private static double Point(EntityField f) => f.SemanticFieldId.EndsWith("minus_1", StringComparison.Ordinal) ? -1
+        : double.Parse(f.SemanticFieldId[(f.SemanticFieldId.LastIndexOf('_') + 1)..], System.Globalization.CultureInfo.InvariantCulture);
+    private async Task Reset()
+    {
+        try
+        {
+            await Workspace.ResetEntityAsync(ArmorAuthoringReader.ClassResource); await Workspace.ResetEntityAsync(ArmorAuthoringReader.CurveResource);
+            Error = null; await Refresh();
+        }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+    }
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+}

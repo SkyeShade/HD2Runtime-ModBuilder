@@ -18,6 +18,8 @@ public static class AuthoredTypes
         "scalar/number", "scalar/integer", "scalar/boolean", "scalar/" + WeaponCapability.FireModeSet,
         "scalar/" + WeaponCapability.FireRateSet, "scalar/" + WeaponCapability.WeaponFunction, "reference/" + WeaponCapability.FunctionProjectileReference,
         "scalar/" + WeaponCapability.TraitSet, "scalar/" + WeaponCapability.ArmorPenetrationLabel, "reference/" + WeaponCapability.StatusReference,
+        // 1.7.0 (Runtime 0.30.0): the explosion a charge weapon's overcharge failure spawns (charge.overcharge_explosion).
+        "reference/" + Metadata.SupportField.OverchargeExplosionReference,
     };
     // Value types first authored by 1.4.0: a project that saves one needs project format 11.
     public static readonly IReadOnlySet<string> Composition = new HashSet<string>(StringComparer.Ordinal)
@@ -32,7 +34,26 @@ public static class AuthoredTypes
     // is not in this set, so it stays read-only here.
     public static readonly IReadOnlySet<string> MountedWeapon = new HashSet<string>(StringComparer.Ordinal) { "number", "integer", WeaponCapability.StatusReference };
     public static readonly bool CarriedWeapons = true;
+    // 0.30.0 projectile donors (attack outputs of kind projectile_donor: Eagle payloads, orbital shells, sentry rounds, weapons' second
+    // projectiles), offered in every projectile selector since 1.7.0 (docs/runtime030-integration-plan.md, Phase 7). None is live-tested:
+    // every write carries allow_unverified_reference and allow_unverified_effect, shown as warnings.
+    public static readonly bool ProjectileDonors = true;
+    // 0.30.0 turret motion on vehicle mounts (turret.* with a published range and ordering), authored since 1.7.0 with its limit pairs kept
+    // ordered inline (EntityOrder; docs/runtime030-integration-plan.md, Phase 5.2).
+    public static readonly bool MountedTurretMotion = true;
+    // 0.30.0 vehicle motion tuning (steering response, Exosuit rotation: Vehicle.TuningFieldInstanceKeys), authored since 1.7.0 (Phase 5.1).
+    public static readonly bool VehicleTuning = true;
+    // 0.30.0 support attack roles (the PLAS-45 Epoch's full-charge shot and its explosion, the Epoch's and the RS-422 Railgun's overcharge
+    // explosions), authored since 1.7.0: two of them share one damage row, which the field editor resolves inline (ChargeFields.SameBytes).
+    public static readonly IReadOnlySet<string> SupportRoles030 = new HashSet<string>(StringComparer.Ordinal) { "full_charge", "full_charge_impact", "overcharge_explosion" };
+    public static readonly bool SupportChargeRoles = true;
     public static bool Weapon(WeaponCapability f) => PlayerWeapon.Contains(f.Type);
     public static bool VehicleWeapon(VehicleWeaponFieldInstance f, bool carried) => MountedWeapon.Contains(f.Type) && (CarriedWeapons || !carried);
-    public static bool SupportField(SupportField f) => Support.Contains(f.Value.Kind + "/" + f.Value.Type);
+    public static bool SupportField(SupportField f) => Support.Contains(f.Value.Kind + "/" + f.Value.Type)
+        && (SupportChargeRoles || f.Target.AttackRole is not { } role || !SupportRoles030.Contains(role));
+    // Stratagem value types. 1.7.0 authors 0.30.0's call-in code (calldown_code) and presentation (stratagem_presentation; a project that saves
+    // either needs project format 14).
+    public static readonly IReadOnlySet<string> Stratagem = new HashSet<string>(StringComparer.Ordinal)
+    { "number", "integer", "boolean", StratagemUses.Type, Metadata.StratagemField.CalldownCode, Metadata.StratagemField.Presentation };
+    public static bool StratagemField(StratagemField f) => Stratagem.Contains(f.Type);
 }

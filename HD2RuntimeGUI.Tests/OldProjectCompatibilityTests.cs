@@ -82,20 +82,96 @@ public sealed class OldProjectCompatibilityTests
         using var zip = System.IO.Compression.ZipFile.OpenRead(w.LastExport!);
         string Entry(string name) { using var r = new StreamReader(zip.GetEntry(name)!.Open()); return r.ReadToEnd(); }
         var manifest = System.Text.Json.Nodes.JsonNode.Parse(Entry("hd2runtime.json"))!;
-        return ((string)manifest["requires"]!["hd2runtime"]!["min_version"]!, Entry("src/addon.lua"), Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview));
+        var min = (string)manifest["requires"]!["hd2runtime"]!["min_version"]!;
+        return (min, Entry("src/addon.lua"), Core.Generation.ModExporter.WrapFor(w.Project!, w.LuaPreview, min));
     }
 
-    [Fact] public async Task A_new_project_binds_SDK_0_28_1_and_its_Purifier_edit_carries_the_opt_in_0_28_requires()
+    [Fact] public async Task A_project_on_SDK_0_28_1_carries_the_opt_in_0_28_requires_and_keeps_the_plain_wrapper()
+    {
+        // ModBuilder 1.4.2 made new projects on SDK 0.28.1; they keep it (and its exact wrapper) until they are rebound.
+        using var e = new TestEnvironment(); var sdk = await SdkFixtures.Install(e, "0.28.1"); var w = e.Workspace();
+        await w.CreateAsync(new("Purifier 0.28.1", "Tests", "mods/tests/purifier_0281", "0.1.0"), sdk);
+        Assert.Equal("0.28.1", w.Project!.SdkVersion);
+        await w.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
+        Assert.Null(w.BuildError); Assert.Equal(1, Count(w.LuaPreview, "allow_unverified_effect=true"));
+        var (min, addon, wrapper) = await Export(w);
+        Assert.Equal("0.28.1", min); Assert.Equal(w.LuaPreview, addon); Assert.Contains("local x,y,z=version('0.28.1')", wrapper);
+        Assert.Equal(Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview), wrapper); Assert.DoesNotContain("required_runtime", wrapper);
+    }
+
+    // ---- SDK 0.30.0 (ModBuilder 1.7.0) ------------------------------------------------------------------------------------------------
+    // The bundled SDK is HD2Runtime 0.30.0. New projects bind it; from 0.30 on their wrapper checks the installed Runtime by SemVer (the plain
+    // wrapper's pattern refuses the '0.30.0-dev' of the test SDKs) and still declares the bound SDK as local x,y,z, which Runtime's
+    // core/sdk_compatibility.lua reads (only the MAJOR.MINOR.PATCH core).
+    [Fact] public async Task A_new_project_binds_the_0_30_0_SDK_with_the_SemVer_wrapper()
     {
         using var e = new TestEnvironment(); var w = Upgraded(e); await w.InitializeAsync();
-        Assert.Equal("0.28.1", SdkPin.Version); Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version);
-        await w.CreateAsync(new("Purifier 0.28.1", "Tests", "mods/tests/purifier_0281", "0.1.0"), w.SdkStatus.Installed);
+        Assert.Equal("0.30.0", SdkPin.Version); Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
+        await w.CreateAsync(new("Purifier 0.30", "Tests", "mods/tests/purifier_030", "0.1.0"), w.SdkStatus.Installed);
         Assert.Equal(SdkPin.Version, w.Project!.SdkVersion);
         await w.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
         Assert.Null(w.BuildError); Assert.Equal(1, Count(w.LuaPreview, "allow_unverified_effect=true"));
         var (min, addon, wrapper) = await Export(w);
-        Assert.Equal(SdkPin.Version, min); Assert.Equal(w.LuaPreview, addon); Assert.Contains("local x,y,z=version('" + SdkPin.Version + "')", wrapper);
+        Assert.Equal(SdkPin.Version, min); Assert.Equal(w.LuaPreview, addon);
+        Assert.Contains("local x,y,z=version('0.30.0')", wrapper); Assert.Contains("local required_runtime='0.30.0'", wrapper);
+        Assert.Contains("local function at_least(have,need)", wrapper); Assert.Contains("local key='HD2RuntimeMod:mods/tests/purifier_030'", wrapper);
+        Assert.Equal(Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview, SdkPin.Version), wrapper);
     }
+
+    // 0.30.0 adds allow_unverified_effect to the 30 PLAS-45 Epoch primary / primary_impact fields (their row is now known to be fired only by the
+    // partial-charge shot). Runtime applies a 0.28.x export's write without it as a legacy operation; rebinding moves the edit to 0.30.0
+    // unchanged, the generated operation carries the opt-in (never a manual acknowledgement), and the export declares 0.30.0.
+    private const string Epoch = "PLAS-45 Epoch", EpochVelocity = "support-field/v1/plas-45-epoch/projectile-reference/primary/projectile-velocity/9ed92fa3a82b5806";
+    [Fact] public async Task An_SDK_0_28_1_Epoch_edit_rebinds_to_0_30_with_the_opt_in_0_30_requires()
+    {
+        using var e = new TestEnvironment(); var old = await SdkFixtures.Install(e, "0.28.1"); var w0 = e.Workspace();
+        await w0.CreateAsync(new("Epoch 0.28.1", "Tests", "mods/tests/epoch_0281", "0.1.0"), old);
+        Assert.Null(old.SupportAuthoring!.Field(EpochVelocity).Operation.Acknowledgement);
+        await w0.SetSupportAsync(EpochVelocity, "300");
+        var id = w0.Project!.Id; var lua0281 = w0.LuaPreview; var saved = File.ReadAllBytes(e.Paths.ProjectFile(id));
+        Assert.Null(w0.BuildError); Assert.DoesNotContain("allow_unverified_effect", Operation(lua0281, Epoch));
+        // The 1.7.0 ModBuilder opens it: binding, file and operations are untouched, and the export still declares 0.28.1 with the plain wrapper.
+        var w = Upgraded(e); await w.InitializeAsync(); await w.OpenAsync(id);
+        Assert.Equal("0.28.1", w.Project!.SdkVersion); Assert.Equal(saved, File.ReadAllBytes(e.Paths.ProjectFile(id))); Assert.Equal(lua0281, w.LuaPreview);
+        var (min, _, wrapper) = await Export(w);
+        Assert.Equal("0.28.1", min); Assert.Equal(Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview), wrapper);
+        // Rebinding keeps the edit and its baseline, and the operation now carries 0.30's opt-in.
+        await w.RebindToInstalledSdkAsync();
+        Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Null(w.BuildError);
+        var change = Assert.Single(w.Project.SupportChanges);
+        Assert.Equal((EpochVelocity, "300", "250"), (change.InstanceKey, change.DesiredValue.GetRawText(), change.ExpectedValue.GetRawText()));
+        Assert.Equal("allow_unverified_effect", w.Metadata!.SupportAuthoring!.Field(EpochVelocity).Operation.Acknowledgement);
+        Assert.Contains("allow_unverified_effect=true", Operation(w.LuaPreview, Epoch));
+        (min, _, wrapper) = await Export(w);
+        Assert.Equal(SdkPin.Version, min); Assert.Contains("local x,y,z=version('" + SdkPin.Version + "')", wrapper);
+        Assert.Equal(SdkPin.Version, (await e.Store.LoadAsync(id)).SdkVersion);
+    }
+    // A tester's project bound to the 0.30.0-dev test SDK (an earlier 1.7.0 build bundled it): the upgraded ModBuilder makes the bundled 0.30.0
+    // current, opens the project untouched on its cached 0.30.0-dev, exports it as before (HD2Runtime 0.30.0 loads mods that declare
+    // 0.30.0-dev), and rebinding to 0.30.0 keeps every edit and operation and declares 0.30.0.
+    [Fact] public async Task A_project_bound_to_the_0_30_0_dev_test_SDK_opens_exports_and_rebinds_to_0_30_0()
+    {
+        using var e = new TestEnvironment(); var dev = await SdkFixtures.Install(e, "0.30.0-dev"); var w0 = e.Workspace();
+        Assert.Equal("0.30.0-dev", dev.Version); Assert.Null(dev.IsPinnedBuild);
+        await w0.CreateAsync(new("Purifier 0.30.0-dev", "Tests", "mods/tests/purifier_030dev", "0.1.0"), dev);
+        await w0.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
+        var id = w0.Project!.Id; var luaDev = w0.LuaPreview; var saved = File.ReadAllBytes(e.Paths.ProjectFile(id));
+        Assert.Null(w0.BuildError); Assert.Equal(1, Count(luaDev, "allow_unverified_effect=true"));
+        var w = Upgraded(e); await w.InitializeAsync();
+        Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
+        await w.OpenAsync(id);
+        Assert.Equal("0.30.0-dev", w.Project!.SdkVersion); Assert.Equal(saved, File.ReadAllBytes(e.Paths.ProjectFile(id))); Assert.Equal(luaDev, w.LuaPreview);
+        var (min, _, wrapper) = await Export(w);
+        Assert.Equal("0.30.0-dev", min); Assert.Contains("local x,y,z=version('0.30.0-dev')", wrapper); Assert.Contains("local required_runtime='0.30.0-dev'", wrapper);
+        await w.RebindToInstalledSdkAsync();
+        Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(luaDev, w.LuaPreview);
+        (min, _, wrapper) = await Export(w);
+        Assert.Equal("0.30.0", min); Assert.Contains("local x,y,z=version('0.30.0')", wrapper);
+        Assert.Equal(SdkPin.Version, (await e.Store.LoadAsync(id)).SdkVersion);
+    }
+    // The generated operation (pcall-isolated block) that names a weapon.
+    private static string Operation(string lua, string weapon) => System.Text.RegularExpressions.Regex.Split(lua, @"(?=add\(function\(\) return )")
+        .Single(b => b.Contains("'" + weapon + "'", StringComparison.Ordinal));
 
     [Fact] public async Task An_SDK_0_27_project_keeps_its_binding_until_it_is_rebound_to_0_28_1()
     {
@@ -106,7 +182,7 @@ public sealed class OldProjectCompatibilityTests
         await w0.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
         var id = w0.Project!.Id; var saved = File.ReadAllBytes(e.Paths.ProjectFile(id)); var lua027 = w0.LuaPreview;
         Assert.DoesNotContain("allow_unverified_effect", lua027);
-        // ModBuilder 1.4.2 starts with SDK 0.28.1 current and opens the project: the binding and the saved file are untouched.
+        // A later ModBuilder (the bundled SDK current) opens the project: the binding and the saved file are untouched.
         var w = Upgraded(e); await w.InitializeAsync(); Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version);
         await w.OpenAsync(id);
         Assert.Equal("0.27.0", w.Project!.SdkVersion); Assert.Equal(saved, File.ReadAllBytes(e.Paths.ProjectFile(id)));
@@ -116,7 +192,7 @@ public sealed class OldProjectCompatibilityTests
         var (min, _, wrapper) = await Export(w);
         Assert.Equal("0.27.0", min); Assert.Contains("local x,y,z=version('0.27.0')", wrapper);
         Assert.Equal("0.27.0", (await e.Store.LoadAsync(id)).SdkVersion);
-        // Rebinding is the explicit step: the edit is kept, generated with SDK 0.28.1's opt-in, and the export declares 0.28.1.
+        // Rebinding is the explicit step: the edit is kept, generated with the pinned SDK's opt-in, and the export declares that SDK.
         await w.RebindToInstalledSdkAsync();
         Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Single(w.Project.CompositionChanges); Assert.Null(w.BuildError);
         Assert.Equal(1, Count(w.LuaPreview, "allow_unverified_effect=true"));
@@ -128,15 +204,15 @@ public sealed class OldProjectCompatibilityTests
     [Fact] public async Task An_SDK_0_28_0_project_stays_on_0_28_0_and_rebinding_to_0_28_1_keeps_every_operation()
     {
         // Saved by the 1.4.0 release candidate on SDK 0.28.0. 0.28.1 publishes the same capabilities, so its operations are identical; only
-        // the declared SDK moves, and only on rebind.
-        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.28.0");
+        // the declared SDK moves, and only on rebind (here to an installed 0.28.1; the bundled SDK is 0.30.0).
+        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.28.0"); await SdkFixtures.Install(e, "0.28.1");
         var project = await e.Store.ImportAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "projects-1.4.0-rc", "runtime028-smoke.hd2mod.json"));
-        var w = Upgraded(e); await w.InitializeAsync(); await w.OpenAsync(project.Id);
+        var w = e.Workspace(); e.GitHub.Offline = true; await w.InitializeAsync(); await w.OpenAsync(project.Id);
         Assert.Equal("0.28.0", w.Project!.SdkVersion); Assert.Null(w.BuildError);
         var lua = w.LuaPreview; var (min, _, _) = await Export(w); Assert.Equal("0.28.0", min);
         await w.RebindToInstalledSdkAsync();
-        Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(lua, w.LuaPreview);
-        (min, _, _) = await Export(w); Assert.Equal(SdkPin.Version, min);
+        Assert.Equal("0.28.1", w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(lua, w.LuaPreview);
+        (min, _, _) = await Export(w); Assert.Equal("0.28.1", min);
     }
 
     // ---- Projects saved by ModBuilder 1.4.2 itself (ModBuilder 1.5.0, project format 12) -----------------------------------------------
@@ -153,7 +229,7 @@ public sealed class OldProjectCompatibilityTests
     [Theory] [MemberData(nameof(Projects142))]
     public async Task A_1_4_2_project_opens_saves_and_exports_as_1_4_2_did(string name)
     {
-        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.27.0"); await SdkFixtures.Install(e, SdkPin.Version);
+        using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.27.0"); await SdkFixtures.Install(e, "0.28.1");
         var path = Path.Combine(Folder142, name + ".hd2mod.json");
         var original = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         var id = (await e.Store.ImportAsync(path)).Id; var file = e.Paths.ProjectFile(id); var stored = File.ReadAllBytes(file);

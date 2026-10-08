@@ -1,0 +1,11 @@
+[
+  {"key": "CustomStratagem.Field.DirectDamage", "en": "Direct hit damage", "zh": "直接命中伤害"},
+  {"key": "CustomStratagem.Field.DirectDamage.Help", "en": "The damage of each converted round's own direct hit: a reviewed override of the donor's round, written with the impact explosion. Not live-tested.", "zh": "每发转换弹药自身直接命中的伤害：对供体弹药的已审核覆盖，与命中爆炸一起写入。尚未实机测试。"},
+  {"key": "CustomContent.Field.RoundWithDirectDamage", "en": "Not with a direct damage override: it is reviewed for the donor's own round.", "zh": "不能与直接伤害覆盖同时使用：该覆盖仅针对供体自身的弹药审核过。"},
+  {"key": "CustomContent.Field.DirectDamageWithRound", "en": "Not with another round: the override is reviewed for the donor's own round.", "zh": "不能与其他弹药同时使用：该覆盖仅针对供体自身的弹药审核过。"},
+  {"key": "CustomContent.Field.DirectDamageNone", "en": "No direct damage override is reviewed for the {0}'s round.", "zh": "{0} 的弹药没有经过审核的直接伤害覆盖。", "comment": "{0}: clone donor weapon name"},
+  {"key": "CustomContent.Field.DirectDamageNeedsImpact", "en": "Set an impact explosion first: the override is written with each round's impact explosion.", "zh": "请先设置命中爆炸：该覆盖会与每发弹药的命中爆炸一起写入。"},
+  {"key": "CustomContent.Field.VariantNoRound", "en": "The {0} fires no projectile: it has no round to change.", "zh": "{0} 不发射弹体：没有可更换的弹药。", "comment": "{0}: support weapon name"},
+  {"key": "CustomContent.Field.VariantNoOtherRound", "en": "No other round is reviewed for the {0}'s compatibility class: it keeps its own.", "zh": "{0} 的兼容类别中没有其他经过审核的弹药：保留其自身弹药。", "comment": "{0}: support weapon name"},
+  {"key": "CustomContent.Check.VariantShared", "en": "The {0}'s type is also brought by others ({1}): those copies become this variant too. The export writes allow_shared = true for it.", "zh": "{0} 的类型也会由其他来源带入（{1}）：这些副本也会变成此变体。导出时会为其写入 allow_shared = true。", "comment": "{0}: support weapon name; {1}: who else brings it (Runtime text, not translated)"}
+]

@@ -1,0 +1,76 @@
+@inject BuilderWorkspace Workspace
+@* One muzzle, optics or underbarrel definition (HD2Runtime 0.30.0, hd2.weapon_attachment): the stat modifiers it carries as field rows, a
+   blocked modifier with Runtime's blocker, and the other members its delta patches (read-only). The definition is shared by every weapon
+   that equips it, so the same card (and the same saved edits) appears under each of them. allow_shared and allow_unverified_effect are
+   implicit: the panel below only warns. *@
+@{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.AttachmentModifiers; var a = catalog?.Attachment(Attachment); }
+@if (catalog != null && a != null)
+{
+    var fields = catalog.Fields(a).Where(f => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null).ToArray();
+    var edited = a.FieldInstanceKeys.Any(k => Workspace.Project?.EntityChanges.Any(c => c.InstanceKey == k) == true);
+    var blocked = a.Blocked.ToArray();
+    <article class="magazine-attachment modifier-attachment @(edited ? "modified" : "")" data-modifier-attachment="@a.SemanticId" data-slot="@a.Slot" data-relationship="@Relationship">
+        <div class="attachment-head"><strong>@a.Name</strong>
+            @if (Relationship == AttachmentSlotOption.NativeDefault) { <span class="badge green" data-default-attachment>@T["AttachmentModifiers.Default"]</span> }
+            else if (Relationship == AttachmentSlotOption.UnlockListed) { <span class="badge" data-relationship-badge title="@T["AttachmentModifiers.UnlockListed.Tooltip"]">@T["AttachmentModifiers.UnlockListed"]</span> }
+            @if (Weapon == null) { <span class="badge">@SlotLabel(a.Slot)</span> }
+            @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
+            @if (a.FieldInstanceKeys.Length > 0)
+            {
+                <span class="badge amber" data-flag="allow_shared" title="@catalog.Acknowledgements["allow_shared"]">@T["Common.Shared"]</span>
+                <span class="badge amber" data-flag="allow_unverified_effect" title="@catalog.Acknowledgements["allow_unverified_effect"]">@T["Magazine.EffectUnverified"]</span>
+            }
+            <details class="field-info"><summary title="@T["AttachmentModifiers.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
+                <p>@T.Format("AttachmentModifiers.Info.Slot", SlotLabel(a.Slot), a.NativeSlot)</p>
+                <p>@catalog.OwnershipModel.WriteScope</p>
+                <p>@catalog.OwnershipModel.Adding</p>
+                <p>@a.Consumers.ScopeNote</p>
+                <code>@a.SemanticId</code>
+            </div></details>
+            @if (edited && Workspace.Project != null) { <button class="reset-action small" data-reset-attachment @onclick='() => Run(() => Workspace.ResetEntityAsync(AttachmentModifierReader.Resource, a.SemanticId))'>@T["AttachmentModifiers.Reset"]</button> }
+        </div>
+        @if (a.FieldInstanceKeys.Length == 0) { <p class="subtle" data-no-modifiers>@T["AttachmentModifiers.NoModifiers"]</p> }
+        else { <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Changed="FieldChanged" /> }</div> }
+        @if (!ModifiedOnly)
+        {
+            @foreach (var m in blocked)
+            {
+                <div class="field-row readonly" data-blocked-modifier="@m.Modifier">
+                    <div class="field-name"><span>@catalog.DisplayName(m.Field!)</span><small class="field-unit">@m.Modifier</small></div>
+                    <div class="field-value"><span class="badge" title="@m.Blocker">@T["Common.ReadOnly"]</span></div>
+                    <div class="field-baseline subtle">@T.Format("EntityField.Base", m.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture))</div>
+                    <p class="field-wide subtle" data-blocker>@T.Format("AttachmentModifiers.Blocked", m.Blocker!)</p>
+                </div>
+            }
+            @if (a.ReadOnlyPatches.Length > 0)
+            {
+                <details class="collapsed-group" data-read-only-patches="@a.ReadOnlyPatches.Length">
+                    <summary><span class="subtle">@T.Plural("AttachmentModifiers.Patches", a.ReadOnlyPatches.Length)</span> <span class="badge">@T["Common.ReadOnly"]</span></summary>
+                    <p class="subtle">@catalog.ReadOnlyPatches</p>
+                    <ul class="patch-list">@foreach (var p in a.ReadOnlyPatches)
+                    { <li data-patch-status="@p.Status"><code>@p.Component +@p.Offset</code> <span class="subtle">@T.Format("AttachmentModifiers.Patch.Size", p.Size)</span>@if (p.Label != null) { <span> · @p.Label</span> }
+                        <span class="badge">@(p.Status == "resource_reference" ? T["AttachmentModifiers.Patch.Reference"] : T["AttachmentModifiers.Patch.Unproven"])</span></li> }</ul>
+                </details>
+            }
+        }
+        @if (a.FieldInstanceKeys.Length > 0)
+        {
+            <AckPanel Title="@T.Plural("AttachmentModifiers.Shared.Title", a.CompatibleWeapons.Length)" Kind="shared" Description="@T["AttachmentModifiers.Shared.Description"]"
+                Items="@(a.CompatibleWeapons.Length > 0 ? a.CompatibleWeapons : null)" ItemsLabel="@T["AttachmentModifiers.Shared.Weapons"]"
+                PanelAttributes='@(new() { ["data-shared-consumers"] = a.CompatibleWeapons.Length })' />
+        }
+        @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+    </article>
+}
+@code {
+    [Parameter, EditorRequired] public string Attachment { get; set; } = "";
+    // How the open weapon lists this definition (native_resource_default / unlock_listed); null on the Changes page.
+    [Parameter] public string? Relationship { get; set; }
+    [Parameter] public string? Weapon { get; set; }
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    private string SlotLabel(string slot) => WeaponAttachmentModifiers.SlotLabel(T, slot);
+    private Task FieldChanged() => Changed.InvokeAsync();
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

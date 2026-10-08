@@ -1,0 +1,146 @@
+@implements IAsyncDisposable
+@* The advanced escape hatch of a custom stratagem: its Lua. One tab per place Lua can go, in the order the Runtime runs it: a setup chunk before
+   the registration (local state and helpers the callbacks share), the five callbacks of hd2.custom_stratagem.register (each a function body
+   given ctx, one HD2CustomStratagemCall), and extra registration fields written as they are. The editor is ModBuilder's Lua editor with
+   completion from the target Runtime's own stub (ctx: is typed), syntax markers as you type, and snippets built from real signatures. A
+   change is saved shortly after typing stops (and at once on Ctrl+S or when another tab is opened). *@
+@inject IJSRuntime JS
+@{
+    var slots = CustomScripting.Slots;
+    var active = slots.First(x => x.Key == Active);
+    var callbacks = Stratagem.Callbacks ?? new CustomCallbacks();
+    var owner = CustomDiagnostic.StratagemOwner(Stratagem.Id);
+    var delivers = Runtime030Target.DeliversSomething(Stratagem);
+}
+<div class="callback-editor" data-callback-editor>
+    <div class="custom-warning" data-callback-warning><p><strong>@T["CustomStratagem.Callbacks.Warning.Title"]</strong></p><p>@T["CustomStratagem.Callbacks.Warning"]</p></div>
+    <div class="custom-lua-tabs callback-tabs" role="tablist">
+        @foreach (var slot in slots)
+        {
+            var filled = !string.IsNullOrWhiteSpace(slot.Get(callbacks)) || slot.Key == Active && !string.IsNullOrWhiteSpace(Draft);
+            var error = Workspace.CustomDiagnosticsFor(owner).Any(d => d.Field == slot.Key && d.Severity == CustomSeverity.Error);
+            var unusable = slot.Key == "callbacks.on_delivered" && !delivers;
+            <button role="tab" aria-selected="@(slot.Key == Active)" class="@(slot.Key == Active ? "active" : "") @(unusable ? "unusable" : "")" data-callback-tab="@slot.Lua"
+                    title="@(unusable ? T["CustomContent.Check.DeliveredNeedsDelivery"] : T[slot.Help])" @onclick="() => Switch(slot.Key)">
+                <code>@slot.Lua</code>@if (error) { <span class="tab-mark error" aria-label="@T["CustomContent.State.Error"]">✕</span> } else if (filled) { <span class="tab-mark filled" aria-hidden="true">●</span> }
+            </button>
+        }
+    </div>
+    <div class="callback-body">
+        <p class="field-help" data-callback-help><strong>@T[active.Label]</strong> · @T[active.Help]</p>
+        @if (active.Key == "callbacks.on_delivered" && !delivers) { <p class="field-reason" data-callback-unusable>@T["CustomContent.Check.DeliveredNeedsDelivery"]</p> }
+        <div class="callback-signature"><code>@Signature(active)</code></div>
+        <div class="lua-editor callback-lua" @ref="Host" @key="Active" data-callback-host="@active.Lua" data-editor-label="@T[active.Label]"></div>
+        <div class="callback-signature end"><code>@(active.Callback ? "end," : active.Lua == "fields" ? "}" : "return { ... }")</code></div>
+        <div class="callback-toolbar">
+            <span class="subtle" data-callback-state>@(Saving ? T["CustomStratagem.Lua.Saving"] : Dirty ? T["CustomStratagem.Lua.Unsaved"] : T["CustomStratagem.Lua.Saved"])</span>
+            <div class="actions">
+                @foreach (var snippet in CustomScripting.Snippets(Stratagem, Workspace.CustomTarget.Schema).Where(x => x.Slots.Contains(active.Lua)))
+                { <button class="custom-outline small" disabled="@(!Mounted)" data-callback-snippet="@snippet.Key" @onclick="() => Insert(snippet.Code)">+ @T[snippet.Label]</button> }
+                <button class="small" disabled="@(!Dirty || Saving)" data-callback-save @onclick="() => Save(Draft)">@T["Common.Save"]</button>
+                <button class="quiet small danger-text" disabled="@(Saving || string.IsNullOrWhiteSpace(active.Get(callbacks)) && string.IsNullOrWhiteSpace(Draft))" data-callback-clear @onclick="Clear">@T["CustomContent.Field.Clear"]</button>
+            </div>
+        </div>
+        @foreach (var d in Markers.Where(m => m.Severity == "error").Take(3)) { <p class="field-issue error danger-text" data-callback-issue>@T.Format("CustomStratagem.Lua.Line", d.Line, d.Message)</p> }
+        @foreach (var issue in Workspace.CustomDiagnosticsFor(owner).Where(d => d.Field == active.Key && d.Severity is CustomSeverity.Error or CustomSeverity.Warning && !d.Message.Contains(" line ")))
+        { <p class="field-issue @(issue.Severity == CustomSeverity.Error ? "error danger-text" : "warning")" data-field-issue="@active.Key">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+    </div>
+    <p class="subtle">@T["CustomStratagem.Callbacks.Help"]</p>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    private string Active = "callbacks.on_activate", Draft = "", MountedSlot = "", MountedFor = "";
+    private ElementReference Host; private bool Mounted, Saving; private DotNetObjectReference<CallbackEditor>? Self;
+    private System.Threading.Timer? Autosave;
+    private sealed record Marker(int Line, string Severity, string Message);
+    private IReadOnlyList<Marker> Markers = [];
+    private CustomLuaSlot Slot => CustomScripting.Slots.First(x => x.Key == Active);
+    private string SavedText => Slot.Get(Stratagem.Callbacks ?? new CustomCallbacks()) ?? "";
+    private bool Dirty => Draft.Replace("\r\n", "\n") != SavedText;
+    protected override void OnParametersSet()
+    {
+        // Another stratagem: start on the first slot that holds Lua (on_activate when none does).
+        if (MountedFor != Stratagem.Id)
+        {
+            MountedFor = Stratagem.Id;
+            Active = CustomScripting.Slots.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Get(Stratagem.Callbacks ?? new CustomCallbacks())))?.Key ?? "callbacks.on_activate";
+            Draft = SavedText; Markers = Check(Draft);
+        }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (MountedSlot == Active) return;
+        Self ??= DotNetObjectReference.Create(this);
+        MountedSlot = Active; Mounted = true;
+        await JS.InvokeVoidAsync("hd2LuaEditor.mount", Host, Self, Draft, CustomScripting.Completion(Workspace.Metadata, Slot.Callback));
+        await SetMarkers();
+        StateHasChanged();
+    }
+    [JSInvokable] public async Task OnEditorInput(string text)
+    {
+        Draft = text; Markers = Check(text);
+        await SetMarkers();
+        // Saved shortly after typing stops, as every other custom content edit is saved at once.
+        Autosave?.Dispose();
+        Autosave = new System.Threading.Timer(_ => InvokeAsync(() => Save(Draft)), null, 1200, System.Threading.Timeout.Infinite);
+        StateHasChanged();
+    }
+    [JSInvokable] public Task OnEditorSave(string text) { Draft = text; return Save(text); }
+    private async Task Save(string text)
+    {
+        Autosave?.Dispose(); Autosave = null;
+        if (!Dirty || Saving) return;
+        Saving = true; StateHasChanged();
+        var slot = Slot; var value = text.Replace("\r\n", "\n");
+        try { await Run.InvokeAsync(() => Workspace.EditCustomStratagemAsync(Stratagem.Id, s => slot.Set(s.Callbacks ??= new(), string.IsNullOrWhiteSpace(value) ? null : value))); }
+        finally { Saving = false; StateHasChanged(); }
+    }
+    private async Task Switch(string key)
+    {
+        if (key == Active) return;
+        await Save(Draft);
+        try { if (Mounted) await JS.InvokeVoidAsync("hd2LuaEditor.dispose", Host); } catch (JSDisconnectedException) { }
+        Active = key; Draft = SavedText; Markers = Check(Draft);
+    }
+    private async Task Clear()
+    {
+        Draft = "";
+        try { await JS.InvokeVoidAsync("hd2LuaEditor.setText", Host, ""); } catch (JSDisconnectedException) { }
+        Markers = []; await SetMarkers();
+        await Save("");
+    }
+    private async Task Insert(string code) { if (Mounted) await JS.InvokeVoidAsync("hd2LuaEditor.insert", Host, code); }
+    private async Task SetMarkers()
+    {
+        if (!Mounted) return;
+        try { await JS.InvokeVoidAsync("hd2LuaEditor.setDiagnostics", Host, Markers.Select(m => new { line = m.Line, severity = m.Severity, message = m.Message })); }
+        catch (JSDisconnectedException) { }
+    }
+    // Syntax as the build checks it: the body inside the function (or table, or chunk) it becomes, its lines counted from the body's first.
+    private IReadOnlyList<Marker> Check(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return [];
+        var wrapped = Slot.Lua switch
+        {
+            "setup" => "local hd2=nil\ndo\n" + text + "\nend\n",
+            "fields" => "local hd2=nil\nlocal t={\n" + text + "\n}\n",
+            _ => "local hd2=nil\nlocal f=function(ctx)\n" + text + "\nend\n",
+        };
+        return [.. HD2RuntimeGUI.Core.Scripting.LuaScriptAnalyzer.Analyze(wrapped, Workspace.Metadata?.Events)
+            .Select(d => new Marker(Math.Max(1, d.Line - 2), d.Severity == HD2RuntimeGUI.Core.Scripting.LuaDiagnostic.Error ? "error" : "warning", d.Message))];
+    }
+    private string Signature(CustomLuaSlot slot) => slot.Lua switch
+    {
+        "setup" => T["CustomStratagem.Lua.Setup.Signature"],
+        "fields" => "hd2.custom_stratagem.register({ ...,",
+        _ => slot.Lua + "=function(ctx)  -- ctx: " + CustomScripting.CallClass,
+    };
+    public async ValueTask DisposeAsync()
+    {
+        if (Autosave != null) { Autosave.Dispose(); Autosave = null; if (Dirty) { try { await Save(Draft); } catch (Exception e) when (e is InvalidOperationException or ObjectDisposedException) { } } }
+        try { if (Mounted) await JS.InvokeVoidAsync("hd2LuaEditor.dispose", Host); } catch (JSDisconnectedException) { } catch (TaskCanceledException) { }
+        Self?.Dispose();
+    }
+}

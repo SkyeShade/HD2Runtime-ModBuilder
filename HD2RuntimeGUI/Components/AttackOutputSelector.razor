@@ -10,12 +10,25 @@
     var output = Workspace.AttackOutput(Weapon, Attack.Role);
     var classic = Workspace.Project!.ProjectileChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Attack.Role);
     var own = catalog.Own(Weapon);
+    // 1.7.0: one of the project's custom projectiles (experimental) instead; it replaces a vanilla choice and the other way round.
+    var customHost = CustomProjectileHost.Player(Weapon, Attack.Role);
+    var custom = Workspace.CustomAssignment(customHost);
+    var modified = output != null || classic != null || custom != null;
 }
-<div class="composition-control @(output != null || classic != null ? "modified" : "")" data-attack-output="@Attack.Role">
+<div class="composition-control @(modified ? "modified" : "")" data-attack-output="@Attack.Role">
     <div class="panel-heading"><h3>@T.Format("Projectile.Title", Attack.Role.Replace('_', ' '))</h3>
-        <span class="badge @(output != null || classic != null ? "modified-badge" : "")">@(output != null || classic != null ? T["Common.Modified"] : host != null ? T["Composition.Guarded"] : T["Common.ReadOnly"])</span></div>
-    <p class="@(output != null || classic != null ? "modified-value" : "subtle")" data-attack-fires>@T.Markup("AttackOutput.Fires.Html", output?.OutputName ?? (classic != null ? classic.ReplacementProjectile.Label : own?.Label ?? Weapon))
-        @if (output == null && classic == null) { <span class="subtle"> @T["AttackOutput.OwnProjectile"]</span> }</p>
+        <span class="badge @(modified ? "modified-badge" : "")">@(modified ? T["Common.Modified"] : host != null ? T["Composition.Guarded"] : T["Common.ReadOnly"])</span></div>
+    @if (custom != null)
+    {
+        <p class="modified-value" data-attack-fires data-attack-fires-custom="@custom.Projectile.Id">@T.Markup("AttackOutput.Fires.Html", Workspace.FindCustomProjectile(custom.Projectile.Id)?.Name ?? custom.Projectile.Id)
+            <span class="custom-chip">@T["CustomContent.Chip.Custom"] <code>@custom.Projectile.Id</code></span></p>
+    }
+    else
+    {
+        <p class="@(modified ? "modified-value" : "subtle")" data-attack-fires>@T.Markup("AttackOutput.Fires.Html", output?.OutputName ?? (classic != null ? classic.ReplacementProjectile.Label : own?.Label ?? Weapon))
+            @if (output == null && classic == null) { <span class="subtle"> @T["AttackOutput.OwnProjectile"]</span> }</p>
+        @if (output != null && catalog.Output(output.Output) is { IsDonor: true } donorRow) { <p class="donor-chosen"><DonorDetail Output="donorRow" /></p> }
+    }
     @if (source != null)
     {
         <details class="projectile-source" data-projectile-source="@source.Status"><summary>@T["AttackOutput.ActiveSource"] <span class="badge @(host != null ? "green" : "")">@source.Status.Replace('_', ' ').ToLowerInvariant()</span>
@@ -29,7 +42,12 @@
             }
         </details>
     }
-    @if (host == null) { <p class="notice" data-attack-output-readonly>@reason</p> }
+    @if (host == null)
+    {
+        <p class="notice" data-attack-output-readonly>@reason</p>
+        @* A custom projectile assigned before the source became read-only stays visible here, with its error, so it can be cleared. *@
+        @if (custom != null) { <CustomProjectileGroup Host="customHost" Changed="Changed" /> }
+    }
     else
     {
         @if (Pending is { } pending)
@@ -40,8 +58,13 @@
                     <button class="link-button" data-output-cancel @onclick="() => Pending = null">@T["Common.Cancel"]</button></div>
             </div>
         }
-        <ProjectileDonorList Host="host" Selected="@(output?.Output ?? (classic != null ? catalog.OwnedBy(classic.ReplacementProjectile.Weapon)?.SemanticId : null))" Busy="Busy" Choose="d => Choose(d, false)" />
-        @if (output != null || classic != null) { <button class="reset-action" data-attack-output-reset @onclick="Reset">@T["Projectile.Reset"]</button> }
+        @* One selector, two groups: the vanilla projectiles this attack can fire, and the project's custom projectiles. *@
+        <div class="projectile-picker" data-projectile-picker="@Attack.Role">
+            <div class="picker-group vanilla-group" data-vanilla-group><div class="picker-group-label">@T["ProjectilePicker.Vanilla"]</div>
+                <ProjectileDonorList Host="host" Selected="@(custom != null ? null : output?.Output ?? (classic != null ? catalog.OwnedBy(classic.ReplacementProjectile.Weapon)?.SemanticId : null))" Busy="Busy" Choose="d => Choose(d, false)" /></div>
+            <CustomProjectileGroup Host="customHost" Changed="Changed" />
+        </div>
+        @if (modified) { <button class="reset-action" data-attack-output-reset @onclick="Reset">@T["Projectile.Reset"]</button> }
         @if (output != null)
         {
             @if (Workspace.AttackOutputIssue(output) is { } issue) { <p class="notice warning" role="alert">@issue</p> }
@@ -63,11 +86,12 @@
     private sealed record PendingOutput(AttackOutputDonor Donor, int Edits);
     private PendingOutput? Pending; private string? Error; private bool Busy;
     // Why each opt-in applies to this pair, from the published catalog (ammunition sharing and effect, the cross-class rule).
+    // A 0.30.0 projectile donor needs both unverified opt-ins on every host because it is live-tested nowhere.
     private IReadOnlyDictionary<string, string> Reasons(AttackOutputHost host, AttackOutput? output) => new Dictionary<string, string>
     {
         ["allow_shared"] = host.Ammunition?.SharedReason ?? T["AttackOutput.Reason.Shared"],
-        ["allow_unverified_effect"] = host.Ammunition?.EffectReason ?? T["AttackOutput.Reason.Effect"],
-        ["allow_unverified_reference"] = T.Format("AttackOutput.Reason.CrossClass", host.Weapon, host.CompatibilityClass.Replace('_', ' '), output?.Label ?? T["AttackOutput.Reason.CrossClass.Donor"],
+        ["allow_unverified_effect"] = output is { IsDonor: true } ? T.Format("AttackOutput.Reason.Donor", output.Label) : host.Ammunition?.EffectReason ?? T["AttackOutput.Reason.Effect"],
+        ["allow_unverified_reference"] = output is { IsDonor: true } ? T.Format("AttackOutput.Reason.Donor", output.Label) : T.Format("AttackOutput.Reason.CrossClass", host.Weapon, host.CompatibilityClass.Replace('_', ' '), output?.Label ?? T["AttackOutput.Reason.CrossClass.Donor"],
             output?.CompatibilityClass?.Replace('_', ' ') ?? T["AttackOutput.Reason.CrossClass.Different"]),
     };
     private async Task Choose(AttackOutputDonor donor, bool discard)
@@ -86,6 +110,7 @@
     }
     private Task Reset() => Run(async () =>
     {
+        if (Workspace.CustomAssignment(Weapon, Attack.Role) != null) await Workspace.AssignCustomProjectileAsync(Weapon, Attack.Role, null);
         await Workspace.SetAttackOutputAsync(Weapon, Attack.Role, null);
         if (Workspace.Project!.ProjectileChanges.Any(c => c.Weapon == Weapon && c.AttackRole == Attack.Role)) await Workspace.SwapProjectileAsync(Weapon, Attack.Role, null, keepValues: false);
     });

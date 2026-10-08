@@ -83,21 +83,29 @@ public sealed class LuaGenerator(IChangeService changes) : ILuaGenerator
         if (project.AttackOutputChanges is { Count: > 0 }) operations.AddRange(AttackOutputChangeService.Operations(project, sdk));
         // Projectile-builder row writes (slots, mode label and icon) on hd2.attack_output(row): independent of any host swap.
         if (project.OutputRowChanges is { Count: > 0 }) operations.AddRange(OutputRowChangeService.Operations(project, sdk));
+        // Experimental custom content (format 14), compiled by its target adapter: its guarded writes (a custom projectile's carrier swap) join
+        // the generated operations and its registration section runs after them. Null for every project without custom content.
+        var customContent = CustomContent.CustomContentBuild.Compile(project, sdk, images: false);
+        if (customContent != null) operations.AddRange(customContent.Operations);
         operations.AddRange(supportLua.Operations(project, sdk, options));
         operations.AddRange(stratagemLua.Operations(project, sdk, options));
         operations.AddRange(entityLua.Operations(project, sdk, options));
+        // 0.30.0 armor (solo): the local player's armor values and passive override, calls the mod makes at load (ArmorPlayerLua).
+        operations.AddRange(ArmorPlayerLua.Operations(project, sdk));
         string prefix = "local hd2=require('mods/skyeshade/hd2runtime')\n\n";
         // One options page, its master toggle, then one handle per bound field, in registration (display) order.
         if (options != null) prefix += options.Header + "\n";
         var custom = CustomSource(project);
+        var section = customContent == null ? "" : "\n" + customContent.Section;
         if (custom == null)
         {
+            if (customContent != null) return prefix + Isolated(operations, "operations") + section + "return operations\n";
             if (operations.Count == 0) return prefix + "-- No enabled modifications.\nreturn {}\n";
             return prefix + Isolated(operations, "operations") + "return operations\n";
         }
         // Custom Lua (src/addon.lua) runs after the generated modifications are registered, as its own function so its locals and return
         // stay its own. Its text is copied exactly (line endings normalized to LF as the SDK builder does); ModBuilder never edits it.
-        var generated = operations.Count == 0 ? "local generated={}\n" : Isolated(operations, "generated");
+        var generated = (operations.Count == 0 ? "local generated={}\n" : Isolated(operations, "generated")) + section;
         return prefix + generated + "\n-- Custom Lua: " + Models.CustomLuaSettings.RelativePath + " (hand-written; ModBuilder copies it unchanged)\nlocal function addon(...)\n"
             + custom + (custom.EndsWith('\n') ? "" : "\n") + "end\naddon()\nreturn generated\n";
     }

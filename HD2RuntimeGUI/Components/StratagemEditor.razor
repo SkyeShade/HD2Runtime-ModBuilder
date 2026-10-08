@@ -24,7 +24,7 @@
         @if (graph.Definition.Length > 0)
         {
             <section class="panel" data-stratagem-branch="stratagem">
-                <div class="stat-grid">@foreach (var f in graph.Definition) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+                <StratagemDefinitionFields Stratagem="@Name" Fields="graph.Definition" ModifiedOnly="ModifiedOnly" Changed="Refresh" />
             </section>
         }
         @if (graph.EagleRearm.Length > 0)
@@ -52,6 +52,16 @@
                      Description="@(graph.Root.Family == "mine" ? T["Stratagem.Entity.Minefield"] : entity.Shield != null ? T["Stratagem.Entity.EmitterHelp"] : null)">
             <Editor Context="f"><StratagemFieldEditor @key="f.InstanceKey" Field="f" Label="@EntityStats.Label(f.SemanticFieldId)" Changed="Refresh" /></Editor>
             <ChildContent>
+                @* The entity's own components: a sentry's turret and targeting sensor, a minefield's thrower (deployed_entity():turret() ...). *@
+                @foreach (var component in entity.Components ?? [])
+                {
+                    <div class="entity-component" data-entity-component="@component.Key">
+                        <h3 class="group-title">@component.Title</h3>
+                        @if (component.Key == "targeting" && graph.Root.SentryFields?.Engagement is { ScoreCutoffMeters: double cutoff } engagement)
+                        { <p class="subtle" data-engagement-cap title="@engagement.Source">@T.Format("StratagemSentry.Engagement", cutoff.ToString("0.#", System.Globalization.CultureInfo.CurrentCulture))</p> }
+                        <div class="stat-grid">@foreach (var f in component.Fields) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
+                    </div>
+                }
                 @if (entity.Zones.Length > 0)
                 {
                     <div class="entity-zones" data-entity-zones="@entity.Entity">

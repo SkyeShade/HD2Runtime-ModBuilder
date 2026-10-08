@@ -1,0 +1,23 @@
+[
+ {
+  "key": "CustomStratagem.Field.MaxPerPlayer",
+  "en": "Per player",
+  "zh": "每名玩家上限"
+ },
+ {
+  "key": "CustomStratagem.MaxPerPlayer.Hint",
+  "en": "loadout slots each player may give it; empty: no limit",
+  "zh": "每名玩家可为其占用的配装栏位数；留空：不限"
+ },
+ {
+  "key": "CustomStratagem.Preview.NoLimit",
+  "en": "no limit",
+  "zh": "不限"
+ },
+ {
+  "key": "CustomStratagems.Card.MaxPerPlayer",
+  "en": "max {0} per player",
+  "zh": "每名玩家最多 {0} 个",
+  "comment": "{0}: loadout slots per player"
+ }
+]

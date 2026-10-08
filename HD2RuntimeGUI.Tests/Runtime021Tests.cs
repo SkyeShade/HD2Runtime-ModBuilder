@@ -156,12 +156,14 @@ public sealed class Runtime021Tests
         Assert.Equal(8, zip.Entries.Count); using var dependency = new StreamReader(zip.GetEntry("hd2runtime.json")!.Open()); Assert.Contains("0.21.0", dependency.ReadToEnd());
         var json = File.ReadAllText(e.Paths.ProjectFile(w.Project.Id)); Assert.Contains("\"targetKind\": \"stratagem\"", json); Assert.DoesNotContain("offset", json);
     }
+    // The published 0.28.1 release (a fixed release, independent of the bundled SDK).
     private static byte[] CurrentArchive(bool omitStratagem = false)
     {
-        var files = SdkCache.BundledComposition().Where(f => !omitStratagem || f.Key != StratagemCatalogReader.FileName).ToDictionary();
-        files.Add("metadata.json", SdkCache.BundledMetadata()); files.Add(PlayerWeaponCatalogReader.FileName, SdkCache.BundledCapabilities()); files.Add(PlayerWeaponAmmoCatalogReader.FileName, SdkCache.BundledAmmoCapabilities());
+        using var source = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.28.1.zip"));
         using var output = new MemoryStream();
-        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true)) foreach (var (name, bytes) in files) { using var stream = zip.CreateEntry(name).Open(); stream.Write(bytes); }
+        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
+            foreach (var entry in source.Entries.Where(x => !x.FullName.EndsWith('/') && (!omitStratagem || x.FullName != StratagemCatalogReader.FileName)))
+            { using var s = zip.CreateEntry(entry.FullName).Open(); using var input = entry.Open(); input.CopyTo(s); }
         return output.ToArray();
     }
     [Fact] public async Task Release_install_preserves_0201_pin_until_explicit_rebind()
@@ -171,17 +173,17 @@ public sealed class Runtime021Tests
         await w.CreateAsync(new("Pinned", "Tests", "mods/tests/pinned_0201", "0.1.0"), old);
         var f = old.SupportAuthoring!.FieldInstances.First(f => f.SupportWeapon == "APW-1 Anti-Materiel Rifle" && f.SemanticFieldId == "weapon.sway");
         await w.SetSupportAsync(f.InstanceKey, "0.5");
-        e.GitHub.Archive = CurrentArchive(); e.GitHub.Release = FakeGitHub.MakeRelease(SdkPin.Version, e.GitHub.Archive);
+        e.GitHub.Archive = CurrentArchive(); e.GitHub.Release = FakeGitHub.MakeRelease("0.28.1", e.GitHub.Archive);
         var status = await e.Updates.CheckAsync(); Assert.True(status.UpdateAvailable); Assert.True(status.VerifiedOnline);
         await e.Cache.InstallAsync(e.GitHub.Release); await w.OpenAsync(w.Project!.Id);
         Assert.Equal("0.20.1", w.Project!.SdkVersion); Assert.Null(w.Metadata!.Stratagems);
-        await w.RebindToInstalledSdkAsync(); Assert.Equal(SdkPin.Version, w.Project.SdkVersion); Assert.Equal(1606, w.Metadata!.Stratagems!.FieldInstances.Length);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.28.1", w.Project.SdkVersion); Assert.Equal(1606, w.Metadata!.Stratagems!.FieldInstances.Length);
         Assert.Equal("0.20.1", w.Project.SupportChanges.Single().BaselineSdkVersion); Assert.Null(w.BuildError);
     }
     [Fact] public async Task Missing_stratagem_artifact_preserves_installed_cache()
     {
         using var e = new TestEnvironment(); e.GitHub.Archive = CurrentArchive(true);
-        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease(SdkPin.Version, e.GitHub.Archive)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.28.1", e.GitHub.Archive)));
         Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);
     }
     [Fact] public void Unknown_stratagem_schema_rejects()

@@ -1,0 +1,22 @@
+@inject BuilderWorkspace Workspace
+@* The three weight classes as the armory shows them (RATING = 50 + 50 x A, SPEED = 500 x S, STAMINA REGEN = 100 x (2 - F)), with this project's class
+   edits and the damage multiplier the curve gives at each armor value. *@
+@{ var catalog = Workspace.ArmorCatalog; }
+@if (catalog != null && Classes != null && Curve != null)
+{
+    var classes = Classes; var curve = Curve;
+    <table class="armor-class-table" data-armor-class-table>
+        <thead><tr><th>@T["Armor.Table.Class"]</th><th>@T["Armor.Stat.Rating"]</th><th>@T["Armor.Stat.Speed"]</th><th>@T["Armor.Stat.Stamina"]</th><th>@T["Armor.Stat.Damage"]</th></tr></thead>
+        <tbody>@foreach (var c in catalog.Classes)
+        {
+            var v = classes[c.Name]; var changed = v != new ArmorMath.ClassValues(c.ArmorValue, c.SpeedFactor, c.StaminaFactor);
+            <tr class="@(changed ? "modified" : "")" data-armor-class-row="@c.Name"><td>@Armor.ClassLabel(T, c.Name)</td><td>@Armor.Number(50 + 50 * v.ArmorValue)</td><td>@Armor.Number(500 * v.SpeedFactor)</td>
+                <td>@Armor.Number(100 * (2 - v.StaminaFactor))</td><td>×@Armor.Number(ArmorMath.Curve(curve, v.ArmorValue), "0.###")</td></tr>
+        }</tbody>
+    </table>
+}
+@code {
+    // The project's class values and curve (BuilderWorkspace.ArmorClassValues / ArmorCurve), passed in so the table re-renders with every edit.
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, ArmorMath.ClassValues>? Classes { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<ArmorCurvePoint>? Curve { get; set; }
+}

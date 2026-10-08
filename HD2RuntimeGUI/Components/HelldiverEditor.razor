@@ -1,0 +1,107 @@
+@inject BuilderWorkspace Workspace
+@* The Helldiver type (hd2.helldiver(), 1.7.0, HD2Runtime 0.30.0 development): movement, stamina, damage taken and the six body zones. Every
+   control is a published field on the shared entity pipeline (EntityFieldEditor). The zones are a compact table; the selected zone's fields are
+   edited below it. ModifiedOnly (the Changes page) lists only the edited fields. *@
+@{ var catalog = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities?.Helldiver; }
+@if (catalog != null)
+{
+    var entity = catalog.Entity.ToArray();
+    var movement = entity.Where(f => f.SemanticFieldId.StartsWith("helldiver.speed.", StringComparison.Ordinal)).ToArray();
+    var stamina = entity.Where(f => f.SemanticFieldId.StartsWith("helldiver.stamina.", StringComparison.Ordinal)).ToArray();
+    var damage = entity.Except(movement).Except(stamina).ToArray();
+    @foreach (var (key, title, help, fields) in new[] { ("movement", T["Helldiver.Section.Movement"], T.Format("Helldiver.Section.Movement.Help", Number(catalog.SpeedCapMetersPerSecond)), movement),
+        ("stamina", T["Helldiver.Section.Stamina"], T["Helldiver.Section.Stamina.Help"], stamina), ("damage", T["Helldiver.Section.Damage"], T["Helldiver.Section.Damage.Help"], damage) })
+    {
+        var shown = fields.Where(f => !ModifiedOnly || IsSaved(f)).ToArray();
+        @if (shown.Length > 0)
+        {
+            <section class="panel category-panel cat-helldiver" data-helldiver-section="@key">
+                <div class="panel-heading"><h2>@title</h2><span class="badge">@fields.Length</span></div>
+                @if (!ModifiedOnly) { <p class="subtle">@help</p> }
+                <div class="stat-grid">@foreach (var f in shown) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" Changed="Refresh" /> }</div>
+            </section>
+        }
+    }
+    var zones = catalog.Target.Zones.OrderBy(z => z.Index).Where(z => !ModifiedOnly || catalog.Zone(z.Id).Any(IsSaved)).ToArray();
+    @if (zones.Length > 0)
+    {
+        <section class="panel category-panel cat-helldiver helldiver-zones" data-helldiver-section="zones">
+            <div class="panel-heading"><h2>@T["Helldiver.Section.Zones"]</h2><span class="badge">@catalog.Target.Zones.Length</span></div>
+            @if (ModifiedOnly)
+            {
+                @foreach (var z in zones)
+                {
+                    <div class="zone-detail" data-zone-detail="@z.Id"><h3 class="group-title">@ZoneLabel(z.Id)</h3>
+                        <div class="stat-grid">@foreach (var f in catalog.Zone(z.Id).Where(IsSaved)) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" EnumLabel="@(v => EnumLabel(catalog, f, v))" Changed="Refresh" /> }</div></div>
+                }
+            }
+            else
+            {
+                var columns = catalog.Zone(zones[0].Id).Select(f => f.SemanticFieldId).ToArray();
+                <p class="subtle">@T["Helldiver.Section.Zones.Help"]</p>
+                <div class="zone-table-wrap"><table class="zone-table helldiver-zone-table" data-zone-table>
+                    <thead><tr><th>@T["Helldiver.ZoneTable.Zone"]</th>@foreach (var id in columns) { <th title="@catalog.Zone(zones[0].Id).First(f => f.SemanticFieldId == id).DisplayName">@ColumnLabel(catalog, id)</th> }</tr></thead>
+                    <tbody>
+                        @foreach (var z in zones)
+                        {
+                            var zf = catalog.Zone(z.Id).ToArray(); var edited = zf.Count(IsSaved);
+                            <tr @key="z.Id" class="@(SelectedZone == z.Id ? "active" : "") @(edited > 0 ? "modified" : "")" data-zone="@z.Id" tabindex="0" @onclick="() => SelectedZone = z.Id" @onkeydown="e => SelectZoneKey(e, z.Id)">
+                                <td><strong>@ZoneLabel(z.Id)</strong>@if (edited > 0) { <span class="badge modified-badge">@edited</span> }</td>
+                                @foreach (var id in columns)
+                                {
+                                    var f = zf.FirstOrDefault(x => x.SemanticFieldId == id);
+                                    @if (f == null) { <td></td> }
+                                    else
+                                    {
+                                        var saved = Saved(f);
+                                        <td class="@(saved != null ? "modified-value" : "")" data-zone-value="@id" title="@(saved != null ? T.Format("EntityField.Base", Show(catalog, f, f.CurrentDefault)) : null)">@Show(catalog, f, saved?.DesiredValue ?? f.CurrentDefault)</td>
+                                    }
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table></div>
+                @if (Legend(catalog) is { Length: > 0 } legend) { <p class="subtle helldiver-legend" data-multiplier-legend>@legend</p> }
+                @if (zones.FirstOrDefault(z => z.Id == SelectedZone) is { } zone)
+                {
+                    <div class="zone-detail selected" data-zone-detail="@zone.Id">
+                        <h3 class="group-title">@ZoneLabel(zone.Id) <small class="subtle">@zone.Id</small></h3>
+                        <div class="stat-grid">@foreach (var f in catalog.Zone(zone.Id)) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="Tiers" EnumLabel="@(v => EnumLabel(catalog, f, v))" Changed="Refresh" /> }</div>
+                    </div>
+                }
+            }
+        </section>
+    }
+}
+@code {
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string SelectedZone = "head";
+    // Runtime's research grades, described in ModBuilder's words (the badge shows the short form).
+    private IReadOnlyDictionary<string, string> Tiers => new Dictionary<string, string> { ["CONFIRMED"] = T["Helldiver.Grade.Confirmed"], ["STRONG"] = T["Helldiver.Grade.Strong"] };
+    private EntityChange? Saved(EntityField f) => EntityChangeService.Saved(Workspace.Project, f) is { } c && !Workspace.OptionOnly(c) ? c : null;
+    private bool IsSaved(EntityField f) => EntityChangeService.Saved(Workspace.Project, f) != null;
+    private static string Number(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    // Zone ids are Runtime's; the six known ones get ModBuilder's names, any other shows as published.
+    public static string ZoneLabel(IUiText t, string zone) => zone switch
+    {
+        "head" => t["Helldiver.Zone.Head"], "body" => t["Helldiver.Zone.Body"], "arm_left" => t["Helldiver.Zone.ArmLeft"], "arm_right" => t["Helldiver.Zone.ArmRight"],
+        "leg_left" => t["Helldiver.Zone.LegLeft"], "leg_right" => t["Helldiver.Zone.LegRight"], _ => zone.Replace('_', ' '),
+    };
+    private string ZoneLabel(string zone) => ZoneLabel(T, zone);
+    private string ColumnLabel(HelldiverCatalog c, string id) => id switch
+    {
+        "zone.damage_multiplier" => T["Helldiver.ZoneTable.Multiplier"], "zone.damage_multiplier_dps" => T["Helldiver.ZoneTable.DamageOverTime"],
+        "zone.durable_resistance" => T["Helldiver.ZoneTable.Durable"], "zone.affects_main_health" => T["Helldiver.ZoneTable.ToMain"], "zone.health" => T["Helldiver.ZoneTable.Health"],
+        _ => c.FieldInstances.First(f => f.SemanticFieldId == id).DisplayName,
+    };
+    // An enum value reads as its published name and what it stands for: "reduced (×0.75)", "inherit (use the damage multiplier)".
+    private string EnumLabel(HelldiverCatalog c, EntityField f, string value) => c.Factor(f.SemanticFieldId, value) is double factor ? T.Format("Helldiver.Enum.Factor", value, Number(factor))
+        : value == "inherit" ? T.Format("Helldiver.Enum.Inherit", value) : value;
+    private static string Show(HelldiverCatalog c, EntityField f, System.Text.Json.JsonElement v)
+    { try { return EntityScalar.Text(f, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    private string Legend(HelldiverCatalog c) => c.Enums.Values.FirstOrDefault(e => e.Factors is { Count: > 0 }) is { Factors: { } factors } e
+        ? T.Format("Helldiver.Multipliers.Legend", string.Join(", ", e.Values.Where(factors.ContainsKey).Select(v => v + " ×" + Number(factors[v])))) : "";
+    private void SelectZoneKey(KeyboardEventArgs e, string zone) { if (e.Key is "Enter" or " ") SelectedZone = zone; }
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+}

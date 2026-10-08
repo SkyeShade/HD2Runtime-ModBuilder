@@ -29,14 +29,20 @@
                 @if (swap is { Swappable: true } && !ModifiedOnly) { <details class="mount-swap"><summary>@T["VehicleWeapon.Swap"]</summary><MountEditor Mount="swap" Vehicle="@Vehicle" Changed="Refresh" /></details> }
                 @* 0.28.0: the projectile this mount fires (a unified projectile host) is swapped here, not edited as a field row. *@
                 <ProjectileHostSwaps Kind="@AttackOutputChange.VehicleHost" Owner="@m.Weapon.Key" Exact="true" ModifiedOnly="ModifiedOnly" Changed="Refresh" />
+                @* 0.30.0 turret motion (published in the mount's own group) is its own section right after it, with its limit pairs. *@
+                var turret = (m.Weapon.FieldGroups.GetValueOrDefault("local") ?? []).Select(k => byKey[k]).Where(f => weapons.Published[f.InstanceKey].IsMountedTurretMotion).ToArray();
                 @foreach (var group in Groups.Where(m.Weapon.FieldGroups.ContainsKey).Concat(m.Weapon.FieldGroups.Keys.Where(g => !Groups.Contains(g)).Order(StringComparer.Ordinal)))
                 {
-                    var fields = (m.Weapon.FieldGroups.GetValueOrDefault(group) ?? []).Select(k => byKey[k]).Where(Show).Where(f => !(sdk?.AttackOutputs != null && f.Type == "projectile_reference")).ToArray();
-                    if (fields.Length == 0) continue;
+                    var fields = (m.Weapon.FieldGroups.GetValueOrDefault(group) ?? []).Select(k => byKey[k]).Where(Show).Where(f => !(sdk?.AttackOutputs != null && f.Type == "projectile_reference"))
+                        .Where(f => !(group == "local" && turret.Contains(f))).ToArray();
+                    if (fields.Length == 0) { if (group == "local") { <TurretMotionEditor Fields="turret" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> } continue; }
                     var published = fields.Select(f => weapons.Published[f.InstanceKey]).ToArray();
                     <div class="vehicle-weapon-group" data-vehicle-weapon-group="@group">
                         <h3 class="group-title">@GroupTitle(group) <span class="subtle scope-line" data-scope-line>@ScopeLine(published)</span></h3>
                         <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@FieldLabel(f)" Tiers="VehicleWeaponCatalog.Tiers" Changed="Refresh" /> }</div>
+                        @* 0.30.0 (docs/diagnostics.md, "Unlisted sharing"): a row a player weapon also uses (the AX/FLAM-75 Hot Dog gun's damage is the FLAM-66 Torcher's). *@
+                        @if (!ModifiedOnly && published.SelectMany(f => f.OtherConsumers).Distinct().Where(o => Workspace.Metadata?.PlayerWeapons?.Find(o) != null).ToArray() is { Length: > 0 } players)
+                        { <p class="notice" data-unlisted-sharing>@T.Format("VehicleWeapon.UnlistedSharing", string.Join(", ", players))</p> }
                         @if (!ModifiedOnly && fields.Any(f => f.IsStatusReference && f.Editable)) { <p class="subtle" data-status-help>@T["VehicleWeapon.Status.Help"]</p> }
                         @foreach (var slot in StrengthlessStatuses(fields))
                         { <p class="notice" data-status-strength-hint="@slot">@T.Format("VehicleWeapon.Status.StrengthHint", slot)</p> }
@@ -48,6 +54,7 @@
                                 PanelAttributes='@(new() { ["data-vehicle-shared-scope"] = p.Scope })' />
                         }
                     </div>
+                    @if (group == "local") { <TurretMotionEditor Fields="turret" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> }
                 }
                 var unverified = keys.Where(k => EntityChangeService.Saved(Workspace.Project, byKey[k]) is { } c && EntityScalar.AcknowledgementRequired(byKey[k], c.DesiredValue)).ToArray();
                 @if (unverified.Length > 0)

@@ -1,0 +1,239 @@
+[
+ {
+  "key": "EntityChanges.Part.Tuning",
+  "en": "Handling",
+  "zh": "操控",
+  "comment": "Summary item: the vehicle has handling (motion tuning) changes"
+ },
+ {
+  "key": "EntityField.Disabled",
+  "en": "Disabled",
+  "zh": "已禁用",
+  "comment": "Checkbox next to a number field whose published disabled value switches the feature off."
+ },
+ {
+  "key": "EntityField.Disabled.Gib",
+  "en": "Disable bursting",
+  "zh": "禁用爆裂",
+  "comment": "Checkbox on the enemy whole-body gib threshold: the enemy never bursts into gibs (writes -1)."
+ },
+ {
+  "key": "EntityField.Disabled.Tooltip",
+  "en": "Writes {0}, the value that switches this off.",
+  "zh": "写入 {0}，即关闭此功能的值。",
+  "comment": "{0}: the published disabled value (for example -1)."
+ },
+ {
+  "key": "EntityField.Notice.Dormant",
+  "en": "Not read here (dormant): {0}",
+  "zh": "此处不读取（休眠）：{0}",
+  "comment": "{0}: Runtime's published note (English) explaining why this entity never reads the field. Informational only."
+ },
+ {
+  "key": "Enemy.Gore.Badge",
+  "en": "Gore record",
+  "zh": "血肉记录",
+  "comment": "Badge on the enemy gibbing section: the class's own GoreComponent record."
+ },
+ {
+  "key": "Enemy.Gore.Help",
+  "en": "The damage of a killing hit at or above which this enemy bursts into gibs, after armor and zone multipliers (Electricity counts double). Tick “Disable bursting” to switch it off.",
+  "zh": "致命一击的伤害达到或超过此值时，该敌人会炸裂成碎块（按护甲和部位倍率计算后；电击伤害按两倍计）。勾选“禁用爆裂”可将其关闭。"
+ },
+ {
+  "key": "Enemy.Gore.Live",
+  "en": "Read at hit time: a change also applies to enemies of this class that are already alive.",
+  "zh": "在命中时读取：修改也会作用于该类别中已存活的敌人。"
+ },
+ {
+  "key": "Enemy.Gore.Title",
+  "en": "Gibbing",
+  "zh": "爆裂",
+  "comment": "Enemy editor section: the whole-body gib (burst) threshold."
+ },
+ {
+  "key": "Enemy.Tier.NativeCodeProven",
+  "en": "The native code that reads the value is pinned, and the class's own gore record is re-proven before every write; the effect is not confirmed in game.",
+  "zh": "读取该值的原生代码已确定，且每次写入前都会重新验证该类别自身的血肉记录；效果尚未经实机确认。"
+ },
+ {
+  "key": "Evidence.Short.NativeCode",
+  "en": "Native code",
+  "zh": "原生代码",
+  "comment": "Compact evidence badge for the 0.30 tiers native_consumer_proven / native_code_proven."
+ },
+ {
+  "key": "Evidence.Tier.NativeCodeProven",
+  "en": "Native code pinned · effect unproven",
+  "zh": "原生代码已确定 · 效果未证实"
+ },
+ {
+  "key": "Evidence.Tier.NativeConsumerProven",
+  "en": "Native reader traced · effect unproven",
+  "zh": "原生读取已追踪 · 效果未证实"
+ },
+ {
+  "key": "Messages.Build.Entity.LimitOrder",
+  "en": "{0} ({1}) must stay below {2} ({3}): HD2Runtime refuses crossed limits (TURRET_LIMIT_ORDER). Put the pair back in order where it is edited.",
+  "zh": "{0}（{1}）必须低于 {2}（{3}）：HD2Runtime 会拒绝交叉的限制（TURRET_LIMIT_ORDER）。请在编辑处恢复这对限制的顺序。",
+  "comment": "{0}: lower limit field name; {1}: its value; {2}: upper limit field name; {3}: its value."
+ },
+ {
+  "key": "Movement.LaunchThrust",
+  "en": "Launch thrust",
+  "zh": "起飞推力",
+  "comment": "Label of jump.vertical_launch_velocity (an acceleration in m/s², shown for every SDK)."
+ },
+ {
+  "key": "Movement.LaunchThrust.Renamed",
+  "en": "This SDK calls it “{0}”, in metres per second. HD2Runtime 0.30 corrected the unit: it is a thrust in m/s². The stored value is the same.",
+  "zh": "此 SDK 将其称为“{0}”，单位为米/秒。HD2Runtime 0.30 更正了单位：它是以 m/s² 计的推力。存储的值不变。",
+  "comment": "{0}: the name the bound (older) SDK publishes for jump.vertical_launch_velocity."
+ },
+ {
+  "key": "Movement.Live",
+  "en": "Read live every frame: a change takes effect on the next frame, even on a pack that is already worn and in flight.",
+  "zh": "每帧实时读取：修改在下一帧生效，即使背包已在穿戴并处于飞行中。"
+ },
+ {
+  "key": "Movement.Phase.AirControl",
+  "en": "Air control",
+  "zh": "空中操控"
+ },
+ {
+  "key": "Movement.Phase.AirControl.Help",
+  "en": "Acceleration from your movement input in the air, while your horizontal speed is below the limit (on the Hover Pack: the hover horizontal speed).",
+  "zh": "空中时由移动输入产生的加速度，在水平速度低于上限时生效（悬停背包使用悬停水平速度作为上限）。"
+ },
+ {
+  "key": "Movement.Phase.Hover",
+  "en": "Hover",
+  "zh": "悬停"
+ },
+ {
+  "key": "Movement.Phase.Hover.Help",
+  "en": "While hovering, the pack moves you toward your input at up to the hover speeds. The vertical acceleration blends from the low-speed value to the high-speed value over the blend range. Each second of hovering fills the recharge meter by one second plus the extra fuel use; the pack shuts off when the meter is full.",
+  "zh": "悬停时，背包会以不超过悬停速度的速度把你推向输入方向。垂直加速度在混合范围内从低速值过渡到高速值。每悬停一秒，充能计量增加一秒加上额外燃料消耗；计量满时背包关闭。"
+ },
+ {
+  "key": "Movement.Phase.Launch",
+  "en": "Launch",
+  "zh": "起飞"
+ },
+ {
+  "key": "Movement.Phase.Launch.Help",
+  "en": "The first boost: for the launch duration the thrust pushes you, its forward share along your direction of travel and the rest upward.",
+  "zh": "第一段推进：在起飞持续时间内推力推动你，其中前向占比沿行进方向，其余向上。"
+ },
+ {
+  "key": "Movement.Phase.Other",
+  "en": "Other",
+  "zh": "其他"
+ },
+ {
+  "key": "Movement.Phase.Sustain",
+  "en": "Sustain",
+  "zh": "持续推进"
+ },
+ {
+  "key": "Movement.Phase.Sustain.Help",
+  "en": "The push after the launch: once your speed reaches the start speed (on the Jump Pack, not before the earliest start), the sustain thrust pushes for its duration. The pack cuts out when the speed falls below the cut-off speed.",
+  "zh": "起飞后的推进：当速度达到起始速度时（跳跃背包还需不早于最早开始时间），持续推力在其持续时间内推动你。速度低于截止速度时背包熄火。"
+ },
+ {
+  "key": "Movement.Phase.Takeoff",
+  "en": "Take-off hop",
+  "zh": "起跳"
+ },
+ {
+  "key": "Movement.Phase.Takeoff.Help",
+  "en": "The hop when the pack fires: an upward impulse (a separate one in the alternate stance) and, while moving, a forward impulse.",
+  "zh": "背包启动时的起跳：一个向上的冲量（替代姿态下使用单独的值），移动时另加一个向前的冲量。"
+ },
+ {
+  "key": "TurretMotion.Help",
+  "en": "How fast this mount's turret turns and how far it can aim. Each lower limit must stay below its upper limit.",
+  "zh": "此挂载炮塔的转动速度和瞄准范围。每个下限都必须低于其上限。"
+ },
+ {
+  "key": "TurretMotion.Order.FixLead",
+  "en": "Put the limits back in order:",
+  "zh": "恢复限制的顺序："
+ },
+ {
+  "key": "TurretMotion.Order.Help",
+  "en": "HD2Runtime refuses an operation that leaves a lower limit at or above its upper limit (TURRET_LIMIT_ORDER). If you keep the value, both limits report it and the build waits until the pair is in order again.",
+  "zh": "如果某个下限等于或高于其上限，HD2Runtime 会拒绝该操作（TURRET_LIMIT_ORDER）。如果保留此值，两项限制都会提示该问题，且在恢复顺序前无法构建。"
+ },
+ {
+  "key": "TurretMotion.Order.Keep",
+  "en": "Keep {0}° and fix the other limit next",
+  "zh": "保留 {0}°，接着修改另一项限制",
+  "comment": "{0}: the typed angle in degrees."
+ },
+ {
+  "key": "TurretMotion.Order.NotAbove",
+  "en": "{0} {1}° would not be above {2} ({3}°).",
+  "zh": "{0} {1}° 将不高于 {2}（{3}°）。",
+  "comment": "{0}: the edited upper limit's name; {1}: the typed value; {2}: the lower limit's name; {3}: its value."
+ },
+ {
+  "key": "TurretMotion.Order.NotBelow",
+  "en": "{0} {1}° would not be below {2} ({3}°).",
+  "zh": "{0} {1}° 将不低于 {2}（{3}°）。",
+  "comment": "{0}: the edited lower limit's name; {1}: the typed value; {2}: the upper limit's name; {3}: its value."
+ },
+ {
+  "key": "TurretMotion.Order.Reset",
+  "en": "Reset {0} to vanilla ({1}°)",
+  "zh": "将{0}重置为原版值（{1}°）",
+  "comment": "{0}: limit name; {1}: its vanilla value in degrees."
+ },
+ {
+  "key": "TurretMotion.Order.Swap",
+  "en": "Swap them: {0} {1}°, {2} {3}°",
+  "zh": "交换：{0} {1}°，{2} {3}°",
+  "comment": "{0}: lower limit name; {1}: its new value; {2}: upper limit name; {3}: its new value (degrees)."
+ },
+ {
+  "key": "TurretMotion.Pair.Other",
+  "en": "{0} / {1}",
+  "zh": "{0} / {1}",
+  "comment": "{0}, {1}: the two published field names of an ordered pair."
+ },
+ {
+  "key": "TurretMotion.Pair.Pitch",
+  "en": "Vertical aim limits",
+  "zh": "垂直瞄准限制"
+ },
+ {
+  "key": "TurretMotion.Pair.Yaw",
+  "en": "Horizontal traverse limits",
+  "zh": "水平回转限制"
+ },
+ {
+  "key": "TurretMotion.Title",
+  "en": "Turret motion",
+  "zh": "炮塔运动"
+ },
+ {
+  "key": "Vehicle.Tuning.Help.Exosuit",
+  "en": "How the Exosuit body turns: its turn rate, and how quickly a turn ramps up and slows down (0 starts and stops at the full rate at once).",
+  "zh": "外骨骼机体的转向方式：转向速率，以及转向加速和减速的快慢（0 表示立即以全速开始和停止）。"
+ },
+ {
+  "key": "Vehicle.Tuning.Help.Steering",
+  "en": "How fast the steering follows the driver's input, in input units per second: higher values reach full lock sooner.",
+  "zh": "转向跟随驾驶员输入的速度，单位为每秒输入单位：值越高，越快打满方向。"
+ },
+ {
+  "key": "Vehicle.Tuning.Title",
+  "en": "Handling",
+  "zh": "操控"
+ },
+ {
+  "key": "Vehicle.Tuning.Unverified.Title",
+  "en": "Handling effect not gameplay-confirmed",
+  "zh": "操控效果未经实机确认"
+ }
+]

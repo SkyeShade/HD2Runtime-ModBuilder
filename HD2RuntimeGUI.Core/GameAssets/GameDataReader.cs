@@ -11,7 +11,8 @@ namespace HD2RuntimeGUI.Core.GameAssets;
 public sealed class GameDataReader
 {
     public readonly record struct ResourceId(ulong Name, ulong Type);
-    private sealed record Locus(ulong ArchiveId, ulong Offset, uint Size);
+    // Where a resource part lives: its archive, offset and size (main part in the archive, GPU part in its .gpu_resources companion).
+    public sealed record Locus(ulong ArchiveId, ulong Offset, uint Size);
     private sealed record Chunk(ulong UncompressedOffset, ulong CompressedOffset, uint UncompressedSize, uint CompressedSize, byte Compression);
     private sealed record Bundle(string File, Chunk[] Chunks);
     private sealed record Entry(uint ArchiveOffset, uint BundleOffset, byte BundleIndex);
@@ -20,6 +21,7 @@ public sealed class GameDataReader
     private readonly string dataDir;
     private readonly bool slim;
     private readonly Dictionary<ulong, ArchiveItem> slimArchives = [];
+    private readonly Dictionary<ulong, ArchiveItem> slimGpu = [];
     private readonly Dictionary<ulong, Bundle> singleBundles = [];
     private Bundle[] bundles = [];
     private GameDataReader(string dataDir, bool slim) { this.dataDir = dataDir; this.slim = slim; }
@@ -37,17 +39,43 @@ public sealed class GameDataReader
     }
 
     // Finds and reads the main part of each requested resource. Archive tables are scanned until all are found.
-    public IReadOnlyDictionary<ResourceId, byte[]> ReadMain(IReadOnlyCollection<ResourceId> wanted, CancellationToken ct = default)
+    public IReadOnlyDictionary<ResourceId, byte[]> ReadMain(IReadOnlyCollection<ResourceId> wanted, CancellationToken ct = default) =>
+        Find(wanted, ct).ToDictionary(p => p.Key, p => Read(p.Value.Main));
+    // Main and GPU part of each requested resource (hd2_game_data.Data.find/read): the GPU part lives at its own offset in the
+    // archive's <archive>.gpu_resources companion; no companion or a zero size reads as empty, as in the SDK.
+    public IReadOnlyDictionary<ResourceId, (byte[] Main, byte[] Gpu)> ReadParts(IReadOnlyCollection<ResourceId> wanted, CancellationToken ct = default) =>
+        Find(wanted, ct).ToDictionary(p => p.Key, p => (Read(p.Value.Main), ReadGpu(p.Value.Gpu)));
+    // Every resource of the given types in every archive (the HUD texture atlases and their page textures); the first archive that has a
+    // resource wins, as in Find. Parts are read on demand with Read / ReadGpu.
+    public IReadOnlyDictionary<ResourceId, (Locus Main, Locus Gpu)> FindByType(IReadOnlySet<ulong> types, CancellationToken ct = default)
     {
-        var found = new Dictionary<ResourceId, Locus>();
+        var found = new Dictionary<ResourceId, (Locus, Locus)>();
         foreach (var (archiveId, table) in ArchiveTables())
         {
             ct.ThrowIfCancellationRequested();
-            foreach (var (id, locus) in Toc(archiveId, table))
-                if (wanted.Contains(id) && !found.ContainsKey(id)) found[id] = locus;
+            foreach (var (id, main, gpu) in Toc(archiveId, table))
+                if (types.Contains(id.Type)) found.TryAdd(id, (main, gpu));
+        }
+        return found;
+    }
+    // A byte range of a GPU part (a sprite's rows of an atlas page), so a large page is never read whole.
+    public byte[] ReadGpu(Locus gpu, long offset, int length)
+    {
+        if (offset < 0 || length < 0 || offset + length > gpu.Size) throw new InvalidDataException("Texture pixels end early.");
+        var bytes = length == 0 ? [] : ReadGpu(gpu with { Offset = gpu.Offset + (ulong)offset, Size = (uint)length });
+        return bytes.Length == length ? bytes : throw new InvalidDataException("Texture pixels end early.");
+    }
+    private Dictionary<ResourceId, (Locus Main, Locus Gpu)> Find(IReadOnlyCollection<ResourceId> wanted, CancellationToken ct)
+    {
+        var found = new Dictionary<ResourceId, (Locus, Locus)>();
+        foreach (var (archiveId, table) in ArchiveTables())
+        {
+            ct.ThrowIfCancellationRequested();
+            foreach (var (id, main, gpu) in Toc(archiveId, table))
+                if (wanted.Contains(id) && !found.ContainsKey(id)) found[id] = (main, gpu);
             if (found.Count == wanted.Count) break;
         }
-        return found.ToDictionary(p => p.Key, p => Read(p.Value));
+        return found;
     }
 
     private IEnumerable<(ulong Id, byte[] Table)> ArchiveTables()
@@ -78,7 +106,7 @@ public sealed class GameDataReader
     }
     private static long TableSize(byte[] header) =>
         72L + 32L * BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(4)) + 80L * BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(8));
-    private static IEnumerable<(ResourceId, Locus)> Toc(ulong archiveId, byte[] table)
+    private static IEnumerable<(ResourceId, Locus, Locus)> Toc(ulong archiveId, byte[] table)
     {
         if (table.Length < 72 || BinaryPrimitives.ReadUInt32LittleEndian(table) != 0xF0000011) yield break;
         var types = BinaryPrimitives.ReadUInt32LittleEndian(table.AsSpan(4)); var files = BinaryPrimitives.ReadUInt32LittleEndian(table.AsSpan(8));
@@ -88,10 +116,11 @@ public sealed class GameDataReader
             var e = table.AsSpan((int)(start + 80 * i), 80);
             // FileData: name, type, offsets[main, stream, gpu], main/gpu buffer offsets, sizes[main, stream, gpu], alignments, index.
             yield return (new(BinaryPrimitives.ReadUInt64LittleEndian(e), BinaryPrimitives.ReadUInt64LittleEndian(e[8..])),
-                new(archiveId, BinaryPrimitives.ReadUInt64LittleEndian(e[16..]), BinaryPrimitives.ReadUInt32LittleEndian(e[56..])));
+                new(archiveId, BinaryPrimitives.ReadUInt64LittleEndian(e[16..]), BinaryPrimitives.ReadUInt32LittleEndian(e[56..])),
+                new(archiveId, BinaryPrimitives.ReadUInt64LittleEndian(e[32..]), BinaryPrimitives.ReadUInt32LittleEndian(e[64..])));
         }
     }
-    private byte[] Read(Locus l)
+    public byte[] Read(Locus l)
     {
         if (l.Size > MaxResourceBytes) throw new InvalidDataException("Game resource is too large.");
         if (!slim)
@@ -121,6 +150,63 @@ public sealed class GameDataReader
         }
         return output.GetBuffer().AsSpan(0, (int)l.Size).ToArray();
     }
+    // A GPU part need not start on a bundle chunk (GPU parts are 64-byte aligned inside large chunks), so it is read as any
+    // byte range of the companion (hd2_game_data.Data.item_bytes): fat edition a plain file, slim edition a .gpu_resources
+    // index item, or a loose DSAR companion beside a loose bundle.
+    private byte[] ReadGpu(Locus l)
+    {
+        if (l.Size == 0) return [];
+        if (l.Size > MaxResourceBytes) throw new InvalidDataException("Game resource is too large.");
+        var file = Path.Combine(dataDir, l.ArchiveId.ToString("x16") + ".gpu_resources");
+        var output = new byte[l.Size]; ulong filled;
+        if (!slim || (!slimGpu.ContainsKey(l.ArchiveId) && File.Exists(file) && !IsDsar(file)))
+        {
+            if (!File.Exists(file)) return [];
+            using var stream = File.OpenRead(file);
+            if ((ulong)stream.Length < l.Offset + l.Size) throw new InvalidDataException("Resource is outside its archive.");
+            stream.Position = (long)l.Offset; stream.ReadExactly(output); return output;
+        }
+        if (slimGpu.TryGetValue(l.ArchiveId, out var item))
+        {
+            if (l.Offset + l.Size > item.Size) throw new InvalidDataException("Resource is outside its archive.");
+            filled = 0;
+            for (var i = 0; i < item.Entries.Length; i++)
+            {
+                var entry = item.Entries[i]; var stop = i + 1 < item.Entries.Length ? item.Entries[i + 1].ArchiveOffset : item.Size;
+                if (stop <= l.Offset || entry.ArchiveOffset >= l.Offset + l.Size) continue;
+                var bundle = bundles[entry.BundleIndex];
+                var chunk = Array.FindIndex(bundle.Chunks, c => c.UncompressedOffset == entry.BundleOffset);
+                if (chunk < 0) throw new InvalidDataException("Bundle chunk not found.");
+                filled += CopyRange(bundle, chunk, entry.ArchiveOffset, stop, l, output);
+            }
+        }
+        else if (File.Exists(file)) filled = CopyRange(new(file, LoadDsar(file)), 0, 0, ulong.MaxValue, l, output);
+        else return [];
+        if (filled != l.Size) throw new InvalidDataException("Resource is outside its archive.");
+        return output;
+    }
+    // Copies the part of [l.Offset, l.Offset + l.Size) held by the chunks from 'chunk' on, which start at archive offset 'at';
+    // chunks before the range are skipped by their size, without decompressing them.
+    private static ulong CopyRange(Bundle bundle, int chunk, ulong at, ulong stop, Locus l, byte[] output)
+    {
+        ulong copied = 0, end = l.Offset + l.Size;
+        for (; at < stop && at < end && chunk < bundle.Chunks.Length; chunk++)
+        {
+            var c = bundle.Chunks[chunk]; var next = at + c.UncompressedSize;
+            if (next > l.Offset)
+            {
+                var bytes = ReadChunk(bundle.File, c); ulong lo = Math.Max(at, l.Offset), hi = Math.Min(next, end);
+                bytes.AsSpan((int)(lo - at), (int)(hi - lo)).CopyTo(output.AsSpan((int)(lo - l.Offset))); copied += hi - lo;
+            }
+            at = next;
+        }
+        return copied;
+    }
+    private static bool IsDsar(string file)
+    {
+        using var stream = File.OpenRead(file); var magic = new byte[4];
+        return stream.Read(magic) == 4 && Encoding.ASCII.GetString(magic) == "DSAR";
+    }
 
     private void LoadSlimIndex()
     {
@@ -141,14 +227,15 @@ public sealed class GameDataReader
         foreach (var (size, nameOffset, count, entriesOffset) in items)
         {
             var name = CString(d, nameOffset);
-            // Only main archives carry tables; .stream / .gpu_resources parts are not needed for UI resources.
-            if (Path.GetExtension(name) != "" || ParseId(name) is not { } id || count == 0) continue;
+            // Main archives carry the tables; a .gpu_resources companion is kept for GPU parts (ReadParts); .stream is never read.
+            var gpu = name.EndsWith(".gpu_resources", StringComparison.Ordinal);
+            if ((Path.GetExtension(name) != "" && !gpu) || ParseId(gpu ? name[..^".gpu_resources".Length] : name) is not { } id || count == 0) continue;
             var entries = Enumerable.Range(0, (int)count).Select(i =>
             {
                 var e = d.AsSpan((int)entriesOffset + 16 * i, 16);
                 return new Entry(BinaryPrimitives.ReadUInt32LittleEndian(e), BinaryPrimitives.ReadUInt32LittleEndian(e[8..]), e[15]);
             }).ToArray();
-            slimArchives[id] = new(size, name, entries);
+            (gpu ? slimGpu : slimArchives)[id] = new(size, name, entries);
         }
         foreach (var file in Directory.EnumerateFiles(dataDir).Where(f => Path.GetExtension(f) == "").Order(StringComparer.Ordinal))
             if (ParseId(Path.GetFileName(file)) is { } id && !slimArchives.ContainsKey(id)) singleBundles[id] = new(file, LoadDsar(file));

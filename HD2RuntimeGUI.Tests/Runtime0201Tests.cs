@@ -143,12 +143,14 @@ public sealed class Runtime0201Tests
         }
         Assert.Throws<InvalidDataException>(() => new SupportAuthoringReader().Read(Encoding.UTF8.GetBytes(node.ToJsonString()), "0.27.0"));
     }
+    // The published 0.28.1 release (a fixed release, independent of the bundled SDK).
     private static byte[] Archive(bool omitSupport = false)
     {
-        var files = SdkCache.BundledComposition().Where(f => !omitSupport || f.Key != SupportAuthoringReader.FileName).ToDictionary();
-        files.Add("metadata.json", SdkCache.BundledMetadata()); files.Add(PlayerWeaponCatalogReader.FileName, SdkCache.BundledCapabilities()); files.Add(PlayerWeaponAmmoCatalogReader.FileName, SdkCache.BundledAmmoCapabilities());
-        using var output = new MemoryStream(); using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
-            foreach (var (name, bytes) in files) { using var s = zip.CreateEntry(name).Open(); s.Write(bytes); }
+        using var source = ZipFile.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sdk-0.28.1.zip"));
+        using var output = new MemoryStream();
+        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
+            foreach (var entry in source.Entries.Where(x => !x.FullName.EndsWith('/') && (!omitSupport || x.FullName != SupportAuthoringReader.FileName)))
+            { using var s = zip.CreateEntry(entry.FullName).Open(); using var input = entry.Open(); input.CopyTo(s); }
         return output.ToArray();
     }
     [Fact] public async Task SDK_install_rebind_preserves_019_pin_until_explicit_action()
@@ -157,15 +159,15 @@ public sealed class Runtime0201Tests
         var old = await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.19.0", e.GitHub.Archive)); var w = e.Workspace();
         await w.CreateAsync(new("Old project", "Tests", "mods/tests/old_support", "0.1.0"), old);
         await w.SetWeaponChangeAsync("AR-23C Liberator Concussive", "weapon.fire_rate", "1100", false);
-        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease(SdkPin.Version, e.GitHub.Archive));
+        e.GitHub.Archive = Archive(); await e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.28.1", e.GitHub.Archive));
         await w.OpenAsync(w.Project!.Id); Assert.Equal("0.19.0", w.Project!.SdkVersion); Assert.Null(w.Metadata!.SupportAuthoring);
-        await w.RebindToInstalledSdkAsync(); Assert.Equal(SdkPin.Version, w.Project.SdkVersion); Assert.Equal(1358, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
+        await w.RebindToInstalledSdkAsync(); Assert.Equal("0.28.1", w.Project.SdkVersion); Assert.Equal(1358, w.Metadata!.SupportAuthoring!.FieldInstances.Length);
         Assert.Equal("0.19.0", w.Project.WeaponChanges.Single().BaselineSdkVersion); Assert.Null(w.BuildError);
     }
     [Fact] public async Task Missing_canonical_artifact_preserves_previous_install()
     {
         using var e = new TestEnvironment(); e.GitHub.Archive = Archive(true);
-        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease(SdkPin.Version, e.GitHub.Archive)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => e.Cache.InstallAsync(FakeGitHub.MakeRelease("0.28.1", e.GitHub.Archive)));
         Assert.Equal("0.5.1", (await e.Cache.GetCurrentAsync()).Version);
     }
     [Fact] public async Task Reused_player_artifacts_allow_only_verified_exact_bytes()

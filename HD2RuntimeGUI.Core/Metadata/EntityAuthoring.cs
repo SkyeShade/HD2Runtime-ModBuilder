@@ -23,12 +23,16 @@ public sealed record EntityTarget(string Resource, string Path, string? Vehicle 
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? EnemyClass = null,
     // 0.28.0: an entity a backpack deploys or projects ("drone" for Guard Dogs, "energy_shield" for the SH-51), reached through the
     // backpack (hd2.backpack(name):drone()). Fields on it target path "linked" or its own damage zones.
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Linked = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Linked = null,
+    // 1.7.0 (Runtime 0.30.0 development): the Helldiver type, hd2.helldiver() ("Helldiver"); its zone fields also set Zone.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Helldiver = null,
+    // 0.30.0 armor (hd2.armor_stats): the armor kit id (8 hex digits), the weight class (light / medium / heavy) or "damage_curve".
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Armor = null)
 {
     // Vehicle or backpack name, the magazine attachment semantic ID (weapon_attachment, 0.23.1+), the booster name (booster, 0.24.0+),
     // the vehicle weapon key (vehicle_weapon, 0.26.0), the rack name (pod_rack, 0.26.0), the throwable name (0.27.0) or the enemy
     // class semantic ID (enemy / structure).
-    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? Throwable ?? Enemy ?? "";
+    [JsonIgnore] public string Entity => Vehicle ?? Backpack ?? Attachment ?? Booster ?? Weapon ?? Rack ?? Throwable ?? Enemy ?? Helldiver ?? Armor ?? "";
 }
 // Whether a write takes effect (unreleased Runtime 0.28.0 development SDKs): the active source status, when it applies, and for a dormant
 // member the field that is active instead.
@@ -36,19 +40,30 @@ public sealed record FieldEffect(string? ActiveSource = null, bool? ActiveSource
     string? ActiveField = null, string? DamageRule = null, string? Reason = null,
     // 0.28.0 backpack settings: when an edit reaches an entity (for example "apply before the backpack is called in") and which part of a
     // backpack a field binds (the SH-51 "backpack body", not its energy barrier). Shown as published.
-    string? Lifecycle = null, string? AppliesTo = null)
+    string? Lifecycle = null, string? AppliesTo = null,
+    // 0.30.0: whether a live write has shown the gameplay effect (native-consumer-proven fields: not yet).
+    bool? GameplayEffectProven = null)
 {
     public const string Dormant = "DORMANT_OR_METADATA";
 }
 public sealed record EntityEvidence(string Tier, string? ReferenceMod = null, string? Proof = null, string[]? ProvenOn = null, bool? SharedTypedSchema = null,
-    string? NativeOwner = null, string? GameplayWriteEffect = null);
+    string? NativeOwner = null, string? GameplayWriteEffect = null,
+    // 0.30.0 native_consumer_proven: whether a family differential backs it, how many native reads were found, and the research artifact.
+    bool? Differential = null, int? CodeReadCount = null, string? Research = null);
+// 0.30.0: a note Runtime publishes on a field: kind "dormant" (the write is kept but this entity never reads it, the LIFT-860 Hover Pack's
+// launch thrust), "lifecycle" (when the write applies), "deprecated", ... Shown as published, never as a blocker.
+public sealed record EntityNotice(string Kind, string Text)
+{
+    public const string Dormant = "dormant";
+}
 public sealed record EntityConsumer(string? Vehicle = null, string? Backpack = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Enemy = null)
 {
     [JsonIgnore] public string Name => Vehicle ?? Backpack ?? Enemy ?? "";
 }
-// 0.25.0+: a published safe value range (inclusive); Runtime rejects writes outside it.
-public sealed record EntityRange(double Min, double Max, bool Integer, string? Reason = null);
+// 0.25.0+: a published safe value range (inclusive); Runtime rejects writes outside it. 0.30.0: a field with a disabled value (the enemy gib
+// threshold, -1) accepts that value or a value above 0 within the range; Reason is then Runtime's value rule.
+public sealed record EntityRange(double Min, double Max, bool Integer, string? Reason = null, double? Disabled = null);
 public sealed record EntityField(string InstanceKey, string SemanticFieldId, string DisplayName, string Type, string? Unit, JsonElement CurrentDefault,
     bool Editable, string? Reason, EntityTarget Target, string BackingObjectId, string OperationGroup, string PlanGroup, string Requires,
     bool AllowSharedRequired, bool Shared, EntityConsumer[] SharedConsumers, string SharedScopeKey, bool ReviewedScopeComplete,
@@ -63,7 +78,10 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     // 1.4.0, not part of any evidence hash: values a live test proved for exactly this field (their writes need no unverified opt-in; for a
     // drop-pod slot, the pickups a test used in that slot), and for a mounted-weapon field the settings row it edits identified by every
     // weapon that fires it (the same row reached through a vehicle mount and a Guard Dog drone gets the same identity).
-    string[]? LiveProvenValues = null, string? SharedRow = null)
+    string[]? LiveProvenValues = null, string? SharedRow = null,
+    // 0.30.0 vehicle tuning and backpack movement: published notes (dormant, lifecycle), when the write applies, and an ordering constraint
+    // between related fields (order: [low, high], null when the field has none).
+    EntityNotice[]? Notices = null, string? Lifecycle = null, string? AppliesWhen = null, string[]? Order = null)
 {
     public const string ReferenceType = "mounted_weapon_reference";
     // 0.26.0 drop-pod slot payload: a reviewed pickup semantic ID or 'empty'.
@@ -74,6 +92,9 @@ public sealed record EntityField(string InstanceKey, string SemanticFieldId, str
     [JsonIgnore] public bool IsPickup => Type == PickupType;
     // A value chosen from a published list (mount weapon or pickup) rather than typed.
     [JsonIgnore] public bool IsChoice => IsReference || IsPickup;
+    // 1.7.0: a published enum (Helldiver zone damage multipliers): one of AllowedValues, written as its name ('reduced'), never as a number.
+    public const string EnumType = "enum";
+    [JsonIgnore] public bool IsEnum => AllowedValues is { Length: > 0 } && Type == EnumType;
     // Safe range: 0.25.0 boosters publish "range"; 0.26.0 attachment and backpack-ammo fields publish "min"/"max".
     [JsonIgnore] public EntityRange? EffectiveRange => Range ?? (Min == null && Max == null ? null
         : new EntityRange(Min ?? double.NegativeInfinity, Max ?? double.PositiveInfinity, Type == "integer", RangeReason));
@@ -98,8 +119,9 @@ public sealed record VehicleMount(string MountId, int SlotIndex, string? Role, s
 {
     [JsonIgnore] public string Label => (Role ?? "slot " + SlotIndex).Replace('_', ' ');
 }
+// 0.30.0: tuningFieldInstanceKeys lists the vehicle's motion tuning fields (steering response, Exosuit rotation), a subset of its entity fields.
 public sealed record Vehicle(string Name, string SemanticId, string CatalogSource, string? VehicleClass, EntityCallIn CallInStratagem,
-    VehicleDurability Durability, VehicleMount[] Mounts, EntityBlocked[] BlockedFields, string[] FieldInstanceKeys);
+    VehicleDurability Durability, VehicleMount[] Mounts, EntityBlocked[] BlockedFields, string[] FieldInstanceKeys, string[]? TuningFieldInstanceKeys = null);
 public sealed record MountedWeaponReference(string? Vehicle, string? VehicleSemanticId, string? MountId, bool CatalogVehicle);
 public sealed record MountedWeapon(string SemanticId, string DisplayName, string DisplayNameSource, bool NativePathKnown, string AttackFamily, bool Turret,
     string[] Components, string PackageGroup, MountedWeaponReference[] ReferencedBy, int ReferenceCount, bool ReferencedByCatalogVehicle, string Provenance);
@@ -170,11 +192,26 @@ public sealed class EntityAuthoring
     public ThrowableCatalog? Throwables { get; init; }
     // Unreleased Runtime (0.28.0 development) SDKs: enemies and enemy structures (hd2.enemy / hd2.structure).
     public EnemyCatalog? Enemies { get; init; }
+    // HD2Runtime 0.30.0 development SDKs: the Helldiver type (hd2.helldiver()), when the SDK publishes HelldiverFieldCapabilities.json.
+    public HelldiverCatalog? Helldiver { get; init; }
+    // HD2Runtime 0.30.0: muzzle, optics and underbarrel stat modifiers (hd2.weapon_attachment, path = slot); null when the SDK has none.
+    public AttachmentModifierCatalog? AttachmentModifiers { get; init; }
+    // HD2Runtime 0.30.0 armor stats (hd2.armor_stats kit / class / damage curve fields) and the armor passive catalog; null when the SDK publishes none.
+    public ArmorCatalog? Armor { get; private set; }
     public IEnumerable<EntityField> AllFields => Vehicles.FieldInstances.Concat(Backpacks.FieldInstances).Concat(Attachments?.FieldInstances ?? []).Concat(Boosters?.FieldInstances ?? [])
-        .Concat(VehicleWeapons?.FieldInstances ?? []).Concat(Pods?.FieldInstances ?? []).Concat(Throwables?.FieldInstances ?? []).Concat(Enemies?.FieldInstances ?? []);
+        .Concat(VehicleWeapons?.FieldInstances ?? []).Concat(Pods?.FieldInstances ?? []).Concat(Throwables?.FieldInstances ?? []).Concat(Enemies?.FieldInstances ?? [])
+        .Concat(Helldiver?.FieldInstances ?? []).Concat(AttachmentModifiers?.FieldInstances ?? []).Concat(Armor?.FieldInstances ?? []);
     // The same catalogs with the enemy catalog attached (the catalogs are immutable once read).
     public EntityAuthoring WithEnemies(EnemyCatalog? enemies) => new() { Vehicles = Vehicles, Backpacks = Backpacks, CallIns = CallIns, Attachments = Attachments,
-        Boosters = Boosters, VehicleWeapons = VehicleWeapons, Pods = Pods, Throwables = Throwables, Enemies = enemies };
+        Boosters = Boosters, VehicleWeapons = VehicleWeapons, Pods = Pods, Throwables = Throwables, Enemies = enemies, Helldiver = Helldiver, AttachmentModifiers = AttachmentModifiers, Armor = Armor };
+    // The same catalogs with the Helldiver catalog attached.
+    public EntityAuthoring WithHelldiver(HelldiverCatalog? helldiver) => new() { Vehicles = Vehicles, Backpacks = Backpacks, CallIns = CallIns, Attachments = Attachments,
+        Boosters = Boosters, VehicleWeapons = VehicleWeapons, Pods = Pods, Throwables = Throwables, Enemies = Enemies, Helldiver = helldiver, AttachmentModifiers = AttachmentModifiers, Armor = Armor };
+    // The same catalogs with the muzzle, optics and underbarrel modifier catalog attached.
+    public EntityAuthoring WithAttachmentModifiers(AttachmentModifierCatalog? modifiers) => new() { Vehicles = Vehicles, Backpacks = Backpacks, CallIns = CallIns,
+        Attachments = Attachments, Boosters = Boosters, VehicleWeapons = VehicleWeapons, Pods = Pods, Throwables = Throwables, Enemies = Enemies, Helldiver = Helldiver, AttachmentModifiers = modifiers, Armor = Armor };
+    // The same catalogs with the armor catalog attached: a copy of every catalog this instance holds (whatever other domains it carries).
+    public EntityAuthoring WithArmor(ArmorCatalog? armor) { var copy = (EntityAuthoring)MemberwiseClone(); copy.Armor = armor; copy.index = null; return copy; }
     // The backpack whose deposit feeds a support weapon (0.26.0 backpack ammunition).
     public Backpack? AmmoBackpackOf(string supportWeapon) => Backpacks.Backpacks.FirstOrDefault(b => b.Feeds?.SupportWeapon == supportWeapon);
     // Indexed once per SDK load: with enemy catalogs there are more than fifteen thousand published fields, and every edit, validation and
@@ -190,7 +227,9 @@ public static class EntityAuthoringReader
     public const string VehicleFile = "VehicleAuthoringCapabilities.json", BackpackFile = "BackpackAuthoringCapabilities.json";
     public const int MaxBytes = 8 * 1024 * 1024;
     // 0.28.0 adds native_correlated: the native member matches the published value (backpack settings, linked drones and shields).
-    public static readonly string[] Tiers = ["gameplay_proven", "gameplay_proven_combined", "schema_proven", "live_write_verified", "structural_reference", "native_correlated"];
+    // 0.30.0 adds native_consumer_proven: the native code that reads the member is pinned, not yet shown in game (vehicle tuning, jump/hover).
+    public static readonly string[] Tiers = ["gameplay_proven", "gameplay_proven_combined", "schema_proven", "live_write_verified", "structural_reference", "native_correlated",
+        "native_consumer_proven"];
     private static readonly Regex Api = new(@"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z", RegexOptions.CultureInvariant);
     private static readonly Regex Slot = new(@"\A(zone|slot)_[0-9]{1,3}\z", RegexOptions.CultureInvariant);
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip };
@@ -211,6 +250,10 @@ public static class EntityAuthoringReader
             // Fields of a backpack's linked entities stay read-only until this build authors them (AuthoredTypes).
             if (!AuthoredTypes.LinkedBackpackEntities && b.FieldInstances.Any(f => f.Target.Linked != null && f.Editable))
                 b = b with { FieldInstances = b.FieldInstances.Select(f => f.Target.Linked != null && f.Editable ? f with { Editable = false, Reason = AuthoredTypes.NotAuthoredReason } : f).ToArray() };
+            // 0.30.0 vehicle motion tuning (tuningFieldInstanceKeys) is read-only in a build that does not author it (AuthoredTypes.VehicleTuning).
+            var tuning = v.Vehicles.SelectMany(x => x.TuningFieldInstanceKeys ?? []).ToHashSet(StringComparer.Ordinal);
+            if (!AuthoredTypes.VehicleTuning && v.FieldInstances.Any(f => f.Editable && tuning.Contains(f.InstanceKey)))
+                v = v with { FieldInstances = v.FieldInstances.Select(f => f.Editable && tuning.Contains(f.InstanceKey) ? f with { Editable = false, Reason = AuthoredTypes.NotAuthoredReason } : f).ToArray() };
             return new() { Vehicles = v, Backpacks = b, CallIns = links };
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException)
@@ -254,6 +297,7 @@ public static class EntityAuthoringReader
                 "linked" => resource == "backpack" && f.Target.Linked is BackpackLinkedEntity.Drone or BackpackLinkedEntity.EnergyShield && f.Target.Zone == null && f.Target.Mount == null,
                 _ => false,
             });
+            Check((f.Notices ?? []).All(n => !string.IsNullOrWhiteSpace(n.Kind) && !string.IsNullOrWhiteSpace(n.Text)) && f.Order is null or { Length: 2 });
             if (f.IsReference)
                 Check(f.Target.Path == "mount" && f.CurrentDefault.ValueKind == JsonValueKind.String && f.AllowedValues is { Length: > 0 }
                     && f.Acknowledgement == "allow_unverified_reference" && f.ValueKind == "mounted_weapon_semantic_id" && !string.IsNullOrWhiteSpace(f.ResidencyWarning));
@@ -278,7 +322,9 @@ public static class EntityAuthoringReader
         {
             var own = v.FieldInstances.Where(f => f.Target.Vehicle == x.Name).ToArray();
             Check(x.FieldInstanceKeys.Order(StringComparer.Ordinal).SequenceEqual(own.Select(f => f.InstanceKey).Order(StringComparer.Ordinal))
-                && x.Durability.FieldInstanceKeys.Order(StringComparer.Ordinal).SequenceEqual(own.Where(f => f.Target.Path == "entity").Select(f => f.InstanceKey).Order(StringComparer.Ordinal))
+                // Entity-path fields are the durability fields plus (0.30.0) the motion tuning fields, each listed once.
+                && x.Durability.FieldInstanceKeys.Concat(x.TuningFieldInstanceKeys ?? []).Order(StringComparer.Ordinal)
+                    .SequenceEqual(own.Where(f => f.Target.Path == "entity").Select(f => f.InstanceKey).Order(StringComparer.Ordinal))
                 && x.Durability.Zones.Length == x.Durability.PopulatedZones && x.Durability.Zones.Select(z => z.ZoneId).Distinct().Count() == x.Durability.Zones.Length
                 && x.Mounts.Select(m => m.MountId).Distinct().Count() == x.Mounts.Length
                 && (x.CallInStratagem.Known ? x.CallInStratagem.SemanticId != null : !string.IsNullOrWhiteSpace(x.CallInStratagem.Reason)));

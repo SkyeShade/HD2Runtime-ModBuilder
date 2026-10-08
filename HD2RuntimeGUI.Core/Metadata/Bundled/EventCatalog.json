@@ -1,14 +1,15 @@
 {
  "contract": "hd2runtime.events.v1",
  "schemaVersion": 1,
- "hd2RuntimeVersion": "0.28.1",
+ "hd2RuntimeVersion": "0.30.0",
  "summary": {
-  "events": 20,
+  "events": 21,
   "available": [
    "entity_damaged",
    "entity_died",
    "entity_killed",
    "entity_spawned",
+   "explosion",
    "key_down",
    "key_up",
    "mission_ended",
@@ -33,7 +34,7 @@
   "dispatch": "Events are observed by polling proven game state once per update tick (no code patches). Everything observed in one tick is dispatched after all sources are polled, in source order, then by subscriber priority (higher first) and subscription order.",
   "isolation": "Every callback runs isolated. A failure is logged with the mod, the event and the error; the other subscribers still run. max_failures consecutive failures (default 25, 0 = never) disable that subscription.",
   "phases": "post: the game already applied it; the payload is a snapshot and mutating it changes nothing. pre: delivered before the game applies it and may be mutated (none are available). state: a state transition.",
-  "causes": "cause.source is 'native' for gameplay, or 'mod' for an action a mod performed through Runtime (cause.mod, cause.action, cause.depth). Runtime refuses actions deeper than 4 mod-caused links.",
+  "causes": "cause.source is 'native' for gameplay, 'mod' for an action a mod performed through Runtime (cause.mod, cause.action, cause.depth), or 'runtime' for a request Runtime made itself outside any mod callback (a custom stratagem's explosion). Runtime refuses actions deeper than 4 mod-caused links.",
   "mission": "mission_started / mission_ended bracket a mission. Mission-scoped subscriptions, timers and mod.mission state end with the mission, after mission_ended is dispatched, and every handle from that mission becomes invalid."
  },
  "sources": {
@@ -42,7 +43,8 @@
   "players": "The game's player list: peer ids, lifecycle state, and each avatar entity (through the network id map).",
   "health": "One bulk scan per tick of the health manager: every entity with a HealthComponent, its health, life state (alive, downed, dead) and last-hit creditor. When a tracked record disappears, the corpse manager is read once: the game replaces a dead entity by a corpse entity that takes over its unit and names the dead entity, so a death that happened between two polls is still reported.",
   "stats": "The local player's mission stats as the game keeps them: the main table plus one block per source type (the weapon, throwable or stratagem payload the game recorded the stat under), checked 10 times per second.",
-  "weapons": "What the local player's avatar holds: its wielder slot 0 (the entity in hand) and the inventory selection the game's weapon switch writes in the same call, checked 10 times per second."
+  "weapons": "What the local player's avatar holds: its wielder slot 0 (the entity in hand) and the inventory selection the game's weapon switch writes in the same call, checked 10 times per second.",
+  "explosions": "This machine's explosion queue, read once per tick: the requests queued now (the game processes at most 8 a frame, first in first out, and a request made after the frame's processing started stays queued until the next frame), and the explosions Runtime itself requested since the last tick."
  },
  "events": [
   {
@@ -1026,6 +1028,76 @@
    ]
   },
   {
+   "name": "explosion",
+   "status": "available",
+   "source": "explosions",
+   "phase": "post",
+   "hot": true,
+   "summary": "An explosion this machine's game will detonate: a request seen in the game's explosion queue (the game processes it in its next update), or one Runtime requested (hd2.explosions.spawn). Requests the game queues and processes within one update before Runtime's next look are not seen: see docs/events.md#explosions. Not live-tested.",
+   "payload": [
+    {
+     "name": "name",
+     "type": "string|nil",
+     "doc": "The explosion type's name in the explosion catalogue (docs/explosions.md), the name hd2.explosions.describe / spawn and hd2.explosion take: 'weapon/r36_eruptor/impact', 'stratagem/nux223_hellbomb/behavior'; nil when uncatalogued. It names the explosion, not who caused it."
+    },
+    {
+     "name": "position",
+     "type": "HD2Position",
+     "doc": "Where it detonates (a read-only snapshot)."
+    },
+    {
+     "name": "observed",
+     "type": "\"queue\"|\"request\"",
+     "doc": "'queue': read from the game's explosion queue. 'request': requested by Runtime (its cause names the mod), reported from the request."
+    },
+    {
+     "name": "source_id",
+     "type": "integer|nil",
+     "doc": "The source entity the request names (a weapon for its shell, an explosive for itself), or nil."
+    },
+    {
+     "name": "source_type",
+     "type": "string|nil",
+     "doc": "The source entity's type (16 hex digits), read when observed; nil when it no longer resolves (an explosive is usually gone by then)."
+    },
+    {
+     "name": "source_name",
+     "type": "string|nil",
+     "doc": "The source type's catalogued name (a weapon, throwable or stratagem payload), or nil."
+    },
+    {
+     "name": "owner_id",
+     "type": "integer|nil",
+     "doc": "The owner entity the request names (often a player avatar)."
+    },
+    {
+     "name": "owner_type",
+     "type": "string|nil",
+     "doc": "The owner entity's type (16 hex digits), or nil."
+    },
+    {
+     "name": "owner_name",
+     "type": "string|nil",
+     "doc": "The owner type's catalogued name, or nil."
+    },
+    {
+     "name": "creditor_peer",
+     "type": "string|nil",
+     "doc": "The peer id (16 hex digits) the request credits (kills and damage go to that player), or nil."
+    },
+    {
+     "name": "player",
+     "type": "HD2PlayerHandle|nil",
+     "doc": "The credited player when that peer is in the player list."
+    },
+    {
+     "name": "local_player",
+     "type": "boolean",
+     "doc": "The local player is credited."
+    }
+   ]
+  },
+  {
    "name": "entity_damage_pre",
    "status": "blocked",
    "phase": "pre",
@@ -1299,6 +1371,70 @@
      "doc": "Local player only: heal through the game's own heal function (AddHealthFraction), clamped to maximum health; refused while downed or dead. Returns the amount requested after the clamp, or nil and the reason."
     },
     {
+     "name": "injure",
+     "params": [
+      [
+       "limb",
+       "\"head\"|\"chest\"|\"l_hand\"|\"r_hand\"|\"l_knee\"|\"r_knee\""
+      ],
+      [
+       "damage",
+       "integer"
+      ],
+      [
+       "opts",
+       "{owner?: string}|nil"
+      ]
+     ],
+     "returns": "HD2ActionHandle",
+     "doc": "Local player only: hd2.actions.injure(player, limb, damage) for this player."
+    },
+    {
+     "name": "heal_limb",
+     "params": [
+      [
+       "limb",
+       "\"head\"|\"chest\"|\"l_hand\"|\"r_hand\"|\"l_knee\"|\"r_knee\""
+      ],
+      [
+       "amount",
+       "\"full\"|integer|nil"
+      ],
+      [
+       "opts",
+       "{owner?: string}|nil"
+      ]
+     ],
+     "returns": "HD2ActionHandle",
+     "doc": "Local player only: hd2.actions.heal_limb(player, limb, amount)."
+    },
+    {
+     "name": "heal_limbs",
+     "params": [
+      [
+       "opts",
+       "{owner?: string}|nil"
+      ]
+     ],
+     "returns": "HD2ActionHandle",
+     "doc": "Local player only: hd2.actions.heal_limbs(player)."
+    },
+    {
+     "name": "add_velocity",
+     "params": [
+      [
+       "change",
+       "HD2Vector3"
+      ],
+      [
+       "opts",
+       "{owner?: string}|nil"
+      ]
+     ],
+     "returns": "HD2ActionHandle",
+     "doc": "Local player only: hd2.actions.add_velocity(player, change)."
+    },
+    {
      "name": "equipped_weapon",
      "params": [],
      "returns": "HD2EquippedWeapon|nil, string|nil",
@@ -1309,6 +1445,52 @@
      "params": [],
      "returns": "table",
      "doc": ""
+    },
+    {
+     "name": "loadout",
+     "params": [],
+     "returns": "table|nil, string|nil",
+     "doc": "The local player's primary, secondary, support, backpack, held item and throwable (with count), each with its catalog name. Local player only."
+    },
+    {
+     "name": "held_weapon",
+     "params": [],
+     "returns": "table|nil, string|nil",
+     "doc": "The item in hand and the slot it is in. Local player only."
+    },
+    {
+     "name": "weapon_state",
+     "params": [],
+     "returns": "HD2WeaponState|nil, string|nil",
+     "doc": "What the weapon in hand fires with now, from its own instance (the values a template change reaches only after the weapon is built again). Local player only; read-only."
+    },
+    {
+     "name": "backpack",
+     "params": [],
+     "returns": "table|nil, string|nil",
+     "doc": "The worn backpack: catalog name and its live supply/ammo count, capacity and owner flag. Local player only."
+    },
+    {
+     "name": "ammo",
+     "params": [
+      [
+       "slot",
+       "\"primary\"|\"secondary\"|\"support\"|nil"
+      ]
+     ],
+     "returns": "table|nil, string|nil",
+     "doc": "Rounds in the magazine and spare magazines (or the backpack count for backpack-fed weapons) of the held weapon or the given slot. Local player only."
+    },
+    {
+     "name": "resupply_from_pack",
+     "params": [
+      [
+       "opts",
+       "{owner?: string}|nil"
+      ]
+     ],
+     "returns": "HD2ActionHandle",
+     "doc": "hd2.actions.resupply_from_pack(player) for this player."
     }
    ]
   }
@@ -1527,7 +1709,7 @@
      ],
      [
       "state",
-      "\"active\"|\"complete\"|\"cancelled\"|\"expired\"|\"failed\"|\"rejected\"",
+      "\"active\"|\"disabled\"|\"complete\"|\"cancelled\"|\"expired\"|\"failed\"|\"rejected\"",
       ""
      ]
     ],
@@ -1555,6 +1737,18 @@
       "params": [],
       "returns": "table",
       "doc": ""
+     },
+     {
+      "name": "disable",
+      "params": [],
+      "returns": "HD2Timer",
+      "doc": "Pause a frame callback (hd2.on_frame); no effect on timers."
+     },
+     {
+      "name": "enable",
+      "params": [],
+      "returns": "HD2Timer",
+      "doc": "Resume a paused frame callback."
      }
     ]
    },
@@ -1777,7 +1971,7 @@
     ]
    },
    "HD2Input": {
-    "doc": "hd2.input",
+    "doc": "hd2.input: keybinds (bound chords) and any key's state. Read-only: nothing is consumed.",
     "methods": [
      {
       "name": "bind",
@@ -1813,9 +2007,82 @@
      },
      {
       "name": "keys",
-      "params": [],
+      "params": [
+       [
+        "raw",
+        "boolean|nil"
+       ]
+      ],
       "returns": "string[]",
-      "doc": "Key names accepted in chords."
+      "doc": "Key names accepted in chords; with raw=true also the names only down/pressed/released accept (CTRL, SHIFT, ALT, MOUSE1, MOUSE2)."
+     },
+     {
+      "name": "down",
+      "params": [
+       [
+        "key",
+        "string"
+       ]
+      ],
+      "returns": "boolean",
+      "doc": "Whether a key is held now (any name of hd2.input.keys(true)). Only while the game window has the focus; the game still receives the key. Unknown names raise."
+     },
+     {
+      "name": "pressed",
+      "params": [
+       [
+        "key",
+        "string"
+       ]
+      ],
+      "returns": "boolean",
+      "doc": "True during the one update tick in which the key went down (sampled once per tick, before events, timers and frame callbacks). A key is followed from its first query on."
+     },
+     {
+      "name": "released",
+      "params": [
+       [
+        "key",
+        "string"
+       ]
+      ],
+      "returns": "boolean",
+      "doc": "True during the one update tick in which the key came up."
+     },
+     {
+      "name": "focused",
+      "params": [],
+      "returns": "boolean",
+      "doc": "Whether the game window has the keyboard focus."
+     },
+     {
+      "name": "mouse",
+      "params": [],
+      "returns": "HD2Mouse|nil, string|nil",
+      "doc": "The cursor in the game window (client pixels from the top-left), or nil and why when the window does not have the focus."
+     },
+     {
+      "name": "wheel",
+      "params": [],
+      "returns": "number",
+      "doc": "EXPERIMENTAL (r51). The mouse wheel this update tick in notches (+ up, - down; fractions for smooth wheels), 0 when it did not move. Read from the engine's wheel axis and, while queried, a read-only message hook on the game window's thread (WM_MOUSEWHEEL and raw input); nothing is consumed."
+     },
+     {
+      "name": "wheel_status",
+      "params": [],
+      "returns": "table",
+      "doc": "Diagnostics of hd2.input.wheel: {hooked, disabled (why the hook is off), source (the first source that delivered a notch), engine (the engine axis is readable)}."
+     },
+     {
+      "name": "block",
+      "params": [
+       [
+        "spec",
+        "table|false"
+       ]
+      ],
+      "returns": "boolean, string|nil",
+      "doc": "EXPERIMENTAL (r52). Keep the game from acting on input while a mod window is open: spec = {keyboard = true, mouse = true}, renewed every update (a 0.5 s lease); false stops. Key presses, characters, mouse button presses and the wheel become WM_NULL before the game's window sees them; releases always pass. Mods keep reading input through GetAsyncKeyState / GetCursorPos."
      }
     ]
    },
@@ -1916,6 +2183,21 @@
       "doc": "At least 0.05 s."
      },
      {
+      "name": "on_frame",
+      "params": [
+       [
+        "callback",
+        "fun(dt: number, handle: HD2Timer)"
+       ],
+       [
+        "opts",
+        "HD2TimerOptions|nil"
+       ]
+      ],
+      "returns": "HD2Timer",
+      "doc": "Every update tick (see hd2.on_frame)."
+     },
+     {
       "name": "bind",
       "params": [
        [
@@ -1965,6 +2247,17 @@
       "doc": "A script value owned by this mod (the same object for the same id)."
      },
      {
+      "name": "choice",
+      "params": [
+       [
+        "spec",
+        "HD2ChoiceSpec"
+       ]
+      ],
+      "returns": "HD2ScriptChoice",
+      "doc": "A script choice owned by this mod: any field value (numbers, booleans, strings, reference handles, plain tables such as a calldown code), selected from code and bound to one hd2.ensure value like a script value (r50)."
+     },
+     {
       "name": "run",
       "params": [
        [
@@ -1978,6 +2271,12 @@
       ],
       "returns": "any",
       "doc": "Run fn as this mod."
+     },
+     {
+      "name": "store",
+      "params": [],
+      "returns": "HD2Store",
+      "doc": "This mod's saved key/value data (see hd2.store)."
      }
     ]
    },
@@ -2239,7 +2538,7 @@
      [
       "kind",
       "string",
-      "'explosion', 'explosion_assets', 'projectile', 'projectile_assets', 'status'."
+      "'explosion', 'explosion_assets', 'projectile', 'projectile_assets', 'status', 'injure', 'heal_limb', 'heal_limbs', 'add_velocity'."
      ],
      [
       "owner",
@@ -2254,7 +2553,7 @@
      [
       "code",
       "string|nil",
-      "Why it was refused (UNKNOWN_EXPLOSION, UNKNOWN_PROJECTILE, UNKNOWN_STATUS, ASSET_UNKNOWN, ASSET_UNAVAILABLE, NOT_IN_MISSION, HOST_ONLY, NO_LOCAL_AVATAR, RATE_LIMITED, CAUSE_DEPTH, QUEUE_FULL, INVALID_POSITION, INVALID_DIRECTION, INVALID_TARGET, INVALID_AMOUNT, INVALID_OPTION, TARGET_GONE, FIRER_UNSUPPORTED, EXPLOSION_UNAVAILABLE, PROJECTILE_UNAVAILABLE, STATUS_UNAVAILABLE)."
+      "Why it was refused (UNKNOWN_EXPLOSION, UNKNOWN_PROJECTILE, UNKNOWN_STATUS, ASSET_UNKNOWN, ASSET_UNAVAILABLE, NOT_IN_MISSION, HOST_ONLY, NO_LOCAL_AVATAR, RATE_LIMITED, CAUSE_DEPTH, QUEUE_FULL, INVALID_POSITION, INVALID_DIRECTION, INVALID_TARGET, INVALID_AMOUNT, INVALID_OPTION, TARGET_GONE, FIRER_UNSUPPORTED, EXPLOSION_UNAVAILABLE, PROJECTILE_UNAVAILABLE, STATUS_UNAVAILABLE; injure: NOT_LOCAL_PLAYER, UNKNOWN_LIMB, NOT_GAME_THREAD, AVATAR_DOWNED, AVATAR_DEAD, NOT_A_HELLDIVER, LIMB_UNAVAILABLE, INJURY_UNAVAILABLE; heal_limb: PARTIAL_UNSUPPORTED, LIMB_HEAL_UNAVAILABLE; add_velocity: INVALID_VELOCITY, TOO_FAST, VELOCITY_UNAVAILABLE)."
      ],
      [
       "reason",
@@ -2275,6 +2574,36 @@
       "effect",
       "string|nil",
       "The status id."
+     ],
+     [
+      "limb",
+      "string|nil",
+      "The injured limb (injure)."
+     ],
+     [
+      "zone",
+      "string|nil",
+      "The limb's damage zone (injure)."
+     ],
+     [
+      "damage",
+      "integer|nil",
+      "The damage requested (injure)."
+     ],
+     [
+      "healed",
+      "string[]|nil",
+      "The limbs heal_limbs restored."
+     ],
+     [
+      "velocity",
+      "HD2Position|nil",
+      "The velocity change requested (add_velocity, m/s)."
+     ],
+     [
+      "after",
+      "HD2Position|nil",
+      "The avatar velocity Runtime set (add_velocity, m/s)."
      ],
      [
       "position",
@@ -2320,7 +2649,156 @@
       "owner",
       "string|nil",
       "Mod id (defaults to the calling mod)."
+     ],
+     [
+      "allow_unverified_effect",
+      "boolean|nil",
+      "Required for a catalogued explosion outside the reviewed spawn set (docs/explosions.md)."
      ]
+    ]
+   },
+   "HD2ExplosionFilter": {
+    "doc": "hd2.explosions.list filter (docs/explosions.md): every key optional.",
+    "fields": [
+     [
+      "family",
+      "\"weapon\"|\"support_weapon\"|\"throwable\"|\"stratagem\"|\"backpack\"|\"vehicle\"|\"enemy\"|\"entity\"|nil",
+      "The owner's family."
+     ],
+     [
+      "owner",
+      "string|nil",
+      "A case-insensitive substring of an owner's name."
+     ],
+     [
+      "search",
+      "string|nil",
+      "A case-insensitive substring of the name or label."
+     ],
+     [
+      "shared",
+      "boolean|nil",
+      "More than one owner requests the row."
+     ],
+     [
+      "payload",
+      "boolean|nil",
+      "Usable as a weapon's impact or expiry explosion (its package is known)."
+     ],
+     [
+      "spawn",
+      "boolean|nil",
+      "hd2.explosions.spawn can request it."
+     ],
+     [
+      "package_known",
+      "boolean|nil",
+      "A package that ships its effect is known."
+     ],
+     [
+      "reviewed_spawn",
+      "boolean|nil",
+      "In the reviewed spawn set (needs no acknowledgement to spawn)."
+     ]
+    ]
+   },
+   "HD2ExplosionEntry": {
+    "doc": "One catalogued explosion (hd2.explosions.list); no raw ids.",
+    "fields": [
+     [
+      "name",
+      "string",
+      "Semantic id: <family>/<owner>/<role>, e.g. weapon/r36_eruptor/impact."
+     ],
+     [
+      "label",
+      "string",
+      "Readable name, e.g. R-36 Eruptor (impact)."
+     ],
+     [
+      "family",
+      "string",
+      "The owner's family."
+     ],
+     [
+      "evidence",
+      "\"data\"|\"code\"|\"chain\"",
+      "How the owners were proven."
+     ],
+     [
+      "shared",
+      "boolean",
+      "More than one owner requests the row: edits need allow_shared."
+     ],
+     [
+      "owners",
+      "integer",
+      "How many owners request it (describe() lists them)."
+     ],
+     [
+      "package_known",
+      "boolean",
+      "A package that ships its effect is known."
+     ],
+     [
+      "mission_package",
+      "boolean",
+      "Its effect ships in the mission effects package (resident in every mission; never loaded)."
+     ],
+     [
+      "payload",
+      "boolean",
+      "Usable as a weapon's impact or expiry explosion."
+     ],
+     [
+      "spawn",
+      "boolean",
+      "hd2.explosions.spawn can request it."
+     ],
+     [
+      "reviewed_spawn",
+      "boolean",
+      "In the reviewed spawn set."
+     ],
+     [
+      "legacy_name",
+      "string|nil",
+      "Its reviewed name (a weapon or a named explosion)."
+     ],
+     [
+      "stats",
+      "table",
+      "inner_radius, outer_radius, shockwave_radius, shrapnel_count, standard_damage, durable_damage, ap_direct, ap_slight, ap_large, ap_extreme, demolition, stagger, push_force, shrapnel, arc, damage_row."
+     ]
+    ]
+   },
+   "HD2CatalogueExplosion": {
+    "doc": "hd2.explosion(name): a catalogued explosion (docs/explosions.md). The target of the explosion.* fields (allow_unverified_effect; allow_shared for a shared row), a value of terminal.explosion and of attack output explosion slots (allow_unverified_reference and allow_unverified_effect), and an argument of hd2.explosions.spawn / prepare.",
+    "fields": [
+     [
+      "resource",
+      "\"explosion\"",
+      ""
+     ],
+     [
+      "explosion",
+      "string",
+      "Its semantic id."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "The list entry plus owners, package and editable fields."
+     },
+     {
+      "name": "fields",
+      "params": [],
+      "returns": "table[]",
+      "doc": "The editable fields: {semanticFieldId, currentDefault, editable, reason, shared, range, acknowledgements}."
+     }
     ]
    },
    "HD2Explosions": {
@@ -2331,7 +2809,7 @@
       "params": [
        [
         "explosion",
-        "HD2ExplosionName|HD2WeaponName|HD2Explosion"
+        "HD2ExplosionName|HD2WeaponName|HD2Explosion|HD2CatalogueExplosionName|HD2CatalogueExplosion"
        ],
        [
         "opts",
@@ -2339,7 +2817,7 @@
        ]
       ],
       "returns": "HD2ActionHandle",
-      "doc": "Request a catalogued explosion at a position: a named explosion ('Hellbomb' = the NUX-223 Hellbomb, 'B-100 Portable Hellbomb'), or a weapon's catalogued explosion. Host only, in a mission, credited to the local player; loads the explosion's package first when needed. Unknown explosions, raw ids and unknown packages are refused."
+      "doc": "Request a catalogued explosion at a position: a named explosion ('Hellbomb' = the NUX-223 Hellbomb, 'B-100 Portable Hellbomb'), a weapon's catalogued explosion, or any explosion of the catalogue (hd2.explosions.list({spawn = true}); outside the reviewed set with opts.allow_unverified_effect). Host only, in a mission, credited to the local player; loads the explosion's package first when needed (the mission effects package is only checked). Unknown explosions, raw ids and unknown packages are refused."
      },
      {
       "name": "of",
@@ -2357,7 +2835,11 @@
       "params": [
        [
         "explosion",
-        "HD2ExplosionName|HD2WeaponName|HD2Explosion"
+        "HD2ExplosionName|HD2WeaponName|HD2Explosion|HD2CatalogueExplosionName|HD2CatalogueExplosion"
+       ],
+       [
+        "opts",
+        "HD2ExplosionOptions|nil"
        ]
       ],
       "returns": "HD2ActionHandle",
@@ -2365,9 +2847,31 @@
      },
      {
       "name": "list",
+      "params": [
+       [
+        "filter",
+        "HD2ExplosionFilter|nil"
+       ]
+      ],
+      "returns": "HD2ExplosionEntry[]",
+      "doc": "Every catalogued explosion (docs/explosions.md), optionally filtered. No raw ids."
+     },
+     {
+      "name": "describe",
+      "params": [
+       [
+        "name",
+        "HD2CatalogueExplosionName|HD2CatalogueExplosion"
+       ]
+      ],
+      "returns": "table|nil, string|nil",
+      "doc": "One catalogued explosion: the list entry plus owners, package and editable fields; nil and the reason when unknown."
+     },
+     {
+      "name": "reviewed",
       "params": [],
-      "returns": "{name: string, weapon: string|nil, type: integer, source: \"behavior\"|\"weapon\", assets_known: boolean}[]",
-      "doc": "Every explosion hd2.explosions can request."
+      "returns": "{name: string, weapon: string|nil, source: \"behavior\"|\"weapon\", assets_known: boolean, objective: boolean|nil, catalogue: string|nil}[]",
+      "doc": "The reviewed spawn set (0.29's hd2.explosions.list()), each with its catalogue name."
      }
     ]
    },
@@ -2388,6 +2892,107 @@
       ],
       "returns": "number|nil, string|nil",
       "doc": "Heal the local player (clamped to maximum health)."
+     },
+     {
+      "name": "injure",
+      "params": [
+       [
+        "player",
+        "HD2PlayerHandle"
+       ],
+       [
+        "limb",
+        "\"head\"|\"chest\"|\"l_hand\"|\"r_hand\"|\"l_knee\"|\"r_knee\""
+       ],
+       [
+        "damage",
+        "integer"
+       ],
+       [
+        "opts",
+        "{owner?: string}|nil"
+       ]
+      ],
+      "returns": "HD2ActionHandle",
+      "doc": "Injure a limb of the LOCAL player's avatar through the game's own damage request (the VG-70 Variable's self-damage path): the limb zone loses the damage (an injured limb at 0) and main health loses the zone's share, applied by the game later in the frame. Local player only (each machine injures its own avatar; no host needed), in a mission, alive and not downed; damage a whole number from 1 to the limb zone's health (head 85, chest 60, hands 35, knees 45); 12 at once and 10 per second per mod. Not live-tested."
+     },
+     {
+      "name": "limbs",
+      "params": [],
+      "returns": "{name: string, zone: string, max_damage: integer, affects_main_health: number}[]",
+      "doc": "Every limb hd2.actions.injure accepts. Offline."
+     },
+     {
+      "name": "heal_limb",
+      "params": [
+       [
+        "player",
+        "HD2PlayerHandle"
+       ],
+       [
+        "limb",
+        "\"head\"|\"chest\"|\"l_hand\"|\"r_hand\"|\"l_knee\"|\"r_knee\""
+       ],
+       [
+        "amount",
+        "\"full\"|integer|nil"
+       ],
+       [
+        "opts",
+        "{owner?: string}|nil"
+       ]
+      ],
+      "returns": "HD2ActionHandle",
+      "doc": "Restore one limb of the LOCAL player's avatar to full through the game's own zone restore (an injured limb is healed; main health unchanged). The game has no partial limb heal: amount is 'full' (default) or a whole number covering what the limb is missing (PARTIAL_UNSUPPORTED otherwise). Local player only, in a mission, alive and not downed; 6 at once and 2 per second per mod. Not live-tested."
+     },
+     {
+      "name": "heal_limbs",
+      "params": [
+       [
+        "player",
+        "HD2PlayerHandle"
+       ],
+       [
+        "opts",
+        "{owner?: string}|nil"
+       ]
+      ],
+      "returns": "HD2ActionHandle",
+      "doc": "heal_limb(player, limb) for all six limbs, one request."
+     },
+     {
+      "name": "add_velocity",
+      "params": [
+       [
+        "player",
+        "HD2PlayerHandle"
+       ],
+       [
+        "change",
+        "HD2Vector3"
+       ],
+       [
+        "opts",
+        "{owner?: string}|nil"
+       ]
+      ],
+      "returns": "HD2ActionHandle",
+      "doc": "Add a world-space velocity (m/s, +Z up) to the LOCAL player's avatar through the game's own motion velocity setter: its current velocity plus the change. The change is at most 25 m/s and the result at most 50 m/s; 4 at once and 2 per second per mod. What ground movement does with it the next frame is not proven: an upward change is the reliable case. Not live-tested."
+     },
+     {
+      "name": "resupply_from_pack",
+      "params": [
+       [
+        "player",
+        "HD2PlayerHandle"
+       ],
+       [
+        "opts",
+        "{owner?: string}|nil"
+       ]
+      ],
+      "returns": "HD2ActionHandle",
+      "doc": "Use one supply of the LOCAL player's worn Supply Pack on that player, exactly as the pack's own key does (the game plays its animation, spends one supply and refills ammunition, with its own network sync; Runtime writes nothing). Refused when no Supply Pack is worn, it is empty, the player is busy or nothing needs ammunition. Local player only, in a mission; rate-limited per mod. Not live-tested."
      },
      {
       "name": "status",
@@ -2463,7 +3068,7 @@
     ]
    },
    "HD2Projectiles": {
-    "doc": "hd2.projectiles: fire a catalogued weapon projectile (docs/event-scripting.md).",
+    "doc": "hd2.projectiles: fire a catalogued weapon projectile, or make a weapon's shots home (docs/event-scripting.md, docs/projectile-homing.md).",
     "methods": [
      {
       "name": "spawn",
@@ -2496,6 +3101,784 @@
       "params": [],
       "returns": "{weapon: string, role: string, type: integer, assets_known: boolean}[]",
       "doc": "Every projectile hd2.projectiles can fire."
+     },
+     {
+      "name": "homing",
+      "params": [
+       [
+        "weapon",
+        "string"
+       ],
+       [
+        "opts",
+        "HD2HomingOptions|nil"
+       ]
+      ],
+      "returns": "HD2HomingHandle",
+      "doc": "Make the LOCAL player's own shots of a weapon home in flight: each shot turns toward the living enemy (or other player's Helldiver) closest to its line inside the cone and range, by at most turn_rate per second, keeping its speed. One guarded write of that shot's own velocity per update; the weapon, its projectile row and every other projectile are never written. Solo unless opts.multiplayer (experimental: other machines draw the shot flying straight, with its hit where it homed). Lasts until stop() or the session ends. The weapon is a name from homing_list() (or a catalogued projectile output id). Not live-tested."
+     },
+     {
+      "name": "homing_list",
+      "params": [],
+      "returns": "{name: string, categories: string[], types: integer[]}[]",
+      "doc": "Every weapon whose shots can home, with the projectile types it fires (offline)."
+     },
+     {
+      "name": "homing_status",
+      "params": [],
+      "returns": "{owner: string, weapon: string, type: integer, target: string, shots: integer, steered: integer, writes: integer}[]",
+      "doc": "Every active homing configuration (one per weapon and projectile type) with this mission's counts."
+     },
+     {
+      "name": "modify_shots",
+      "params": [
+       [
+        "weapon",
+        "string"
+       ],
+       [
+        "opts",
+        "HD2ShotOptions|nil"
+       ]
+      ],
+      "returns": "HD2ShotHandle",
+      "doc": "Modify the LOCAL player's own shots of a weapon (DEVELOPMENT, solo; docs/projectile-shots.md): each shot's own copy is multiplied once, right after it is fired: damage (each direct hit's damage; explosions are not scaled), armor_penetration (each direct hit's penetration lanes), speed (velocity and reference speed together), gravity, drag. The weapon, its projectile row, every DamageInfo row and every other weapon firing the same projectile (the Liberator Carbine for the AR-23 Liberator) stay vanilla. Lasts until stop() or the session ends. The weapon is a name from homing_list(). Not live-tested."
+     },
+     {
+      "name": "modify_shots_status",
+      "params": [],
+      "returns": "{owner: string, weapon: string, changes: table<string, number>, shots: integer, modified: integer}[]",
+      "doc": "Every active shot configuration with this mission's counts."
+     }
+    ]
+   },
+   "HD2HomingOptions": {
+    "doc": "",
+    "fields": [
+     [
+      "target",
+      "\"enemy\"|\"friendly\"|nil",
+      "What the shots home on: a living catalogued enemy (default) or another player's living Helldiver (never the shooter)."
+     ],
+     [
+      "turn_rate",
+      "number|nil",
+      "Degrees per second the shot may turn (1..1440, default 90). Fast bullets need a high rate."
+     ],
+     [
+      "cone",
+      "number|nil",
+      "Half angle in degrees around the shot's direction a target must be inside to be acquired (1..180, default 30)."
+     ],
+     [
+      "range",
+      "number|nil",
+      "Metres from the shot a target may be (1..500, default 100)."
+     ],
+     [
+      "arm_distance",
+      "number|nil",
+      "Metres the shot flies straight before it steers (0..100, default 2)."
+     ],
+     [
+      "aim_height",
+      "number|nil",
+      "Metres above the target's root it aims at (-5..10, default 1)."
+     ],
+     [
+      "retarget",
+      "boolean|nil",
+      "Acquire another target when the first dies (default true)."
+     ],
+     [
+      "multiplayer",
+      "boolean|nil",
+      "Also steer with other players in the game (experimental; default false: solo only)."
+     ],
+     [
+      "label",
+      "string|nil",
+      "Name used in the log (at most 64 characters)."
+     ],
+     [
+      "owner",
+      "string|nil",
+      "Mod id (defaults to the calling mod)."
+     ]
+    ]
+   },
+   "HD2HomingHandle": {
+    "doc": "A homing configuration. A refusal never raises: status is refused with a code and a reason.",
+    "fields": [
+     [
+      "kind",
+      "string",
+      "'projectile_homing'."
+     ],
+     [
+      "owner",
+      "string",
+      "The mod that configured it."
+     ],
+     [
+      "status",
+      "string",
+      "'active', 'stopped' or 'refused'."
+     ],
+     [
+      "code",
+      "string|nil",
+      "Why it was refused (UNKNOWN_WEAPON, INVALID_OPTION, ALREADY_HOMING, LIMIT)."
+     ],
+     [
+      "reason",
+      "string|nil",
+      "The refusal in words."
+     ],
+     [
+      "weapon",
+      "string|nil",
+      "The weapon."
+     ],
+     [
+      "types",
+      "integer[]|nil",
+      "The projectile types its shots are."
+     ],
+     [
+      "target",
+      "string|nil",
+      "'enemy' or 'friendly'."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "stop",
+      "params": [],
+      "returns": "HD2HomingHandle",
+      "doc": "Stop homing (shots in flight fly on as they are)."
+     },
+     {
+      "name": "stats",
+      "params": [],
+      "returns": "{shots: integer, steered: integer, writes: integer, locks: integer, others: integer, refused: table<string, integer>}|nil",
+      "doc": "This mission so far: own shots seen, steered, writes, target locks, shots that were not this player's, and why shots flew straight."
+     },
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "A copy for logs."
+     }
+    ]
+   },
+   "HD2ShotOptions": {
+    "doc": "",
+    "fields": [
+     [
+      "damage",
+      "number|nil",
+      "Multiplier of each direct hit's damage (0.01..100)."
+     ],
+     [
+      "armor_penetration",
+      "number|nil",
+      "Multiplier of each direct hit's penetration lanes (0.1..10; rounded by the game)."
+     ],
+     [
+      "speed",
+      "number|nil",
+      "Multiplier of the shot's velocity and reference speed (0.1..10)."
+     ],
+     [
+      "gravity",
+      "number|nil",
+      "Multiplier of the shot's gravity (0..20)."
+     ],
+     [
+      "drag",
+      "number|nil",
+      "Multiplier of the shot's drag (0..20)."
+     ],
+     [
+      "on_shot",
+      "fun(event: table)|nil",
+      "Called for each of the weapon's shots seen: kind 'modified' or 'untouched' (every multiplier 1); before/after hold damage_multiplier, penetration_multiplier, speed, reference_speed, gravity, drag, distance, damage = {id, standard, durable, armor_penetration}."
+     ],
+     [
+      "label",
+      "string|nil",
+      "Name used in the log (at most 64 characters)."
+     ],
+     [
+      "owner",
+      "string|nil",
+      "Mod id (defaults to the calling mod)."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2ShotHandle": {
+    "doc": "A shot configuration. A refusal never raises: status is refused with a code and a reason.",
+    "fields": [
+     [
+      "kind",
+      "string",
+      "'projectile_shots'."
+     ],
+     [
+      "owner",
+      "string",
+      "The mod that configured it."
+     ],
+     [
+      "status",
+      "string",
+      "'active', 'stopped' or 'refused'."
+     ],
+     [
+      "code",
+      "string|nil",
+      "Why it was refused (UNKNOWN_WEAPON, INVALID_OPTION, ALREADY_MODIFIED, LIMIT)."
+     ],
+     [
+      "reason",
+      "string|nil",
+      "The refusal in words."
+     ],
+     [
+      "weapon",
+      "string|nil",
+      "The weapon."
+     ],
+     [
+      "types",
+      "integer[]|nil",
+      "The projectile types its shots are."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "set",
+      "params": [
+       [
+        "opts",
+        "HD2ShotOptions"
+       ]
+      ],
+      "returns": "HD2ShotHandle|nil",
+      "doc": "New multipliers for the next shots (omitted ones become 1); nil, code, reason when refused."
+     },
+     {
+      "name": "stop",
+      "params": [],
+      "returns": "HD2ShotHandle",
+      "doc": "Stop modifying (shots already written keep their values)."
+     },
+     {
+      "name": "stats",
+      "params": [],
+      "returns": "{shots: integer, modified: integer, writes: integer, untouched: integer, others: integer, other_sources: integer, refused: table<string, integer>}|nil",
+      "doc": "This mission so far: own shots seen, modified, writes, untouched, others (not this player's), other_sources (another weapon), and why shots stayed vanilla."
+     }
+    ]
+   },
+   "HD2SpawnWeightOptions": {
+    "doc": "",
+    "fields": [
+     [
+      "allow_unverified_effect",
+      "boolean",
+      "Required (true) until the live test passes."
+     ],
+     [
+      "difficulties",
+      "integer[]|nil",
+      "Only these difficulties (1..10); default all ten."
+     ],
+     [
+      "label",
+      "string|nil",
+      "Name used in the log (at most 64 characters)."
+     ],
+     [
+      "owner",
+      "string|nil",
+      "Mod id (defaults to the calling mod)."
+     ]
+    ]
+   },
+   "HD2SpawnWeightHandle": {
+    "doc": "An enemy spawn weight setting. A refusal never raises: status is refused with a code and a reason. status is live.",
+    "fields": [
+     [
+      "kind",
+      "string",
+      "'enemy_spawn_weight'."
+     ],
+     [
+      "owner",
+      "string",
+      "The mod that set it."
+     ],
+     [
+      "status",
+      "string",
+      "'applied', 'pending', 'deferred' (waits until no mission runs), 'stopping', 'stopped', 'conflict' (another writer changed a row), 'unavailable' or 'refused'."
+     ],
+     [
+      "code",
+      "string|nil",
+      "Why it was refused (ACKNOWLEDGEMENT_REQUIRED, UNKNOWN_ENEMY, INVALID_MULTIPLIER, INVALID_OPTION, ALREADY_SET, NOT_IN_A_ROSTER) or the conflict."
+     ],
+     [
+      "reason",
+      "string|nil",
+      "The refusal in words."
+     ],
+     [
+      "enemy",
+      "string",
+      "The enemy as named."
+     ],
+     [
+      "multiplier",
+      "number",
+      "The multiplier."
+     ],
+     [
+      "types",
+      "string[]|nil",
+      "The entity types (16 hex digits) it covers."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "stop",
+      "params": [],
+      "returns": "HD2SpawnWeightHandle",
+      "doc": "Write the vanilla weights back (a type going from 0 to positive waits until no mission runs)."
+     },
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "A copy for logs, with each type's status."
+     }
+    ]
+   },
+   "HD2Enemies": {
+    "doc": "hd2.enemies: how often each enemy type spawns (docs/enemy-spawns.md).",
+    "methods": [
+     {
+      "name": "spawn_weight",
+      "params": [
+       [
+        "enemy",
+        "string"
+       ],
+       [
+        "multiplier",
+        "number"
+       ],
+       [
+        "opts",
+        "HD2SpawnWeightOptions"
+       ]
+      ],
+      "returns": "HD2SpawnWeightHandle",
+      "doc": "Scale an enemy type's weight in every spawn group of the game's spawn rosters (0..10): 0 = never picked, k = k times its vanilla weight within the groups it shares. Changes which enemies spawn, not how many. A weight never goes from 0 to positive during a mission (it waits for the ship). The mission host's rosters decide. Not live-tested: needs allow_unverified_effect."
+     },
+     {
+      "name": "spawn_list",
+      "params": [
+       [
+        "filter",
+        "{faction?: string, enemy?: string}|nil"
+       ]
+      ],
+      "returns": "{enemy: string, entity: string, id: string|nil, faction: string, index: integer, group: string, weights: number[]}[]",
+      "doc": "Every roster row with its ten vanilla weights (offline)."
+     },
+     {
+      "name": "spawn_status",
+      "params": [],
+      "returns": "{owner: string, enemy: string, entity: string, multiplier: number, status: string, rows: integer}[]",
+      "doc": "Every active spawn weight setting."
+     }
+    ]
+   },
+   "HD2PassiveModifier": {
+    "doc": "One modifier row of a passive {key, type, value}: what EntityAttribute returns to a reader.",
+    "fields": [
+     [
+      "key",
+      "string",
+      "The row's key, 8 hex digits (a thin hash)."
+     ],
+     [
+      "key_name",
+      "string",
+      "The research's semantic name of the key (e.g. 'throw_range', 'movement_noise'; 'unknown_<key>' where no reader or text is known)."
+     ],
+     [
+      "type",
+      "string",
+      "'Set', 'Add', 'Multiply' or 'Time': how the reader combines value with its default (the reader's own code)."
+     ],
+     [
+      "value",
+      "number",
+      "The value."
+     ],
+     [
+      "text",
+      "string|nil",
+      "The game's effect text (list() only)."
+     ],
+     [
+      "reader",
+      "string|nil",
+      "list() only: the research's reader status (research/passive-effects-F5FEE03DCFDB.json): 'direct', 'data-driven' (both follow a swap), 'description-only' (stat-driven at spawn: reload, ammo, sidearm; a swap never changes it), 'armor rating' (follows the worn kit), 'none found' (Adreno's revive) or 'no effect'."
+     ],
+     [
+      "follows",
+      "boolean|nil",
+      "list() only: whether the row follows a slot swap (nil: unknown or no effect)."
+     ],
+     [
+      "observable",
+      "string|nil",
+      "list() only: what to observe in play after a swap (the research)."
+     ],
+     [
+      "note",
+      "string|nil",
+      "list() only: why the row does not follow a swap."
+     ],
+     [
+      "armor_slot_only",
+      "boolean|nil",
+      "list() only: every reader of the key reads the armor slot only (flags 1): a second-slot copy never reaches it."
+     ],
+     [
+      "source",
+      "string|nil",
+      "effective only: 'armor' or 'second' (the helmet slot)."
+     ],
+     [
+      "passive",
+      "integer|nil",
+      "effective only: the passive id the row comes from."
+     ],
+     [
+      "name",
+      "string|nil",
+      "effective only: that passive's name."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2Passive": {
+    "doc": "One of the game's 32 armor passives (research/player-attributes-F5FEE03DCFDB.json).",
+    "fields": [
+     [
+      "id",
+      "integer",
+      "The passive id (0-41; 4 and 22-30 are unused)."
+     ],
+     [
+      "name",
+      "string",
+      "The game's own name (e.g. 'SERVO-ASSISTED')."
+     ],
+     [
+      "description",
+      "string",
+      "The game's own description (its effect lines; #BONUS as the game holds it)."
+     ],
+     [
+      "modifiers",
+      "HD2PassiveModifier[]",
+      "Its rows in the game's order."
+     ],
+     [
+      "effect_package",
+      "boolean",
+      "It has an effect package (17 Integrated Explosives, 19 Adreno-Defibrillator): set() loads it through core/assets (shared) before the write."
+     ],
+     [
+      "package",
+      "string|nil",
+      "The passive +0x30 key (8 hex digits) when it has an effect package; package_info has the package."
+     ],
+     [
+      "armor_kits",
+      "integer",
+      "How many armor kits carry it."
+     ],
+     [
+      "follows_swap",
+      "'full'|'partial'|'unknown'",
+      "Whether its effects follow a slot swap: 'full', 'partial' (some rows follow the kit worn instead: see note), 'unknown' (19: the revive mechanism was not located)."
+     ],
+     [
+      "note",
+      "string|nil",
+      "What does not follow a swap, in words."
+     ],
+     [
+      "stats",
+      "{stat: integer, name: string, add: number, mul: number, described_by: string|nil}[]",
+      "Its spawn-time stat rows (the kit worn at spawn applies them; a swap never changes them)."
+     ],
+     [
+      "package_info",
+      "HD2PassivePackage|nil",
+      "Its effect package."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2Passives": {
+    "doc": "hd2.passives: every armor passive of the game (offline; docs/armor-passives.md).",
+    "methods": [
+     {
+      "name": "list",
+      "params": [],
+      "returns": "HD2Passive[]",
+      "doc": "Every passive of the game with its modifier rows, by id (the research's table; no game read)."
+     },
+     {
+      "name": "find",
+      "params": [
+       [
+        "passive",
+        "string|integer"
+       ]
+      ],
+      "returns": "HD2Passive|nil, string?, string?",
+      "doc": "One passive by its game name (any case) or id; nil, UNKNOWN_PASSIVE, reason otherwise."
+     }
+    ]
+   },
+   "HD2PassiveRef": {
+    "doc": "",
+    "fields": [
+     [
+      "id",
+      "integer",
+      "The passive id."
+     ],
+     [
+      "name",
+      "string",
+      "Its game name."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2KitRef": {
+    "doc": "",
+    "fields": [
+     [
+      "id",
+      "string",
+      "The kit id (0x + 8 hex digits)."
+     ],
+     [
+      "index",
+      "integer|nil",
+      "Its index in the game's kit table (hd2.armor_kit(index))."
+     ],
+     [
+      "name",
+      "string|nil",
+      "Its game name (research/armor-names-F5FEE03DCFDB.json; nil for the 33 the game's text does not name)."
+     ],
+     [
+      "slot",
+      "'armor'|'helmet'|'cape'|nil",
+      "Its slot."
+     ],
+     [
+      "weight",
+      "'light'|'medium'|'heavy'|nil",
+      "An armor kit's weight (its armor pieces')."
+     ],
+     [
+      "passive",
+      "integer|nil",
+      "The kit's own passive (kit +0x1C): what the game derives the slot from."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2PlayerPassives": {
+    "doc": "The local player's passives as the game reads them now (hd2.player_passives()).",
+    "fields": [
+     [
+      "entity",
+      "integer",
+      "The player entity (an avatar is mapped to it by the game)."
+     ],
+     [
+      "record",
+      "integer",
+      "Its applied customization record (0-3)."
+     ],
+     [
+      "armor_kit",
+      "HD2KitRef",
+      "The armor kit."
+     ],
+     [
+      "helmet_kit",
+      "HD2KitRef",
+      "The helmet kit (no vanilla helmet has a passive)."
+     ],
+     [
+      "cape_kit",
+      "HD2KitRef",
+      "The cape kit."
+     ],
+     [
+      "armor_passive",
+      "HD2PassiveRef",
+      "The armor slot (record +0x3C)."
+     ],
+     [
+      "helmet_passive",
+      "HD2PassiveRef",
+      "The helmet slot (record +0x38), where set() puts the second passive; 0 = none."
+     ],
+     [
+      "derived",
+      "{armor: integer, second: integer}",
+      "The kits' own passives (what the game puts back on a kit change)."
+     ],
+     [
+      "overridden",
+      "boolean",
+      "A slot differs from its kit."
+     ],
+     [
+      "runtime",
+      "string|nil",
+      "The mod holding an override."
+     ],
+     [
+      "effective",
+      "HD2PassiveModifier[]",
+      "The rows a flags=3 reader finds, in order: the armor passive's, then the second passive's keys the armor lacks (the first row per key wins; no stacking)."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2PlayerPassiveSpec": {
+    "doc": "",
+    "fields": [
+     [
+      "armor",
+      "HD2PassiveName|integer|nil",
+      "The armor passive (name or id); nil: the kit's own."
+     ],
+     [
+      "second",
+      "HD2PassiveName|integer|false|nil",
+      "A second passive in the helmet slot; nil or false: none (the kit's). INTEGRATED EXPLOSIVES is refused here (ARMOR_SLOT_ONLY)."
+     ],
+     [
+      "owner",
+      "string|nil",
+      "Mod id (defaults to the calling mod)."
+     ],
+     [
+      "allow_unverified_effect",
+      "boolean",
+      "Required (true) except for an armor-slot swap alone to a live-proven passive (SCOUT, ENGINEERING KIT, MED-KIT, SERVO-ASSISTED); without it set() is refused ACKNOWLEDGEMENT_REQUIRED."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2PlayerPassiveHandle": {
+    "doc": "An armor passive override. A refusal never raises: status is refused with a code and a reason.",
+    "fields": [
+     [
+      "kind",
+      "string",
+      "'player_passives'."
+     ],
+     [
+      "owner",
+      "string",
+      "The mod that set it."
+     ],
+     [
+      "status",
+      "string",
+      "'active', 'waiting' (no record yet), 'waiting_for_assets' (an effect package loads first through core/assets; nothing is written until it is resident), 'suspended' (several players or the package is gone; the kit's values are back), 'lost' (something else wrote the slot), 'replaced', 'stopped' or 'refused'."
+     ],
+     [
+      "code",
+      "string|nil",
+      "Why (INVALID_OPTION, ACKNOWLEDGEMENT_REQUIRED, UNKNOWN_PASSIVE, SAME_PASSIVE, ARMOR_SLOT_ONLY, ASSET_UNAVAILABLE, PACKAGE_NOT_RESIDENT, NOT_SOLO, ALREADY_SET, UNEXPECTED_STATE, NOT_PRIVATE, GUARD_REJECTED, UNSUPPORTED_BUILD; waiting: UNAVAILABLE, NO_PLAYER, NO_RECORD, NOT_READY)."
+     ],
+     [
+      "reason",
+      "string|nil",
+      "The reason in words."
+     ],
+     [
+      "armor",
+      "HD2PassiveRef|nil",
+      "The armor passive asked for."
+     ],
+     [
+      "second",
+      "HD2PassiveRef|nil",
+      "The second passive asked for."
+     ],
+     [
+      "notes",
+      "string[]|nil",
+      "What the chosen passives do not carry over a swap (reload, ammo, sidearm stats, armor rating, Adreno's unlocated revive)."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "stop",
+      "params": [],
+      "returns": "HD2PlayerPassiveHandle",
+      "doc": "Stop holding: the kit's own passives go back into the slots that still hold this override's values."
+     },
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "{kind: string, owner: string, status: string, code: string|nil, reason: string|nil, armor: HD2PassiveRef|nil, second: HD2PassiveRef|nil, applications: integer}",
+      "doc": "The override and how many times it was written (re-applications after kit changes included)."
+     }
+    ]
+   },
+   "HD2PlayerPassivesApi": {
+    "doc": "hd2.player_passives: call it for the local player's passives (HD2PlayerPassives, or nil, code, reason); set() overrides them (DEVELOPMENT, solo; docs/armor-passives.md).",
+    "methods": [
+     {
+      "name": "set",
+      "params": [
+       [
+        "spec",
+        "HD2PlayerPassiveSpec"
+       ]
+      ],
+      "returns": "HD2PlayerPassiveHandle",
+      "doc": "Override the local player's armor passive and/or add a second passive in the helmet slot: one guarded 4-byte write per slot on the player's own record, re-applied after each kit change, until stop(). A passive with an effect package (17, 19) is loaded first through core/assets, shared with compatible peers (status waiting_for_assets; ASSET_UNAVAILABLE on failure). Readers that ignore the helmet slot (flinch, one chest-bleed site, Integrated Explosives: refused there) never see the second passive; overlapping keys do not stack; reload, ammo, sidearm stats and the armor rating follow the kit worn. Solo only (NOT_SOLO). Live-proven: the armor-slot swap to SCOUT, ENGINEERING KIT, MED-KIT, SERVO-ASSISTED."
+     },
+     {
+      "name": "status",
+      "params": [],
+      "returns": "{owner: string, status: string, code: string|nil, reason: string|nil, armor: HD2PassiveRef|nil, second: HD2PassiveRef|nil, applications: integer}|nil",
+      "doc": "The held override, or nil."
      }
     ]
    },
@@ -2543,6 +3926,2356 @@
       "doc": "Every status hd2.status can apply."
      }
     ]
+   },
+   "HD2PelicanOptions": {
+    "doc": "Options of hd2.pelican.spawn.",
+    "fields": [
+     [
+      "position",
+      "HD2Vector3|HD2Position",
+      "Where it hovers: its anchor, the point the game's flight hovers over (at a height of its own) (required)."
+     ],
+     [
+      "approach",
+      "{distance: number|nil, height: number|nil}|nil",
+      "Where it is created: distance metres back from the position along its heading (default 250, 0 to 1000) and height metres up (default 80, 0 to 500)."
+     ],
+     [
+      "hover",
+      "number|nil",
+      "Seconds it stays after its release (0 < hover <= 120); nil: the game's own (it leaves at once)."
+     ],
+     [
+      "facing",
+      "{x: number, y: number}|nil",
+      "Its horizontal heading at creation; nil: from the local player toward the position."
+     ],
+     [
+      "on_event",
+      "fun(event: HD2PelicanEvent)|nil",
+      "Every step: spawned, stage, hovering, released, held, departing, gone; refused, unverified, hold_refused or cargo (never expected) with code and reason. With a gun also gun_armed (turret, round, projectile, rpm, credit), gun_refused (stage, code, reason), gun_ended."
+     ],
+     [
+      "gun",
+      "HD2PelicanGun|nil",
+      "Its chin gun's OWN configuration (development, solo host): only this Pelican's own copies and records change, never a shared definition."
+     ],
+     [
+      "orbit",
+      "HD2PelicanOrbit|nil",
+      "It circles its anchor once it holds there (needs hover)."
+     ],
+     [
+      "credit_to",
+      "HD2PlayerHandle|nil",
+      "The local player: its chin gun's kills credit that player (needs gun; solo host)."
+     ],
+     [
+      "call",
+      "HD2CustomStratagemCall|nil",
+      "A custom stratagem call: the Pelican and its chin turret are associated with it."
+     ],
+     [
+      "owner",
+      "string|nil",
+      "Mod id (defaults to the calling mod)."
+     ]
+    ]
+   },
+   "HD2PelicanEvent": {
+    "doc": "One step of a Runtime Pelican (hd2.pelican.spawn on_event).",
+    "fields": [
+     [
+      "kind",
+      "\"spawned\"|\"stage\"|\"hovering\"|\"released\"|\"held\"|\"departing\"|\"gone\"|\"refused\"|\"unverified\"|\"hold_refused\"|\"cargo\"",
+      ""
+     ],
+     [
+      "entity",
+      "integer|nil",
+      "The Pelican's entity id."
+     ],
+     [
+      "code",
+      "string|nil",
+      "A refusal's code."
+     ],
+     [
+      "reason",
+      "string|nil",
+      "A refusal's reason."
+     ],
+     [
+      "seconds",
+      "number|nil",
+      "Seconds since it was spawned."
+     ],
+     [
+      "from",
+      "integer|nil",
+      "stage: the flight stage before."
+     ],
+     [
+      "to",
+      "integer|nil",
+      "stage: the flight stage now."
+     ],
+     [
+      "position",
+      "HD2Vector3|nil",
+      "Its position at that step."
+     ],
+     [
+      "target",
+      "HD2Vector3|nil",
+      "Its flight target at that step (its hover point once hovering)."
+     ]
+    ]
+   },
+   "HD2Pelican": {
+    "doc": "A Runtime Pelican request (hd2.pelican.spawn).",
+    "fields": [
+     [
+      "status",
+      "\"pending\"|\"requested\"|\"refused\"|\"unverified\"|\"arriving\"|\"hovering\"|\"released\"|\"held\"|\"departing\"|\"gone\"",
+      ""
+     ],
+     [
+      "code",
+      "string|nil",
+      "Why it was refused."
+     ],
+     [
+      "reason",
+      "string|nil",
+      ""
+     ],
+     [
+      "entity",
+      "integer|nil",
+      "The Pelican's entity id once spawned."
+     ],
+     [
+      "owner",
+      "string",
+      "The mod that asked."
+     ],
+     [
+      "hover",
+      "number|nil",
+      "The hover time asked."
+     ],
+     [
+      "held",
+      "number|nil",
+      "The hover time applied once held."
+     ],
+     [
+      "approach",
+      "{distance: number, height: number}|nil",
+      "The approach used."
+     ],
+     [
+      "spawn_point",
+      "HD2Vector3|nil",
+      "Where it is created."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "alive",
+      "params": [],
+      "returns": "boolean",
+      "doc": "True while requested or alive."
+     },
+     {
+      "name": "state",
+      "params": [],
+      "returns": "{entity: integer, stage: integer, released: boolean, position: HD2Vector3|nil, hover_point: HD2Vector3|nil, anchor: HD2Vector3|nil, cargo: boolean}|nil",
+      "doc": "The live Pelican now (read-only), or nil when it is not alive."
+     },
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "A snapshot of the request."
+     }
+    ]
+   },
+   "HD2Pelicans": {
+    "doc": "hd2.pelican: the game's own transport Pelican, summoned empty (docs/event-scripting.md).",
+    "methods": [
+     {
+      "name": "spawn",
+      "params": [
+       [
+        "opts",
+        "HD2PelicanOptions"
+       ]
+      ],
+      "returns": "HD2Pelican",
+      "doc": "Summon an empty transport Pelican to hover over a position: it is created approach metres back and up, flies in, hovers over the position (its anchor, which the game keeps in the Pelican's own drop-position record) and leaves; with hover it stays that many seconds after its release (one guarded write of its own release time). The game's own spawn request, with no cargo and no associated entity. Host only, in a mission, at most 4 at a time; made in the Runtime's next update. A refusal never raises (status refused, code, reason)."
+     },
+     {
+      "name": "active",
+      "params": [],
+      "returns": "integer[]",
+      "doc": "The Runtime Pelicans alive now (entity ids)."
+     },
+     {
+      "name": "status",
+      "params": [],
+      "returns": "table",
+      "doc": "What hd2.pelican can do on this build, and its limits."
+     }
+    ]
+   },
+   "HD2PelicanGun": {
+    "doc": "The chin gun of a Runtime Pelican (hd2.pelican.spawn gun; development, solo host).",
+    "fields": [
+     [
+      "round",
+      "\"standard\"|\"ap4\"|nil",
+      "standard: its own (the MG-43's 148); ap4: the MG-206 Heavy Machine Gun's AP4 round 275."
+     ],
+     [
+      "behave_as",
+      "\"gatling_sentry\"|nil",
+      "The Gatling Sentry's AI, casing and rate, with the Runtime target lock."
+     ],
+     [
+      "rate_multiplier",
+      "1|1.5|2|nil",
+      "Times the Gatling Sentry's rate read from the game (needs behave_as)."
+     ],
+     [
+      "spread",
+      "number|nil",
+      "Its spread in mrad (above 0, at most 100), on its own WeaponData record."
+     ],
+     [
+      "recoil",
+      "false|nil",
+      "false: no aim recoil."
+     ],
+     [
+      "unlimited_ammo",
+      "true|nil",
+      "Its own magazine at the safe maximum (2047), refilled below 1500."
+     ],
+     [
+      "sound",
+      "string|nil",
+      "A firing sound of the catalogue (hd2.sounds.list(): a name of kind shot or loop, for example 'vehicle/maelstrom/main_gun', 'sentry/gatling', 'vehicle/bastion/hmg'; 'maelstrom_main_gun' still works) on its own weapon copy; nil or 'pelican/chin_autocannon': its own. The package of the stratagem that provides its bank is loaded first (a resident-only sound only while its package is resident); other machines apply it on their own copies. See docs/weapon-sounds.md."
+     ],
+     [
+      "face_target",
+      "true|nil",
+      "The body turns toward the locked target (needs behave_as)."
+     ]
+    ]
+   },
+   "HD2PelicanOrbit": {
+    "doc": "A Runtime Pelican circling its anchor (hd2.pelican.spawn orbit).",
+    "fields": [
+     [
+      "radius",
+      "number|nil",
+      "Metres from the anchor (5 to 150, default 40)."
+     ],
+     [
+      "altitude",
+      "number|nil",
+      "Metres above the anchor (10 to 150, default 60)."
+     ],
+     [
+      "duration",
+      "number|nil",
+      "Seconds (1 to 120, default 55)."
+     ],
+     [
+      "period",
+      "number|nil",
+      "Seconds a lap (10 to 600, default 30)."
+     ],
+     [
+      "entry",
+      "number|nil",
+      "Seconds of the spiral climb into the orbit (0 to 60, default 15)."
+     ]
+    ]
+   },
+   "HD2WeaponSound": {
+    "doc": "One firing sound of the weapon sound catalogue (hd2.sounds; docs/weapon-sounds.md). No event, bank or package id.",
+    "fields": [
+     [
+      "name",
+      "string",
+      "Its semantic name, <family>/<weapon>[/<part>] (what gun.sound takes)."
+     ],
+     [
+      "label",
+      "string",
+      "A human name (the weapon, mount or unit)."
+     ],
+     [
+      "kind",
+      "\"shot\"|\"loop\"",
+      "shot: an event per shot (MIDI notes when midi); loop: started when the gun starts firing and stopped when it stops."
+     ],
+     [
+      "family",
+      "string",
+      "The first part of its name: pelican, vehicle, sentry, emplacement, eagle, backpack, support, primary, secondary, automaton, illuminate, seaf, objective or other."
+     ],
+     [
+      "stratagem",
+      "string|nil",
+      "The stratagem whose call-in package provides its bank (loaded for a Pelican gun that takes it), or nil."
+     ],
+     [
+      "resident_only",
+      "boolean",
+      "No stratagem provides its bank: usable only while the game has a package listing it resident (for example while a player carries that weapon)."
+     ],
+     [
+      "designed_rpm",
+      "number",
+      "The rate its weapon was designed for (its record's rate slot)."
+     ],
+     [
+      "range_m",
+      "number|nil",
+      "How far its farthest layer carries, in metres (a heuristic reading of its bank's attenuation curves)."
+     ],
+     [
+      "midi",
+      "boolean",
+      "Its shots post MIDI notes (several per shot, one shot interval apart)."
+     ],
+     [
+      "pelican_default",
+      "boolean",
+      "The Pelican chin gun's own sound (taking it changes nothing)."
+     ]
+    ]
+   },
+   "HD2SoundEvent": {
+    "doc": "One sound event of the full catalogue (hd2.sounds.list{catalogue = 'events'}; docs/sounds.md): every Wwise event of the build, named <family>/<bank>/<event> from evidence (the event's own Wwise name where the game's code or data names it, else its id as eight hex digits).",
+    "fields": [
+     [
+      "name",
+      "string",
+      "Its catalogue name (what play, describe and asset take)."
+     ],
+     [
+      "catalogue",
+      "\"events\"",
+      "Which catalogue it is from (weapon firing sounds have no such field)."
+     ],
+     [
+      "family",
+      "string",
+      "weapons, throwables, melee, explosions (its sounds play on the game's explosion bus), stratagems, vehicles, enemies, seaf, objectives, hazards, ambience, foley, gore, voice, ui, music, cinematics, system or other: from its bank's content path."
+     ],
+     [
+      "bank",
+      "string",
+      "Its bank (content/audio/<bank>)."
+     ],
+     [
+      "banks",
+      "string[]",
+      "Every bank that defines it."
+     ],
+     [
+      "faction",
+      "\"automaton\"|\"terminid\"|\"illuminate\"|nil",
+      "The faction its bank is named for."
+     ],
+     [
+      "kind",
+      "\"one_shot\"|\"loop\"|\"unknown\"|\"control\"",
+      "The game's own metadata: one shot, a loop (infinite, stop it), unknown (unsupported); control: it plays nothing (stops, states, switches)."
+     ],
+     [
+      "range_m",
+      "number|nil",
+      "Its maximum attenuation distance in metres (the game's metadata); nil for a 2D or unattenuated sound."
+     ],
+     [
+      "duration_s",
+      "number|nil",
+      "A one-shot's longest duration in seconds (the game's metadata)."
+     ],
+     [
+      "positional",
+      "boolean|nil",
+      "A 3D sound (true) or 2D (false)."
+     ],
+     [
+      "bus",
+      "string|nil",
+      "The named path of the mixer bus its sounds play on."
+     ],
+     [
+      "global_effect",
+      "\"persistent\"|\"transient\"|nil",
+      "persistent: it would leave the sound engine changed (a state, a global game parameter or mix change or pause it does not undo): play refuses it. transient: a global stop of an element."
+     ],
+     [
+      "effects",
+      "string[]",
+      "state, parameter, mix, pause, stop."
+     ],
+     [
+      "wwise_name",
+      "string|nil",
+      "Its own Wwise name, where the game's code or data names it."
+     ],
+     [
+      "weapons",
+      "string[]",
+      "The weapon firing sounds (hd2.sounds.list()) that post it."
+     ],
+     [
+      "stratagem",
+      "string|nil",
+      "The stratagem whose call-in package provides its bank."
+     ],
+     [
+      "item",
+      "string|nil",
+      "The loadout item whose package provides its bank (when no stratagem does)."
+     ],
+     [
+      "resident_only",
+      "boolean",
+      "No package Runtime can load provides its bank: usable only while the game has one resident."
+     ],
+     [
+      "parameters",
+      "string[]",
+      "The game parameters (RTPCs) its sounds react to ('0x<id>' when unnamed)."
+     ],
+     [
+      "volume_parameters",
+      "string[]",
+      "Those of them that drive its volume: what handle:set_parameter can turn on its own source (a lead: the curve's direction is not read)."
+     ],
+     [
+      "switch_groups",
+      "string[]",
+      "The switch groups its sounds react to."
+     ],
+     [
+      "state_groups",
+      "string[]",
+      "The state groups its sounds react to."
+     ]
+    ]
+   },
+   "HD2SoundParameter": {
+    "doc": "A game parameter (RTPC) of the sound engine (hd2.sounds.parameters()).",
+    "fields": [
+     [
+      "name",
+      "string",
+      "Its name, or '0x<id>' when the game names it nowhere."
+     ],
+     [
+      "named",
+      "boolean",
+      ""
+     ],
+     [
+      "default",
+      "number|nil",
+      "Its default value."
+     ],
+     [
+      "events",
+      "integer",
+      "How many catalogued events react to it."
+     ]
+    ]
+   },
+   "HD2SoundGroup": {
+    "doc": "A switch or state group of the sound engine (hd2.sounds.switch_groups() / state_groups()).",
+    "fields": [
+     [
+      "name",
+      "string",
+      "Its name, or '0x<id>'."
+     ],
+     [
+      "named",
+      "boolean",
+      ""
+     ],
+     [
+      "values",
+      "string[]",
+      "Its switches or states (names, or '0x<id>')."
+     ],
+     [
+      "parameter",
+      "string|nil",
+      "A switch group driven by a game parameter: that parameter."
+     ]
+    ]
+   },
+   "HD2SoundFilter": {
+    "doc": "A filter of hd2.sounds.list. Without catalogue: the weapon firing sounds (family, kind shot/loop, stratagem, resident_only, text). catalogue = 'events': the full event catalogue (every key below); 'all': both, each with the keys it supports.",
+    "fields": [
+     [
+      "catalogue",
+      "\"weapons\"|\"events\"|\"all\"|nil",
+      "Which catalogue (default weapons)."
+     ],
+     [
+      "family",
+      "string|nil",
+      "Only this family (weapons: sentry, vehicle, support, ...; events: weapons, explosions, stratagems, enemies, ui, voice, ambience, music, ...)."
+     ],
+     [
+      "kind",
+      "string|nil",
+      "Only this kind (weapons: shot, loop; events: one_shot, loop, unknown, control)."
+     ],
+     [
+      "stratagem",
+      "true|string|nil",
+      "true: only sounds a stratagem provides; a name: only that stratagem's."
+     ],
+     [
+      "resident_only",
+      "boolean|nil",
+      "Only resident-only sounds (true) or only those a package provides (false)."
+     ],
+     [
+      "text",
+      "string|nil",
+      "A part of the name (or label) (any case)."
+     ],
+     [
+      "bank",
+      "string|nil",
+      "Events: only those a bank defines."
+     ],
+     [
+      "faction",
+      "string|nil",
+      "Events: automaton, terminid or illuminate."
+     ],
+     [
+      "bus",
+      "string|nil",
+      "Events: a part of the bus path ('explosion')."
+     ],
+     [
+      "named",
+      "boolean|nil",
+      "Events: only those with (or without) their own Wwise name."
+     ],
+     [
+      "weapon",
+      "true|string|nil",
+      "Events: only those a weapon firing sound posts (or that one's)."
+     ],
+     [
+      "global",
+      "boolean|nil",
+      "Events: only those with (or without) a global effect."
+     ]
+    ]
+   },
+   "HD2Sounds": {
+    "doc": "hd2.sounds: the weapon firing-sound catalogue (docs/weapon-sounds.md), the full sound-event catalogue and playing game sound events (docs/sounds.md).",
+    "methods": [
+     {
+      "name": "list",
+      "params": [
+       [
+        "filter",
+        "HD2SoundFilter|string|nil"
+       ]
+      ],
+      "returns": "(HD2WeaponSound|HD2SoundEvent)[]",
+      "doc": "Every catalogued firing sound (sorted by name), or those the filter keeps (a family name or a table); {catalogue = 'events'} lists the full event catalogue, {catalogue = 'all'} both. An invalid filter raises an error."
+     },
+     {
+      "name": "describe",
+      "params": [
+       [
+        "name",
+        "string"
+       ]
+      ],
+      "returns": "HD2WeaponSound|HD2SoundEvent|nil",
+      "doc": "One sound by its name (or an older alias such as 'maelstrom_main_gun'), else a sound event by its catalogue name or its own Wwise name, or nil."
+     },
+     {
+      "name": "play",
+      "params": [
+       [
+        "event",
+        "string|{id: integer}"
+       ],
+       [
+        "opts",
+        "HD2SoundPlayOptions|nil"
+       ]
+      ],
+      "returns": "HD2SoundHandle|nil, string|nil, string|nil",
+      "doc": "Post a game sound event now: a firing-sound name ('sentry/gatling' starts its loop), a sound event's catalogue name, 'ui/<key>' (ui/stratagem_pick, ui/picker_close, ui/slot_select, ui/generic_select, ui/item_hover_select), any Wwise event name, or {id = <32-bit event id>}. Its bank must be loaded. An event that would leave the sound engine changed is refused (GLOBAL_EVENT). Rate-limited per mod. nil, code, reason when refused."
+     },
+     {
+      "name": "available",
+      "params": [
+       [
+        "event",
+        "string|{id: integer}"
+       ]
+      ],
+      "returns": "boolean|nil, string|nil",
+      "doc": "Whether the sound engine knows the event now (its bank is loaded)."
+     },
+     {
+      "name": "asset",
+      "params": [
+       [
+        "name",
+        "string"
+       ]
+      ],
+      "returns": "table",
+      "doc": "A catalogue sound (a firing sound or a sound event) as a hd2.require_assets / hd2.asset_dependency target (its bank's package: a stratagem's call-in or a loadout item's). Raises on an unknown name."
+     },
+     {
+      "name": "name_for",
+      "params": [
+       [
+        "id",
+        "integer"
+       ]
+      ],
+      "returns": "string|nil",
+      "doc": "A name the sound engine maps to a 32-bit id (what play({id = id}) posts). Every catalogued id has one generated at build time; any other is searched for about 40 ms once, then cached."
+     },
+     {
+      "name": "parameters",
+      "params": [],
+      "returns": "HD2SoundParameter[]",
+      "doc": "The sound engine's game parameters (RTPCs), sorted by name."
+     },
+     {
+      "name": "switch_groups",
+      "params": [],
+      "returns": "HD2SoundGroup[]",
+      "doc": "The sound engine's switch groups and their switches."
+     },
+     {
+      "name": "state_groups",
+      "params": [],
+      "returns": "HD2SoundGroup[]",
+      "doc": "The sound engine's state groups and their states (read-only: states are engine-wide and never set by Runtime)."
+     }
+    ]
+   },
+   "HD2CustomStratagemCarrier": {
+    "doc": "Which vanilla carrier a custom stratagem borrows: its carrier group (a structural pool), or the older policy fields; owned, selectable, enabled, unlimited, not in any lobby pick, never another custom stratagem's carrier, asset or delivery.",
+    "fields": [
+     [
+      "group",
+      "string|nil",
+      "The carrier group (hd2.custom_stratagem.groups()): orbital, any_red, any, support, support_pod, expendable, sentry, emplacement, eagle; default the payload family's."
+     ],
+     [
+      "slots",
+      "integer|nil",
+      "A pod capacity to ask the group for (1..8; support_pod and expendable only)."
+     ],
+     [
+      "beacon",
+      "\"offensive\"|\"support\"|\"any\"|nil",
+      "The beacon the player throws: offensive = a red beam, support = a blue beam. Required unless group is given."
+     ],
+     [
+      "prefer_families",
+      "string[]|nil",
+      "Catalogue families in order of preference ('orbital', 'eagle', 'sentry', 'emplacement', 'mine', 'support', 'backpack')."
+     ],
+     [
+      "allow_families",
+      "string[]|nil",
+      "The only families it may take (default: the preferred ones)."
+     ],
+     [
+      "exclude",
+      "string[]|nil",
+      "Stratagems never taken."
+     ],
+     [
+      "require_unlimited",
+      "true|nil",
+      "Always true: a carrier has unlimited uses."
+     ]
+    ]
+   },
+   "HD2CustomStratagemSpec": {
+    "doc": "A custom stratagem (hd2.custom_stratagem.register; development, solo host).",
+    "fields": [
+     [
+      "id",
+      "string",
+      "a-z, 0-9 and _, starting with a letter (at most 48); unique across mods."
+     ],
+     [
+      "name",
+      "string",
+      "Its name (the HUD)."
+     ],
+     [
+      "name_cased",
+      "string|nil",
+      "Its cased name (the panel, the loadout)."
+     ],
+     [
+      "description",
+      "string",
+      "Its description."
+     ],
+     [
+      "icon",
+      "string|HD2ImageHandle",
+      "The id of one of the mod's images (images/<id>.png, a 256 x 256 mask)."
+     ],
+     [
+      "code",
+      "string[]",
+      "1 to 8 directions ('up', 'down', 'left', 'right'); never equal to or the start of another custom stratagem's."
+     ],
+     [
+      "cooldown",
+      "number|nil",
+      "Seconds from the call-in's arrival (at most 600); nil: the carrier's own."
+     ],
+     [
+      "uses",
+      "integer|nil",
+      "Calls per mission, each player's own (1 to 100): the call that uses the last of them ends with a cooldown longer than any mission; nil: unlimited. Not for an Eagle (eagle.uses is per rearm)."
+     ],
+     [
+      "traits",
+      "string[]|nil",
+      "Up to 4 ITEM TRAITS the custom panel shows after the automatic CUSTOM STRATAGEM (1 to 32 characters each, shown in upper case); nil: the payload family's."
+     ],
+     [
+      "selection",
+      "'token'|'carrier'|nil",
+      "development probe (the carrier-in-slot probe, solo host): 'carrier' picks the carrier itself into the loadout slot instead of the Orbital Precision Strike token; default 'token'"
+     ],
+     [
+      "carrier",
+      "HD2CustomStratagemCarrier",
+      "Its carrier policy."
+     ],
+     [
+      "sentry",
+      "table|nil",
+      "{donor, weapon = {projectile, rpm, spread, ammo, recoil}}: the donor sentry's own pod, its sentry's own weapon configured (docs/custom-stratagem-api.md)."
+     ],
+     [
+      "orbital",
+      "table|nil",
+      "{native = true, pattern, impact_explosion} (the donor's own barrage) or a Runtime bombardment {shell, pattern, salvos, ...}."
+     ],
+     [
+      "pelican",
+      "table|nil",
+      "{hover, orbit = {radius, altitude, duration, period, entry}, gun = {...}, approach}: the Runtime's Pelican; gun = {round = 'native'} is its vanilla autocannon."
+     ],
+     [
+      "silo",
+      "table|nil",
+      "{donor = a reviewed missile silo ('MS-11 Solo Silo'), blast = an hd2.explosions name, fallback = an hd2.explosions name or nil}: the donor silo's own pod; where exactly the call's missile detonates, every watching machine requests the blast from its own copy"
+     ],
+     [
+      "assets",
+      "string[]|nil",
+      "Stratagems whose call-in packages it needs in the mission (loaded before it can be called)."
+     ],
+     [
+      "delivery",
+      "\"runtime\"|{stratagem: string}|nil",
+      "runtime (default): the carrier's own delivery never comes and the mod delivers; {stratagem = 'EAT-17 Expendable Anti-Tank'}: that vanilla support delivery's pod."
+     ],
+     [
+      "on_called",
+      "fun(ctx: HD2CustomStratagemCall)|nil",
+      "The call-in started."
+     ],
+     [
+      "on_beacon_created",
+      "fun(ctx: HD2CustomStratagemCall)|nil",
+      "Its beacon, in its first update (changed)."
+     ],
+     [
+      "on_beacon_landed",
+      "fun(ctx: HD2CustomStratagemCall)|nil",
+      "The beacon landed: ctx.position."
+     ],
+     [
+      "on_activate",
+      "fun(ctx: HD2CustomStratagemCall)|nil",
+      "The beacon activated: deliver now."
+     ],
+     [
+      "on_delivered",
+      "fun(ctx: HD2CustomStratagemCall)|nil",
+      "A support delivery: ctx.weapons, the exact delivered weapons."
+     ]
+    ]
+   },
+   "HD2CustomStratagemCall": {
+    "doc": "One call of a custom stratagem (its callbacks' ctx).",
+    "fields": [
+     [
+      "id",
+      "string",
+      "The custom stratagem."
+     ],
+     [
+      "call_id",
+      "string",
+      "Mission-unique: '<id>#<n>'."
+     ],
+     [
+      "n",
+      "integer",
+      "Its number in this mission."
+     ],
+     [
+      "player",
+      "HD2PlayerHandle",
+      "The caller (the local player: solo host)."
+     ],
+     [
+      "slot",
+      "integer|nil",
+      "The loadout slot it was called from, when known."
+     ],
+     [
+      "carrier",
+      "{name: string, stable_id: integer, type: integer}",
+      "The vanilla carrier it borrowed."
+     ],
+     [
+      "beacon",
+      "{entity: integer, network: integer|nil}|nil",
+      "Its beacon."
+     ],
+     [
+      "position",
+      "HD2Vector3|nil",
+      "The beacon's landing position (else its activation position)."
+     ],
+     [
+      "delivery",
+      "string",
+      "'runtime' or the vanilla support delivery's name."
+     ],
+     [
+      "weapons",
+      "HD2CustomStratagemWeapon[]|nil",
+      "on_delivered: the exact delivered weapons."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "log",
+      "params": [
+       [
+        "text",
+        "string"
+       ]
+      ],
+      "returns": "nil",
+      "doc": "A log line tagged with the call."
+     },
+     {
+      "name": "associate",
+      "params": [
+       [
+        "entity",
+        "integer"
+       ],
+       [
+        "role",
+        "string|nil"
+       ]
+      ],
+      "returns": "boolean|nil",
+      "doc": "Associates an entity the call spawned with it (mission-scoped)."
+     },
+     {
+      "name": "spawned",
+      "params": [
+       [
+        "role",
+        "string|nil"
+       ]
+      ],
+      "returns": "integer[]",
+      "doc": "The live entities associated with the call."
+     },
+     {
+      "name": "barrage",
+      "params": [
+       [
+        "spec",
+        "{shell: string, pattern: string, target: HD2Vector3|nil}"
+       ]
+      ],
+      "returns": "table|nil",
+      "doc": "A Runtime bombardment: the shell of `shell`'s reviewed record in `pattern`'s salvo pattern over the target (default ctx.position); shell must be one of its assets."
+     }
+    ]
+   },
+   "HD2CustomStratagemWeapon": {
+    "doc": "A weapon a support delivery brought (exactly that entity).",
+    "fields": [
+     [
+      "entity",
+      "integer",
+      "Its entity id."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "set_impact_explosion",
+      "params": [
+       [
+        "donor",
+        "string"
+       ]
+      ],
+      "returns": "boolean|nil",
+      "doc": "Its projectiles explode as the donor's ('Orbital Gas Strike') on impact: each projectile's own copy, one round; every other weapon stays vanilla."
+     }
+    ]
+   },
+   "HD2CustomStratagems": {
+    "doc": "hd2.custom_stratagem: selectable custom stratagems (development, solo host; docs/custom-stratagem-api.md).",
+    "methods": [
+     {
+      "name": "register",
+      "params": [
+       [
+        "spec",
+        "HD2CustomStratagemSpec"
+       ]
+      ],
+      "returns": "table",
+      "doc": "Registers a custom stratagem of the calling mod (errors at load time on an invalid spec)."
+     },
+     {
+      "name": "status",
+      "params": [],
+      "returns": "table[]",
+      "doc": "Every custom stratagem's state."
+     },
+     {
+      "name": "describe",
+      "params": [
+       [
+        "id",
+        "string"
+       ]
+      ],
+      "returns": "table|nil",
+      "doc": "What a custom stratagem uses (read-only): {group, group_source, carrier = {name, stable_id, type, beam, condensed, fallback}, carrier_weapon = {name, level}, pod = {rack, capacity, items, slots}, available, reason, state}."
+     },
+     {
+      "name": "groups",
+      "params": [],
+      "returns": "table[]",
+      "doc": "The carrier groups: {name, beacon, families, pod, weapon, eagle, doc, payloads, defaults; expendable: members = {name, stable_id, rounds, pod_capacity, clone_class, carries, refused}}."
+     },
+     {
+      "name": "instance_of",
+      "params": [
+       [
+        "entity",
+        "integer"
+       ]
+      ],
+      "returns": "table|nil",
+      "doc": "The call an entity belongs to: {id, call_id, n, role, player, parent}."
+     },
+     {
+      "name": "verbose",
+      "params": [
+       [
+        "on",
+        "boolean"
+       ]
+      ],
+      "returns": "nil",
+      "doc": "Log every carrier candidate."
+     },
+     {
+      "name": "focus_next",
+      "params": [],
+      "returns": "string",
+      "doc": "The custom panel's focus to the next entry."
+     },
+     {
+      "name": "select_focused",
+      "params": [],
+      "returns": "string",
+      "doc": "Selects the focused entry."
+     },
+     {
+      "name": "undo",
+      "params": [],
+      "returns": "string",
+      "doc": "Returns the last selected slot."
+     },
+     {
+      "name": "tune",
+      "params": [
+       [
+        "id",
+        "string"
+       ],
+       [
+        "values",
+        "table"
+       ]
+      ],
+      "returns": "boolean|nil, string|nil",
+      "doc": "r51, for in-game editors: a registered custom stratagem's cooldown (seconds) and uses (calls per mission) on this machine, values = {cooldown, uses}. Each player's own, from their next call; the lobby registry is unchanged. The same checks as register. True, or nil and why."
+     },
+     {
+      "name": "untune",
+      "params": [
+       [
+        "id",
+        "string"
+       ]
+      ],
+      "returns": "boolean|nil, string|nil",
+      "doc": "Back to the registered cooldown and uses."
+     }
+    ]
+   },
+   "HD2Ownership": {
+    "doc": "hd2.ownership: whom an associated autonomous entity's kills credit (development, solo host).",
+    "methods": [
+     {
+      "name": "credit_to_player",
+      "params": [
+       [
+        "entity",
+        "integer"
+       ],
+       [
+        "player",
+        "HD2PlayerHandle"
+       ]
+      ],
+      "returns": "{applied: boolean, already: boolean|nil, reason: string|nil}",
+      "doc": "Its kills credit the local player (its own no-credit tag cleared); it must belong to that player's custom stratagem call."
+     }
+    ]
+   },
+   "HD2BuildInfo": {
+    "doc": "hd2.build() details.",
+    "fields": [
+     [
+      "pinned",
+      "string",
+      "The first 12 hex digits of the executable build this Runtime is pinned to."
+     ],
+     [
+      "reason",
+      "string|nil",
+      "Why the status is not_ready."
+     ]
+    ]
+   },
+   "HD2Mouse": {
+    "doc": "The cursor, read-only.",
+    "fields": [
+     [
+      "x",
+      "number",
+      "Client pixels from the left."
+     ],
+     [
+      "y",
+      "number",
+      "Client pixels from the top."
+     ],
+     [
+      "w",
+      "number",
+      "Client width."
+     ],
+     [
+      "h",
+      "number",
+      "Client height."
+     ],
+     [
+      "left",
+      "boolean",
+      "The left button is held."
+     ]
+    ]
+   },
+   "HD2Store": {
+    "doc": "One mod's saved key/value data (hd2.store(); docs/mod-store.md). Values: booleans, finite numbers, strings and tables of those (arrays or string-keyed maps, no cycles, at most 16 deep). Saved about a second after a change, or at once with save().",
+    "fields": [
+     [
+      "owner",
+      "string",
+      "The mod it belongs to."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "get",
+      "params": [
+       [
+        "key",
+        "string"
+       ],
+       [
+        "default",
+        "any"
+       ]
+      ],
+      "returns": "any",
+      "doc": "The stored value (a copy, for a table), or default."
+     },
+     {
+      "name": "set",
+      "params": [
+       [
+        "key",
+        "string"
+       ],
+       [
+        "value",
+        "any"
+       ]
+      ],
+      "returns": "HD2Store",
+      "doc": "Store a value (nil removes the key). Raises on a value that cannot be saved."
+     },
+     {
+      "name": "keys",
+      "params": [],
+      "returns": "string[]",
+      "doc": "Every key, sorted."
+     },
+     {
+      "name": "clear",
+      "params": [],
+      "returns": "HD2Store",
+      "doc": "Remove every key."
+     },
+     {
+      "name": "save",
+      "params": [],
+      "returns": "boolean, string|nil",
+      "doc": "Write now. false and the reason when it failed (the previous file is kept)."
+     },
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "{owner, keys, dirty, saved, file, load_error}."
+     }
+    ]
+   },
+   "HD2SoundPlayOptions": {
+    "doc": "",
+    "fields": [
+     [
+      "position",
+      "HD2Vector3|number[]|nil",
+      "A world position: a 3D sound there, on a source of its own. Without position or unit the sound plays on the game world's own 2D source."
+     ],
+     [
+      "rotation",
+      "number[]|nil",
+      "With a position: the source's orientation, a quaternion {x, y, z, w}."
+     ],
+     [
+      "unit",
+      "userdata|nil",
+      "An engine Unit: the sound plays on the unit's own source and follows it."
+     ],
+     [
+      "owner",
+      "string|nil",
+      ""
+     ]
+    ]
+   },
+   "HD2SoundHandle": {
+    "doc": "A posted sound.",
+    "fields": [
+     [
+      "state",
+      "\"playing\"|\"stopped\"",
+      ""
+     ],
+     [
+      "playing",
+      "integer",
+      "The plugin's playing id."
+     ],
+     [
+      "event",
+      "string",
+      ""
+     ],
+     [
+      "name",
+      "string",
+      "The name posted."
+     ],
+     [
+      "kind",
+      "string",
+      "shot, loop, ui, event, or a sound event's kind."
+     ],
+     [
+      "owner",
+      "string",
+      ""
+     ]
+    ],
+    "methods": [
+     {
+      "name": "stop",
+      "params": [],
+      "returns": "boolean|nil, string|nil",
+      "doc": "Stop this playing instance."
+     },
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "{state, event, name, kind, playing, owner, source (world, position or unit), own_source, controls (pause/resume/is_playing/elapsed available), controls_reason}."
+     },
+     {
+      "name": "pause",
+      "params": [],
+      "returns": "boolean|nil, string|nil, string|nil",
+      "doc": "Pause this instance."
+     },
+     {
+      "name": "resume",
+      "params": [],
+      "returns": "boolean|nil, string|nil, string|nil",
+      "doc": "Resume this instance."
+     },
+     {
+      "name": "is_playing",
+      "params": [],
+      "returns": "boolean|nil, string|nil, string|nil",
+      "doc": "Whether the sound engine still plays it (false up to one update after it ends)."
+     },
+     {
+      "name": "elapsed",
+      "params": [],
+      "returns": "number|nil, string|nil, string|nil",
+      "doc": "Seconds it has played (the engine's play position)."
+     },
+     {
+      "name": "set_parameter",
+      "params": [
+       [
+        "parameter",
+        "string|{id: integer}"
+       ],
+       [
+        "value",
+        "number"
+       ]
+      ],
+      "returns": "boolean|nil, string|nil, string|nil",
+      "doc": "Set a game parameter (RTPC) on this sound's own source (a position post only)."
+     },
+     {
+      "name": "set_switch",
+      "params": [
+       [
+        "group",
+        "string|{id: integer}"
+       ],
+       [
+        "switch",
+        "string|{id: integer}"
+       ]
+      ],
+      "returns": "boolean|nil, string|nil, string|nil",
+      "doc": "Set a switch on this sound's own source (a position post only)."
+     },
+     {
+      "name": "post_trigger",
+      "params": [
+       [
+        "trigger",
+        "string|{id: integer}"
+       ]
+      ],
+      "returns": "boolean|nil, string|nil, string|nil",
+      "doc": "Post a trigger on this sound's own source (a position post only)."
+     }
+    ]
+   },
+   "HD2UI": {
+    "doc": "hd2.ui: mod screen overlays (docs/ui-overlay.md).",
+    "methods": [
+     {
+      "name": "overlay",
+      "params": [
+       [
+        "opts",
+        "HD2OverlayOptions|nil"
+       ]
+      ],
+      "returns": "HD2Overlay",
+      "doc": "The calling mod's overlay opts.id (default 'main'): created on first use, the same object afterwards."
+     },
+     {
+      "name": "overlays",
+      "params": [],
+      "returns": "table[]",
+      "doc": "Every overlay's status."
+     },
+     {
+      "name": "colour",
+      "params": [
+       [
+        "c",
+        "number[]|string"
+       ]
+      ],
+      "returns": "number[]|nil",
+      "doc": "A colour as overlays take it ({r, g, b[, a]} or '#RRGGBB[AA]') -> {r, g, b, a}; nil when invalid."
+     },
+     {
+      "name": "cursor",
+      "params": [],
+      "returns": "table",
+      "doc": "The cursor capture's state: holders, disabled, the game's saved values and what the engine reports now."
+     }
+    ],
+    "fields": [
+     [
+      "MAX_LAYER",
+      "integer",
+      "The highest layer (1023)."
+     ],
+     [
+      "DEFAULT_LAYER",
+      "integer",
+      "The default base layer (1011)."
+     ]
+    ]
+   },
+   "HD2OverlayOptions": {
+    "doc": "",
+    "fields": [
+     [
+      "id",
+      "string|nil",
+      "1 to 48 letters, digits, _ . - (default 'main')."
+     ],
+     [
+      "layer",
+      "integer|nil",
+      "The base layer of its band, 1..1023 (default 1011); an item's z is added to it."
+     ],
+     [
+      "visible",
+      "boolean|nil",
+      "Default true."
+     ],
+     [
+      "owner",
+      "string|nil",
+      ""
+     ]
+    ]
+   },
+   "HD2Overlay": {
+    "doc": "A mod's screen overlay: rectangles and text in the game's Ui World, over the HUD and under the game's menus (the Noesis UI always draws above). Coordinates are GUI pixels from the top-left.",
+    "fields": [
+     [
+      "owner",
+      "string",
+      ""
+     ],
+     [
+      "id",
+      "string",
+      ""
+     ],
+     [
+      "layer",
+      "integer",
+      ""
+     ],
+     [
+      "width",
+      "number|nil",
+      "The screen width in GUI pixels (after the first frame)."
+     ],
+     [
+      "height",
+      "number|nil",
+      ""
+     ],
+     [
+      "scale",
+      "number|nil",
+      "The screen against 1920 x 1080 (the smaller ratio)."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "draw",
+      "params": [
+       [
+        "fn",
+        "fun(d: HD2OverlayFrame, dt: number)"
+       ]
+      ],
+      "returns": "HD2Overlay",
+      "doc": "Set the draw function: called every frame while shown; it describes the whole frame. Unchanged items make no engine call."
+     },
+     {
+      "name": "show",
+      "params": [
+       [
+        "on",
+        "boolean|nil"
+       ]
+      ],
+      "returns": "HD2Overlay",
+      "doc": ""
+     },
+     {
+      "name": "hide",
+      "params": [],
+      "returns": "HD2Overlay",
+      "doc": ""
+     },
+     {
+      "name": "mouse",
+      "params": [],
+      "returns": "{x: number, y: number, left: boolean}|nil, string|nil",
+      "doc": "The cursor in overlay coordinates."
+     },
+     {
+      "name": "text_width",
+      "params": [
+       [
+        "text",
+        "string"
+       ],
+       [
+        "size",
+        "number|nil"
+       ],
+       [
+        "font",
+        "\"body\"|\"title\"|\"mono\"|nil"
+       ]
+      ],
+      "returns": "number",
+      "doc": "The width of text in pixels."
+     },
+     {
+      "name": "status",
+      "params": [],
+      "returns": "table",
+      "doc": "{owner, id, state, reason, layer, visible, width, height, items, frames, engine_calls, refused, first_refusal}."
+     },
+     {
+      "name": "close",
+      "params": [],
+      "returns": "HD2Overlay",
+      "doc": "Remove its primitives, its GUI and its frame callback."
+     },
+     {
+      "name": "free_cursor",
+      "params": [
+       [
+        "on",
+        "boolean|nil"
+       ],
+       [
+        "opts",
+        "table|nil"
+       ]
+      ],
+      "returns": "HD2Overlay",
+      "doc": "EXPERIMENTAL (r50): while shown, the engine shows the cursor, stops clipping it and drops the mouse focus so the camera stops turning; opts {camera = false} keeps the focus. free_cursor(false) gives it back."
+     }
+    ]
+   },
+   "HD2OverlayFrame": {
+    "doc": "What one frame of an overlay shows (the d of overlay:draw). Invalid items are refused (counted in status()), never passed to the engine.",
+    "fields": [
+     [
+      "width",
+      "number",
+      ""
+     ],
+     [
+      "height",
+      "number",
+      ""
+     ],
+     [
+      "scale",
+      "number",
+      ""
+     ]
+    ],
+    "methods": [
+     {
+      "name": "rect",
+      "params": [
+       [
+        "x",
+        "number"
+       ],
+       [
+        "y",
+        "number"
+       ],
+       [
+        "w",
+        "number"
+       ],
+       [
+        "h",
+        "number"
+       ],
+       [
+        "colour",
+        "number[]|string|nil"
+       ],
+       [
+        "z",
+        "integer|nil"
+       ]
+      ],
+      "returns": "nil",
+      "doc": "A filled rectangle; (x, y) its top-left corner. colour {r, g, b[, a]} 0-255 or '#RRGGBB[AA]' (default white). z is added to the overlay's layer."
+     },
+     {
+      "name": "text",
+      "params": [
+       [
+        "text",
+        "string|number"
+       ],
+       [
+        "x",
+        "number"
+       ],
+       [
+        "y",
+        "number"
+       ],
+       [
+        "opts",
+        "HD2OverlayTextOptions|nil"
+       ]
+      ],
+      "returns": "nil",
+      "doc": "A line of text (1-160 printable bytes); (x, y) its top-left corner (or top-centre / top-right with align)."
+     },
+     {
+      "name": "image",
+      "params": [
+       [
+        "image",
+        "table"
+       ],
+       [
+        "x",
+        "number"
+       ],
+       [
+        "y",
+        "number"
+       ],
+       [
+        "w",
+        "number"
+       ],
+       [
+        "h",
+        "number"
+       ],
+       [
+        "opts",
+        "HD2OverlayImageOptions|nil"
+       ]
+      ],
+      "returns": "nil",
+      "doc": "One of the mod's own images (hd2.resources.image) through the game's icon material, or one of the game's own HUD icons (hd2.resources.game_icon; docs/game-icons.md); (x, y) its top-left corner. Drawn once its resources are loaded; an image partly off screen is dropped. One colour set per mod image per overlay (r50); a game icon may take several."
+     },
+     {
+      "name": "text_width",
+      "params": [
+       [
+        "text",
+        "string"
+       ],
+       [
+        "size",
+        "number|nil"
+       ],
+       [
+        "font",
+        "\"body\"|\"title\"|\"mono\"|nil"
+       ]
+      ],
+      "returns": "number",
+      "doc": ""
+     }
+    ]
+   },
+   "HD2OverlayTextOptions": {
+    "doc": "",
+    "fields": [
+     [
+      "size",
+      "number|nil",
+      "Pixels (4-256, default 18)."
+     ],
+     [
+      "colour",
+      "number[]|string|nil",
+      ""
+     ],
+     [
+      "font",
+      "\"body\"|\"title\"|\"mono\"|nil",
+      "body / title: the FS Sinclair fonts the Runtime ships; mono: the engine's monaco."
+     ],
+     [
+      "align",
+      "\"left\"|\"center\"|\"right\"|nil",
+      ""
+     ],
+     [
+      "z",
+      "integer|nil",
+      ""
+     ]
+    ]
+   },
+   "HD2WeaponState": {
+    "doc": "player:weapon_state() (docs/player-equipment.md).",
+    "fields": [
+     [
+      "name",
+      "string|nil",
+      ""
+     ],
+     [
+      "type",
+      "string|nil",
+      ""
+     ],
+     [
+      "slot",
+      "string",
+      ""
+     ],
+     [
+      "entity_id",
+      "integer",
+      ""
+     ],
+     [
+      "fire_rate",
+      "number|nil",
+      "Its current rounds per minute."
+     ],
+     [
+      "rate_slots",
+      "number[]|nil",
+      "Its rate selector's three slots."
+     ],
+     [
+      "own_record",
+      "boolean",
+      "It has its own ProjectileWeapon copy."
+     ],
+     [
+      "projectile",
+      "integer|nil",
+      "The projectile type it fires."
+     ],
+     [
+      "feed",
+      "\"magazine\"|\"heat\"|\"rounds\"|\"other\"",
+      ""
+     ],
+     [
+      "magazine",
+      "{rounds: integer, chambered: integer, capacity: integer}|nil",
+      ""
+     ],
+     [
+      "spread",
+      "{horizontal: number, vertical: number}|nil",
+      "Milliradians."
+     ],
+     [
+      "recoil",
+      "{horizontal: number, vertical: number}|nil",
+      "Its aim recoil per shot."
+     ],
+     [
+      "wind_up",
+      "boolean",
+      ""
+     ],
+     [
+      "heat",
+      "boolean",
+      ""
+     ]
+    ]
+   },
+   "HD2OverlayImageOptions": {
+    "doc": "d:image options.",
+    "fields": [
+     [
+      "colours",
+      "table|nil",
+      "{r =, g =, b =}: the colours of the image's R, G and B masks (overlay colours; alpha = strength). Default white R and G, a 0.2 black shadow on B."
+     ],
+     [
+      "colour",
+      "number[]|string|nil",
+      "Vertex colour (tint and alpha); default white."
+     ],
+     [
+      "z",
+      "integer|nil",
+      "Added to the overlay layer."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2ChoiceSpec": {
+    "doc": "mod:choice declaration.",
+    "fields": [
+     [
+      "id",
+      "string",
+      "1-40 letters, digits, _ or -."
+     ],
+     [
+      "values",
+      "any[]",
+      "1-64 values, no two the same (a following choice may repeat); every one is validated when an ensure binds the choice."
+     ],
+     [
+      "default",
+      "integer|nil",
+      "1-based index (default 1)."
+     ],
+     [
+      "labels",
+      "string[]|nil",
+      "Readable names, for describe() and logs."
+     ],
+     [
+      "follow",
+      "HD2ScriptChoice|nil",
+      "r51: another script choice of the same mod this one follows: it always selects the same index (it cannot be set itself), may repeat values and has exactly as many; a bound ensure proves the two together, index by index (e.g. the rate-of-fire selector binding that a fire_rate.modes list with two or more rates needs)."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2ScriptChoice": {
+    "doc": "A script choice (mod:choice).",
+    "fields": [],
+    "methods": [
+     {
+      "name": "get",
+      "params": [],
+      "returns": "any",
+      "doc": "The selected value (a copy of a plain table)."
+     },
+     {
+      "name": "set",
+      "params": [
+       [
+        "value",
+        "any"
+       ]
+      ],
+      "returns": "boolean",
+      "doc": "Select the value equal to `value` (reference handles by identity, tables element by element); false when it is not one of the values."
+     },
+     {
+      "name": "select",
+      "params": [
+       [
+        "index",
+        "integer"
+       ]
+      ],
+      "returns": "boolean",
+      "doc": "Select by 1-based index."
+     },
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "The declaration and the selected value."
+     }
+    ]
+   },
+   "HD2PassivePackage": {
+    "doc": "A passive's effect package (research/passive-effects-F5FEE03DCFDB.json; the generated core/assets catalogue entry).",
+    "fields": [
+     [
+      "key",
+      "string",
+      "The passive +0x30 key (8 hex digits)."
+     ],
+     [
+      "catalogue",
+      "string",
+      "The core/assets catalogue key ('passive/17')."
+     ],
+     [
+      "package",
+      "string",
+      "The package id the game resolves the key to."
+     ],
+     [
+      "contents",
+      "string",
+      "What the package holds (resource types)."
+     ],
+     [
+      "armor_slot_only",
+      "string[]",
+      "Its effect rows read from the armor slot only (17: death_explosion): set() refuses it as the second passive (ARMOR_SLOT_ONLY)."
+     ],
+     [
+      "loads",
+      "string",
+      "How set() loads it."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2ArmorKitWiki": {
+    "doc": "The community wiki's values for a kit (where a wiki page matched): NOT read from the game.",
+    "fields": [
+     [
+      "source",
+      "'wiki'",
+      "Always wiki."
+     ],
+     [
+      "name",
+      "string",
+      "The wiki's name."
+     ],
+     [
+      "match",
+      "'exact'|'contained'|'fuzzy'",
+      "How the wiki page matched the game name."
+     ],
+     [
+      "class",
+      "string|nil",
+      "The wiki's weight class (armor)."
+     ],
+     [
+      "armor_rating",
+      "number|nil",
+      "The wiki's armor rating (armor)."
+     ],
+     [
+      "speed",
+      "number|nil",
+      "The wiki's speed (armor)."
+     ],
+     [
+      "stamina_regen",
+      "number|nil",
+      "The wiki's stamina regen (armor)."
+     ],
+     [
+      "passive",
+      "string|nil",
+      "The wiki's passive name."
+     ],
+     [
+      "passive_agrees",
+      "boolean|nil",
+      "The wiki's passive is the game's."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2ArmorKit": {
+    "doc": "One of the game's 411 kits (research/armor-names-F5FEE03DCFDB.json; read-only, offline).",
+    "fields": [
+     [
+      "index",
+      "integer",
+      "Its index in the kit table (0-410)."
+     ],
+     [
+      "id",
+      "string",
+      "The kit id (0x + 8 hex digits)."
+     ],
+     [
+      "slot",
+      "'armor'|'helmet'|'cape'",
+      "Its slot (kit +0x28)."
+     ],
+     [
+      "weight",
+      "'light'|'medium'|'heavy'|nil",
+      "Armor only: its weight (its armor pieces')."
+     ],
+     [
+      "passive",
+      "integer",
+      "Its passive (kit +0x1C; 0 for every helmet and cape)."
+     ],
+     [
+      "passive_name",
+      "string",
+      "That passive's game name."
+     ],
+     [
+      "set",
+      "string|nil",
+      "Its set id."
+     ],
+     [
+      "dlc",
+      "string|nil",
+      "Its dlc id."
+     ],
+     [
+      "rarity",
+      "string",
+      "'common' or 'heroic'."
+     ],
+     [
+      "name",
+      "string|nil",
+      "Its game name (378 of 411 resolved; armors and their helmets often share one)."
+     ],
+     [
+      "description",
+      "string|nil",
+      "Its game description."
+     ],
+     [
+      "same_name",
+      "integer",
+      "How many kits carry this name (0: unnamed)."
+     ],
+     [
+      "wiki",
+      "HD2ArmorKitWiki|nil",
+      "The community wiki's values where a page matched (not the game's)."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2ArmorKitFilter": {
+    "doc": "",
+    "fields": [
+     [
+      "slot",
+      "'armor'|'helmet'|'cape'|nil",
+      "Only this slot."
+     ],
+     [
+      "weight",
+      "'light'|'medium'|'heavy'|nil",
+      "Only armor of this weight."
+     ],
+     [
+      "passive",
+      "HD2PassiveName|integer|nil",
+      "Only kits with this passive."
+     ],
+     [
+      "name",
+      "string|nil",
+      "Only kits with this game name (any case)."
+     ]
+    ],
+    "methods": []
+   },
+   "HD2ArmorStatsApi": {
+    "doc": "hd2.armor_stats: armor rating, speed and stamina (DEVELOPMENT, not live-tested; docs/armor-stats.md). No armor stores its own numbers: each armor piece has a weight (light, medium, heavy) that indexes three per-weight tables in game.dll.",
+    "methods": [
+     {
+      "name": "kit",
+      "params": [
+       [
+        "identity",
+        "string|integer"
+       ]
+      ],
+      "returns": "HD2ArmorKitTarget",
+      "doc": "An armor kit by id (0x1F9BFA78, \"1F9BFA78\") or game name (any case; a name several kits share raises AMBIGUOUS_ARMOR_KIT with their ids): the target of the armor_kit.piece_weight.<slot> fields. Unknown: raises UNKNOWN_ARMOR_KIT."
+     },
+     {
+      "name": "kits",
+      "params": [],
+      "returns": "HD2ArmorKitSummary[]",
+      "doc": "Every armor kit of the build with its vanilla stats (offline)."
+     },
+     {
+      "name": "class",
+      "params": [
+       [
+        "name",
+        "\"light\"|\"medium\"|\"heavy\""
+       ]
+      ],
+      "returns": "HD2ArmorClassTarget",
+      "doc": "A weight class: its table values (armor value, speed and stamina factors). Writable with allow_shared and allow_unverified_effect: the tables sit in game.dll pages that are executable at run time, and only their exact 4-byte entries are written, as reviewed executable data."
+     },
+     {
+      "name": "damage_curve",
+      "params": [],
+      "returns": "HD2ArmorDamageCurveTarget",
+      "doc": "The avatar damage curve (damage multiplier by armor value). Writable like the class tables (reviewed executable data)."
+     },
+     {
+      "name": "player",
+      "params": [],
+      "returns": "HD2ArmorPlayer",
+      "doc": "The local player's own avatar members: the armor bonus and the stamina factor (DEVELOPMENT, solo)."
+     }
+    ]
+   },
+   "HD2ArmorKitTarget": {
+    "doc": "An armor kit (hd2.armor_stats.kit). Fields hd2.fields.armor_kit.piece_weight_<slot> (the weight of its armor piece in that slot, written in every body); every player wearing the kit reads them: allow_shared=true and allow_unverified_effect=true. The armor rating follows on the next hit, the speed and stamina factors at the next armor apply (a respawn or a kit change).",
+    "fields": [
+     [
+      "resource",
+      "\"armor_kit\"",
+      ""
+     ],
+     [
+      "armor_kit",
+      "string",
+      "The kit id (8 hex digits)."
+     ]
+    ],
+    "methods": [
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "Its pieces per slot, the stats they give now (rating, speed, stamina_regen, armor_value, damage_multiplier, speed_factor, stamina_factor, class; live when the game is readable, else the research's), its passive, the vanilla stats and its fields."
+     },
+     {
+      "name": "fields",
+      "params": [],
+      "returns": "table[]",
+      "doc": "Its piece weight fields with their vanilla weight, range and lifecycle."
+     },
+     {
+      "name": "changes",
+      "params": [
+       [
+        "weight",
+        "\"light\"|\"medium\"|\"heavy\"|integer"
+       ],
+       [
+        "slots",
+        "string[]|nil"
+       ]
+      ],
+      "returns": "table[]",
+      "doc": "The change list {field, expect, value} that puts every armor piece (or the slots given) at a weight, for hd2.transaction / hd2.ensure. It adds no acknowledgement."
+     },
+     {
+      "name": "preview",
+      "params": [
+       [
+        "weights",
+        "table<string, \"light\"|\"medium\"|\"heavy\"|integer>"
+       ]
+      ],
+      "returns": "table",
+      "doc": "The stats the kit would give with these slot weights (the tables now, the stocky body)."
+     }
+    ]
+   },
+   "HD2ArmorKitSummary": {
+    "doc": "One armor kit of the build (hd2.armor_stats.kits()).",
+    "fields": [
+     [
+      "id",
+      "string",
+      "Kit id (8 hex digits)."
+     ],
+     [
+      "name",
+      "string|nil",
+      "Its game name."
+     ],
+     [
+      "passive",
+      "integer",
+      "Its passive id."
+     ],
+     [
+      "passive_name",
+      "string|nil",
+      "Its passive's game name."
+     ],
+     [
+      "class",
+      "string",
+      "The armory class label (the torso piece's weight)."
+     ],
+     [
+      "vanilla",
+      "table",
+      "{rating, speed, stamina, armor_value, speed_factor, stamina_factor, damage_multiplier}."
+     ]
+    ]
+   },
+   "HD2ArmorClassTarget": {
+    "doc": "A weight class (hd2.armor_stats.class / hd2.armor_class). Fields hd2.fields.armor_class.rating / speed / stamina: one f32 entry per class table in game.dll, written as reviewed executable data, for every Helldiver on this machine (allow_shared and allow_unverified_effect; docs/armor-stats.md).",
+    "fields": [
+     [
+      "resource",
+      "\"armor_class\"",
+      ""
+     ],
+     [
+      "armor_class",
+      "\"light\"|\"medium\"|\"heavy\"",
+      ""
+     ]
+    ],
+    "methods": [
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "rating {value (armor value A), display (50 + 50 x A), vanilla}, speed {value, display (500 x factor), vanilla}, stamina {value, display (100 x (2 - F)), vanilla}, damage_multiplier, source, editable = true and executable_data (why the page is accepted)."
+     },
+     {
+      "name": "fields",
+      "params": [],
+      "returns": "table[]",
+      "doc": "Its three fields: armor_class.rating, speed and stamina (writable)."
+     }
+    ]
+   },
+   "HD2ArmorDamageCurveTarget": {
+    "doc": "The avatar damage curve (hd2.armor_stats.damage_curve()). Fields hd2.fields.armor_damage_curve.at_minus_1 .. at_3: the damage multiplier at each armor value, written as reviewed executable data like the class tables.",
+    "fields": [
+     [
+      "resource",
+      "\"armor_damage_curve\"",
+      ""
+     ]
+    ],
+    "methods": [
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "table",
+      "doc": "{points = {{armor_value, damage}}, vanilla, source, editable = true, executable_data}."
+     },
+     {
+      "name": "fields",
+      "params": [],
+      "returns": "table[]",
+      "doc": "Its five fields: armor_damage_curve.at_minus_1 .. at_3 (writable)."
+     }
+    ]
+   },
+   "HD2ArmorPlayer": {
+    "doc": "The local player's avatar members (hd2.armor_stats.player(); DEVELOPMENT, solo, not live-tested). A refusal never raises: status refused with a code and a reason.",
+    "methods": [
+     {
+      "name": "describe",
+      "params": [],
+      "returns": "HD2ArmorPlayerState|nil, string?, string?",
+      "doc": "The members now, or nil, code, reason."
+     },
+     {
+      "name": "set",
+      "params": [
+       [
+        "spec",
+        "HD2ArmorPlayerSpec"
+       ]
+      ],
+      "returns": "HD2ArmorPlayerResult",
+      "doc": "Write armor_bonus (live, every hit) and / or stamina_factor (live until the game next applies the armor: a respawn or a kit change). Each member must hold the game's own value or this Runtime's."
+     },
+     {
+      "name": "restore",
+      "params": [],
+      "returns": "HD2ArmorPlayerResult",
+      "doc": "Put the game's own values back (armor bonus 0, the kit's derived stamina factor) where a member still holds this Runtime's value."
+     }
+    ]
+   },
+   "HD2ArmorPlayerSpec": {
+    "doc": "hd2.armor_stats.player():set options.",
+    "fields": [
+     [
+      "armor_bonus?",
+      "number",
+      "-1..3: added to the armor value of every hit on the avatar (the sum clamped to -1..3)."
+     ],
+     [
+      "stamina_factor?",
+      "number",
+      "0.1..3: scales stamina drain AND regen and the jump / dive / climb / slide costs (light armor 0.75, medium 1, heavy 1.5)."
+     ],
+     [
+      "allow_unverified_effect",
+      "boolean",
+      "Required: not live-tested."
+     ],
+     [
+      "owner?",
+      "string",
+      "The mod name for the log (default: the calling mod)."
+     ]
+    ]
+   },
+   "HD2ArmorPlayerResult": {
+    "doc": "The outcome of a per-player write or restore.",
+    "fields": [
+     [
+      "status",
+      "string",
+      "'APPLIED', 'UNCHANGED' or 'refused'."
+     ],
+     [
+      "code",
+      "string|nil",
+      "Why it was refused: NOT_SOLO, NO_LOCAL_AVATAR, UNEXPECTED_STATE, OUT_OF_RANGE, ..."
+     ],
+     [
+      "reason",
+      "string|nil",
+      ""
+     ],
+     [
+      "armor_bonus",
+      "number|nil",
+      "The value now."
+     ],
+     [
+      "stamina_factor",
+      "number|nil",
+      "The value now."
+     ],
+     [
+      "writes",
+      "integer|nil",
+      ""
+     ],
+     [
+      "verified",
+      "boolean|nil",
+      "Read back."
+     ],
+     [
+      "skipped",
+      "string[]|nil",
+      "restore: members left alone."
+     ]
+    ]
+   },
+   "HD2ArmorPlayerState": {
+    "doc": "The local player's armor members now (hd2.armor_stats.player():describe()).",
+    "fields": [
+     [
+      "entity",
+      "integer",
+      "The player entity."
+     ],
+     [
+      "avatar",
+      "integer",
+      "The avatar entity."
+     ],
+     [
+      "slot",
+      "integer",
+      "Its avatar manager slot (the game's own map)."
+     ],
+     [
+      "armor_bonus",
+      "number",
+      "The armor modifier (0; -1 under a status effect)."
+     ],
+     [
+      "stamina_factor",
+      "number",
+      "The stamina factor the game applied (or this Runtime's)."
+     ],
+     [
+      "armor_kit",
+      "table|nil",
+      "{id, name, passive}."
+     ],
+     [
+      "derived",
+      "table|nil",
+      "What the kit gives now: {rating, speed, stamina_regen, armor_value, damage_multiplier, speed_factor, stamina_factor, ...}."
+     ],
+     [
+      "effective_armor_value",
+      "number|nil",
+      "What a hit uses: clamp(A + bonus, -1, 3) when the bonus is not 0."
+     ],
+     [
+      "overridden",
+      "boolean",
+      "A member holds this Runtime's value."
+     ]
+    ]
    }
   },
   "functions": [
@@ -2582,7 +6315,22 @@
      ]
     ],
     "returns": "HD2Timer",
-    "doc": "Run repeatedly (at least 0.05 s apart). Missed intervals are skipped, never replayed."
+    "doc": "Run repeatedly (at least 0.05 s apart; hd2.on_frame runs a callback every frame). Missed intervals are skipped, never replayed."
+   },
+   {
+    "name": "on_frame",
+    "params": [
+     [
+      "callback",
+      "fun(dt: number, handle: HD2Timer)"
+     ],
+     [
+      "opts",
+      "HD2TimerOptions|nil"
+     ]
+    ],
+    "returns": "HD2Timer",
+    "doc": "Run a callback on every update tick with the tick's dt in seconds, after events and timers. Same owner, id and scope rules as hd2.every; handle:cancel() removes it, :disable() / :enable() pause it. Keep the work small."
    },
    {
     "name": "mod",
@@ -2610,8 +6358,46 @@
    {
     "name": "game_state",
     "params": [],
-    "returns": "HD2GameState|nil",
-    "doc": "The game's state now (nil when it cannot be read)."
+    "returns": "HD2GameState|nil, string|nil",
+    "doc": "The game's state now; nil and the reason when it cannot be read (hd2.build() tells a wrong game build apart from a game not readable yet)."
+   },
+   {
+    "name": "build",
+    "params": [],
+    "returns": "\"matched\"|\"mismatched\"|\"not_ready\", HD2BuildInfo",
+    "doc": "The running game build against the one this Runtime was built for, without raising. Cheap to poll: each loaded build is hashed once, a wrong one included."
+   },
+   {
+    "name": "store",
+    "params": [],
+    "returns": "HD2Store",
+    "doc": "The calling mod's saved key/value data, kept between game sessions in its own file (docs/mod-store.md). The mod is found the way hd2.mod() finds it."
+   },
+   {
+    "name": "armor_kits",
+    "params": [
+     [
+      "filter",
+      "HD2ArmorKitFilter|nil"
+     ]
+    ],
+    "returns": "HD2ArmorKit[]",
+    "doc": "Every kit of the game matching the filter, by index (research/armor-names-F5FEE03DCFDB.json; read-only, offline). The wiki values are the wiki's, not the game's. A bad filter raises."
+   },
+   {
+    "name": "armor_kit",
+    "params": [
+     [
+      "kit",
+      "string|integer"
+     ],
+     [
+      "slot",
+      "'armor'|'helmet'|'cape'|nil"
+     ]
+    ],
+    "returns": "HD2ArmorKit|nil, string?, string?",
+    "doc": "One kit by index, id ('0x1F9BFA78') or game name (any case; a shared name: slot picks, else the armor first); nil, UNKNOWN_KIT, reason otherwise."
    }
   ],
   "fields": [
@@ -2649,6 +6435,51 @@
     "status",
     "HD2StatusEffects",
     ""
+   ],
+   [
+    "pelican",
+    "HD2Pelicans",
+    ""
+   ],
+   [
+    "sounds",
+    "HD2Sounds",
+    ""
+   ],
+   [
+    "custom_stratagem",
+    "HD2CustomStratagems",
+    ""
+   ],
+   [
+    "ownership",
+    "HD2Ownership",
+    ""
+   ],
+   [
+    "ui",
+    "HD2UI",
+    ""
+   ],
+   [
+    "passives",
+    "HD2Passives",
+    ""
+   ],
+   [
+    "player_passives",
+    "HD2PlayerPassivesApi|fun(): HD2PlayerPassives|nil, string?, string?",
+    ""
+   ],
+   [
+    "armor_stats",
+    "HD2ArmorStatsApi",
+    ""
+   ],
+   [
+    "armor_class",
+    "fun(name: \"light\"|\"medium\"|\"heavy\"): HD2ArmorClassTarget",
+    ""
    ]
   ]
  },
@@ -2674,6 +6505,14 @@
     },
     {
      "name": "B-100 Portable Hellbomb",
+     "aliases": [
+      "Portable Hellbomb"
+     ],
+     "sharedType": false,
+     "liveProven": false
+    },
+    {
+     "name": "Cyborg Production Unit",
      "aliases": [
       "Portable Hellbomb"
      ],
@@ -2893,9 +6732,24 @@
     "Visual effect residency is inferred (the same statuses are applied by enemies and environments)."
    ]
   },
+  "pelican": {
+   "api": "hd2.pelican.spawn",
+   "hostOnly": true,
+   "inMissionOnly": true,
+   "entity": "shuttle_transport",
+   "empty": true,
+   "maxActive": 4,
+   "maxHoverSeconds": 120,
+   "rateLimit": {
+    "burst": 4,
+    "perSecond": 0.25
+   },
+   "liveProven": false,
+   "otherPlayersSee": "unproven (the hold is not replicated)"
+  },
   "spawnEntity": {
    "status": "blocked",
-   "reason": "The generic spawn's parameters and replication are not proven."
+   "reason": "The generic spawn's parameters and replication are not proven; only the transport Pelican is spawned (hd2.pelican)."
   }
  }
 }

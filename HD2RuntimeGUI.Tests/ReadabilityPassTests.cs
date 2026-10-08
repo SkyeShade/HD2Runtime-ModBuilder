@@ -134,13 +134,15 @@ public sealed class ReadabilityPassTests
         File.WriteAllBytes(Path.Combine(data, "9ba626afa44a3aa3"), Archive([]));
         File.WriteAllBytes(Path.Combine(data, "0123456789abcdef"), Archive(Libraries()));
         var store = new GameIconStore(e.Paths); var manifest = await store.ImportAsync(data);
-        Assert.Equal([1, 1], manifest.Sources.Select(s => s.Icons)); Assert.Equal(1, store.Count(GameIconStore.Booster)); Assert.Equal(1, store.Count(GameIconStore.Stratagem));
+        // Vector libraries only: this game has no texture atlases, so no HUD sprite is imported (HudIconTests covers those).
+        Assert.Equal([1, 1, 0, 0], manifest.Sources.Select(s => s.Icons)); Assert.Equal(1, store.Count(GameIconStore.Booster)); Assert.Equal(1, store.Count(GameIconStore.Stratagem));
         Assert.Equal("BoosterArmedpods", manifest.BoosterTypeIcons["DefensiveAmmoPod"]);
         var sdk = await SdkFixtures.Install(e, "0.24.0"); var boosters = sdk.Entities!.Boosters!; // stratagems publish no icon identity in 0.24.0
         var pods = boosters.Find("Armed Resupply Pods")!;
         Assert.Equal("BoosterArmedpods", store.BoosterIcon(pods)); Assert.StartsWith("data:image/svg+xml;base64,", store.DataUri(GameIconStore.Booster, store.BoosterIcon(pods)));
-        // No published icon identity (Integrated Extinguishers) or no matching game binding: no icon, category glyph instead.
-        Assert.Null(store.BoosterIcon(boosters.Find("Integrated Extinguishers")!));
+        // No published vector identity (Integrated Extinguishers) or no matching game binding: no vector icon. Integrated Extinguishers'
+        // icon is its HUD sprite, which a game without atlases does not have, so it keeps the category glyph here.
+        Assert.Null(store.BoosterIcon(boosters.Find("Integrated Extinguishers")!)); Assert.Null(store.BoosterIconUri(boosters.Find("Integrated Extinguishers")!));
         Assert.Null(store.BoosterIcon(boosters.Find("Dead Sprint")!));
         Assert.Null(store.DataUri(GameIconStore.Booster, "BoosterMissing")); Assert.Null(store.Svg(GameIconStore.Booster, "../manifest"));
         // Stratagem roots publish no icon identity, so none is attached even when icons are imported.
@@ -149,7 +151,9 @@ public sealed class ReadabilityPassTests
         Assert.Equal("BoosterArmedpods", new GameIconStore(e.Paths).BoosterIcon(pods));
         store.Clear(); Assert.Null(store.Manifest); Assert.Null(store.BoosterIcon(pods)); Assert.Equal(0, store.Count(GameIconStore.Booster));
     }
-    [Fact] public async Task Published_booster_icon_identities_match_the_game_template_for_18_of_20()
+    // The vector library binds 18 of 20 boosters; the HUD sprite list names all 20 (Surplus EAT Allocation and Integrated Extinguishers
+    // included), so with an installed game every booster shows its game icon.
+    [Fact] public async Task Published_booster_icon_identities_match_the_game_template_for_18_of_20_and_hud_sprites_name_all_20()
     {
         using var e = new TestEnvironment(); var boosters = (await Bundled(e)).Entities!.Boosters!.Boosters;
         var bindings = boosters.Where(b => b.Identity.NativeName != null && b.Identity.UiIcon != null).ToDictionary(b => b.Identity.NativeName!, b => b.Identity.UiIcon!);
@@ -157,6 +161,8 @@ public sealed class ReadabilityPassTests
         Assert.Equal(18, boosters.Count(b => GameIconStore.BoosterIconKey(b, manifest) != null));
         Assert.All(boosters.Where(b => b.Identity.Status is "EFFECT_CATEGORY" or "ELIMINATION"), b => Assert.Null(GameIconStore.BoosterIconKey(b, manifest)));
         Assert.All(boosters, b => Assert.Null(GameIconStore.BoosterIconKey(b, null)));
+        Assert.All(boosters, b => Assert.Contains(b.Name, HudIconSprites.Bundled.Value.Boosters.Keys));
+        Assert.Equal(["Integrated Extinguishers", "Surplus EAT Allocation"], boosters.Where(b => GameIconStore.BoosterIconKey(b, manifest) == null).Select(b => b.Name).Order(StringComparer.Ordinal));
     }
     [Fact] public async Task Icons_import_from_a_slim_edition_bundle_with_lz4_chunks()
     {

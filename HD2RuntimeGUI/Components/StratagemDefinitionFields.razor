@@ -1,0 +1,136 @@
+@inject BuilderWorkspace Workspace
+@* A stratagem's own fields (hd2.stratagem(name)), grouped by what they set: the call-in (cooldown, call-in time, uses), the call-in code, the
+   presentation (0.30.0), an orbital's barrage pattern and an Eagle's attack (0.30.0, the jet's own record). Each field keeps its own row,
+   baseline, opt-in and reset; the groups add the vanilla pattern, what it amounts to and Runtime's notes. *@
+@{
+    var catalog = Catalog; var root = catalog.Root(Stratagem);
+    var plain = Fields.Where(f => Group(f) == "callin").ToArray(); var code = Fields.Where(f => Group(f) == "code").ToArray();
+    var look = Fields.Where(f => Group(f) == "presentation").ToArray();
+    var salvos = Ordered(Fields.Where(f => Group(f) == "orbital"), SalvoFields); var shells = Ordered(Fields.Where(f => Group(f) == "orbital"), ShellFields);
+    var orbital = Fields.Where(f => Group(f) == "orbital").Except(salvos).Except(shells).ToArray();
+    var eagle = Fields.Where(f => Group(f) == "eagle").OrderBy(f => f.Editable ? 0 : 1).ToArray();
+}
+@if (plain.Length > 0) { <div class="stat-grid">@foreach (var f in plain) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+@if (code.Length > 0)
+{
+    <div class="stratagem-group" data-stratagem-group="code"><h3 class="group-title">@T["StratagemCode.Title"]</h3>
+        <div class="stat-grid">@foreach (var f in code) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div></div>
+}
+@if (look.Length > 0)
+{
+    <div class="stratagem-group" data-stratagem-group="presentation"><h3 class="group-title">@T["StratagemLook.Title"]</h3>
+        <p class="subtle" data-apply-timing title="@look[0].ApplyTiming">@T["StratagemLook.ApplyTiming"]</p>
+        @if (!ModifiedOnly && Workspace.Project != null && catalog.PresentationSources is { } sources)
+        {
+            <div class="look-like">
+                <label>@T["StratagemLook.LookLike"]
+                    <select @key="lookKey" data-look-like disabled="@Busy" @onchange="e => LookLike(e.Value?.ToString())">
+                        <option value="" selected>@T["StratagemLook.LookLike.Choose"]</option>
+                        <option value="@Stratagem">@T.Format("StratagemLook.Own", Stratagem)</option>
+                        @foreach (var name in sources.Stratagems.Where(s => s != Stratagem).Order(StringComparer.CurrentCulture)) { <option value="@name">@name</option> }
+                    </select></label>
+            </div>
+            @if (PendingLook is { } pending)
+            {
+                @* Asked where it is chosen: the icon shows the mod's own image, which taking another stratagem's look would replace. *@
+                <div class="swap-prompt" role="group" data-look-like-prompt>
+                    <p>@T.Format("StratagemLook.LookLike.Prompt", pending)</p>
+                    <div class="swap-actions">
+                        <button class="primary" disabled="@Busy" data-look-keep-image @onclick="() => ApplyLook(pending, true)">@T["StratagemLook.LookLike.KeepImage"]</button>
+                        <button disabled="@Busy" data-look-replace-image @onclick="() => ApplyLook(pending, false)">@T["StratagemLook.LookLike.ReplaceImage"]</button>
+                        <button class="link-button" disabled="@Busy" data-look-cancel @onclick="() => { PendingLook = null; lookKey++; }">@T["Common.Cancel"]</button>
+                    </div>
+                </div>
+            }
+        }
+        <div class="stat-grid">@foreach (var f in look) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div></div>
+}
+@if (salvos.Length + shells.Length + orbital.Length > 0)
+{
+    var all = salvos.Concat(shells).Concat(orbital).ToArray(); var barrage = root?.BarrageScheduling;
+    <div class="stratagem-group" data-stratagem-group="orbital"><h3 class="group-title">@T["StratagemOrbital.Title"]</h3>
+        @if (Pattern(all, false) is { } vanilla) { <p class="subtle" data-orbital-vanilla>@vanilla</p> }
+        @if (all.Any(f => Value(f) != null) && Pattern(all, true) is { } edited) { <p class="modified-value" data-orbital-edited>@edited</p> }
+        @if (barrage?.ShellTypes is { Length: > 1 } types) { <p class="subtle" data-orbital-shell-types>@T.Plural("StratagemOrbital.ShellTypes", types.Length)</p> }
+        @if (barrage?.Rule != null || barrage?.RuntimeConsumers != null)
+        { <details class="subtle orbital-notes"><summary>@T["StratagemOrbital.Notes"]</summary>@if (barrage.Rule != null) { <p>@barrage.Rule</p> }@if (barrage.RuntimeConsumers != null) { <p data-orbital-runtime-consumers>@barrage.RuntimeConsumers</p> }@if (barrage.WriteScope != null) { <p>@barrage.WriteScope</p> }</details> }
+        @if (salvos.Length > 0) { <h4 class="group-title">@T["StratagemOrbital.Salvos"]</h4><div class="stat-grid">@foreach (var f in salvos) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+        @if (shells.Length > 0) { <h4 class="group-title">@T["StratagemOrbital.Shells"]</h4><div class="stat-grid">@foreach (var f in shells) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+        @if (orbital.Length > 0) { <div class="stat-grid">@foreach (var f in orbital) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div> }
+    </div>
+}
+@if (eagle.Length > 0)
+{
+    var attack = root?.EagleAttack;
+    <div class="stratagem-group" data-stratagem-group="eagle"><h3 class="group-title">@T["StratagemEagle.Title"] @if (attack != null) { <span class="badge" data-eagle-payload="@attack.Payload">@PayloadLabel(attack.Payload)</span> }</h3>
+        @if (Bombs(eagle) is { } bombs) { <p class="subtle" data-eagle-bombs>@bombs</p> }
+        @if (attack is { AllowSharedRequired: true }) { <p class="subtle" data-eagle-shared>@T.Format("StratagemEagle.Shared", string.Join(", ", attack.SharedConsumers.Select(c => c.Stratagem ?? c.SemanticStatus ?? c.Path)))</p> }
+        <div class="stat-grid">@foreach (var f in eagle) { <StratagemFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div></div>
+}
+@if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+@code {
+    [Parameter, EditorRequired] public string Stratagem { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<StratagemField> Fields { get; set; } = [];
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error, PendingLook; private bool Busy; private int lookKey;
+    private StratagemCatalog Catalog => (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!;
+    private static readonly string[] SalvoFields = ["orbital.salvos", "orbital.salvo_interval", "orbital.salvo_interval_random", "orbital.salvo_scatter"];
+    private static readonly string[] ShellFields = ["orbital.shells_per_salvo", "orbital.shell_interval", "orbital.shell_interval_random", "orbital.scatter"];
+    private static StratagemField[] Ordered(IEnumerable<StratagemField> fields, string[] order) =>
+        fields.Where(f => order.Contains(f.SemanticFieldId)).OrderBy(f => Array.IndexOf(order, f.SemanticFieldId)).ToArray();
+    // Only a stratagem-level field (hd2.stratagem(name)) is grouped; the call-in group keeps everything else in published order.
+    private static string Group(StratagemField f) => f.Target.Path != "stratagem" ? "callin" : f.Type switch
+    {
+        StratagemField.CalldownCode => "code",
+        StratagemField.Presentation => "presentation",
+        _ when f.SemanticFieldId.StartsWith("orbital.", StringComparison.Ordinal) => "orbital",
+        _ when f.SemanticFieldId.StartsWith("eagle.", StringComparison.Ordinal) && f.SemanticFieldId != "eagle.uses_per_rearm" => "eagle",
+        _ => "callin",
+    };
+    private System.Text.Json.JsonElement? Value(StratagemField f) => StratagemChangeService.Saved(Workspace.Project, Catalog, f) is { Enabled: true } c ? c.DesiredValue : null;
+    private double? Number(IEnumerable<StratagemField> fields, string id, bool edited)
+    {
+        var f = fields.FirstOrDefault(x => x.SemanticFieldId == id); if (f == null) return null;
+        var v = (edited ? Value(f) : null) ?? f.CurrentDefault;
+        return v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetDouble() : null;
+    }
+    // The pattern in words: salvos of shells (and the shells of one call), the time between shells and between salvos.
+    private string? Pattern(StratagemField[] fields, bool edited)
+    {
+        if (Number(fields, "orbital.salvos", edited) is not double salvos || Number(fields, "orbital.shells_per_salvo", edited) is not double shells) return null;
+        var c = System.Globalization.CultureInfo.CurrentCulture;
+        return T.Format(edited ? "StratagemOrbital.Edited" : "StratagemOrbital.Vanilla", salvos, shells, salvos * shells,
+            (Number(fields, "orbital.shell_interval", edited) ?? 0).ToString("0.##", c), (Number(fields, "orbital.salvo_interval", edited) ?? 0).ToString("0.##", c));
+    }
+    // A bomb Eagle's bombs per strike follow its landing pattern (plus the per-jet extra-bomb stat, 0 by default).
+    private string? Bombs(StratagemField[] fields)
+    {
+        if (fields.FirstOrDefault(f => f.SemanticFieldId == "eagle.airstrike_pattern" && f.AllowedValues != null) is not { } pattern) return null;
+        var value = (Value(pattern) ?? pattern.CurrentDefault).GetRawText();
+        if (pattern.AllowedValues!.FirstOrDefault(p => p.Value.GetRawText() == value) is not { Bombs: int bombs } chosen) return null;
+        var c = System.Globalization.CultureInfo.CurrentCulture;
+        return T.Format("StratagemEagle.Bombs", bombs + (int)(pattern.ExtraBombStatDefault ?? 0), (chosen.LengthMeters ?? 0).ToString("0.#", c));
+    }
+    private string PayloadLabel(string payload) => payload switch
+    {
+        "airstrike" => T["StratagemEagle.Payload.Airstrike"], "strafe" => T["StratagemEagle.Payload.Strafe"], "rocket" => T["StratagemEagle.Payload.Rocket"], _ => payload,
+    };
+    private Task LookLike(string? source)
+    {
+        if (string.IsNullOrEmpty(source)) return Task.CompletedTask;
+        // An icon showing the mod's own image is asked about first; everything else is simply taken.
+        var icon = Fields.FirstOrDefault(f => f.Type == StratagemField.Presentation && StratagemPresentation.TakesImage(f));
+        if (source != Stratagem && icon != null && Workspace.StratagemImage(icon.InstanceKey) != null) { PendingLook = source; return Task.CompletedTask; }
+        return ApplyLook(source, false);
+    }
+    private Task ApplyLook(string source, bool keepImage) => Run(async () => { await Workspace.SetStratagemPresentationAsync(Stratagem, source, keepImage); PendingLook = null; lookKey++; });
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true;
+        try { await action(); Error = null; await Refresh(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+}

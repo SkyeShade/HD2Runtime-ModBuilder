@@ -1,0 +1,10 @@
+@* A custom stratagem's icon as the game draws it (its masks in the category colour), or a dashed placeholder until one is imported. *@
+@{ var uri = Stratagem == null ? null : Workspace.CustomIconPreviewUri(Stratagem); }
+<span class="custom-icon @Size @(uri == null ? "missing" : "")" data-custom-icon="@(uri == null ? "missing" : Stratagem!.Icon)" aria-hidden="true">
+    @if (uri != null) { <img src="@uri" alt="" draggable="false" /> } else { <span>◇</span> }
+</span>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter] public CustomStratagem? Stratagem { get; set; }
+    [Parameter] public string Size { get; set; } = "md";
+}

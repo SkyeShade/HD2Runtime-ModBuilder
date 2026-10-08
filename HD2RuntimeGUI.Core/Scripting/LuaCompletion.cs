@@ -7,7 +7,9 @@ namespace HD2RuntimeGUI.Core.Scripting;
 // lists the event catalog publishes for event names, explosions, projectiles and statuses. Without a stub, the event catalog's API
 // classes are used; without either, only the literal lists are offered.
 public sealed record LuaCompletionItem(string N, string K, string? S, string? T, string? D, string? P = null);
-public sealed record LuaCompletionData(string Root, Dictionary<string, LuaCompletionItem[]> Classes, Dictionary<string, string[]> Aliases, Dictionary<string, string[]> Strings);
+// Locals: names the host declares around the edited text, with their class (a custom stratagem callback body's ctx); null for a whole file.
+public sealed record LuaCompletionData(string Root, Dictionary<string, LuaCompletionItem[]> Classes, Dictionary<string, string[]> Aliases, Dictionary<string, string[]> Strings,
+    Dictionary<string, string>? Locals = null);
 
 public static class LuaCompletion
 {

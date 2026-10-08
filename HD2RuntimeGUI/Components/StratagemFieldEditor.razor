@@ -1,8 +1,11 @@
 @inject BuilderWorkspace Workspace
 @* One published stratagem scalar as a compact row: name, value, baseline and safety badges; provenance on demand. *@
 @* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
-@{ var saved = Saved; var edited = saved != null && !Workspace.OptionOnly(saved); }
-<div class="field-row @(edited ? "modified" : "") @(Field.Editable ? "" : "readonly")" data-stratagem-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
+@* 0.30.0: a call-in code and a presentation value show compactly in the row and are edited in the row's wide editor below it; an enumerated
+   number (eagle.airstrike_pattern) is a dropdown of its published values; a published special value (targeting.side_range / rear_range -1 =
+   use targeting.range) is an explicit toggle; and when the game reads the field (readTiming) is a badge. *@
+@{ var saved = Saved; var edited = saved != null && !Workspace.OptionOnly(saved); var current = saved?.DesiredValue ?? Field.CurrentDefault; }
+<div class="field-row @(edited ? "modified" : "") @(Field.Editable ? "" : "readonly") @(Wide ? "wide-value" : "")" data-stratagem-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId">
     <div class="field-name"><span>@(Label ?? Field.DisplayName)</span>@if (Unit.Length > 0) { <small class="field-unit">@Unit</small> }
         @if (Field.Type == StratagemUses.Type && Field.Editable && Field.Caveat != null) { <span class="uses-caveat" tabindex="0" title="@Field.Caveat" aria-label="@Field.Caveat" data-uses-caveat>ⓘ</span> }
         <span class="field-flags">
@@ -11,6 +14,7 @@
             @* 0.28.0: a live test family removed the field's opt-in (sentry turn speeds, targeting range, minefield salvos, cooldowns). *@
             @if (saved != null && Field.Type == StratagemUses.Type && !StratagemChangeService.EffectRequired(Field, saved.DesiredValue)) { <span class="badge green" data-gameplay-proven>@T["StratagemField.GameplayProven"]</span> }
             else if (Field.LiveEvidence is { Status: "live_proven" } live) { <span class="badge green" data-live-proven="@live.Family" title="@T.Format("StratagemField.LiveEvidence.Tooltip", string.Join(", ", live.Tests), live.Date)">@T["StratagemField.GameplayProven"]</span> }
+            @if (Field.Editable && TimingLabel is { } timing) { <span class="badge timing-badge" data-read-timing="@Field.ReadTiming" title="@Field.ReadTimingNote">@timing</span> }
         </span></div>
     <div class="field-value">
         @if (!Field.Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
@@ -18,7 +22,7 @@
         {
             @* 0.26.0 mission uses: [Unlimited ▼] or [Limited ▼] [N]. Unlimited is Runtime's own 'unlimited' token; only the modes the
                stratagem's published transitions allow are offered, and the count is editable only where Runtime allows that change. *@
-            var uses = StratagemUses.Control(Field, saved?.DesiredValue ?? Field.CurrentDefault);
+            var uses = StratagemUses.Control(Field, current);
             <div class="mission-uses" data-mission-uses="@Field.Target.Stratagem" data-uses-mode="@(uses.Unlimited ? "unlimited" : "limited")">
                 <select data-uses-select aria-label="@T["StratagemField.Uses.Mode"]" disabled="@(Workspace.Project == null || !uses.CanUnlimited || !uses.CanLimited)"
                     title="@(uses.CanUnlimited && uses.CanLimited ? null : T["StratagemField.Uses.NoOtherMode"])"
@@ -33,7 +37,24 @@
                 }
             </div>
         }
+        else if (Field.Type == StratagemField.CalldownCode) { <ArrowSequence Code="StratagemCode.Of(current)" Small="true" /> }
+        else if (Field.Type == StratagemField.Presentation) { <span class="presentation-value" data-presentation-value title="@Format(current)">@Format(current)</span> }
         else if (Field.Type == "boolean") { <input type="checkbox" checked="@(Value == "true")" disabled="@(Workspace.Project == null)" @onchange='e => Commit((bool)e.Value! ? "true" : "false")' aria-label="@(Label ?? Field.DisplayName)" /> }
+        else if (Field.AllowedValues is { Length: > 0 } allowed)
+        {
+            <select data-allowed-values aria-label="@(Label ?? Field.DisplayName)" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)">
+                @foreach (var option in allowed) { <option value="@option.Value.GetRawText()" selected="@(option.Value.GetRawText() == current.GetRawText())">@PatternLabel(option)</option> }
+            </select>
+        }
+        else if (Field.SentinelValues is [{ Value.ValueKind: System.Text.Json.JsonValueKind.Number } sentinel, ..])
+        {
+            var special = IsSentinel(current);
+            <div class="sentinel-value" data-sentinel-field="@Field.SemanticFieldId">
+                <label class="field-toggle" title="@sentinel.Meaning"><input type="checkbox" checked="@special" disabled="@(Workspace.Project == null)" data-sentinel-toggle
+                    @onchange="e => Commit((bool)e.Value! ? sentinel.Value.GetRawText() : Fallback())" /> @SentinelLabel(sentinel)</label>
+                @if (!special) { <input type="number" step="any" min="@Bound(Field.Min)" max="@Bound(Field.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@(Label ?? Field.DisplayName)" /> }
+            </div>
+        }
         else { <input type="number" step="@(Field.Type == "integer" ? "1" : "any")" min="@Bound(Field.Min)" max="@Bound(Field.Max)" value="@Value" disabled="@(Workspace.Project == null)" @onchange="e => Commit(e.Value?.ToString() ?? string.Empty)" aria-label="@(Label ?? Field.DisplayName)" /> }
     </div>
     @if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("StratagemField.BaseToDesired.Html", Format(saved.ExpectedValue), Format(saved.DesiredValue))</div> }
@@ -49,12 +70,18 @@
             @if (!Field.Editable) { <p><strong>@T["StratagemField.NotWritable"]</strong> @Field.Reason</p> }
             @if (Field.Caveat != null) { <p>@Field.Caveat</p> }
             @if (Field.Type != StratagemUses.Type && (Field.Min != null || Field.Max != null)) { <p data-field-range>@T.Markup("EntityField.Range.Html", Bound(Field.Min) ?? "−∞", Bound(Field.Max) ?? "∞")</p> }
+            @if (Field.RangeJustification != null) { <p data-range-justification>@Field.RangeJustification</p> }
+            @foreach (var s in Field.SentinelValues ?? []) { <p data-sentinel>@T.Format("StratagemField.Sentinel.Info", s.Value.GetRawText(), s.Meaning)</p> }
+            @if (Field.ReadTimingNote != null) { <p data-read-timing-note>@T.Format("StratagemField.ReadTiming.Info", Field.ReadTimingNote)</p> }
             @if (Field.Type != StratagemUses.Type && Field.AcknowledgementReason != null) { <p data-field-unverified-reason>@T.Format("EntityField.UnverifiedReason", Field.AcknowledgementReason)</p> }
             <p>@Field.Provenance</p><p>@Field.BackingObjectKind · @(Field.Target.Attack ?? Field.Target.Weapon ?? Field.Target.Entity ?? Field.Target.Path)</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
-    @if (Field.Editable && saved != null && StratagemChangeService.EffectRequired(Field, saved.DesiredValue))
+    @if (Field.Editable && Workspace.Project != null && Field.Type == StratagemField.CalldownCode) { <div class="field-wide"><StratagemCodeEditor Field="Field" Saved="saved" Changed="Changed" /></div> }
+    else if (Field.Editable && Workspace.Project != null && Field.Type == StratagemField.Presentation) { <div class="field-wide"><StratagemPresentationPicker Field="Field" Saved="saved" Changed="Changed" /></div> }
+    @if (Field.Editable && saved != null && Field.Type != StratagemField.CalldownCode && StratagemChangeService.EffectRequired(Field, saved.DesiredValue, Catalog))
     {
-        @* Every edit written with allow_unverified_effect (mission uses, and 0.28.0 sentry aim limits and mines per salvo) shows why. *@
+        @* Every edit written with allow_unverified_effect (mission uses, and 0.28.0 sentry aim limits and mines per salvo) shows why. A call-in
+           code's opt-in is explained by its own editor, which names the stratagem whose code it equals. *@
         <div class="field-wide"><AckPanel Title="@(Field.Type == StratagemUses.Type ? T["StratagemField.Uses.Unverified"] : T["OptIn.UnverifiedEffect.Title"])" Kind="unverified"
             Description="@(Field.AcknowledgementReason ?? T["OptIn.UnverifiedEffect.Reason"])" PanelAttributes='@(new() { ["data-opt-in"] = "allow_unverified_effect" })' /></div>
     }
@@ -70,15 +97,49 @@
     [Parameter] public string? Label { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     private string? Error;
-    private StratagemChange? Saved => StratagemChangeService.Saved(Workspace.Project, (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!, Field);
-    private string Unit => Field.Unit?.Replace('_', ' ') ?? "";
+    private StratagemCatalog Catalog => (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!;
+    private StratagemChange? Saved => StratagemChangeService.Saved(Workspace.Project, Catalog, Field);
+    private bool Wide => Field.Type is StratagemField.CalldownCode or StratagemField.Presentation;
+    private string Unit => Field.Type == StratagemField.CalldownCode || Field.Type == StratagemField.Presentation ? "" : Field.Unit?.Replace('_', ' ') ?? "";
     private static string? Bound(double? v) => v is double d && double.IsFinite(d) ? d.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
-    // A JSON literal for SetStratagemAsync: mission uses keep the quoted "unlimited" token; other scalars display as their JSON text.
-    private string Value => Field.Type == StratagemUses.Type ? (Saved?.DesiredValue ?? Field.CurrentDefault).GetRawText() : Format(Saved?.DesiredValue ?? Field.CurrentDefault);
-    private string Format(System.Text.Json.JsonElement v) { try { return StratagemScalar.Display(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    // A JSON literal for SetStratagemAsync: mission uses keep the quoted "unlimited" token and the 0.30.0 list and name types their JSON;
+    // other scalars display as their JSON text.
+    private string Value => Field.Type is StratagemUses.Type or StratagemField.CalldownCode or StratagemField.Presentation
+        ? (Saved?.DesiredValue ?? Field.CurrentDefault).GetRawText() : Number(Saved?.DesiredValue ?? Field.CurrentDefault);
+    private string Number(System.Text.Json.JsonElement v) { try { return StratagemScalar.Text(Field, v); } catch (InvalidDataException) { return v.GetRawText(); } }
+    private string Format(System.Text.Json.JsonElement v)
+    {
+        if (v.ValueKind == System.Text.Json.JsonValueKind.Number && Field.SentinelValues is [var sentinel, ..] && IsSentinel(v)) return SentinelLabel(sentinel);
+        if (v.ValueKind == System.Text.Json.JsonValueKind.Number && Field.AllowedValues?.FirstOrDefault(a => a.Value.GetRawText() == v.GetRawText()) is { } pattern) return PatternLabel(pattern);
+        try { return StratagemScalar.Display(Field, v); } catch (InvalidDataException) { return v.GetRawText(); }
+    }
+    private bool IsSentinel(System.Text.Json.JsonElement v) => v.ValueKind == System.Text.Json.JsonValueKind.Number && StratagemScalar.Sentinel(Field, v.GetDouble()) != null;
+    // -1 on a sentry's side / rear range means "the same as targeting.range"; any other published sentinel shows Runtime's own meaning.
+    private string SentinelLabel(StratagemSentinelValue s) => Field.SemanticFieldId is "targeting.side_range" or "targeting.rear_range" ? T["StratagemField.Sentinel.SameAsRange"] : s.Meaning;
+    // Leaving "same as range" starts from the range the sentry uses now (its own edit, else its vanilla value), within the published bounds.
+    private string Fallback()
+    {
+        var range = Catalog.FieldInstances.FirstOrDefault(f => f.SemanticFieldId == "targeting.range" && f.Target.Stratagem == Field.Target.Stratagem && f.Target.Entity == Field.Target.Entity);
+        var v = range == null ? Field.Min ?? 0 : (StratagemChangeService.Saved(Workspace.Project, Catalog, range)?.DesiredValue ?? range.CurrentDefault).GetDouble();
+        v = Math.Clamp(v, Field.Min ?? v, Field.Max ?? v);
+        return v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+    // An Eagle landing pattern: its value, bombs, length and width (published by Runtime), and the Eagles that use it natively.
+    private string PatternLabel(StratagemPatternValue p)
+    {
+        var width = p.LateralMeters is [var a, var b] ? Math.Abs(b - a) : 0;
+        var text = T.Format("StratagemField.Pattern.Option", p.Value.GetRawText(), p.Bombs ?? 0, (p.LengthMeters ?? 0).ToString("0.#", System.Globalization.CultureInfo.CurrentCulture),
+            width.ToString("0.#", System.Globalization.CultureInfo.CurrentCulture));
+        return p.UsedBy is { Length: > 0 } users ? T.Format("StratagemField.Pattern.UsedBy", text, string.Join(", ", users)) : text;
+    }
+    private string? TimingLabel => Field.ReadTiming switch
+    {
+        "live" => T["StratagemField.Timing.Live"], "spawn" => T["StratagemField.Timing.Spawn"], "creation" or "dispatch" => T["StratagemField.Timing.NextCall"],
+        "beacon_creation" => T["StratagemField.Timing.NextBeacon"], "unverified" => T["StratagemField.Timing.Unverified"], _ => null,
+    };
     private bool NeedsReview(StratagemChange c)
     {
-        var handle = (Workspace.Metadata ?? Workspace.SdkStatus!.Installed)!.Stratagems!.Resolve(c) ?? Field;
+        var handle = Catalog.Resolve(c) ?? Field;
         return c.InstanceKey != handle.InstanceKey || c.CapabilityEvidence != StratagemChangeService.Evidence(handle) || !StratagemScalar.Equal(Field, c.ExpectedValue, Field.CurrentDefault);
     }
     private Task Commit(string value) => Run(() => Workspace.SetStratagemAsync(Field.InstanceKey, value));

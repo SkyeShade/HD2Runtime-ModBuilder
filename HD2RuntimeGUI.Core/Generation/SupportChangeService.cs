@@ -35,6 +35,11 @@ public static class SupportScalar
             case WeaponCapability.StatusReference:
                 if (v.ValueKind != JsonValueKind.String) throw new InvalidDataException(CoreText.Get("Messages.Build.Status.ChooseStatus"));
                 return v.Clone();
+            // 0.30.0: one of the charge weapons the field publishes (charge.allowedValues), never a free name.
+            case SupportField.OverchargeExplosionReference:
+                if (v.ValueKind != JsonValueKind.String || f.Charge?.AllowedValues?.Contains(v.GetString()!) != true)
+                    throw new InvalidDataException(CoreText.Format("Messages.Build.Support.OverchargeExplosionChoice", string.Join(", ", f.Charge?.AllowedValues ?? [])));
+                return v.Clone();
         }
         if (v.ValueKind != JsonValueKind.Number) throw new InvalidDataException(CoreText.Get("Messages.Build.Value.ValidScalar"));
         if (f.Value.Type == "integer" && v.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue)
@@ -52,6 +57,7 @@ public static class SupportScalar
     {
         "number" => ((float)value.GetDouble()).ToString("R", CultureInfo.InvariantCulture),
         WeaponCapability.FireModeSet => FireModes.Lua(value),
+        SupportField.OverchargeExplosionReference => LuaGenerator.Quote(Normalize(f, value).GetString()!),
         // 1.4.0: rate slots {450,600,750}, trait lists {'stun'}, quoted names, and a function projectile ('none', the native restore
         // handle or hd2.attack_output(id)).
         _ when CompositionLua.Value(f.Value.Type, value, WeaponTargets.Support(f.SupportWeapon)) is { } literal => literal,
@@ -100,6 +106,17 @@ public sealed class SupportChangeService : ISupportChangeService
             case WeaponCapability.FunctionProjectileReference:
                 if (!SupportScalar.Equal(f, value, f.Value.Baseline)) FunctionProjectile.Check(sdk, f.SupportWeapon, FunctionProjectile.Token(f.Value.Baseline), FunctionProjectile.Token(value));
                 break;
+            // 0.30.0 charge fields publish their range on the charge object (charge times in seconds, multipliers 0 to 10, ...); Runtime
+            // refuses a value outside it, so it is refused where the edit is made. The baseline is always accepted.
+            case "number" or "integer" when f.Charge is { } charge && (charge.Min != null || charge.Max != null) && !SupportScalar.Equal(f, value, f.Value.Baseline):
+                var v = value.GetDouble(); double Bound(double b) => f.Value.Type == "number" ? (float)b : b;
+                if (charge.Min is double min && v < Bound(min) || charge.Max is double max && v > Bound(max))
+                {
+                    var (low, high) = ((charge.Min ?? double.NegativeInfinity).ToString(CultureInfo.InvariantCulture), (charge.Max ?? double.PositiveInfinity).ToString(CultureInfo.InvariantCulture));
+                    throw new InvalidDataException(string.IsNullOrWhiteSpace(charge.RangeReason) ? CoreText.Format("Messages.Build.Entity.OutOfRange", f.Display.Name, low, high)
+                        : CoreText.Format("Messages.Build.Entity.OutOfRangeReason", f.Display.Name, low, high, charge.RangeReason));
+                }
+                break;
         }
     }
     private static void CheckWritable(SdkMetadata sdk, SupportField f)
@@ -108,6 +125,31 @@ public sealed class SupportChangeService : ISupportChangeService
         if (!w.Writable || !SupportAuthoringWeapon.Resolved(w.IdentityStatus) || !f.Writable || f.ReadOnly) throw new InvalidDataException(f.BlockedReason ?? CoreText.Get("Messages.Build.Support.ReadOnly"));
     }
     public static string Evidence(SupportField f) => Hash(JsonSerializer.Serialize(new { f.SupportWeaponIdentity, f.Target, f.ApiFieldConstant, f.Value.Type, f.Backing, f.Operation, f.Resolution, f.SharedScope }));
+    // What a write does, without Runtime's opaque scope and consumer keys, its research labels (catalog branches, the resolution linkage) and
+    // the opt-ins it requires: the opt-ins are emitted from whatever the bound SDK publishes, never acknowledged by hand.
+    public static string SemanticEvidence(SupportField f) => Hash(JsonSerializer.Serialize(new
+    {
+        f.SupportWeaponIdentity, Target = f.Target with { CatalogBranches = [], WritableCatalogBranches = [] }, f.ApiFieldConstant, f.Value.Type, f.Backing,
+        Operation = f.Operation with { Acknowledgement = null, AcknowledgementReason = null }, f.Resolution.RootChain, f.Resolution.PlanPhase,
+        f.SharedScope.Shared, f.SharedScope.RequiresAcknowledgement, f.SharedScope.ReviewedConsumerCount, f.SharedScope.ReviewedScopeComplete, f.SharedScope.DynamicConsumersPossible,
+        Consumers = f.SharedScope.AffectedSemanticConsumers.Select(c => new { c.Weapon, c.TargetPath, c.AttackRole, c.AttackKind, c.ParentAttackRole }),
+    }));
+    // Explicit rebind: a change that was valid on its previous SDK moves to the same instance of the new one when the write is semantically
+    // unchanged (0.30.0 adds allow_unverified_effect to the 30 PLAS-45 Epoch primary / primary_impact fields and renames their scope keys);
+    // the generated operation then carries the new SDK's opt-ins. Anything else keeps its old evidence, so it needs review. Returns the count.
+    public static int Rebind(ModProject p, SupportAuthoringCatalog? previous, SupportAuthoringCatalog next)
+    {
+        if (previous == null) return 0;
+        var moved = 0;
+        p.SupportChanges = p.SupportChanges.Select(c =>
+        {
+            var before = previous.FieldInstances.FirstOrDefault(f => f.InstanceKey == c.InstanceKey); var after = next.FieldInstances.FirstOrDefault(f => f.InstanceKey == c.InstanceKey);
+            if (before == null || after == null || c.CapabilityEvidence != Evidence(before) || c.CapabilityEvidence == Evidence(after) || SemanticEvidence(before) != SemanticEvidence(after)) return c;
+            moved++;
+            return c with { CapabilityEvidence = Evidence(after) };
+        }).ToList();
+        return moved;
+    }
     // Acknowledges Runtime's allow_unverified_effect opt-in for one field, regardless of value.
     public static string EffectEvidence(SupportField f) => Hash(JsonSerializer.Serialize(new { f.InstanceKey, f.Operation.Acknowledgement, f.Operation.AcknowledgementReason }));
     public static string ApprovalEvidence(SupportField f) => Hash(JsonSerializer.Serialize(new { f.Backing.ObjectKey, f.SharedScope }));

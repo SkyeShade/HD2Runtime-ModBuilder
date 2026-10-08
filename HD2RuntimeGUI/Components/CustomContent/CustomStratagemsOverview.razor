@@ -1,0 +1,37 @@
+@* Overview card: the mod's own custom stratagems at a glance (icon, name, family, call-in code, readiness), each opening its editor, with
+   New Custom Stratagem and the full list. Violet: Overview refers to the project's Runtime-owned content from another tab. *@
+@{ var list = Workspace.CustomStratagems; var max = Workspace.CustomTarget.Schema.MaxDefinitions; }
+<section class="panel overview-custom cat-custom" data-overview-custom>
+    <div class="panel-heading"><h2>@T["Overview.Custom.Title"] <span class="badge experimental">@T["CustomContent.Experimental"]</span></h2>
+        <span class="subtle" data-overview-custom-count>@T.Format("CustomStratagems.Limit", list.Count, max)</span></div>
+    @if (list.Count == 0)
+    {
+        <p class="subtle">@T.Format("Overview.Custom.Empty", max)</p>
+    }
+    else
+    {
+        <ul class="overview-custom-list">
+            @foreach (var s in list)
+            {
+                var state = Workspace.CustomState(CustomDiagnostic.StratagemOwner(s.Id));
+                <li><button data-overview-custom-item="@s.Id" @onclick="() => Open.InvokeAsync(s.Id)">
+                    <CustomIcon Stratagem="s" Size="sm" />
+                    <span class="overview-custom-name"><strong>@(s.NameCased ?? s.Name)</strong>
+                        <small>@CustomLabels.FamilyGlyph(s.Delivery.Family) @CustomLabels.Family(T, s.Delivery.Family)</small></span>
+                    <ArrowSequence Code="s.Code" Small="true" />
+                    <span class="badge state-badge @CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span>
+                </button></li>
+            }
+        </ul>
+    }
+    <div class="actions">
+        <button class="custom-outline" disabled="@(list.Count >= max)" data-overview-custom-new @onclick="() => New.InvokeAsync()">+ @T["CustomStratagems.New"]</button>
+        @if (list.Count > 0) { <button class="link-button custom-link" data-overview-custom-all @onclick="() => OpenAll.InvokeAsync()">@T["Overview.Custom.All"]</button> }
+    </div>
+</section>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter] public EventCallback<string> Open { get; set; }
+    [Parameter] public EventCallback OpenAll { get; set; }
+    [Parameter] public EventCallback New { get; set; }
+}

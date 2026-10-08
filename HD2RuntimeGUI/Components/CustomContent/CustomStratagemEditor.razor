@@ -1,0 +1,315 @@
+@* One custom stratagem, as a studio: identity, icon, call-in, carrier, delivery (every family the Runtime can build, each with only its own
+   fields), the Lua escape hatch, the checks and what the build writes, beside a live preview of how it presents and how ready it is. Every
+   change is saved at once (also one that leaves a problem: the problem is shown where it is and refuses the build). Fields come from ModBuilder's
+   field definitions and the target's description of them; the Runtime's own validator decides what is a problem, in its own words. *@
+@inject IJSRuntime JS
+@{ var s = Workspace.FindCustomStratagem(Id); }
+@if (s == null)
+{
+    <section class="panel"><p>@T["CustomStratagem.Missing"]</p><button class="custom-outline" @onclick="() => Back.InvokeAsync()">@T["CustomStratagems.BackToList"]</button></section>
+}
+else
+{
+    var owner = CustomDiagnostic.StratagemOwner(s.Id);
+    var state = Workspace.CustomState(owner);
+    var target = Workspace.CustomTarget;
+    var issues = Workspace.CustomDiagnosticsFor(owner);
+    var evidence = target.Evidence(s.Delivery.Family);
+    bool Attention(params string[] areas) => issues.Any(d => d.Severity == CustomSeverity.Error && areas.Contains(d.Area));
+    string Css(params string[] areas) => Attention(areas) ? "needs-attention" : "";
+    var traits = target.Schema.Field("metadata.traits");
+    var traitMax = (int)(traits?.Max ?? 4); var traitLength = target.Schema.Field("metadata.traits[]")?.MaxLength ?? 32;
+    <div class="custom-editor custom-studio" data-custom-stratagem-editor="@s.Id">
+        <div class="custom-studio-top">
+            <nav class="custom-section-nav" aria-label="@T["CustomStratagem.Sections"]" data-section-nav>
+                @foreach (var (key, label, areas) in Sections)
+                {
+                    var bad = Attention(areas);
+                    <button class="@(bad ? "attention" : "")" data-jump="@key" @onclick="() => Jump(key)">@T[label]@if (bad) { <span class="tab-mark error" aria-label="@T["CustomContent.State.Error"]">✕</span> }</button>
+                }
+            </nav>
+        </div>
+        <div class="custom-studio-layout">
+            <div class="custom-studio-main">
+                <section class="panel category-panel cat-custom custom-studio-header">
+                    <div class="custom-editor-header"><CustomIcon Stratagem="s" Size="lg" />
+                        <div><h2>@(s.NameCased ?? s.Name)</h2><code data-custom-id>@s.Id</code>
+                            <div class="field-badges"><span class="category-pill static cat-custom"><span class="cat-dot" aria-hidden="true"></span>@T["CustomContent.Badge.CustomStratagem"]</span>
+                                <span class="badge custom" data-custom-family="@s.Delivery.Family">@CustomLabels.FamilyGlyph(s.Delivery.Family) @CustomLabels.Family(T, s.Delivery.Family)</span>
+                                @if (evidence != null) { <span class="badge state-badge @CustomLabels.EvidenceCss(evidence.Status)" title="@evidence.Doc" data-custom-evidence="@evidence.Status">@CustomLabels.Evidence(T, evidence.Status) · @CustomLabels.Multiplayer(T, evidence.Multiplayer)</span> }
+                                <span class="badge experimental">@T["CustomContent.Experimental"]</span>
+                                <span class="badge state-badge @CustomLabels.StateCss(state)" data-custom-state="@CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span></div></div></div>
+                    <div class="actions">
+                        <button class="custom-outline" disabled="@Busy" data-custom-duplicate @onclick="Duplicate">@T["CustomContent.Duplicate"]</button>
+                        <button class="quiet danger-text" disabled="@Busy" data-custom-delete @onclick="() => ConfirmDelete = true">@T["CustomContent.Delete"]</button>
+                    </div>
+                    @if (ConfirmDelete)
+                    {
+                        <div class="custom-delete" role="group" data-custom-delete-confirm><p>@T.Format("CustomStratagem.Delete.Confirm", s.NameCased ?? s.Name)</p>
+                            <div class="actions"><button class="danger" @onclick="Delete">@T["CustomContent.Delete"]</button><button @onclick="() => ConfirmDelete = false">@T["Common.Cancel"]</button></div></div>
+                    }
+                    @if (Error != null) { <p class="notice warning" role="alert" data-custom-error>@Error</p> }
+                </section>
+
+                <details class="ia-section @Css(CustomDiagnostic.Identity)" id="custom-sec-identity" data-section="identity" open>
+                    <summary>@T["CustomStratagem.Section.Identity"] <small>@T["CustomStratagem.Section.Identity.Hint"]</small></summary>
+                    <div class="ia-body">
+                        <div class="custom-fields">
+                            <div class="custom-field"><label for="custom-name">@T["CustomStratagem.Name"] <small>@T["CustomStratagem.Name.Hint"]</small></label>
+                                <input id="custom-name" value="@s.Name" maxlength="64" disabled="@Busy" @onchange="e => Edit(x => x.Name = (e.Value as string ?? string.Empty).Trim())" />
+                                @FieldIssues(owner, "name")</div>
+                            <div class="custom-field"><label for="custom-name-cased">@T["CustomStratagem.NameCased"] <small>@T["CustomStratagem.NameCased.Hint"]</small></label>
+                                <input id="custom-name-cased" value="@s.NameCased" placeholder="@s.Name" maxlength="64" disabled="@Busy" @onchange="e => Edit(x => x.NameCased = (e.Value as string)?.Trim() is { Length: > 0 } v ? v : null)" />
+                                @FieldIssues(owner, "name_cased")</div>
+                        </div>
+                        <div class="custom-field"><label for="custom-description">@T["CustomStratagem.Description"] <small>@T.Format("CustomStratagem.Description.Count", s.Description.Length, 400)</small></label>
+                            <textarea id="custom-description" rows="3" maxlength="400" disabled="@Busy" @onchange="e => Edit(x => x.Description = (e.Value as string ?? string.Empty).Trim())">@s.Description</textarea>
+                            @FieldIssues(owner, "description")</div>
+                        <div class="custom-field" data-custom-field="traits"><label>@T["CustomStratagem.Traits"] <small>@T.Format("CustomStratagem.Traits.Hint", traitMax, traitLength)</small></label>
+                            <div class="chip-select traits" data-custom-traits>
+                                <span class="trait-fixed">@T["CustomStratagem.Preview.CustomTrait"]</span>
+                                @foreach (var trait in s.Traits) { <button class="active" disabled="@Busy" title="@T["CustomContent.Field.Clear"]" data-trait="@trait" @onclick="() => Edit(x => x.Traits.Remove(trait))">@trait.ToUpperInvariant() ×</button> }
+                                @if (s.Traits.Count < traitMax)
+                                {
+                                    <input class="trait-input" value="@NewTrait" maxlength="@traitLength" placeholder="@T["CustomStratagem.Traits.Add"]" disabled="@Busy" aria-label="@T["CustomStratagem.Traits.Add"]"
+                                           data-trait-input @oninput="e => NewTrait = e.Value as string ?? string.Empty" @onkeydown="TraitKey" />
+                                    <button class="custom-outline" disabled="@(Busy || string.IsNullOrWhiteSpace(NewTrait))" data-trait-add @onclick="AddTrait">+</button>
+                                }
+                            </div>
+                            @if (s.Traits.Count == 0) { <p class="field-help">@T["CustomStratagem.Traits.Default.Help"]</p> }
+                            @FieldIssues(owner, "traits")</div>
+                        <div class="custom-field"><label>@T["CustomStratagem.Id"] <small>@T["CustomStratagem.Id.Hint"]</small></label><code>@s.Id</code>
+                            <details class="custom-advanced" data-custom-change-id><summary class="subtle">@T["CustomStratagem.Id.Change"]</summary>
+                                <div class="custom-warning"><p>@T["CustomStratagem.Id.Warning"]</p></div>
+                                <div class="input-action"><input value="@NewId" placeholder="@s.Id" @oninput="e => NewId = e.Value as string" aria-label="@T["CustomStratagem.Id"]" data-custom-new-id />
+                                    <button class="custom-outline" disabled="@(Busy || string.IsNullOrWhiteSpace(NewId) || NewId == s.Id)" data-custom-apply-id @onclick="() => ChangeId(s.Id)">@T["CustomStratagem.Id.Apply"]</button></div>
+                            </details>
+                            @FieldIssues(owner, "id")</div>
+                    </div>
+                </details>
+
+                <details class="ia-section @(issues.Any(d => d.Severity == CustomSeverity.Error && d.Field == "icon") ? "needs-attention" : "")" id="custom-sec-icon" data-section="icon" open>
+                    <summary>@T["CustomStratagem.Section.Icon"] <small>@T["CustomStratagem.Section.Icon.Hint"]</small></summary>
+                    <div class="ia-body"><CustomIconEditor Stratagem="s" Run="Run" Busy="Busy" /></div>
+                </details>
+
+                <details class="ia-section @Css(CustomDiagnostic.CallIn)" id="custom-sec-callin" data-section="callin" open>
+                    <summary>@T["CustomStratagem.Section.CallIn"] <small>@T["CustomStratagem.Section.CallIn.Hint"]</small></summary>
+                    <div class="ia-body">
+                        <label>@T["CustomStratagem.Code.Label"]</label>
+                        <CustomCodeEditor Stratagem="s" Run="Run" Busy="Busy" />
+                        @FieldIssues(owner, "code", true)
+                        @{ var cooldown = target.Describe("cooldown", s); var uses = target.Describe("uses", s); var perPlayer = target.Describe("max_per_player", s); }
+                        <div class="custom-fields">
+                            @NumberField("cooldown", "CustomStratagem.Field.Cooldown", "CustomStratagem.Cooldown.Hint", cooldown, s.Cooldown, v => Edit(x => x.Cooldown = v), false, owner)
+                            @NumberField("uses", "CustomStratagem.Field.UsesPerMission", "CustomStratagem.Uses.Hint", uses, s.Uses, v => Edit(x => x.Uses = v is { } u ? (int)Math.Round(u) : null), true, owner)
+                            @NumberField("max_per_player", "CustomStratagem.Field.MaxPerPlayer", "CustomStratagem.MaxPerPlayer.Hint", perPlayer, s.MaxPerPlayer, v => Edit(x => x.MaxPerPlayer = v is { } m ? (int)Math.Round(m) : null), true, owner)
+                        </div>
+                    </div>
+                </details>
+
+                <details class="ia-section @Css(CustomDiagnostic.Carrier)" id="custom-sec-carrier" data-section="carrier" open>
+                    <summary>@T["CustomStratagem.Section.Carrier"] <small>@T["CustomStratagem.Section.Carrier.Hint"]</small></summary>
+                    <div class="ia-body">
+                        @if (target.Schema.Selection is { } selection) { <p class="field-help" data-carrier-selection title="@selection">@T["CustomStratagem.Carrier.InSlot"]</p> }
+                        <CarrierEditor Stratagem="s" Run="Run" Busy="Busy" />
+                    </div>
+                </details>
+
+                <details class="ia-section @Css(CustomDiagnostic.Delivery, CustomDiagnostic.Assets)" id="custom-sec-delivery" data-section="delivery" open>
+                    <summary>@T["CustomStratagem.Section.Delivery"] <small>@T["CustomStratagem.Section.Delivery.Hint"]</small></summary>
+                    <div class="ia-body">
+                        @if (ShowFamilies || PendingFamily != null)
+                        {
+                            <FamilyPicker Value="@s.Delivery.Family" Chosen="family => ChooseFamily(s, family)" Busy="Busy" Compact="true" Label="@T["CustomStratagem.Section.Delivery"]" />
+                        }
+                        else
+                        {
+                            <div class="family-current @CustomLabels.FamilyCss(s.Delivery.Family)" data-family-current="@s.Delivery.Family">
+                                <span class="family-glyph" aria-hidden="true">@CustomLabels.FamilyGlyph(s.Delivery.Family)</span>
+                                <strong>@CustomLabels.Family(T, s.Delivery.Family)</strong>
+                                @if (evidence != null) { <span class="badge state-badge @CustomLabels.EvidenceCss(evidence.Status)">@CustomLabels.Evidence(T, evidence.Status)</span><span class="subtle">@CustomLabels.Multiplayer(T, evidence.Multiplayer)</span> }
+                                <button class="custom-outline small" disabled="@Busy" data-family-change @onclick="() => ShowFamilies = true">@T["CustomStratagem.Family.Change"]</button>
+                            </div>
+                        }
+                        @if (PendingFamily is { } pending)
+                        {
+                            <div class="swap-prompt" role="group" data-family-confirm><p>@T.Format("CustomStratagem.Family.Confirm", CustomLabels.Family(T, s.Delivery.Family), CustomLabels.Family(T, pending))</p>
+                                <div class="swap-actions"><button class="custom-primary" data-family-switch @onclick="() => SwitchFamily(s.Id, pending)">@T["CustomStratagem.Family.Switch"]</button>
+                                    <button class="link-button" @onclick="() => PendingFamily = null">@T["Common.Cancel"]</button></div></div>
+                        }
+                        <p class="family-summary">@CustomLabels.FamilyHelp(T, s.Delivery.Family)</p>
+                        @if (target.Schema.Family(Runtime030Target.RuntimeFamily(s.Delivery.Family)) is { } spec)
+                        {
+                            <details class="subtle runtime-notes"><summary>@T["CustomStratagem.Family.RuntimeNotes"]</summary><p>@spec.Doc</p>@foreach (var note in spec.Notes) { <p>· @note</p> }
+                                @if (evidence != null) { <p>@T.Format("CustomStratagem.Family.Evidence", CustomLabels.Evidence(T, evidence.Status), CustomLabels.Multiplayer(T, evidence.Multiplayer), evidence.Doc)</p> }</details>
+                        }
+                        @if (s.Delivery.Family == DeliveryFamily.Scripted)
+                        {
+                            <p class="custom-notice" data-scripted-notice>@T["CustomStratagem.Scripted.Notice"]</p>
+                            <div class="custom-fields"><div class="custom-field" data-custom-field="delivery">
+                                <label for="scripted-pod">@T["CustomStratagem.Scripted.Pod"] <small>@T["CustomStratagem.Scripted.Pod.Hint"]</small></label>
+                                <select id="scripted-pod" value="@(s.Delivery.Scripted?.VanillaPod ?? "")" disabled="@Busy" data-scripted-pod
+                                        @onchange="e => Edit(x => x.Delivery.Scripted = e.Value is string v && v.Length > 0 ? new() { VanillaPod = v } : null)">
+                                    <option value="">@T["CustomStratagem.Scripted.Runtime"]</option>
+                                    @foreach (var donor in target.Schema.Catalogs.SupportDonors.Where(d => d.Deliverable)) { <option value="@donor.Name">@donor.Name</option> }
+                                </select>
+                                @FieldIssues(owner, "delivery")</div></div>
+                        }
+                        else if (s.Delivery.Family == DeliveryFamily.Pod)
+                        {
+                            <h3 class="group-title">@T["CustomStratagem.Group.PodContents"]</h3>
+                            <PodItemsEditor Stratagem="s" Run="Run" Busy="Busy" />
+                        }
+                        @{ var defs = CustomFields.For(s.Delivery.Family); }
+                        @foreach (var group in defs.Where(d => !d.RefusedOnly).GroupBy(d => d.Group))
+                        {
+                            // Fields this mode or donor does not use are named in one line with the reason; refused fields stay as disabled rows.
+                            var infos = group.Select(d => (Def: d, Info: target.Describe(d.Path, s))).ToArray();
+                            var used = infos.Where(x => x.Info.Status != CustomFieldStatus.Unavailable).ToArray();
+                            <h3 class="group-title">@GroupLabel(group.Key)</h3>
+                            @if (used.Length > 0) { <div class="custom-fields">@foreach (var x in used) { <CustomFieldEditor @key="x.Def.Path" Stratagem="s" Def="x.Def" Run="Run" Busy="Busy" /> }</div> }
+                            @foreach (var unused in infos.Where(x => x.Info.Status == CustomFieldStatus.Unavailable).GroupBy(x => x.Info.Reason))
+                            { <p class="field-reason unused-fields" data-unused-fields="@string.Join(" ", unused.Select(x => x.Def.Path))">@T.Format("CustomStratagem.UnusedFields", string.Join(", ", unused.Select(x => T[x.Def.Label])), unused.Key)</p> }
+                        }
+                        @if (s.Delivery.Family is DeliveryFamily.Expendable or DeliveryFamily.Variant)
+                        {
+                            <h3 class="group-title">@T["CustomStratagem.Group.Presentation"]</h3>
+                            <PresentationEditor Stratagem="s" Run="Run" Busy="Busy" />
+                        }
+                        @if (s.Delivery.Family == DeliveryFamily.Expendable)
+                        {
+                            <h3 class="group-title">@T["CustomStratagem.Group.Pod"]</h3>
+                            <PodItemsEditor Stratagem="s" Run="Run" Busy="Busy" Expendable="true" />
+                        }
+                        else if (s.Delivery.Family == DeliveryFamily.Variant)
+                        {
+                            <h3 class="group-title">@T["CustomStratagem.Group.Model"]</h3>
+                            <ModelEditor Stratagem="s" Run="Run" Busy="Busy" />
+                        }
+                        @foreach (var issue in issues.Where(d => d.Severity is CustomSeverity.Error && d.Area is CustomDiagnostic.Delivery or CustomDiagnostic.Assets && !Shown(d, s)))
+                        { <p class="field-issue error danger-text" data-field-issue="@issue.Field">@CustomLabels.Mark(issue.Severity) @(issue.Field is { } f ? f + ": " : "")@issue.Message</p> }
+                        @{ var refused = defs.Where(d => d.RefusedOnly).ToArray(); }
+                        @if (refused.Length > 0)
+                        {
+                            <div class="refused-list" data-refused-fields><h4>@T["CustomStratagem.Refused.Title"]</h4>
+                                @foreach (var def in refused) { <p data-refused-field="@def.Path"><strong>@T[def.Label]</strong> · @T["CustomContent.Field.NotSupported"] @target.Describe(def.Path, s).Reason</p> }</div>
+                        }
+                    </div>
+                </details>
+
+                <details class="ia-section advanced @Css(CustomDiagnostic.Advanced)" id="custom-sec-lua" data-section="callbacks" open="@(s.Callbacks != null || s.Delivery.Family == DeliveryFamily.Scripted)">
+                    <summary>@T["CustomStratagem.Section.Advanced"] <small>@T["CustomStratagem.Section.Advanced.Hint"]</small></summary>
+                    <div class="ia-body custom-callbacks"><CallbackEditor Stratagem="s" Run="Run" /></div>
+                </details>
+
+                <details class="ia-section" id="custom-sec-checks" data-section="checks" open>
+                    <summary>@T["CustomStratagem.Section.Checks"] <small>@T["CustomStratagem.Section.Checks.Hint"]</small></summary>
+                    <div class="ia-body"><CustomChecklist Diagnostics="issues" />
+                        @if (issues.Any(d => d.Runtime)) { <p class="subtle" data-runtime-words>@T["CustomStratagem.Checks.RuntimeWords"]</p> }</div>
+                </details>
+
+                <details class="ia-section custom-preview" id="custom-sec-build" data-section="generated">
+                    <summary>@T["CustomStratagem.Section.Generated"] <small>@T.Format("CustomStratagem.Section.Generated.Hint", target.RuntimeLabel)</small></summary>
+                    <div class="ia-body">
+                        <div class="custom-lua-subtabs" role="tablist">
+                            <button role="tab" class="@(ShowJson ? "" : "active")" aria-selected="@(!ShowJson)" data-generated-tab="lua" @onclick="() => ShowJson = false">@T["CustomStratagem.Generated.Lua"]</button>
+                            <button role="tab" class="@(ShowJson ? "active" : "")" aria-selected="@ShowJson" data-generated-tab="json" @onclick="() => ShowJson = true">@T["CustomStratagem.Generated.Json"]</button>
+                        </div>
+                        @if (ShowJson)
+                        {
+                            var json = s.Delivery.Family == DeliveryFamily.Scripted ? null : target.ProjectForm(s).ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+                            <p class="subtle">@(json == null ? T["CustomStratagem.Generated.Json.Scripted"] : T["CustomStratagem.Generated.Json.Help"])</p>
+                            @if (json != null) { <pre data-custom-project-form>@json</pre><button class="custom-outline small" @onclick="() => Copy(json)">@T["CustomStratagem.Generated.Copy"]</button> }
+                        }
+                        else
+                        {
+                            var lua = Workspace.CustomRegistrationPreview(s.Id);
+                            <p class="subtle">@T["CustomStratagem.Generated.Lua.Help"]</p>
+                            <pre data-custom-registration>@lua</pre><button class="custom-outline small" @onclick="() => Copy(lua)">@T["CustomStratagem.Generated.Copy"]</button>
+                        }
+                        @if (Copied) { <span class="subtle"> ✓ @T["CustomStratagem.Generated.Copied"]</span> }
+                    </div>
+                </details>
+            </div>
+            <aside class="custom-studio-side"><LoadoutPreview Stratagem="s" Jump="Jump" /></aside>
+        </div>
+    </div>
+}
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public EventCallback Back { get; set; }
+    [Parameter] public EventCallback<string> Open { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private bool Busy, ConfirmDelete, ShowJson, Copied, ShowFamilies; private string? Error, NewId, PendingFamily; private string NewTrait = "";
+    // The sections the navigation jumps to, and the diagnostic areas that mark one as needing attention.
+    private static readonly (string Key, string Label, string[] Areas)[] Sections =
+    [
+        ("identity", "CustomStratagem.Section.Identity", [CustomDiagnostic.Identity]), ("icon", "CustomStratagem.Section.Icon", []),
+        ("callin", "CustomStratagem.Section.CallIn", [CustomDiagnostic.CallIn]), ("carrier", "CustomStratagem.Section.Carrier", [CustomDiagnostic.Carrier]),
+        ("delivery", "CustomStratagem.Section.Delivery", [CustomDiagnostic.Delivery, CustomDiagnostic.Assets]), ("lua", "CustomStratagem.Section.Lua", [CustomDiagnostic.Advanced]),
+        ("checks", "CustomStratagem.Section.Checks", []), ("build", "CustomStratagem.Section.Build", []),
+    ];
+    protected override void OnParametersSet() { NewId = null; }
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null; Copied = false;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException or UnauthorizedAccessException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+    private Task Edit(Action<CustomStratagem> edit) => Run(() => Workspace.EditCustomStratagemAsync(Id, edit));
+    private async Task Jump(string section) { try { await JS.InvokeVoidAsync("builderView.jump", "#custom-sec-" + section); } catch (JSDisconnectedException) { } }
+    private async Task Copy(string text) { try { await JS.InvokeVoidAsync("hd2LuaEditor.copy", text); Copied = true; } catch (Exception e) when (e is JSException or JSDisconnectedException) { Copied = false; } }
+    private Task TraitKey(KeyboardEventArgs e) => e.Key == "Enter" ? AddTrait() : Task.CompletedTask;
+    private Task AddTrait()
+    {
+        var trait = NewTrait.Trim();
+        if (trait.Length == 0) return Task.CompletedTask;
+        NewTrait = "";
+        return Edit(x => { if (!x.Traits.Contains(trait, StringComparer.OrdinalIgnoreCase)) x.Traits.Add(trait); });
+    }
+    private Task Duplicate() => Run(async () => { var copy = await Workspace.DuplicateCustomStratagemAsync(Id); await Open.InvokeAsync(copy); });
+    private Task Delete() => Run(async () => { await Workspace.DeleteCustomStratagemAsync(Id); ConfirmDelete = false; await Back.InvokeAsync(); });
+    private Task ChangeId(string id) => Run(async () => { var next = NewId!.Trim(); await Workspace.ChangeCustomStratagemIdAsync(id, next); await Open.InvokeAsync(next); });
+    // Switching family replaces the current family's settings with the new family's defaults: asked first when there are settings to lose.
+    private Task ChooseFamily(CustomStratagem s, string family)
+    {
+        if (s.Delivery.Family == family) { PendingFamily = null; ShowFamilies = false; return Task.CompletedTask; }
+        if (CustomFields.HasSettings(s.Delivery)) { PendingFamily = family; return Task.CompletedTask; }
+        return SwitchFamily(s.Id, family);
+    }
+    private Task SwitchFamily(string id, string family) { PendingFamily = null; ShowFamilies = false; return Run(() => Workspace.SetCustomDeliveryFamilyAsync(id, family)); }
+    private string GroupLabel(string group) => group switch
+    {
+        CustomFields.GroupDonor => T["CustomStratagem.Group.Donor"], CustomFields.GroupWeapon => T["CustomStratagem.Group.Weapon"],
+        CustomFields.GroupTiming => T["CustomStratagem.Group.Timing"], CustomFields.GroupSpread => T["CustomStratagem.Group.Spread"],
+        CustomFields.GroupFlight => T["CustomStratagem.Group.Flight"], CustomFields.GroupOrbit => T["CustomStratagem.Group.Orbit"],
+        CustomFields.GroupGun => T["CustomStratagem.Group.Gun"],
+        _ => T["CustomStratagem.Group.Payload"],
+    };
+    // Whether a delivery problem is already shown by a field, pod item, presentation or model editor (the rest are listed once below them).
+    private static bool Shown(CustomDiagnostic d, CustomStratagem s) => d.Field is { } f && (CustomFields.For(s.Delivery.Family).Any(x => !x.RefusedOnly && d.About(x.Path))
+        || f.StartsWith("payload.items", StringComparison.Ordinal) && s.Delivery.Family == DeliveryFamily.Pod || f.StartsWith("payload.pod", StringComparison.Ordinal)
+        || f.StartsWith("payload.presentation", StringComparison.Ordinal) || f.StartsWith("payload.model", StringComparison.Ordinal) || f == "delivery");
+    private RenderFragment FieldIssues(string owner, string field, bool info = false) => __builder =>
+    {
+        foreach (var issue in Workspace.CustomDiagnosticsFor(owner).Where(d => d.Field == field && (d.Severity is CustomSeverity.Error or CustomSeverity.Warning || info && d.Severity == CustomSeverity.Info)))
+        { <p class="field-issue @CustomLabels.SeverityCss(issue.Severity) @(issue.Severity == CustomSeverity.Error ? "danger-text" : "")" data-field-issue="@field">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
+    };
+    // A number of the call-in (cooldown, uses): the Runtime's range and unit, empty for the carrier's own, refused with the Runtime's reason.
+    private RenderFragment NumberField(string path, string label, string hint, CustomFieldInfo info, double? value, Func<double?, Task> set, bool integer, string owner) => __builder =>
+    {
+        <div class="custom-field @(info.Supported ? "" : "refused")" data-custom-field="@path"><label for="@("custom-" + path)">@T[label] <small>@T[hint]</small></label>
+            @if (info.Supported)
+            {
+                <div class="input-unit"><input id="@("custom-" + path)" type="number" step="@(integer ? "1" : "any")" min="@CustomLabels.Number(info.Min)" max="@CustomLabels.Number(info.Max)"
+                        value="@CustomLabels.Number(value)" placeholder="@info.Default" disabled="@Busy"
+                        @onchange="e => set(double.TryParse(e.Value as string, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null)" />
+                    <span>@CustomLabels.Unit(T, info.Unit)</span></div>
+            }
+            else { <input id="@("custom-" + path)" disabled placeholder="@T["CustomContent.Field.NotSupportedShort"]" /><p class="field-reason" data-field-reason>@T["CustomContent.Field.NotSupported"] @info.Reason</p> }
+            @FieldIssues(owner, path)</div>
+    };
+}

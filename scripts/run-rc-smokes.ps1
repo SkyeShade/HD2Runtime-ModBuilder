@@ -2,8 +2,13 @@
 param(
     # The packaged executable to test (default: the release candidate built by build-rc.ps1).
     [string]$App,
-    [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'programmable-ammo', 'projectile-builder', 'export', 'old-project'),
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.28.1-public'),
+    [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'programmable-ammo', 'projectile-builder', 'export', 'old-project', 'custom-content', 'r030-stratagems'),
+    # The read-only HD2Runtime tree of the pinned SDK (build-rc.ps1 extracts it with git archive): 0.30.0 at 893d31f.
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.30.0-893d31f'),
+    # The tree that validates the custom-content smoke's export (its custom stratagems register there too); the pinned tree by default.
+    [string]$CustomRuntimeTree,
+    # The pinned SDK fixture (HD2RuntimeGUI.Tests\Fixtures\sdk-<version>.zip, SdkPin.Version).
+    [string]$SdkVersion = '0.30.0',
     [int]$BasePort = 9260
 )
 
@@ -14,10 +19,14 @@ param(
 #   runtime028   underbarrel, programmable ammo, mounted projectile host, event/action and localization (+ Runtime validation of its export)
 #   programmable-ammo  base / alternate mode cards: add, donor, labels, reopen, remove, support + native weapons, narrow layout, zh-Hans (+ export validation)
 #   projectile-builder  hosts (player, support, mounted), read-only reasons, donor rows, slots, mode presentation, LAS-98 beam
-#   export       export in both languages (byte-identical) + HD2Runtime 0.28.1 validation of the export
+#   export       export in both languages (byte-identical) + validation of the export by the pinned HD2Runtime (0.30.0)
 #   old-project  a ModBuilder 1.3.1 user's data folder: projects stay on 0.27.0, rebind and export
+#   custom-content  experimental custom stratagems and projectiles: templates, families, icon, call-in, the projectile selector's custom
+#                group (create from a weapon, cancel, complete, rename, duplicate, clear, inline errors, support host), reference
+#                protection, violet styling, zh-Hans (+ HD2Runtime 0.30.0 registration and export validation)
 
 $ErrorActionPreference = 'Stop'
+if (-not $CustomRuntimeTree) { $CustomRuntimeTree = $RuntimeTree }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $version = (& dotnet msbuild (Join-Path $repoRoot 'HD2RuntimeGUI\HD2RuntimeGUI.csproj') -getProperty:Version -nologo | Select-Object -Last 1).Trim()
 $rc = Join-Path $repoRoot "build\release-candidate-$version"
@@ -29,8 +38,8 @@ New-Item -ItemType Directory -Path $out | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # The pinned SDK as a local folder (for the scripting smoke's developer-SDK checks); byte-identical to the bundled SDK.
-$sdkDir = Join-Path $out 'sdk-0.28.1'
-[IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $repoRoot 'HD2RuntimeGUI.Tests\Fixtures\sdk-0.28.1.zip'), $sdkDir)
+$sdkDir = Join-Path $out "sdk-$SdkVersion"
+[IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $repoRoot "HD2RuntimeGUI.Tests\Fixtures\sdk-$SdkVersion.zip"), $sdkDir)
 
 # A ModBuilder 1.3.1 user's data folder: SDK 0.27.0 cached and current, and the projects 1.3.1 saved.
 function Initialize-OldProjectData([string]$data) {
@@ -76,11 +85,18 @@ foreach ($smoke in $Smokes) {
         & taskkill /PID $process.Id /T /F *> $null
     }
     $result = if ($exit -eq 0) { 'PASS' } else { 'FAIL' }
-    # The export smoke's ZIP is validated by HD2Runtime 0.28.1 itself.
-    if ($smoke -in @('export', 'runtime028', 'programmable-ammo') -and $exit -eq 0) {
+    # The export smokes' ZIPs are validated by the pinned HD2Runtime itself; the custom-content smoke's also by the Runtime's own custom stratagem
+    # registration (tools/custom-content/validate-runtime.py), where its custom stratagems must register as Runtime's SDK fixtures do.
+    if ($smoke -in @('export', 'runtime028', 'programmable-ammo', 'custom-content') -and $exit -eq 0) {
         $zip = ((Get-Content -LiteralPath $log -Raw) | Select-String -Pattern '"export":\s*"([^"]+)"').Matches[0].Groups[1].Value -replace '\\\\', '\'
-        & py -3 -B (Join-Path $repoRoot 'tools\validate-exports.py') --isolation --runtime $RuntimeTree --output (Join-Path $out "$smoke-export-validation.json") $zip *>> $log
-        if ($LASTEXITCODE -ne 0) { $result = 'FAIL (export validation)' }
+        $tree = if ($smoke -eq 'custom-content') { $CustomRuntimeTree } else { $RuntimeTree }
+        $registered = 0
+        if ($smoke -eq 'custom-content') {
+            & py -3 -B (Join-Path $repoRoot 'tools\custom-content\validate-runtime.py') --runtime $tree $zip *>> $log
+            $registered = $LASTEXITCODE
+        }
+        & py -3 -B (Join-Path $repoRoot 'tools\validate-exports.py') --isolation --runtime $tree --output (Join-Path $out "$smoke-export-validation.json") $zip *>> $log
+        if ($registered -ne 0 -or $LASTEXITCODE -ne 0) { $result = 'FAIL (export validation)' }
     }
     $summary[$smoke] = $result
     Write-Host "$smoke`: $result ($log)"

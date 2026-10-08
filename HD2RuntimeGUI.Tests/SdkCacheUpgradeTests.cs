@@ -106,10 +106,10 @@ public sealed class SdkCacheUpgradeTests
     }
 
     // The reported failure: current.json -> 0.23.1, but its cache directory was written without the magazine file.
-    private static async Task<TestEnvironment> StaleCache()
+    private static async Task<TestEnvironment> StaleCache(string version = Bundled)
     {
         var e = new TestEnvironment();
-        await SdkFixtures.Install(e, Bundled); File.Delete(Path.Combine(Dir(e, Bundled), Magazine));
+        await SdkFixtures.Install(e, version); File.Delete(Path.Combine(Dir(e, version), Magazine));
         return e;
     }
 
@@ -131,14 +131,16 @@ public sealed class SdkCacheUpgradeTests
         Assert.False(File.Exists(Path.Combine(Dir(e, Bundled), Magazine)));
     }
 
+    // A published release other than the bundled one: its stale cache is reinstalled, never completed from the bundle.
     [Fact] public async Task Reinstalling_a_stale_version_adds_only_the_missing_file()
     {
-        using var e = await StaleCache();
-        var others = Directory.GetFiles(Dir(e, Bundled)).ToDictionary(Path.GetFileName, File.ReadAllBytes);
-        var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease(Bundled, e.GitHub.Archive));
+        const string published = "0.28.1";
+        using var e = await StaleCache(published);
+        var others = Directory.GetFiles(Dir(e, published)).ToDictionary(Path.GetFileName, File.ReadAllBytes);
+        var sdk = await e.Cache.InstallAsync(FakeGitHub.MakeRelease(published, e.GitHub.Archive));
         Assert.NotNull(sdk.Entities!.Attachments);
-        Assert.True(File.Exists(Path.Combine(Dir(e, Bundled), Magazine)));
-        foreach (var (name, bytes) in others) Assert.Equal(bytes, File.ReadAllBytes(Path.Combine(Dir(e, Bundled), name!)));
+        Assert.True(File.Exists(Path.Combine(Dir(e, published), Magazine)));
+        foreach (var (name, bytes) in others) Assert.Equal(bytes, File.ReadAllBytes(Path.Combine(Dir(e, published), name!)));
     }
 
     [Fact] public async Task Check_reinstalls_an_incomplete_non_bundled_cache_online()

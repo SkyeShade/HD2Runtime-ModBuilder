@@ -1,0 +1,62 @@
+@inject BuilderWorkspace Workspace
+@* One armor kit (hd2.armor_stats.kit(id)): its piece weights per slot, each a published enum field, and a live preview of the stats they give with
+   this project's class and curve edits (the published formulas; the stocky body). A kit write reaches every player wearing the kit on this machine. *@
+@{ var catalog = Workspace.ArmorCatalog; var kit = catalog?.Kit(Kit); }
+@if (catalog != null && kit != null)
+{
+    var fields = catalog.KitFields(kit.Id).ToArray();
+    var edited = fields.Any(f => EntityChangeService.Saved(Workspace.Project, f) != null);
+    var weights = Workspace.ArmorKitWeights(kit); var now = ArmorMath.Stats(catalog, kit, weights, Workspace.ArmorClassValues(), Workspace.ArmorCurve()); var vanilla = kit.Vanilla;
+    var shown = fields.Where(f => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null).ToArray();
+    @if (!ModifiedOnly)
+    {
+        <section class="panel category-panel cat-armor" data-armor-kit-editor="@kit.Id">
+            <div class="eyebrow">@T["Armor.Kit.Eyebrow"] · <code>@kit.HexId</code></div><h2 class="@(kit.Name == null ? "native-name" : "")">@kit.Label</h2>
+            <div class="field-badges"><span class="badge" data-armor-kit-class title="@T["Armor.Kit.ClassTooltip"]">@Armor.ClassLabel(T, Label(weights))</span>
+                <span class="badge" data-armor-kit-passive>@kit.Passive.Name</span>
+                @if (catalog.PassiveArmorBonuses.FirstOrDefault(b => b.Passive == kit.Passive.Id) is { } bonus) { <span class="badge" title="@T["Armor.Kit.PassiveBonusTooltip"]">@T.Format("Armor.Kit.PassiveBonus", string.Join(" ", bonus.Rows.Select(r => (r.Type == "Add" ? "+" : r.Type == "Multiply" ? "×" : "=") + Armor.Number(r.Value))))</span> }
+                @if (kit.Name != null && !kit.NameUnique) { <span class="badge amber" title="@T["Armor.Kit.SharedNameTooltip"]">@T["Armor.Kit.SharedName"]</span> }
+                <span class="badge">@T.Plural("Armor.Kit.Pieces", kit.Slots.Length)</span></div>
+            <div class="armor-stats" data-armor-preview>
+                @Stat(T["Armor.Stat.Rating"], now.Rating, vanilla.Rating, "rating")
+                @Stat(T["Armor.Stat.Speed"], now.Speed, vanilla.Speed, "speed")
+                @Stat(T["Armor.Stat.Stamina"], now.Stamina, vanilla.Stamina, "stamina")
+                @Stat(T["Armor.Stat.Damage"], now.DamageMultiplier, vanilla.DamageMultiplier, "damage", "×")
+            </div>
+            <p class="subtle" data-armor-preview-help>@T.Format("Armor.Kit.PreviewHelp", kit.RatingPieces)</p>
+            <div class="actions armor-weight-actions"><span class="subtle">@T["Armor.Kit.AllPieces"]</span>
+                @foreach (var w in ArmorAuthoringReader.Weights) { <button class="small" data-armor-all="@w" disabled="@(Workspace.Project == null)" @onclick="() => Run(() => Workspace.SetKitWeightAsync(kit.Id, w))">@Armor.ClassLabel(T, w)</button> }
+                @if (edited) { <button class="reset-action small" data-armor-kit-reset @onclick="() => Run(() => Workspace.ResetEntityAsync(ArmorAuthoringReader.KitResource, kit.Id))">@T["Armor.Kit.Reset"]</button> }</div>
+        </section>
+    }
+    @if (shown.Length > 0)
+    {
+        <section class="panel" data-armor-pieces="@kit.Id"><h3>@T["Armor.Kit.PiecesTitle"]</h3>
+            <p class="subtle">@T["Armor.Kit.PiecesHelp"]</p>
+            <div class="stat-grid">@foreach (var f in shown) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Label="@Armor.SlotLabel(T, f.UiGroup!)" EnumLabel="v => Armor.ClassLabel(T, v)" Changed="Refresh" /> }</div>
+        </section>
+    }
+    @if (edited && Workspace.Project != null)
+    {
+        <AckPanel Title="@T["Armor.Kit.Shared.Title"]" Kind="shared" Description="@T["Armor.Kit.Shared.Description"]" />
+        <AckPanel Title="@T["Armor.Unverified.Title"]" Kind="unverified" Description="@T["Armor.Unverified.Description"]" />
+    }
+    @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+}
+@code {
+    [Parameter, EditorRequired] public string Kit { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private string? Error;
+    // The armory's class label is the torso piece's weight (a kit without a torso piece keeps its published class).
+    private string Label(IReadOnlyDictionary<string, string> weights) => weights.GetValueOrDefault("torso") ?? Workspace.ArmorCatalog!.Kit(Kit)!.Class;
+    private RenderFragment Stat(string label, double value, double baseline, string key, string prefix = "") => __builder =>
+    {
+        var changed = Math.Abs(value - baseline) > 1e-6;
+        <div class="armor-stat @(changed ? "modified" : "")" data-armor-stat="@key" data-value="@Armor.Number(value, "0.###")">
+            <span class="armor-stat-label">@label</span><strong class="@(changed ? "modified-value" : "")">@prefix@Armor.Number(value, key == "damage" ? "0.###" : "0.#")</strong>
+            <small class="subtle">@(changed ? T.Format("Armor.Stat.Base", prefix + Armor.Number(baseline, key == "damage" ? "0.###" : "0.#")) : T["Armor.Stat.Vanilla"])</small></div>
+    };
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private async Task Run(Func<Task> action) { try { await action(); Error = null; await Refresh(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
+}

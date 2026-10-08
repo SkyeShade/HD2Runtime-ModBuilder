@@ -18,9 +18,10 @@ public sealed partial class BuilderWorkspace
         return Metadata?.AttackOutputs is { } catalog && Metadata.PlayerWeapons is { } weapons ? catalog.Host(weapons, weapon, role, out reason) : null;
     }
     // The classic reference swap that expresses the same donor, when there is one (same class, a player weapon the projectile graph offers).
+    // A 0.30.0 projectile donor never is: the graph names the owner weapon's own projectile, not its second projectile or a donor row.
     public ProjectileReference? ClassicSource(AttackOutputHost host, AttackOutput output)
     {
-        if (host.Mechanism != HD2RuntimeGUI.Core.Metadata.AttackOutputHost.Component || output.Owner.Kind != "player_weapon" || output.CompatibilityClass != host.CompatibilityClass) return null;
+        if (host.Mechanism != HD2RuntimeGUI.Core.Metadata.AttackOutputHost.Component || output.IsDonor || output.Owner.Kind != "player_weapon" || output.CompatibilityClass != host.CompatibilityClass) return null;
         var matches = ProjectileSources(host.Weapon, host.Role).Where(s => s.Weapon == output.Owner.Name).ToArray();
         return matches.Length == 1 ? matches[0] : null;
     }
@@ -32,7 +33,7 @@ public sealed partial class BuilderWorkspace
         try
         {
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
-            var (outputs, projectiles, composition, format) = (project.AttackOutputChanges?.ToList(), project.ProjectileChanges.ToList(), project.CompositionChanges.ToList(), project.FormatVersion);
+            var (outputs, projectiles, composition, format, custom) = (project.AttackOutputChanges?.ToList(), project.ProjectileChanges.ToList(), project.CompositionChanges.ToList(), project.FormatVersion, project.CustomContent);
             try
             {
                 var list = project.AttackOutputChanges ?? [];
@@ -47,12 +48,13 @@ public sealed partial class BuilderWorkspace
                         throw new InvalidDataException(CoreText.Plural("Messages.Output.EditsBlockSwitch", edits.Length, weapon));
                     project.CompositionChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
                     project.ProjectileChanges.RemoveAll(c => c.Weapon == weapon && c.AttackRole == role);
+                    ReplaceCustomAssignment(project, weapon, role);
                     list.Add(next);
                 }
                 project.AttackOutputChanges = list.Count > 0 ? list : null;
                 await SaveChangesAsync();
             }
-            catch { project.AttackOutputChanges = outputs; project.ProjectileChanges = projectiles; project.CompositionChanges = composition; project.FormatVersion = format; throw; }
+            catch { project.AttackOutputChanges = outputs; project.ProjectileChanges = projectiles; project.CompositionChanges = composition; project.FormatVersion = format; project.CustomContent = custom; throw; }
         }
         finally { weaponEditGate.Release(); }
     }

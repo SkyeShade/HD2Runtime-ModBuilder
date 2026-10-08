@@ -1,0 +1,113 @@
+@inject BuilderWorkspace Workspace
+@* 0.30.0 mounted turret motion (hd2.vehicle(v):weapon(mount), turret.*): turn speeds, then each published limit pair (order: [low, high]).
+   Runtime refuses an operation that leaves a pair with low >= high (TURRET_LIMIT_ORDER). An edit that would cross its pair is not saved
+   until the user decides here, in the pair: swap the two values, keep the typed value (the build then reports the pair on both rows until
+   it is fixed) or cancel. A pair that is out of order for any other reason (a kept value, an edit switched off) offers its fixes in place. *@
+@{ var entities = (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities; var project = Workspace.Project; }
+@if (entities != null && Fields.Count > 0)
+{
+    var saved = Fields.Where(f => EntityChangeService.Saved(project, f) != null).Select(f => f.InstanceKey).ToHashSet(StringComparer.Ordinal);
+    var pairs = Fields.Select(f => EntityOrder.Of(entities, f)).Where(p => p != null).Select(p => p!).DistinctBy(p => p.Low.InstanceKey).ToArray();
+    var paired = pairs.SelectMany(p => new[] { p.Low.InstanceKey, p.High.InstanceKey }).ToHashSet(StringComparer.Ordinal);
+    var speeds = Fields.Where(f => !paired.Contains(f.InstanceKey) && Show(f)).ToArray();
+    // In the Changes view a pair is shown whole as soon as one of its limits is edited: the other limit is what the order is checked against.
+    var shownPairs = pairs.Where(p => !ModifiedOnly || saved.Contains(p.Low.InstanceKey) || saved.Contains(p.High.InstanceKey)).ToArray();
+    @if (speeds.Length > 0 || shownPairs.Length > 0)
+    {
+        <div class="vehicle-weapon-group turret-motion" data-vehicle-weapon-group="turret">
+            <h3 class="group-title">@T["TurretMotion.Title"] <span class="subtle scope-line">· @T["VehicleWeapon.Scope.Local"]</span></h3>
+            @if (!ModifiedOnly) { <p class="subtle">@T["TurretMotion.Help"]</p> }
+            @if (speeds.Length > 0)
+            {
+                <div class="stat-grid">@foreach (var f in speeds) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="VehicleWeaponCatalog.Tiers" Changed="Refresh" /> }</div>
+                @foreach (var when in speeds.Select(f => f.Lifecycle).Where(l => l != null).Distinct()) { <p class="subtle turret-lifecycle" data-turret-lifecycle="speed">@when</p> }
+            }
+            @foreach (var pair in shownPairs)
+            {
+                var ordered = EntityOrder.Ordered(project, pair);
+                <div class="limit-pair @(ordered ? "" : "unordered")" data-limit-pair="@pair.Low.SemanticFieldId">
+                    <h4 class="limit-pair-title">@PairTitle(pair)</h4>
+                    <div class="stat-grid">
+                        @foreach (var f in new[] { pair.Low, pair.High })
+                        { <EntityFieldEditor @key="@(f.InstanceKey + "#" + Version)" Field="f" Tiers="VehicleWeaponCatalog.Tiers" Changed="Refresh" Edit="v => EditLimit(pair, f, v)" /> }
+                    </div>
+                    @if (Pending is { } pending && pending.Pair.Low.InstanceKey == pair.Low.InstanceKey)
+                    {
+                        var (low, high) = EntityOrder.With(project, pair, pending.Field, pending.Value);
+                        var lowEdited = pending.Field.InstanceKey == pair.Low.InstanceKey; var other = lowEdited ? pair.High : pair.Low;
+                        <div class="swap-prompt limit-order-prompt" role="group" aria-label="@PairTitle(pair)" data-limit-order-prompt>
+                            <p><strong>@T.Format(lowEdited ? "TurretMotion.Order.NotBelow" : "TurretMotion.Order.NotAbove", pending.Field.DisplayName, EntityOrder.Text(pending.Value), other.DisplayName, EntityOrder.Text(EntityOrder.Effective(project, other)))</strong></p>
+                            <div class="swap-actions">
+                                @if (low > high) { <button class="primary" data-limit-order-swap @onclick="() => Decide(() => Swap(pair, low, high))">@T.Format("TurretMotion.Order.Swap", pair.Low.DisplayName, EntityOrder.Text(high), pair.High.DisplayName, EntityOrder.Text(low))</button> }
+                                <button data-limit-order-keep @onclick="() => Decide(() => Workspace.SetEntityAsync(pending.Field.InstanceKey, pending.Text))">@T.Format("TurretMotion.Order.Keep", EntityOrder.Text(pending.Value))</button>
+                                <button class="link-button" data-limit-order-cancel @onclick="Cancel">@T["Common.Cancel"]</button>
+                            </div>
+                            <p class="subtle">@T["TurretMotion.Order.Help"]</p>
+                        </div>
+                    }
+                    else if (!ordered)
+                    {
+                        @* Reported on both rows (the build refuses the pair); the ways back to an ordered pair are offered here. *@
+                        var (low, high) = (EntityOrder.Effective(project, pair.Low), EntityOrder.Effective(project, pair.High));
+                        <div class="limit-order-fixes" data-limit-order-fixes>
+                            <span class="subtle">@T["TurretMotion.Order.FixLead"]</span>
+                            @if (low > high) { <button data-limit-order-swap @onclick="() => Decide(() => Swap(pair, low, high))">@T.Format("TurretMotion.Order.Swap", pair.Low.DisplayName, EntityOrder.Text(high), pair.High.DisplayName, EntityOrder.Text(low))</button> }
+                            @foreach (var f in new[] { pair.Low, pair.High }.Where(f => EntityChangeService.Saved(project, f) is { Enabled: true } && ResetOrders(pair, f)))
+                            { <button data-limit-order-reset="@f.SemanticFieldId" @onclick="() => Decide(() => Workspace.ResetEntityAsync(instance: f.InstanceKey))">@T.Format("TurretMotion.Order.Reset", f.DisplayName, EntityOrder.Text(f.CurrentDefault.GetDouble()))</button> }
+                        </div>
+                    }
+                    @foreach (var when in new[] { pair.Low.Lifecycle, pair.High.Lifecycle }.Where(l => l != null).Distinct()) { <p class="subtle turret-lifecycle" data-turret-lifecycle="limits">@when</p> }
+                </div>
+            }
+            @if (Error != null) { <p class="notice warning" role="alert">@Error</p> }
+        </div>
+    }
+}
+@code {
+    // The mount's published turret fields (turret.*), in published order.
+    [Parameter, EditorRequired] public IReadOnlyList<EntityField> Fields { get; set; } = [];
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private sealed record PendingEdit(EntityOrder.Pair Pair, EntityField Field, string Text, double Value);
+    private PendingEdit? Pending; private string? Error;
+    // Bumped when a typed value is discarded, so the number boxes show the saved value again.
+    private int Version;
+    private bool Show(EntityField f) => !ModifiedOnly || EntityChangeService.Saved(Workspace.Project, f) != null;
+    // Published pair ids get ModBuilder's names; any other pair is named by its two published fields.
+    private string PairTitle(EntityOrder.Pair pair) => pair.Low.SemanticFieldId switch
+    {
+        "turret.pitch_min" => T["TurretMotion.Pair.Pitch"], "turret.yaw_min" => T["TurretMotion.Pair.Yaw"],
+        _ => T.Format("TurretMotion.Pair.Other", pair.Low.DisplayName, pair.High.DisplayName),
+    };
+    // A number in range that would leave the pair unordered is held here; anything else is saved (or refused in its row) as usual.
+    private Task EditLimit(EntityOrder.Pair pair, EntityField f, string text)
+    {
+        Pending = null;
+        if (!double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) || !InRange(f, value))
+            return Workspace.SetEntityAsync(f.InstanceKey, text);
+        var (low, high) = EntityOrder.With(Workspace.Project, pair, f, value);
+        if (EntityOrder.Ordered(low, high)) return Workspace.SetEntityAsync(f.InstanceKey, text);
+        Pending = new(pair, f, text, value);
+        return Task.CompletedTask;
+    }
+    private static bool InRange(EntityField f, double value)
+    {
+        try { EntityScalar.CheckRange(f, System.Text.Json.JsonSerializer.SerializeToElement(value)); return true; } catch (InvalidDataException) { return false; }
+    }
+    // Both limits in one saved edit: the lower value to the low limit.
+    private Task Swap(EntityOrder.Pair pair, double low, double high) =>
+        Workspace.SetEntitiesAsync([(pair.Low.InstanceKey, EntityOrder.Text(high)), (pair.High.InstanceKey, EntityOrder.Text(low))]);
+    // Whether returning this limit to its vanilla value orders the pair again.
+    private bool ResetOrders(EntityOrder.Pair pair, EntityField f)
+    {
+        var (low, high) = EntityOrder.With(Workspace.Project, pair, f, f.CurrentDefault.GetDouble());
+        return EntityOrder.Ordered(low, high);
+    }
+    private void Cancel() { Pending = null; Version++; }
+    private async Task Decide(Func<Task> action)
+    {
+        try { await action(); Pending = null; Error = null; Version++; await Refresh(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; }
+    }
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+}

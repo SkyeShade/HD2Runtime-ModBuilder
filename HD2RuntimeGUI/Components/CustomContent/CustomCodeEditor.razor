@@ -1,0 +1,37 @@
+@* The call-in code as arrow keys: add a direction, move one earlier or later, remove one. The length and directions are the target's own
+   (Runtime: 1 to 8 of up, down, left, right); every change is saved at once and checked where it is shown. *@
+@{ var info = Workspace.CustomTarget.Describe("code", Stratagem); var max = (int)(info.Max ?? 8); var directions = info.Choices ?? ["up", "down", "left", "right"]; }
+<div class="code-editor" data-code-editor>
+    <div class="arrow-seq" role="list" aria-label="@T["CustomStratagem.Code.Label"]">
+        @for (var i = 0; i < Stratagem.Code.Count; i++)
+        {
+            var index = i; var direction = Stratagem.Code[i];
+            <span class="code-slot" role="listitem" data-code-slot="@index">
+                <button disabled="@(index == 0 || Busy)" title="@T["CustomStratagem.Code.Earlier"]" aria-label="@T["CustomStratagem.Code.Earlier"]" @onclick="() => Move(index, -1)">‹</button>
+                <span class="arrow-key" title="@CustomLabels.ArrowLabel(T, direction)">@CustomLabels.Arrow(direction)</span>
+                <button disabled="@(index == Stratagem.Code.Count - 1 || Busy)" title="@T["CustomStratagem.Code.Later"]" aria-label="@T["CustomStratagem.Code.Later"]" @onclick="() => Move(index, 1)">›</button>
+                <button disabled="@Busy" title="@T["CustomStratagem.Code.Remove"]" aria-label="@T["CustomStratagem.Code.Remove"]" data-code-remove="@index" @onclick="() => Remove(index)">×</button>
+            </span>
+        }
+        @if (Stratagem.Code.Count == 0) { <span class="subtle">@T["CustomStratagem.Code.Empty"]</span> }
+    </div>
+    <div class="code-add">
+        <small class="subtle">@T.Format("CustomStratagem.Code.Add", Stratagem.Code.Count, max)</small>
+        @foreach (var direction in directions)
+        { <button class="custom-outline" disabled="@(Stratagem.Code.Count >= max || Busy)" title="@CustomLabels.ArrowLabel(T, direction)" aria-label="@CustomLabels.ArrowLabel(T, direction)" data-code-add="@direction" @onclick="() => Add(direction)">@CustomLabels.Arrow(direction)</button> }
+    </div>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<Func<Task>> Run { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    private Task Edit(Action<List<string>> edit) => Run.InvokeAsync(() => Workspace.EditCustomStratagemAsync(Stratagem.Id, s => edit(s.Code)));
+    private Task Add(string direction) => Edit(code => code.Add(direction));
+    private Task Remove(int index) => Edit(code => { if (index < code.Count) code.RemoveAt(index); });
+    private Task Move(int index, int by) => Edit(code =>
+    {
+        var to = index + by;
+        if (index < code.Count && to >= 0 && to < code.Count) (code[index], code[to]) = (code[to], code[index]);
+    });
+}

@@ -20,8 +20,13 @@ public sealed record AssetReferenceFamily(string Description, string PackageResi
 public sealed record AssetLiveTest(string Id, string Project, string Family, string Result, bool DonorCarried, string[] Observations);
 public sealed record AssetLiveEvidence(string Recorded, string RuntimeCommit, string Control, AssetLiveTest[] Tests);
 public sealed record AssetLoadPolicy(string Retain, int MaxHeldPackages, int LoadTimeoutSeconds, double PollSeconds, double RefcountFillLimit);
+// 0.30.0 adds objectivePackage: objects (explosions) whose package is the mission objective's that spawns them (derivations
+// explosion_effect_package and explosion_sound_package).
+// 0.30.0 development (b3f42ec) adds explosionPackage (catalogued explosions, keyed by catalogue name) and passiveEffectPackages: armor passive
+// effect packages (passive/<id>), counted apart from the semantic objects.
 public sealed record AssetSummary(int SemanticObjects, int Known, int OwnPackage, int HolderPackage, int StratagemPackage, int Unknown, int Packages,
-    int UnnamedPackages, int LiveTestedObjects, int LiveLoadedPackages, string[] LiveProvenFamilies);
+    int UnnamedPackages, int LiveTestedObjects, int LiveLoadedPackages, string[] LiveProvenFamilies, int? ObjectivePackage = null,
+    int? ExplosionPackage = null, int? PassiveEffectPackages = null);
 public sealed record AssetSafety(bool ArbitraryPackages, bool CallerSuppliedIdentities, int Writes);
 public sealed record AssetDependencyCatalogJson(string Contract, int SchemaVersion, string Build, string[] Model, string ResidencyVersusCompatibility,
     Dictionary<string, AssetReferenceFamily> ReferenceFamilies, AssetLiveEvidence LiveEvidence, AssetLoadPolicy Policy, AssetSummary Summary,
@@ -57,7 +62,13 @@ public static class AssetDependencyReader
         ["explosion"] = "explosion",
         // 0.28.0: a stratagem-deployed weapon whose projectile the shared donor pool offers (the A/M-23 EMS Mortar Sentry).
         ["stratagem_weapon"] = "stratagem_weapon",
+        // 0.30.0: a projectile a stratagem, player or support weapon fires that projectile selectors may take as a donor (Eagle payloads,
+        // orbital shells, sentry rounds); keyed by owner and projectile ("projectile_donor/<owner> (projectile <n>)").
+        ["projectile_donor"] = "projectile_donor",
+        // 0.30.0 development (b3f42ec): an armor passive's effect package (passive/<id>), loaded before a passive override writes.
+        [PassiveEffect] = "passive",
     };
+    public const string PassiveEffect = "passive_effect";
     private static readonly JsonSerializerOptions Options = new(JsonStorage.Options) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
     private static void Check(bool valid, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0) { if (!valid) throw new InvalidDataException($"Inconsistent asset dependency metadata (check {line})."); }
 
@@ -99,7 +110,9 @@ public static class AssetDependencyReader
             }
             Check(c.LiveEvidence.Tests.All(t => c.ReferenceFamilies.ContainsKey(t.Family) && t.Result is "PASS" or "FAIL" or "INCONCLUSIVE"));
             var p = c.Policy; Check(p.MaxHeldPackages > 0 && p.LoadTimeoutSeconds > 0 && p.PollSeconds > 0 && p.RefcountFillLimit is > 0 and < 1);
-            var s = c.Summary; var all = c.Objects;
+            // Passive effect packages are counted apart (passiveEffectPackages); every other object is a semantic object.
+            var s = c.Summary; var all = c.Objects.Where(o => o.Kind != PassiveEffect).ToArray();
+            Check((s.PassiveEffectPackages ?? 0) == c.Objects.Length - all.Length);
             Check(s.SemanticObjects == all.Length && s.Known == all.Count(o => o.PackageDependency.Known) && s.Unknown == all.Count(o => !o.PackageDependency.Known)
                 && s.LiveTestedObjects == all.Count(o => o.PackageDependency.LiveTested)
                 && s.LiveProvenFamilies.Order(StringComparer.Ordinal).SequenceEqual(c.ReferenceFamilies.Where(f => f.Value.LiveProven).Select(f => f.Key).Order(StringComparer.Ordinal)));

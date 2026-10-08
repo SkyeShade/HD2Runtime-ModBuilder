@@ -52,6 +52,12 @@
     {
         <div class="field-wide"><AckPanel Title="@T.Format("WeaponField.UnverifiedEffect.Title", Field.DisplayName)" Kind="unverified" Description="@Field.AcknowledgementReason" /></div>
     }
+    @* 0.30.0 (docs/fire-rate-modes.md): the older fire_rate field writes only the default (Y) slot of a weapon with a rate selector. *@
+    @if (Field.SemanticFieldId == FireRateModes.LegacyField && Workspace.Selector(CompositionKind.Player, Weapon.Name)?.Rates is { } rates && rates.Baseline.Count(r => r != 0) > 1)
+    { <p class="field-wide subtle" data-fire-rate-y-slot>@T["FireRate.LegacyYSlot"]</p> }
+    @* 0.30.0 (docs/diagnostics.md, "Unlisted sharing"): a row this catalogue lists as the weapon's own that a mounted weapon also uses
+       (the FLAM-66 Torcher's damage row is the AX/FLAM-75 Hot Dog drone gun's). *@
+    @if (!Field.AffectsMultipleWeapons && UnlistedUsers is { Length: > 0 } users) { <p class="field-wide notice" data-unlisted-sharing>@T.Format("WeaponField.UnlistedSharing", string.Join(", ", users))</p> }
     @if (!CanEdit && Field.SemanticFieldId == FireModes.ReticleField) { <p class="field-wide subtle field-blocker" data-field-blocker>@(Weapon.OrdinaryWritesBlocked ? Weapon.BlockReason : Field.Reason)</p> }
     @if (Error != null) { <p class="field-wide dialog-error" role="alert">@Error</p> }
 </div>
@@ -67,6 +73,8 @@
     private bool Modified => FieldPresentation.Differs(Field, Field.CurrentDefault, CurrentValue);
     private bool Dirty => FieldPresentation.Differs(Field, Change?.DesiredValue ?? Field.CurrentDefault, CurrentValue);
     private bool Available =>Field.CurrentDefault.ValueKind is not (System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined);
+    private string[] UnlistedUsers => Workspace.Metadata?.Entities?.VehicleWeapons?.Published.Values
+        .Where(v => v.OtherConsumers.Contains(Weapon.Name) && RuntimeRequirement.Generic(v.SemanticFieldId) == Field.SemanticFieldId).Select(v => v.Weapon).Distinct().ToArray() ?? [];
     private bool CanEdit => Field.IsPreferred && Field.WriteAccepted && Field.Editable && !Weapon.OrdinaryWritesBlocked && !Field.DerivedReadOnly && SavedGroup?.Conflict == null;
     private string Value = "", Group = "Gameplay", Notes = "";
     private string? Error;

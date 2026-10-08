@@ -1,0 +1,11 @@
+[
+  {"key": "CustomStratagems.Switcher", "en": "This mod's custom stratagems", "zh": "本模组的自定义战略配备"},
+  {"key": "CustomStratagems.Switcher.All", "en": "All ({0} of {1})", "zh": "全部（{0}/{1}）", "comment": "{0}: custom stratagems in the mod; {1}: the most one mod can register"},
+  {"key": "CustomStratagems.AddAnother", "en": "Add another", "zh": "再添加一个"},
+  {"key": "CustomStratagems.AddAnother.Card", "en": "Add another custom stratagem", "zh": "再添加一个自定义战略配备"},
+  {"key": "CustomStratagems.AddAnother.Help", "en": "This mod can register {0} more: start from scratch or from a template.", "zh": "本模组还可以注册 {0} 个：从头开始或从模板开始。", "comment": "{0}: how many more custom stratagems the mod can register"},
+  {"key": "CustomStratagems.Full", "en": "This mod already has {0} custom stratagems, the most HD2Runtime registers for one mod.", "zh": "本模组已有 {0} 个自定义战略配备，这是 HD2Runtime 为一个模组注册的上限。", "comment": "{0}: the most one mod can register"},
+  {"key": "Overview.Custom.Title", "en": "Custom stratagems", "zh": "自定义战略配备"},
+  {"key": "Overview.Custom.Empty", "en": "This mod has no custom stratagems yet. It can register up to {0} of its own, each with its own name, icon, call-in code and delivery.", "zh": "本模组还没有自定义战略配备。它最多可以注册 {0} 个，每个都有自己的名称、图标、呼叫代码和投放方式。", "comment": "{0}: the most one mod can register"},
+  {"key": "Overview.Custom.All", "en": "See all", "zh": "查看全部"}
+]

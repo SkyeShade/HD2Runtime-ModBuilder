@@ -1,0 +1,191 @@
+@* Custom Stratagems (experimental): NEW stratagems the Runtime registers, never edits of the game's own (those are Stratagems). The project's
+   custom stratagems as cards; New asks for a name and a delivery family (with what HD2Runtime has shown of each in play) and offers that
+   family's examples; the template gallery holds ModBuilder's simple examples (one per family) and two of HD2Runtime's own (each compiles to
+   the Runtime SDK's own registration);
+   an HD2Runtime project file (custom_stratagems.json) can be imported. While one is open, a strip above it lists every custom stratagem of the
+   mod (switch, back to all, add another), so a mod with several is edited in one place. Everything here is violet: it is the project's own
+   Runtime-owned content. *@
+@inject IJSRuntime JS
+<div class="custom-content" data-custom-page="stratagems">
+    <div class="page-heading"><div><div class="eyebrow">@T["CustomContent.Eyebrow"] <span class="badge experimental">@T["CustomContent.Experimental"]</span></div>
+            <h1>@T["CustomStratagems.Title"]</h1><p>@T["CustomStratagems.Tagline"]</p></div>
+        <div class="actions">
+            <button class="custom-outline" aria-expanded="@Gallery" disabled="@Busy" data-custom-templates @onclick="() => { Gallery = !Gallery; Creating = false; }">@T["CustomContent.Templates"]</button>
+            <button class="custom-outline" disabled="@Busy" data-custom-import @onclick="Import">@T["CustomStratagems.Import"]</button>
+            <button class="custom-primary" disabled="@Busy" data-new-custom-stratagem @onclick="BeginCreate">@T["CustomStratagems.New"]</button>
+        </div></div>
+    <ExperimentalBanner />
+    @if (Error != null) { <p class="notice warning" role="alert" data-custom-error>@Error</p> }
+    @if (Imported is { } imported)
+    {
+        <div class="custom-notice" role="status" data-custom-imported>
+            <p><strong>@T.Plural("CustomStratagems.Imported", imported.Ids.Count)</strong> @string.Join(", ", imported.Ids)</p>
+            @foreach (var note in imported.Notes.Take(12)) { <p class="subtle">· @note</p> }
+            @if (imported.Notes.Count > 12) { <p class="subtle">@T.Format("CustomStratagem.Preview.More", imported.Notes.Count - 12)</p> }
+            <button class="link-button" @onclick="() => Imported = null">@T["Common.Close"]</button>
+        </div>
+    }
+    @if (Creating)
+    {
+        <section class="custom-create" data-custom-create>
+            <h2>@T["CustomStratagems.Create.Title"]</h2>
+            <label for="custom-new-name">@T["CustomStratagems.Create.Name"]</label>
+            <input id="custom-new-name" @bind="NewName" @bind:event="oninput" maxlength="64" placeholder="@T["CustomStratagems.Create.Placeholder"]" data-custom-new-name />
+            <small class="hint">@(CustomIds.Suggest(NewName, Workspace.CustomStratagems.Select(s => s.Id)) is { } suggested ? T.Format("CustomStratagems.Create.IdHint", suggested) : T["CustomStratagems.Create.IdHintEmpty"])</small>
+            <label>@T["CustomStratagems.Create.Family"]</label>
+            <FamilyPicker Value="@NewFamily" Chosen="family => NewFamily = family" Label="@T["CustomStratagems.Create.Family"]" />
+            @{ var examples = CustomTemplates.Stratagems.Where(t => t.Family == NewFamily).ToArray(); }
+            @if (examples.Length > 0)
+            {
+                <p class="subtle">@T.Format("CustomStratagems.Create.Examples", CustomLabels.Family(T, NewFamily))</p>
+                <div class="chip-select" data-create-examples>
+                    @foreach (var example in examples) { <button class="custom-outline" disabled="@Busy" data-create-example="@example.Key" @onclick="() => FromTemplate(example.Key)">@example.Name</button> }
+                </div>
+            }
+            <div class="actions end"><button @onclick="() => Creating = false">@T["Common.Cancel"]</button>
+                <button class="custom-primary" disabled="@(Busy || string.IsNullOrWhiteSpace(NewName))" data-custom-create-submit @onclick="Create">@T["CustomStratagems.Create.Submit"]</button></div>
+        </section>
+    }
+    @if (Gallery)
+    {
+        <section class="custom-create template-gallery" data-template-gallery>
+            <h2>@T["CustomStratagems.Gallery.Title"]</h2>
+            <p class="subtle">@T["CustomStratagems.Gallery.Help"]</p>
+            @foreach (var family in CustomTemplates.Stratagems.GroupBy(t => t.Family))
+            {
+                var evidence = Workspace.CustomTarget.Evidence(family.Key);
+                <h3 class="group-title">@CustomLabels.FamilyGlyph(family.Key) @CustomLabels.Family(T, family.Key)
+                    @if (evidence != null) { <span class="badge state-badge @CustomLabels.EvidenceCss(evidence.Status)">@CustomLabels.Evidence(T, evidence.Status)</span> }</h3>
+                <div class="template-grid">
+                    @foreach (var template in family)
+                    {
+                        <button class="template-card" disabled="@Busy" data-custom-template="@template.Key" @onclick="() => FromTemplate(template.Key)">
+                            <strong>@template.Name</strong><small>@template.Description</small><code>@(template.RuntimeExample ? T["CustomStratagems.Gallery.FromRuntime"] : T["CustomStratagems.Gallery.FromModBuilder"])</code>
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+    }
+    @{ var max = Workspace.CustomTarget.Schema.MaxDefinitions; var full = Workspace.CustomStratagems.Count >= max; }
+    @if (Selected is { } selected && Workspace.FindCustomStratagem(selected) != null)
+    {
+        <nav class="custom-switcher" aria-label="@T["CustomStratagems.Switcher"]" data-custom-switcher>
+            <button class="custom-switch all" data-custom-back @onclick="() => SelectedChanged.InvokeAsync(null)">▦ @T.Format("CustomStratagems.Switcher.All", Workspace.CustomStratagems.Count, max)</button>
+            @foreach (var s in Workspace.CustomStratagems)
+            {
+                var state = Workspace.CustomState(CustomDiagnostic.StratagemOwner(s.Id));
+                <button class="custom-switch @(s.Id == selected ? "active" : "")" aria-current="@(s.Id == selected ? "true" : null)" data-custom-switch="@s.Id"
+                        title="@CustomLabels.State(T, state)" @onclick="() => SelectedChanged.InvokeAsync(s.Id)">
+                    <CustomIcon Stratagem="s" Size="xs" /><span>@(s.NameCased ?? s.Name)</span><span class="state-dot @CustomLabels.StateCss(state)" aria-label="@CustomLabels.State(T, state)"></span>
+                </button>
+            }
+            <button class="custom-switch add" disabled="@(Busy || full)" title="@(full ? T.Format("CustomStratagems.Full", max) : null)" data-custom-switch-new @onclick="BeginCreate">+ @T["CustomStratagems.AddAnother"]</button>
+        </nav>
+        <CustomStratagemEditor @key="selected" Id="@selected" Back="() => SelectedChanged.InvokeAsync(null)" Open="id => SelectedChanged.InvokeAsync(id)" Changed="() => Changed.InvokeAsync()" />
+    }
+    else if (Workspace.CustomStratagems.Count == 0 && !Creating && !Gallery)
+    {
+        <section class="custom-empty" data-custom-empty><div class="empty-icon">◇</div><h2>@T["CustomStratagems.Empty.Title"]</h2><p>@T["CustomStratagems.Empty.Help"]</p>
+            <div class="actions"><button class="custom-primary" @onclick="BeginCreate">@T["CustomStratagems.New"]</button>
+                <button class="custom-outline" @onclick="() => Gallery = true">@T["CustomContent.Templates"]</button></div></section>
+    }
+    else if (Workspace.CustomStratagems.Count > 0)
+    {
+        <div class="section-label">@T["CustomStratagems.List"] <span>@T.Format("CustomStratagems.Limit", Workspace.CustomStratagems.Count, Workspace.CustomTarget.Schema.MaxDefinitions)</span>
+            <button class="link-button" data-copy-runtime-project @onclick="CopyProject">@T["CustomStratagems.CopyProject"]</button>@if (Copied) { <span class="subtle"> ✓ @T["CustomStratagem.Generated.Copied"]</span> }</div>
+        <div class="custom-grid" data-custom-grid>
+            @for (var i = 0; i < Workspace.CustomStratagems.Count; i++)
+            {
+                var s = Workspace.CustomStratagems[i]; var index = i;
+                var state = Workspace.CustomState(CustomDiagnostic.StratagemOwner(s.Id));
+                var evidence = Workspace.CustomTarget.Evidence(s.Delivery.Family);
+                <article class="custom-card @CustomLabels.FamilyCss(s.Delivery.Family)" data-custom-card="@s.Id">
+                    <button class="custom-card-open" @onclick="() => SelectedChanged.InvokeAsync(s.Id)">
+                        <CustomIcon Stratagem="s" Size="md" />
+                        <span><h3>@(s.NameCased ?? s.Name)</h3><code>@s.Id</code></span>
+                        <span class="custom-card-meta">
+                            <span class="badge custom" data-card-family="@s.Delivery.Family">@CustomLabels.FamilyGlyph(s.Delivery.Family) @CustomLabels.Family(T, s.Delivery.Family)</span>
+                            @if (s.Cooldown is { } cooldown && s.Delivery.Family != DeliveryFamily.Eagle) { <span data-card-cooldown>@T.Format("CustomStratagems.Card.Cooldown", CustomLabels.Number(cooldown))</span> }
+                            @if (s.Uses is { } uses) { <span data-card-uses>@T.Format("CustomStratagems.Card.Uses", uses)</span> }
+                            @if (s.MaxPerPlayer is { } perPlayer) { <span data-card-per-player>@T.Format("CustomStratagems.Card.MaxPerPlayer", perPlayer)</span> }
+                            <ArrowSequence Code="s.Code" Small="true" />
+                        </span>
+                        @if (s.Traits.Count > 0) { <span class="custom-card-meta loadout-traits">@foreach (var trait in s.Traits) { <span class="trait">@trait.ToUpperInvariant()</span> }</span> }
+                        <span class="custom-card-meta">
+                            <span class="badge experimental">@T["CustomContent.Experimental"]</span>
+                            @if (evidence != null) { <span class="badge state-badge @CustomLabels.EvidenceCss(evidence.Status)" title="@evidence.Doc">@CustomLabels.Evidence(T, evidence.Status)</span> }
+                            <span class="badge state-badge @CustomLabels.StateCss(state)" data-card-state="@CustomLabels.StateCss(state)">@CustomLabels.State(T, state)</span>
+                        </span>
+                    </button>
+                    <div class="custom-card-actions">
+                        <button disabled="@Busy" @onclick="() => SelectedChanged.InvokeAsync(s.Id)">@T["Common.Edit"]</button>
+                        <button disabled="@Busy" data-card-duplicate @onclick="() => Duplicate(s.Id)">@T["CustomContent.Duplicate"]</button>
+                        <button disabled="@Busy" data-card-rename @onclick="() => { Renaming = s.Id; RenameText = s.NameCased ?? s.Name; Deleting = null; }">@T["CustomContent.Rename"]</button>
+                        <button disabled="@(Busy || index == 0)" title="@T["CustomStratagems.MoveEarlier"]" aria-label="@T["CustomStratagems.MoveEarlier"]" data-card-up @onclick="() => Move(s.Id, -1)">↑</button>
+                        <button disabled="@(Busy || index == Workspace.CustomStratagems.Count - 1)" title="@T["CustomStratagems.MoveLater"]" aria-label="@T["CustomStratagems.MoveLater"]" data-card-down @onclick="() => Move(s.Id, 1)">↓</button>
+                        <button class="danger-text" disabled="@Busy" data-card-delete @onclick="() => { Deleting = s.Id; Renaming = null; }">@T["CustomContent.Delete"]</button>
+                        @if (Renaming == s.Id)
+                        {
+                            <div class="confirm" data-card-rename-form><input @bind="RenameText" maxlength="64" aria-label="@T["CustomContent.Rename"]" />
+                                <button class="custom-primary" disabled="@(Busy || string.IsNullOrWhiteSpace(RenameText))" @onclick="() => Rename(s.Id)">@T["Common.Save"]</button><button @onclick="() => Renaming = null">@T["Common.Cancel"]</button></div>
+                        }
+                        @if (Deleting == s.Id)
+                        {
+                            <div class="confirm" data-card-delete-confirm><span>@T.Format("CustomStratagem.Delete.Confirm", s.NameCased ?? s.Name)</span>
+                                <button class="danger" disabled="@Busy" @onclick="() => Delete(s.Id)">@T["CustomContent.Delete"]</button><button @onclick="() => Deleting = null">@T["Common.Cancel"]</button></div>
+                        }
+                    </div>
+                </article>
+            }
+            <button class="custom-card custom-add-card" disabled="@(Busy || full)" data-custom-add-card @onclick="BeginCreate">
+                <span class="custom-add-plus" aria-hidden="true">+</span><strong>@T["CustomStratagems.AddAnother.Card"]</strong>
+                <small>@(full ? T.Format("CustomStratagems.Full", max) : T.Format("CustomStratagems.AddAnother.Help", max - Workspace.CustomStratagems.Count))</small>
+            </button>
+        </div>
+    }
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Inject] private IPackagedFilePicker Picker { get; set; } = default!;
+    [Parameter] public string? Selected { get; set; }
+    [Parameter] public EventCallback<string?> SelectedChanged { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    /// <summary>Set by another page (Overview's New Custom Stratagem): opens the create form once, then clears itself.</summary>
+    [Parameter] public bool StartCreating { get; set; }
+    [Parameter] public EventCallback<bool> StartCreatingChanged { get; set; }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!StartCreating) return;
+        BeginCreate();
+        await StartCreatingChanged.InvokeAsync(false);
+    }
+    private bool Busy, Creating, Gallery, Copied; private string? Error, Renaming, Deleting;
+    private string NewName = "", NewFamily = DeliveryFamily.Orbital, RenameText = "";
+    private BuilderWorkspace.RuntimeImport? Imported;
+    private void BeginCreate() { Creating = true; Gallery = false; NewName = ""; NewFamily = DeliveryFamily.Orbital; Error = null; }
+    private async Task Run(Func<Task> action)
+    {
+        Busy = true; Error = null; Copied = false;
+        try { await action(); await Changed.InvokeAsync(); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException or UnauthorizedAccessException) { Error = e.Message; }
+        finally { Busy = false; }
+    }
+    private Task Create() => Run(async () => { var id = await Workspace.CreateCustomStratagemAsync(NewName, NewFamily); Creating = false; await SelectedChanged.InvokeAsync(id); });
+    private Task FromTemplate(string key) => Run(async () => { Gallery = false; Creating = false; var id = await Workspace.CreateCustomStratagemFromTemplateAsync(key); await SelectedChanged.InvokeAsync(id); });
+    private Task Duplicate(string id) => Run(async () => { var copy = await Workspace.DuplicateCustomStratagemAsync(id); await SelectedChanged.InvokeAsync(copy); });
+    private Task Rename(string id) => Run(async () => { await Workspace.RenameCustomStratagemAsync(id, RenameText); Renaming = null; });
+    private Task Delete(string id) => Run(async () => { await Workspace.DeleteCustomStratagemAsync(id); Deleting = null; });
+    private Task Move(string id, int by) => Run(() => Workspace.MoveCustomStratagemAsync(id, by));
+    private Task Import() => Run(async () =>
+    {
+        if (await Picker.PickRuntimeProjectAsync() is not { } path) return;
+        Imported = await Workspace.ImportRuntimeProjectAsync(path);
+        if (Imported.Ids.Count == 1) await SelectedChanged.InvokeAsync(Imported.Ids[0]);
+    });
+    private async Task CopyProject()
+    {
+        try { await JS.InvokeVoidAsync("hd2LuaEditor.copy", Workspace.CustomRuntimeProjectJson()); Copied = true; }
+        catch (Exception e) when (e is JSException or JSDisconnectedException) { Copied = false; }
+    }
+}

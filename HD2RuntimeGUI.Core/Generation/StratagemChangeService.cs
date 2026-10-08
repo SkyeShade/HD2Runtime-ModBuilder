@@ -12,6 +12,9 @@ public static class StratagemScalar
     {
         if (f.Type == "boolean" && value.ValueKind is JsonValueKind.True or JsonValueKind.False) return value.Clone();
         if (f.Type == StratagemUses.Type) return StratagemUses.Normalize(f, value);
+        // 0.30.0: a call-in code (a list of directions) and a presentation value (a stratagem name, or the icon's project image).
+        if (f.Type == StratagemField.CalldownCode) return StratagemCode.Normalize(f, value);
+        if (f.Type == StratagemField.Presentation) return StratagemPresentation.Normalize(f, value);
         if (value.ValueKind == JsonValueKind.Number)
         {
             if (f.Type == "integer" && value.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue) return JsonSerializer.SerializeToElement(n);
@@ -21,27 +24,44 @@ public static class StratagemScalar
     }
     public static bool Equal(StratagemField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
     // 0.28.0 published bounds on scalar fields (sentry turn speeds and aim limits, targeting range, reduce-only minefield counts): Runtime
-    // rejects a value outside them, so it is refused where the edit is made. Mission uses keep their own range check.
+    // rejects a value outside them, so it is refused where the edit is made. Mission uses keep their own range check. 0.30.0: a published
+    // sentinel (targeting.side_range / rear_range -1 = use targeting.range) is accepted besides the range, and an enumerated field
+    // (eagle.airstrike_pattern) takes only its published values, as Runtime's own check does.
     public static void CheckRange(StratagemField f, JsonElement value)
     {
         var normalized = Normalize(f, value);
-        if (f.Type is not ("number" or "integer") || f.Min == null && f.Max == null) return;
+        if (f.Type is not ("number" or "integer")) return;
         var v = normalized.GetDouble();
+        if (Sentinel(f, v) != null) return;
+        if (f.AllowedValues is { Length: > 0 } allowed && !allowed.Any(a => a.Value.ValueKind == JsonValueKind.Number && a.Value.GetDouble() == v))
+            throw new InvalidDataException(CoreText.Format("Messages.Build.Stratagem.NotAllowedValue", f.DisplayName,
+                string.Join(", ", allowed.Select(a => a.Value.GetRawText()))));
+        if (f.Min == null && f.Max == null) return;
         double Bound(double b) => f.Type == "number" ? (float)b : b;
         if (f.Min is double min && v < Bound(min) || f.Max is double max && v > Bound(max))
             throw new InvalidDataException(CoreText.Format("Messages.Build.Entity.OutOfRange", f.DisplayName,
                 (f.Min ?? double.NegativeInfinity).ToString(CultureInfo.InvariantCulture), (f.Max ?? double.PositiveInfinity).ToString(CultureInfo.InvariantCulture)));
     }
+    /// <summary>The published special value equal to v (with its meaning), if any.</summary>
+    public static StratagemSentinelValue? Sentinel(StratagemField f, double v) =>
+        f.SentinelValues?.FirstOrDefault(s => s.Value.ValueKind == JsonValueKind.Number && s.Value.GetDouble() == v);
     // Lua literal. Mission uses are Runtime's 'unlimited' token or an integer.
     public static string Text(StratagemField f, JsonElement v) => v.ValueKind == JsonValueKind.Null ? "Unknown" : f.Type switch
     {
         "number" => Normalize(f, v).GetSingle().ToString("R", CultureInfo.InvariantCulture),
         StratagemUses.Type => StratagemUses.Lua(Normalize(f, v)),
+        StratagemField.CalldownCode => StratagemCode.Lua(Normalize(f, v)),
+        StratagemField.Presentation => StratagemPresentation.Lua(Normalize(f, v)),
         _ => Normalize(f, v).GetRawText(),
     };
     // What a person reads ("Unlimited" rather than the Lua token).
-    public static string Display(StratagemField f, JsonElement v) => v.ValueKind == JsonValueKind.Null ? CoreText.Get("Common.Unknown")
-        : f.Type == StratagemUses.Type ? StratagemUses.Text(Normalize(f, v)) : Text(f, v);
+    public static string Display(StratagemField f, JsonElement v) => v.ValueKind == JsonValueKind.Null ? CoreText.Get("Common.Unknown") : f.Type switch
+    {
+        StratagemUses.Type => StratagemUses.Text(Normalize(f, v)),
+        StratagemField.CalldownCode => StratagemCode.Arrows(Normalize(f, v)),
+        StratagemField.Presentation => StratagemPresentation.Display(Normalize(f, v)),
+        _ => Text(f, v),
+    };
 }
 public interface IStratagemChangeService
 {
@@ -61,13 +81,14 @@ public sealed class StratagemChangeService : IStratagemChangeService
     };
     public StratagemChange Create(SdkMetadata sdk, string instance, string value)
     {
-        var f = Catalog(sdk).Field(instance); Writable(f);
+        var catalog = Catalog(sdk); var f = catalog.Field(instance); Writable(f);
         try
         {
             using var doc = JsonDocument.Parse(value);
             var desired = StratagemScalar.Normalize(f, doc.RootElement);
             if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, f.CurrentDefault, desired);
             StratagemScalar.CheckRange(f, desired);
+            if (f.Type == StratagemField.Presentation) StratagemPresentation.CheckSource(catalog, f, desired);
             return new() { InstanceKey = instance, TargetKind = TargetKind(f), Stratagem = f.Target.Stratagem, Path = f.Target.Path,
                 Entity = f.Target.Entity, Weapon = f.Target.Weapon, Zone = f.Target.Zone, Attack = f.Target.Attack,
                 SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(), DesiredValue = desired,
@@ -80,7 +101,7 @@ public sealed class StratagemChangeService : IStratagemChangeService
         ?? throw new InvalidDataException(CoreText.Get("Messages.Build.Stratagem.Missing"));
     public void Validate(ModProject p, SdkMetadata sdk, StratagemChange c)
     {
-        var f = Resolve(Catalog(sdk), c); Writable(f);
+        var catalog = Catalog(sdk); var f = Resolve(catalog, c); Writable(f);
         if (c.InstanceKey != f.InstanceKey || c.TargetKind != TargetKind(f) || c.Stratagem != f.Target.Stratagem || c.Path != f.Target.Path
             || c.Entity != f.Target.Entity || c.Weapon != f.Target.Weapon || c.Zone != f.Target.Zone || c.Attack != f.Target.Attack
             || c.SemanticFieldId != f.SemanticFieldId || c.FieldType != f.Type || c.CapabilityEvidence != Evidence(f))
@@ -89,10 +110,23 @@ public sealed class StratagemChangeService : IStratagemChangeService
         _ = StratagemScalar.Normalize(f, c.DesiredValue);
         if (f.Type == StratagemUses.Type) StratagemUses.CheckTransition(f, c.ExpectedValue, c.DesiredValue);
         StratagemScalar.CheckRange(f, c.DesiredValue);
+        if (f.Type == StratagemField.Presentation)
+        {
+            StratagemPresentation.CheckSource(catalog, f, c.DesiredValue);
+            // A custom icon is compiled from the project's own image store; an edit naming an image the project no longer has cannot build.
+            if (StratagemPresentation.Image(c.DesiredValue) is { } image && p.CustomContent?.Images.Any(i => i.Id == image) != true)
+                throw new InvalidDataException(CoreText.Format("Messages.Build.Stratagem.Presentation.ImageMissing", image));
+        }
         // allow_shared / allow_unverified_effect are implicit: shown as warnings and always emitted where Runtime requires them.
     }
-    // 0.26.0: Runtime requires allow_unverified_effect for this change (mission uses except gameplay-proven targets).
-    public static bool EffectRequired(StratagemField f, JsonElement desired) => f.Type == StratagemUses.Type ? StratagemUses.EffectRequired(f, desired) : f.Acknowledgement == "allow_unverified_effect";
+    // 0.26.0: Runtime requires allow_unverified_effect for this change (mission uses except gameplay-proven targets). 0.30.0: a call-in code
+    // only when it equals another stratagem's native code (acknowledgementRule; without the catalog every changed code is taken to need it).
+    public static bool EffectRequired(StratagemField f, JsonElement desired, StratagemCatalog? catalog = null) => f.Type switch
+    {
+        StratagemUses.Type => StratagemUses.EffectRequired(f, desired),
+        StratagemField.CalldownCode => StratagemCode.EffectRequired(catalog, f, desired),
+        _ => f.Acknowledgement == "allow_unverified_effect",
+    };
     public static string EffectEvidence(StratagemField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.InstanceKey, f.Acknowledgement, f.AcknowledgementReason }));
     public static string Evidence(StratagemField f) => SupportChangeService.Hash(JsonSerializer.Serialize(new { f.Target, f.Type, f.Editable, f.ApiFieldConstant,
         f.BackingObjectId, f.OperationGroup, f.PlanGroup, f.PlanPhase, f.DependsOn, Approval = ApprovalEvidence(f) }));

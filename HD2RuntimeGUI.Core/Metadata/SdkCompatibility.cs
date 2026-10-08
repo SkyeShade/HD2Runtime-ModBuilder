@@ -9,7 +9,8 @@ namespace HD2RuntimeGUI.Core.Metadata;
 /// </summary>
 public static class SdkCompatibility
 {
-    public const string NewestSupportedVersion = "0.28.1";
+    // A prerelease sorts below its release (0.30.0-dev < 0.30.0), so the 0.30.0-dev test SDKs stay supported next to the pinned 0.30.0.
+    public const string NewestSupportedVersion = SdkPin.Version;
     public static SemVersion NewestSupported { get; } = SemVersion.Parse(NewestSupportedVersion);
     public static bool IsSupported(string version) => SemVersion.Parse(version).CompareTo(NewestSupported) <= 0;
 }

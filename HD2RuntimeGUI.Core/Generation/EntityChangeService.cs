@@ -22,6 +22,10 @@ public static class EntityScalar
         // known (EntityChangeService.CheckStatus).
         if (f.IsStatusReference)
             return ValidStatusKey(value) ? value.Clone() : throw new InvalidDataException(CoreText.Get("Messages.Build.Status.ChooseStatus"));
+        // 1.7.0 published enums (Helldiver zone damage multipliers): one of the published names, kept as the name.
+        if (f.IsEnum)
+            return value.ValueKind == JsonValueKind.String && f.AllowedValues!.Contains(value.GetString(), StringComparer.Ordinal) ? value.Clone()
+                : throw new InvalidDataException(CoreText.Format("Messages.Build.Entity.ChooseValue", f.DisplayName, string.Join(", ", f.AllowedValues!)));
         if (value.ValueKind == JsonValueKind.Number)
         {
             if (f.Type == "integer" && value.TryGetDecimal(out var n) && n == decimal.Truncate(n) && n >= int.MinValue && n <= uint.MaxValue) return JsonSerializer.SerializeToElement(n);
@@ -33,27 +37,29 @@ public static class EntityScalar
     public static void CheckRange(EntityField f, JsonElement value)
     {
         var normalized = Normalize(f, value);
-        if (f.EffectiveRange is not { } r || f.IsChoice) return;
+        if (f.EffectiveRange is not { } r || f.IsChoice || f.IsEnum) return;
         var v = normalized.GetDouble();
         // Number fields are float32: compare in float so a value exactly at a published bound is accepted.
         var (min, max) = f.Type == "number" ? ((double)(float)r.Min, (double)(float)r.Max) : (r.Min, r.Max);
-        if (v < min || v > max) throw new InvalidDataException(string.IsNullOrWhiteSpace(r.Reason)
+        if (v < min || v > max || r.Disabled is double off && v != off && v <= 0) throw new InvalidDataException(string.IsNullOrWhiteSpace(r.Reason)
             ? CoreText.Format("Messages.Build.Entity.OutOfRange", f.DisplayName, r.Min.ToString(CultureInfo.InvariantCulture), r.Max.ToString(CultureInfo.InvariantCulture))
             : CoreText.Format("Messages.Build.Entity.OutOfRangeReason", f.DisplayName, r.Min.ToString(CultureInfo.InvariantCulture), r.Max.ToString(CultureInfo.InvariantCulture), r.Reason));
     }
     public static bool Equal(EntityField f, JsonElement a, JsonElement b) => JsonElement.DeepEquals(Normalize(f, a), Normalize(f, b));
-    public static string Text(EntityField f, JsonElement v) => f.IsChoice || f.IsStatusReference ? Normalize(f, v).GetString()!
+    public static string Text(EntityField f, JsonElement v) => f.IsChoice || f.IsStatusReference || f.IsEnum ? Normalize(f, v).GetString()!
         : f.Type == "number" ? Normalize(f, v).GetSingle().ToString("R", CultureInfo.InvariantCulture) : Normalize(f, v).GetRawText();
     // Pickups are written as hd2.pickup(<semantic ID>) or 'empty', never as raw identifiers; a status reference as its quoted key ('fire').
     public static string Lua(EntityField f, JsonElement v) => f.IsPickup
         ? Text(f, v) == Metadata.PodPayloadReader.Empty ? "'" + Metadata.PodPayloadReader.Empty + "'" : "hd2.pickup(" + LuaGenerator.Quote(Text(f, v)) + ")"
-        : f.IsStatusReference ? StatusReference.Lua(Text(f, v)) : f.IsReference ? LuaGenerator.Quote(Text(f, v)) : Text(f, v);
+        : f.IsStatusReference ? StatusReference.Lua(Text(f, v)) : f.IsReference || f.IsEnum ? LuaGenerator.Quote(Text(f, v)) : Text(f, v);
+    // A saved enum value (project shape check): a published name.
+    public static bool ValidEnumName(JsonElement v) => ValidStatusKey(v);
     // Whether Runtime's published opt-in applies to this value. A pod slot needs allow_unverified_reference only for a value other
     // than its vanilla occupant; every other published acknowledgement applies to any change of the field. A value a live test proved for
     // exactly this field (0.28.0: a pickup verified in this pod slot) needs no unverified opt-in; allow_shared is never dropped.
     public static bool AcknowledgementRequired(EntityField f, JsonElement desired) =>
         f.Acknowledgement != null && (!f.IsPickup || Normalize(f, desired).GetString() != f.CurrentDefault.GetString()) && !LiveProven(f, desired);
-    public static bool LiveProven(EntityField f, JsonElement desired) => f.LiveProvenValues is { Length: > 0 } proven && (f.IsChoice || f.IsStatusReference || f.Type is "integer" or "number")
+    public static bool LiveProven(EntityField f, JsonElement desired) => f.LiveProvenValues is { Length: > 0 } proven && (f.IsChoice || f.IsStatusReference || f.IsEnum || f.Type is "integer" or "number")
         && proven.Contains(Text(f, desired), StringComparer.Ordinal);
 }
 public interface IEntityChangeService
@@ -81,7 +87,7 @@ public sealed class EntityChangeService : IEntityChangeService
         try
         {
             // Mount replacements, pickups and statuses are chosen by published key; scalars are parsed as JSON numbers.
-            desired = EntityScalar.Normalize(f, f.IsChoice || f.IsStatusReference ? JsonSerializer.SerializeToElement(value) : JsonDocument.Parse(value).RootElement);
+            desired = EntityScalar.Normalize(f, f.IsChoice || f.IsStatusReference || f.IsEnum ? JsonSerializer.SerializeToElement(value) : JsonDocument.Parse(value).RootElement);
             EntityScalar.CheckRange(f, desired);
             if (f.IsStatusReference) CheckStatus(sdk, f, desired);
         }
@@ -91,7 +97,7 @@ public sealed class EntityChangeService : IEntityChangeService
             Linked = f.Target.Linked,
             InstanceKey = f.InstanceKey, SemanticFieldId = f.SemanticFieldId, FieldType = f.Type, ExpectedValue = f.CurrentDefault.Clone(),
             DesiredValue = desired, BaselineSdkVersion = sdk.Version, CapabilityEvidence = Evidence(f),
-            Group = enemy ? (f.Target.Resource == EnemyAuthoringReader.Structure ? "Structures" : "Enemies") : "Vehicles & backpacks",
+            Group = enemy ? (f.Target.Resource == EnemyAuthoringReader.Structure ? "Structures" : "Enemies") : f.Target.Helldiver != null ? "Helldiver" : "Vehicles & backpacks",
             SharedConsumers = enemy && f.Shared ? f.SharedConsumers.Select(c => c.Name).ToArray() : null };
     }
     public void Validate(ModProject p, SdkMetadata sdk, EntityChange c)
@@ -105,6 +111,8 @@ public sealed class EntityChangeService : IEntityChangeService
         if (!EntityScalar.Equal(f, c.ExpectedValue, f.CurrentDefault)) throw new InvalidDataException(CoreText.Get(IsEnemy(c.Resource) ? "Messages.Build.Entity.EnemyBaselineChanged" : "Messages.Build.Entity.BaselineChanged"));
         EntityScalar.CheckRange(f, c.DesiredValue);
         if (f.IsStatusReference) { CheckStatus(sdk, f, c.DesiredValue); CheckPacking(p, sdk, f); }
+        // 0.30.0 ordered pairs (turret limits): the enabled edits must leave low < high, as Runtime re-checks at write time.
+        if (f.Order != null) EntityOrder.Check(p, Catalog(sdk), f);
         // Runtime opt-ins (allow_shared, allow_unverified_effect, allow_unverified_reference) are implicit: the UI warns and the
         // generated Lua always carries the flags Runtime requires, so a build is never blocked on an acknowledgement.
     }
@@ -234,6 +242,8 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         _ when t.Enemy != null => EnemyTarget(t),
         // 0.27.0 throwables first: their target paths (entity, damage, explosion, ...) reuse names other resources also use.
         _ when t.Resource == ThrowableAuthoringReader.Resource => ThrowableTarget(t),
+        // 1.7.0: the Helldiver type, hd2.helldiver() and hd2.helldiver():zone('<zone>') (its paths reuse entity / damage_zone).
+        _ when t.Resource == HelldiverAuthoringReader.Resource => HelldiverAuthoringReader.Target(t),
         "backpack" when fedWeapon != null => "hd2.support_weapon(" + LuaGenerator.Quote(fedWeapon) + "):backpack()",
         // 0.28.0: an entity the backpack deploys or projects (hd2.backpack(name):drone() / :energy_shield()), and its damage zones.
         "linked" when t.Resource == "backpack" => Linked(t),
@@ -250,8 +260,14 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
         "mount" => "hd2.vehicle(" + LuaGenerator.Quote(t.Vehicle!) + "):mount(" + LuaGenerator.Quote(t.Mount!) + ")",
         "backpack" => "hd2.backpack(" + LuaGenerator.Quote(t.Backpack!) + ")",
         "magazine" when t.Resource == "weapon_attachment" => "hd2.weapon_attachment(" + LuaGenerator.Quote(t.Attachment!) + ")",
+        // 0.30.0 muzzle, optics and underbarrel definitions: the same accessor by semantic ID (Runtime refuses a handle whose path is not the slot).
+        _ when AttachmentModifierReader.IsModifierPath(t.Resource, t.Path) => "hd2.weapon_attachment(" + LuaGenerator.Quote(t.Attachment!) + ")",
         // hd2.booster(name):deployed_entity() / status_effect() (0.24.0) and :tuning() / explosion() / status_damage() / granted_stratagem() (0.25.0).
         _ when t.Resource == "booster" && BoosterAuthoringReader.Paths.Contains(t.Path) => "hd2.booster(" + LuaGenerator.Quote(t.Booster!) + "):" + t.Path + "()",
+        // 0.30.0 armor (docs/armor-stats.md): a kit by its 8-hex id, a weight class by name, the damage curve.
+        ArmorAuthoringReader.KitPath when t.Resource == ArmorAuthoringReader.KitResource => "hd2.armor_stats.kit(" + LuaGenerator.Quote(t.Armor!) + ")",
+        ArmorAuthoringReader.ClassPath when t.Resource == ArmorAuthoringReader.ClassResource => "hd2.armor_stats.class(" + LuaGenerator.Quote(t.Armor!) + ")",
+        ArmorAuthoringReader.CurvePath when t.Resource == ArmorAuthoringReader.CurveResource => "hd2.armor_stats.damage_curve()",
         _ => throw new InvalidDataException(CoreText.Get("Messages.Build.Entity.UnsupportedTarget")),
     };
     // hd2.enemy(class) / hd2.structure(class) by native class name (Runtime also accepts a proven wiki name; the class name does not change

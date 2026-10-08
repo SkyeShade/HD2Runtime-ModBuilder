@@ -1,0 +1,61 @@
+@* How the custom stratagem presents itself, as the Runtime builds it: the icon as the game draws it, the cased name, the traits after the
+   automatic CUSTOM STRATAGEM, the call-in code, cooldown and uses (the carrier's own slot shows them natively since the carrier-in-slot
+   default). Below it, the readiness of the build with every problem one click from where it is fixed. *@
+@{
+    var owner = CustomDiagnostic.StratagemOwner(Stratagem.Id);
+    var list = Workspace.CustomDiagnosticsFor(owner);
+    var errors = list.Where(d => d.Severity == CustomSeverity.Error).ToArray();
+    var warnings = list.Where(d => d.Severity == CustomSeverity.Warning).ToArray();
+    var target = Workspace.CustomTarget;
+    var cooldown = target.Describe("cooldown", Stratagem);
+    var evidence = target.Evidence(Stratagem.Delivery.Family);
+}
+<div class="loadout-preview @CustomLabels.FamilyCss(Stratagem.Delivery.Family)" data-loadout-preview>
+    <div class="loadout-card">
+        <CustomIcon Stratagem="Stratagem" Size="lg" />
+        <div class="loadout-text">
+            <strong data-preview-name>@(Stratagem.NameCased ?? Stratagem.Name)</strong>
+            <span class="loadout-hud" title="@T["CustomStratagem.Preview.Hud"]">@Stratagem.Name</span>
+            <div class="loadout-traits" data-preview-traits>
+                <span class="trait custom">@T["CustomStratagem.Preview.CustomTrait"]</span>
+                @foreach (var trait in Stratagem.Traits) { <span class="trait">@trait.ToUpperInvariant()</span> }
+                @if (Stratagem.Traits.Count == 0) { <span class="trait subtle" title="@T["CustomStratagem.Traits.Default.Help"]">@T["CustomStratagem.Traits.Default"]</span> }
+            </div>
+        </div>
+    </div>
+    <ArrowSequence Code="@Stratagem.Code" />
+    <dl class="loadout-facts">
+        <dt>@T["CustomStratagem.Field.Cooldown"]</dt>
+        <dd data-preview-cooldown>@(cooldown.Supported ? Stratagem.Cooldown is { } cd ? CustomLabels.Number(cd) + " " + CustomLabels.Unit(T, "seconds") : T["CustomStratagem.Preview.CarrierOwn"] : T["CustomStratagem.Preview.EagleRearm"])</dd>
+        <dt>@T["CustomStratagem.Field.UsesPerMission"]</dt>
+        <dd data-preview-uses>@(Stratagem.Delivery.Family == DeliveryFamily.Eagle ? T["CustomStratagem.Preview.EagleRearm"] : Stratagem.Uses?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? T["CustomStratagem.Preview.Unlimited"])</dd>
+        <dt>@T["CustomStratagem.Field.MaxPerPlayer"]</dt>
+        <dd data-preview-per-player>@(Stratagem.MaxPerPlayer?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? T["CustomStratagem.Preview.NoLimit"])</dd>
+        <dt>@T["CustomStratagem.Section.Delivery"]</dt>
+        <dd>@CustomLabels.Family(T, Stratagem.Delivery.Family)
+            @if (evidence != null) { <span class="badge state-badge @CustomLabels.EvidenceCss(evidence.Status)">@CustomLabels.Evidence(T, evidence.Status)</span> }</dd>
+        <dt>@T["CustomStratagem.Section.Carrier"]</dt>
+        <dd data-preview-carrier>@(Stratagem.Carrier.Group is { } g ? CustomLabels.Group(T, g) : target.DefaultCarrierGroup(Stratagem) is { } d && Stratagem.Carrier.Beacon == null ? CustomLabels.Group(T, d)
+            : T.Format("CustomStratagem.Preview.Policy", CustomLabels.Beacon(T, Stratagem.Carrier.Beacon ?? CustomCarrier.Any)))</dd>
+    </dl>
+    <div class="loadout-readiness @(errors.Length > 0 ? "error" : warnings.Length > 0 ? "warning" : "ready")" data-preview-readiness>
+        @if (errors.Length == 0)
+        {
+            <p><strong>@(warnings.Length == 0 ? "✓ " + T["CustomStratagem.Preview.Ready"] : "⚠ " + T.Format("CustomStratagem.Preview.ReadyWarnings", warnings.Length))</strong></p>
+        }
+        else
+        {
+            <p><strong>✕ @T.Plural("CustomStratagem.Preview.Errors", errors.Length)</strong></p>
+            <ul>
+                @foreach (var e in errors.Take(6))
+                { <li><button class="link-button" data-preview-issue="@e.Field" @onclick="() => Jump.InvokeAsync(CustomLabels.Section(e.Area))">@(e.Field is { } f ? f + ": " : "")@e.Message</button></li> }
+            </ul>
+            @if (errors.Length > 6) { <p class="subtle">@T.Format("CustomStratagem.Preview.More", errors.Length - 6)</p> }
+        }
+    </div>
+</div>
+@code {
+    [Inject] private BuilderWorkspace Workspace { get; set; } = default!;
+    [Parameter, EditorRequired] public CustomStratagem Stratagem { get; set; } = default!;
+    [Parameter] public EventCallback<string> Jump { get; set; }
+}

@@ -1,0 +1,673 @@
+[
+ {
+  "key": "Nav.Armor",
+  "en": "Armor",
+  "zh": "护甲",
+  "comment": "Sidebar destination: armor kits, classes, damage curve and the player's armor values and passives"
+ },
+ {
+  "key": "Armor.Page.Title",
+  "en": "Armor",
+  "zh": "护甲"
+ },
+ {
+  "key": "Armor.Page.Help.Html",
+  "en": "A kit's piece weights set its <strong>armor rating, speed and stamina regen</strong>. You can also change the three weight classes, the damage curve, and your own armor values and passives (solo). Nothing here is tested in game yet.",
+  "zh": "套装各部件的重量决定其<strong>护甲等级、速度和耐力恢复</strong>。你还可以修改三个重量等级、伤害曲线，以及你自己的护甲数值和被动（仅单人）。这里的内容均尚未在游戏中测试。",
+  "comment": "Armor page introduction"
+ },
+ {
+  "key": "Armor.Unavailable.Title",
+  "en": "Armor needs a newer SDK",
+  "zh": "护甲需要更新的 SDK"
+ },
+ {
+  "key": "Armor.Unavailable.Help",
+  "en": "SDK {0} does not publish {1}.",
+  "zh": "SDK {0} 未发布 {1}。",
+  "comment": "{0}: SDK version; {1}: SDK file name"
+ },
+ {
+  "key": "Armor.Tabs.Aria",
+  "en": "Armor sections",
+  "zh": "护甲分区",
+  "comment": "Accessible name of the tab list"
+ },
+ {
+  "key": "Armor.Tab.Kits",
+  "en": "Kits",
+  "zh": "套装",
+  "comment": "Tab: armor kits"
+ },
+ {
+  "key": "Armor.Tab.Classes",
+  "en": "Classes and damage curve",
+  "zh": "重量等级和伤害曲线",
+  "comment": "Tab: weight class tables and the damage curve"
+ },
+ {
+  "key": "Armor.Tab.Player",
+  "en": "Player (solo)",
+  "zh": "玩家（单人）",
+  "comment": "Tab: the local player's own armor values and passives"
+ },
+ {
+  "key": "Armor.Tab.Edits.One",
+  "en": "{0} edit",
+  "zh": "{0} 处修改",
+  "comment": "{0}: number of edits"
+ },
+ {
+  "key": "Armor.Tab.Edits.Other",
+  "en": "{0} edits",
+  "zh": "{0} 处修改",
+  "comment": "{0}: number of edits"
+ },
+ {
+  "key": "Armor.List.Count",
+  "en": "Armor kits ({0} of {1})",
+  "zh": "护甲套装（{0} / {1}）",
+  "comment": "{0}: kits shown; {1}: all kits"
+ },
+ {
+  "key": "Armor.Search.Placeholder",
+  "en": "Name, id or passive",
+  "zh": "名称、ID 或被动",
+  "comment": "Search box placeholder"
+ },
+ {
+  "key": "Armor.Filter.Class",
+  "en": "Class",
+  "zh": "等级",
+  "comment": "Filter: weight class"
+ },
+ {
+  "key": "Armor.Filter.Show",
+  "en": "Show",
+  "zh": "显示"
+ },
+ {
+  "key": "Armor.List.Stats",
+  "en": "Rating {0} · Speed {1} · Stamina regen {2}",
+  "zh": "护甲 {0} · 速度 {1} · 耐力恢复 {2}",
+  "comment": "Vanilla armory stats of a kit in the list"
+ },
+ {
+  "key": "Armor.List.Empty",
+  "en": "No kit matches.",
+  "zh": "没有匹配的套装。"
+ },
+ {
+  "key": "Armor.Choose.Title",
+  "en": "Choose an armor kit",
+  "zh": "选择护甲套装"
+ },
+ {
+  "key": "Armor.Choose.Summary",
+  "en": "{0} armor kits with {1} piece weights you can change.",
+  "zh": "{0} 个护甲套装，共 {1} 个可修改的部件重量。",
+  "comment": "{0}: kits; {1}: piece weight fields"
+ },
+ {
+  "key": "Armor.Choose.Help",
+  "en": "No armor stores its own numbers: each piece is light, medium or heavy, and the class tables below give the values.",
+  "zh": "护甲本身不存储数值：每个部件为轻型、中型或重型，数值来自下方的等级表。"
+ },
+ {
+  "key": "Armor.Class.Light",
+  "en": "Light",
+  "zh": "轻型",
+  "comment": "Armor weight class"
+ },
+ {
+  "key": "Armor.Class.Medium",
+  "en": "Medium",
+  "zh": "中型",
+  "comment": "Armor weight class"
+ },
+ {
+  "key": "Armor.Class.Heavy",
+  "en": "Heavy",
+  "zh": "重型",
+  "comment": "Armor weight class"
+ },
+ {
+  "key": "Armor.Slot.Cape",
+  "en": "Cape",
+  "zh": "披风",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.Torso",
+  "en": "Torso",
+  "zh": "躯干",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.Hips",
+  "en": "Hips",
+  "zh": "臀部",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.LeftLeg",
+  "en": "Left leg",
+  "zh": "左腿",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.RightLeg",
+  "en": "Right leg",
+  "zh": "右腿",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.LeftArm",
+  "en": "Left arm",
+  "zh": "左臂",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.RightArm",
+  "en": "Right arm",
+  "zh": "右臂",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.LeftShoulder",
+  "en": "Left shoulder",
+  "zh": "左肩",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Slot.RightShoulder",
+  "en": "Right shoulder",
+  "zh": "右肩",
+  "comment": "Armor piece slot"
+ },
+ {
+  "key": "Armor.Table.Class",
+  "en": "Class",
+  "zh": "等级",
+  "comment": "Column header"
+ },
+ {
+  "key": "Armor.Stat.Rating",
+  "en": "Armor rating",
+  "zh": "护甲等级",
+  "comment": "Armory stat"
+ },
+ {
+  "key": "Armor.Stat.Speed",
+  "en": "Speed",
+  "zh": "速度",
+  "comment": "Armory stat"
+ },
+ {
+  "key": "Armor.Stat.Stamina",
+  "en": "Stamina regen",
+  "zh": "耐力恢复",
+  "comment": "Armory stat"
+ },
+ {
+  "key": "Armor.Stat.Damage",
+  "en": "Damage taken",
+  "zh": "受到伤害",
+  "comment": "Damage multiplier on hits"
+ },
+ {
+  "key": "Armor.Stat.Base",
+  "en": "Base {0}",
+  "zh": "原值 {0}",
+  "comment": "{0}: vanilla value"
+ },
+ {
+  "key": "Armor.Stat.Vanilla",
+  "en": "Vanilla",
+  "zh": "原版",
+  "comment": "The stat is unchanged"
+ },
+ {
+  "key": "Armor.Kit.Eyebrow",
+  "en": "Armor kit",
+  "zh": "护甲套装"
+ },
+ {
+  "key": "Armor.Kit.ClassTooltip",
+  "en": "The armory class is the torso piece's weight.",
+  "zh": "军械库显示的等级取决于躯干部件的重量。"
+ },
+ {
+  "key": "Armor.Kit.PassiveBonus",
+  "en": "Armor value {0}",
+  "zh": "护甲值 {0}",
+  "comment": "{0}: the passive's armor rows, for example +1"
+ },
+ {
+  "key": "Armor.Kit.PassiveBonusTooltip",
+  "en": "This kit's passive changes its armor value. It follows the kit, never a passive swap.",
+  "zh": "此套装的被动会改变护甲值。它跟随套装，不随被动替换而改变。"
+ },
+ {
+  "key": "Armor.Kit.SharedName",
+  "en": "Shared name",
+  "zh": "名称重复",
+  "comment": "Badge: several kits share this game name"
+ },
+ {
+  "key": "Armor.Kit.SharedNameTooltip",
+  "en": "Several kits carry this name; the mod targets this kit by its id.",
+  "zh": "多个套装使用此名称；模组通过 ID 指定此套装。"
+ },
+ {
+  "key": "Armor.Kit.Pieces.One",
+  "en": "{0} piece",
+  "zh": "{0} 个部件",
+  "comment": "{0}: number of armor pieces"
+ },
+ {
+  "key": "Armor.Kit.Pieces.Other",
+  "en": "{0} pieces",
+  "zh": "{0} 个部件",
+  "comment": "{0}: number of armor pieces"
+ },
+ {
+  "key": "Armor.Kit.PreviewHelp",
+  "en": "Computed with the published formulas and this project's class and curve values. The rating averages the {0} torso, leg, arm and shoulder pieces. Rating and damage change on the next hit; speed and stamina on the next respawn or armor change.",
+  "zh": "按公开公式及本项目的等级和曲线数值计算。护甲等级取 {0} 个躯干、腿、臂和肩部件的平均值。护甲等级和伤害在下一次受击时生效；速度和耐力在下次重生或更换护甲时生效。",
+  "comment": "{0}: number of rating pieces"
+ },
+ {
+  "key": "Armor.Kit.AllPieces",
+  "en": "All pieces:",
+  "zh": "全部部件：",
+  "comment": "Before the Light / Medium / Heavy buttons"
+ },
+ {
+  "key": "Armor.Kit.Reset",
+  "en": "Reset kit",
+  "zh": "重置套装"
+ },
+ {
+  "key": "Armor.Kit.PiecesTitle",
+  "en": "Piece weights",
+  "zh": "部件重量"
+ },
+ {
+  "key": "Armor.Kit.PiecesHelp",
+  "en": "Changing one piece moves the armor value by a fraction; for an exact rating use the player's armor bonus.",
+  "zh": "修改单个部件只会小幅改变护甲值；如需精确的护甲等级，请使用玩家护甲加成。"
+ },
+ {
+  "key": "Armor.Kit.Shared.Title",
+  "en": "Every player wearing this kit",
+  "zh": "所有穿着此套装的玩家",
+  "comment": "Warning title"
+ },
+ {
+  "key": "Armor.Kit.Shared.Description",
+  "en": "A kit edit changes this kit for every player wearing it on this machine. It is not synced: other players keep their own values.",
+  "zh": "套装修改会影响本机上所有穿着此套装的玩家。它不会同步：其他玩家保留自己的数值。"
+ },
+ {
+  "key": "Armor.Unverified.Title",
+  "en": "Not tested in game",
+  "zh": "尚未在游戏中测试",
+  "comment": "Warning title"
+ },
+ {
+  "key": "Armor.Unverified.Description",
+  "en": "Runtime has not shown these armor writes in game yet; the mod writes them with allow_unverified_effect.",
+  "zh": "Runtime 尚未在游戏中验证这些护甲写入；模组会以 allow_unverified_effect 写入。",
+  "comment": "allow_unverified_effect is a Runtime flag (not translated)"
+ },
+ {
+  "key": "Armor.Classes.Title",
+  "en": "Weight classes",
+  "zh": "重量等级"
+ },
+ {
+  "key": "Armor.Classes.Help",
+  "en": "Every armor piece of a weight reads these values. Armor value 0 / 1 / 2 is rating 50 / 100 / 150.",
+  "zh": "同一重量的所有护甲部件都读取这些数值。护甲值 0 / 1 / 2 对应护甲等级 50 / 100 / 150。"
+ },
+ {
+  "key": "Armor.Classes.Shared.Title",
+  "en": "Every Helldiver, not synced",
+  "zh": "所有地狱潜兵，不同步",
+  "comment": "Warning title"
+ },
+ {
+  "key": "Armor.Classes.Shared.Description",
+  "en": "A class value applies to every armor piece of that weight and the curve to every hit on a Helldiver, on this machine only. Each machine uses its own tables. They sit in reviewed executable data in game.dll.",
+  "zh": "等级数值作用于该重量的所有护甲部件，伤害曲线作用于对地狱潜兵的每次命中，仅限本机。每台机器使用自己的数值表。它们位于 game.dll 中经过审查的可执行数据。"
+ },
+ {
+  "key": "Armor.Classes.Display",
+  "en": "Armory: rating {0} · speed {1} · stamina regen {2}",
+  "zh": "军械库：护甲 {0} · 速度 {1} · 耐力恢复 {2}",
+  "comment": "Values the armory shows for this class"
+ },
+ {
+  "key": "Armor.Classes.ArmorValue",
+  "en": "Armor value",
+  "zh": "护甲值",
+  "comment": "Class table value"
+ },
+ {
+  "key": "Armor.Classes.SpeedFactor",
+  "en": "Speed factor",
+  "zh": "速度系数",
+  "comment": "Class table value"
+ },
+ {
+  "key": "Armor.Classes.StaminaFactor",
+  "en": "Stamina factor",
+  "zh": "耐力系数",
+  "comment": "Class table value; scales stamina drain and regen"
+ },
+ {
+  "key": "Armor.Classes.Reset",
+  "en": "Reset classes and curve",
+  "zh": "重置等级和曲线"
+ },
+ {
+  "key": "Armor.Curve.Title",
+  "en": "Damage curve",
+  "zh": "伤害曲线"
+ },
+ {
+  "key": "Armor.Curve.Help",
+  "en": "Damage taken at each armor value: {0}.",
+  "zh": "各护甲值下受到的伤害倍率：{0}。",
+  "comment": "{0}: Runtime's interpolation note (English)"
+ },
+ {
+  "key": "Armor.Curve.Point",
+  "en": "At armor value {0} (rating {1})",
+  "zh": "护甲值 {0}（护甲等级 {1}）",
+  "comment": "{0}: armor value; {1}: armory rating"
+ },
+ {
+  "key": "Armor.Player.Title",
+  "en": "Your armor values",
+  "zh": "你的护甲数值"
+ },
+ {
+  "key": "Armor.Player.Help",
+  "en": "Your own avatar only. The mod sets these when it loads and again after every respawn.",
+  "zh": "仅限你自己的角色。模组在加载时设置，并在每次重生后重新设置。"
+ },
+ {
+  "key": "Armor.Player.ArmorBonus",
+  "en": "Armor bonus",
+  "zh": "护甲加成"
+ },
+ {
+  "key": "Armor.Player.ArmorBonus.Base",
+  "en": "none",
+  "zh": "无",
+  "comment": "Default armor bonus (the game's 0)"
+ },
+ {
+  "key": "Armor.Player.ArmorBonus.Help",
+  "en": "Added to the armor value of every hit on you. +1 is about one class heavier.",
+  "zh": "加到你每次受击时的护甲值上。+1 约等于重一个等级。"
+ },
+ {
+  "key": "Armor.Player.StaminaFactor",
+  "en": "Stamina factor",
+  "zh": "耐力系数"
+ },
+ {
+  "key": "Armor.Player.StaminaFactor.Base",
+  "en": "the kit's own",
+  "zh": "套装自身数值",
+  "comment": "Default stamina factor"
+ },
+ {
+  "key": "Armor.Player.StaminaFactor.Help",
+  "en": "Scales stamina drain and regen and the jump, dive, climb and slide costs. Light armor is 0.75, heavy 1.5.",
+  "zh": "缩放耐力消耗与恢复，以及跳跃、扑倒、攀爬和滑铲的消耗。轻甲为 0.75，重甲为 1.5。"
+ },
+ {
+  "key": "Armor.Player.Set",
+  "en": "{0} (was {1})",
+  "zh": "{0}（原为 {1}）",
+  "comment": "{0}: value set; {1}: the game's own"
+ },
+ {
+  "key": "Armor.Player.Solo.Title",
+  "en": "Solo only, not tested in game",
+  "zh": "仅限单人，尚未在游戏中测试",
+  "comment": "Warning title"
+ },
+ {
+  "key": "Armor.Player.Solo.Description",
+  "en": "With other players Runtime refuses the write (NOT_SOLO). A status effect can also hold the armor bonus. The mod writes it with allow_unverified_effect.",
+  "zh": "有其他玩家时 Runtime 会拒绝写入（NOT_SOLO）。状态效果也可能占用护甲加成。模组会以 allow_unverified_effect 写入。",
+  "comment": "NOT_SOLO and allow_unverified_effect are Runtime identifiers"
+ },
+ {
+  "key": "Armor.Passives.Title",
+  "en": "Passive override",
+  "zh": "被动替换"
+ },
+ {
+  "key": "Armor.Passives.Help",
+  "en": "Replace your armor passive, add a second passive in the empty helmet slot, or both. Runtime keeps the override after armor changes until the mod stops.",
+  "zh": "替换你的护甲被动、在空的头盔栏位添加第二个被动，或两者兼有。Runtime 会在更换护甲后保持替换，直到模组停止。"
+ },
+ {
+  "key": "Armor.Passives.Armor",
+  "en": "Armor passive",
+  "zh": "护甲被动"
+ },
+ {
+  "key": "Armor.Passives.KitOwn",
+  "en": "The kit's own",
+  "zh": "套装自身",
+  "comment": "No armor passive override"
+ },
+ {
+  "key": "Armor.Passives.LiveProvenShort",
+  "en": "tested",
+  "zh": "已测试",
+  "comment": "Short mark: this armor-slot swap is live-proven"
+ },
+ {
+  "key": "Armor.Passives.Second",
+  "en": "Second passive (helmet slot)",
+  "zh": "第二被动（头盔栏位）"
+ },
+ {
+  "key": "Armor.Passives.None",
+  "en": "None",
+  "zh": "无",
+  "comment": "No second passive (second = false)"
+ },
+ {
+  "key": "Armor.Passives.Refused",
+  "en": "refused ({0})",
+  "zh": "被拒绝（{0}）",
+  "comment": "{0}: Runtime refusal code"
+ },
+ {
+  "key": "Armor.Passives.RefusedSame",
+  "en": "same as the armor passive",
+  "zh": "与护甲被动相同"
+ },
+ {
+  "key": "Armor.Passives.ArmorSlot",
+  "en": "Armor slot",
+  "zh": "护甲栏位"
+ },
+ {
+  "key": "Armor.Passives.HelmetSlot",
+  "en": "Helmet slot (second)",
+  "zh": "头盔栏位（第二）"
+ },
+ {
+  "key": "Armor.Passives.Reset",
+  "en": "Remove passive override",
+  "zh": "移除被动替换"
+ },
+ {
+  "key": "Armor.Passives.Solo.Title",
+  "en": "Solo only, mostly not tested",
+  "zh": "仅限单人，大多未测试",
+  "comment": "Warning title"
+ },
+ {
+  "key": "Armor.Passives.Solo.Description",
+  "en": "Only an armor-slot swap alone to SCOUT, ENGINEERING KIT, MED-KIT or SERVO-ASSISTED is tested in game. Everything else is written with allow_unverified_effect. With other players the override is suspended. Only one mod can hold an override.",
+  "zh": "只有单独将护甲栏位替换为 SCOUT、ENGINEERING KIT、MED-KIT 或 SERVO-ASSISTED 已在游戏中测试。其他情况均以 allow_unverified_effect 写入。有其他玩家时替换会暂停。同一时间只有一个模组可以持有替换。",
+  "comment": "Passive names are game names (not translated)"
+ },
+ {
+  "key": "Armor.Passives.Proven.Description",
+  "en": "This armor-slot swap is tested in game, so the mod needs no allow_unverified_effect. With other players the override is suspended. Only one mod can hold an override.",
+  "zh": "此护甲栏位替换已在游戏中测试，因此模组无需 allow_unverified_effect。有其他玩家时替换会暂停。同一时间只有一个模组可以持有替换。"
+ },
+ {
+  "key": "Armor.Passives.NotCarried.Title",
+  "en": "What a swap does not carry",
+  "zh": "替换不会带来的效果",
+  "comment": "Warning title"
+ },
+ {
+  "key": "Armor.Passives.NotCarried.Description",
+  "en": "Reload speed, ammo capacity and sidearm stats come from the kit worn at spawn, and the armor rating follows the worn kit: a swap never changes them. Grenade and stim capacity may wait for the next resupply. A second passive adds keys the armor passive lacks; it never stacks.",
+  "zh": "装填速度、弹药容量和副武器属性来自出生时穿着的套装，护甲等级跟随所穿套装：替换不会改变它们。手雷和治疗针容量可能要等到下次补给。第二被动只添加护甲被动没有的效果，不会叠加。"
+ },
+ {
+  "key": "Armor.Passives.Package.Title",
+  "en": "{0} loads an effect package",
+  "zh": "{0} 需加载效果资源包",
+  "comment": "{0}: passive name"
+ },
+ {
+  "key": "Armor.Passives.Package.Description",
+  "en": "Runtime loads {0} ({1}) before it writes the passive and shares it with compatible players in the lobby, who need the same Runtime build.",
+  "zh": "Runtime 会在写入被动前加载 {0}（{1}），并与大厅中兼容的玩家共享，他们需要相同的 Runtime 版本。",
+  "comment": "{0}: catalogue key; {1}: package contents (English)"
+ },
+ {
+  "key": "Armor.Passives.Follows.Tooltip",
+  "en": "Whether the passive's effects follow a swap (Runtime's research).",
+  "zh": "被动效果是否随替换生效（Runtime 研究结果）。"
+ },
+ {
+  "key": "Armor.Passives.Follows.Full",
+  "en": "Follows a swap",
+  "zh": "随替换生效",
+  "comment": "followsSwap = full"
+ },
+ {
+  "key": "Armor.Passives.Follows.Partial",
+  "en": "Partly follows",
+  "zh": "部分生效",
+  "comment": "followsSwap = partial"
+ },
+ {
+  "key": "Armor.Passives.Follows.Unknown",
+  "en": "Unknown",
+  "zh": "未知",
+  "comment": "followsSwap = unknown"
+ },
+ {
+  "key": "Armor.Passives.LiveProven",
+  "en": "Tested in game",
+  "zh": "已在游戏中测试",
+  "comment": "Badge: the armor-slot swap to this passive is live-proven"
+ },
+ {
+  "key": "Armor.Passives.ArmorSlotOnly",
+  "en": "Armor slot only",
+  "zh": "仅护甲栏位",
+  "comment": "Badge: some effect is read from the armor slot only"
+ },
+ {
+  "key": "Armor.Passives.ArmorSlotOnly.Tooltip",
+  "en": "Read from the armor slot only: {0}",
+  "zh": "仅从护甲栏位读取：{0}",
+  "comment": "{0}: modifier key names"
+ },
+ {
+  "key": "Armor.Passives.EffectPackage",
+  "en": "Effect package",
+  "zh": "效果资源包"
+ },
+ {
+  "key": "Armor.Passives.SecondIgnored",
+  "en": "In the helmet slot this never takes effect: {0}.",
+  "zh": "在头盔栏位中这些效果不会生效：{0}。",
+  "comment": "{0}: modifier key names"
+ },
+ {
+  "key": "EntityChanges.Kind.ArmorKit",
+  "en": "Armor kit",
+  "zh": "护甲套装",
+  "comment": "Changes page kind label"
+ },
+ {
+  "key": "EntityChanges.Kind.ArmorClass",
+  "en": "Armor class",
+  "zh": "护甲等级",
+  "comment": "Changes page kind label"
+ },
+ {
+  "key": "EntityChanges.Kind.ArmorCurve",
+  "en": "Armor",
+  "zh": "护甲",
+  "comment": "Changes page kind label for the damage curve"
+ },
+ {
+  "key": "Changes.Armor.Title",
+  "en": "Your armor values and passives",
+  "zh": "你的护甲数值和被动",
+  "comment": "Changes page section"
+ },
+ {
+  "key": "Changes.Armor.Open",
+  "en": "Open Armor",
+  "zh": "打开护甲"
+ },
+ {
+  "key": "Messages.Project.InvalidPlayerArmor",
+  "en": "The project's player armor settings are invalid.",
+  "zh": "项目的玩家护甲设置无效。"
+ },
+ {
+  "key": "Messages.Build.Armor.SdkMissing",
+  "en": "This SDK publishes no armor stats.",
+  "zh": "此 SDK 未发布护甲属性。"
+ },
+ {
+  "key": "Messages.Build.Armor.PassivesMissing",
+  "en": "This SDK publishes no armor passives.",
+  "zh": "此 SDK 未发布护甲被动。"
+ },
+ {
+  "key": "Messages.Build.Armor.PlayerRange",
+  "en": "{0} must be between {1} and {2}.",
+  "zh": "{0} 必须介于 {1} 和 {2} 之间。",
+  "comment": "{0}: Runtime option name; {1}/{2}: range"
+ },
+ {
+  "key": "Messages.Build.Armor.UnknownPassive",
+  "en": "Choose a passive the SDK publishes.",
+  "zh": "请选择 SDK 发布的被动。"
+ },
+ {
+  "key": "Messages.Build.Armor.SecondRefused",
+  "en": "Runtime refuses {0} as the second passive ({1}).",
+  "zh": "Runtime 拒绝将 {0} 作为第二被动（{1}）。",
+  "comment": "{0}: passive name; {1}: refusal code"
+ },
+ {
+  "key": "Messages.Build.Armor.SamePassive",
+  "en": "The second passive must differ from the armor passive.",
+  "zh": "第二被动必须与护甲被动不同。"
+ }
+]

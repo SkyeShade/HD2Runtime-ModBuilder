@@ -1,0 +1,35 @@
+{
+ "format": "hd2runtime-custom-stratagems/1",
+ "stratagems": [
+  {
+   "id": "machine_gun_drop",
+   "name": "MACHINE GUN DROP",
+   "name_cased": "Machine Gun Drop",
+   "description": "A plain support drop: one MG-43 Machine Gun on its own call-in code and cooldown.",
+   "icon": {
+    "image": "machine_gun_drop",
+    "source": "images/machine_gun_drop.png"
+   },
+   "code": [
+    "down",
+    "right",
+    "down",
+    "left",
+    "up",
+    "up"
+   ],
+   "cooldown": 240,
+   "carrier": {
+    "group": "support"
+   },
+   "payload": {
+    "family": "support",
+    "items": [
+     {
+      "donor": "MG-43 Machine Gun"
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,1318 @@
+[
+ {
+  "key": "Common.Close",
+  "en": "Close",
+  "zh": "关闭"
+ },
+ {
+  "key": "Desktop.Picker.RuntimeProject",
+  "en": "Choose an HD2Runtime custom stratagem project (custom_stratagems.json)",
+  "zh": "选择 HD2Runtime 自定义战略配备项目（custom_stratagems.json）"
+ },
+ {
+  "key": "CustomContent.Area.Advanced",
+  "en": "Lua",
+  "zh": "Lua"
+ },
+ {
+  "key": "CustomContent.Area.Carrier",
+  "en": "Carrier",
+  "zh": "载体"
+ },
+ {
+  "key": "CustomContent.Field.EagleUses",
+  "en": "An Eagle's uses are per rearm: set them in its delivery.",
+  "zh": "飞鹰的使用次数按每次重新装填计算：请在其投放中设置。"
+ },
+ {
+  "key": "CustomContent.Field.RateSelector",
+  "en": "The {0} binds the rate-of-fire selector: a per-call rate is refused (its fire-rate modes are its own).",
+  "zh": "{0} 绑定了射速选择器：不接受按呼叫设置的射速（其射速模式为武器自身所有）。",
+  "comment": "{0}: support weapon name"
+ },
+ {
+  "key": "CustomContent.Field.NoRound",
+  "en": "The {0} fires no catalogued round: an impact payload has nothing to convert.",
+  "zh": "{0} 不发射已编目的弹药：撞击爆炸无可转换的对象。",
+  "comment": "{0}: support weapon name"
+ },
+ {
+  "key": "CustomContent.Field.RoundWithImpact",
+  "en": "Not with an impact payload: that round brings its own explosions.",
+  "zh": "不可与撞击爆炸同时使用：该弹药自带爆炸。"
+ },
+ {
+  "key": "CustomContent.Field.ImpactWithRound",
+  "en": "Not with another round: that round brings its own explosions.",
+  "zh": "不可与另一种弹药同时使用：该弹药自带爆炸。"
+ },
+ {
+  "key": "CustomContent.Field.NeedsGatling",
+  "en": "Follows the Gatling AI: choose the gatling_sentry behaviour first.",
+  "zh": "跟随加特林 AI：请先选择 gatling_sentry 行为。"
+ },
+ {
+  "key": "CustomContent.Field.RpmWithMultiplier",
+  "en": "Replaces the Gatling rate: clear the rate multiplier first.",
+  "zh": "会替换加特林射速：请先清除射速倍率。"
+ },
+ {
+  "key": "CustomContent.Field.NativeGun",
+  "en": "The native round leaves the chin turret exactly as the game spawned it.",
+  "zh": "原生弹药会让机头炮塔保持游戏生成时的原样。"
+ },
+ {
+  "key": "CustomContent.Check.CodeMissionGuard",
+  "en": "This code starts or extends {0} mission-only native code(s): allowed, but in a mission where one of them appears the slot falls back to the token.",
+  "zh": "此代码是 {0} 个仅限任务的原生代码的开头或延伸：允许使用，但在出现这些代码的任务中，栏位会回退为令牌。",
+  "comment": "{0}: number of codes"
+ },
+ {
+  "key": "CustomContent.Check.UsesNative",
+  "en": "{0} calls per mission, each player's own: the carrier's slot counts them natively.",
+  "zh": "每局任务 {0} 次呼叫，每名玩家各自计算：载体栏位以原生方式计数。",
+  "comment": "{0}: number of uses"
+ },
+ {
+  "key": "CustomContent.Check.ImageMissing",
+  "en": "The image {0} is not in the project: import it again.",
+  "zh": "图像 {0} 不在项目中：请重新导入。",
+  "comment": "{0}: image id"
+ },
+ {
+  "key": "CustomContent.Check.VariantDonorPresentation",
+  "en": "A weapon variant has no donor presentation: use the stratagem's own or your own.",
+  "zh": "武器变体没有供体外观：请使用战略配备自身的或你自己的。"
+ },
+ {
+  "key": "CustomContent.Check.PresentationNameRequired",
+  "en": "Write the delivered weapon's name, or use the stratagem's.",
+  "zh": "请填写投放武器的名称，或使用战略配备的名称。"
+ },
+ {
+  "key": "CustomContent.Check.ModelMissing",
+  "en": "The model {0} is not in the project.",
+  "zh": "模型 {0} 不在项目中。",
+  "comment": "{0}: model id"
+ },
+ {
+  "key": "CustomContent.Check.ModelBase",
+  "en": "The model {0} derives from the {1}, not the {2} this variant delivers.",
+  "zh": "模型 {0} 派生自 {1}，而不是此变体投放的 {2}。",
+  "comment": "{0}: model id; {1}: model base weapon; {2}: variant weapon"
+ },
+ {
+  "key": "CustomContent.Check.ModelBuild",
+  "en": "The model {0} is derived from your installed game's {1} when the mod is exported (its base parts must be the reviewed ones).",
+  "zh": "导出模组时，模型 {0} 会从你已安装游戏中的 {1} 派生（其基础部件必须与已审核的一致）。",
+  "comment": "{0}: model id; {1}: base weapon"
+ },
+ {
+  "key": "CustomContent.Check.PodUnverified",
+  "en": "{0} is not live-tested in a pod: the build writes its allow_unverified_effect opt-in.",
+  "zh": "{0} 尚未在补给舱中实机测试：构建时会写入其 allow_unverified_effect 选择项。",
+  "comment": "{0}: pod item name"
+ },
+ {
+  "key": "CustomContent.Check.PodSolo",
+  "en": "A carrier pod is solo-host only in this Runtime: with several players it is refused.",
+  "zh": "在此 Runtime 中，载体补给舱仅限单人主机：多名玩家时会被拒绝。"
+ },
+ {
+  "key": "CustomContent.Check.ObjectiveBlast",
+  "en": "{0} is an objective explosion: about 300 MB of objective packages load at mission start.",
+  "zh": "{0} 是目标爆炸：任务开始时会加载约 300 MB 的目标资源包。",
+  "comment": "{0}: explosion name"
+ },
+ {
+  "key": "CustomContent.Check.VariantNative",
+  "en": "While a lobby member brings the {0} natively, the variant is unavailable (and a selected variant blocks the native one).",
+  "zh": "当大厅成员以原生方式携带 {0} 时，此变体不可用（而已选择的变体会阻止原生武器）。",
+  "comment": "{0}: weapon name"
+ },
+ {
+  "key": "CustomContent.Check.ExtraFields",
+  "en": "Extra registration fields are written as they are: HD2Runtime checks them when the mod loads; ModBuilder cannot.",
+  "zh": "额外的注册字段按原样写入：HD2Runtime 会在模组加载时检查它们；ModBuilder 无法检查。"
+ },
+ {
+  "key": "CustomContent.Check.Evidence",
+  "en": "HD2Runtime's play status for this family: {0}; several players: {1}. {2}",
+  "zh": "HD2Runtime 对此族系的实机状态：{0}；多人：{1}。{2}",
+  "comment": "{0}: status as published (live, partial, offline); {1}: multiplayer status as published; {2}: Runtime's note (English)"
+ },
+ {
+  "key": "CustomContent.Check.RuntimeAccepts",
+  "en": "HD2Runtime's own validator accepts this custom stratagem.",
+  "zh": "HD2Runtime 自身的验证器接受此自定义战略配备。"
+ },
+ {
+  "key": "CustomContent.Import.TooLarge",
+  "en": "The file is too large to be a custom stratagem project.",
+  "zh": "该文件过大，不可能是自定义战略配备项目。"
+ },
+ {
+  "key": "CustomContent.Import.NotProject",
+  "en": "The file is not an HD2Runtime custom stratagem project.",
+  "zh": "该文件不是 HD2Runtime 自定义战略配备项目。"
+ },
+ {
+  "key": "CustomContent.Import.Malformed",
+  "en": "The project file is not valid JSON: {0}",
+  "zh": "项目文件不是有效的 JSON：{0}",
+  "comment": "{0}: parser message"
+ },
+ {
+  "key": "CustomContent.Import.Format",
+  "en": "Not an HD2Runtime custom stratagem project (format {0} expected).",
+  "zh": "不是 HD2Runtime 自定义战略配备项目（应为格式 {0}）。",
+  "comment": "{0}: format id"
+ },
+ {
+  "key": "CustomContent.Import.CodeChanged",
+  "en": "{0}: its code {1} collides here; it is now {2}.",
+  "zh": "{0}：其代码 {1} 在此冲突；现改为 {2}。",
+  "comment": "{0}: stratagem id; {1}: old code; {2}: new code"
+ },
+ {
+  "key": "CustomContent.Import.IconPlaceholder",
+  "en": "{0}: its icon PNG was not found next to the project (or is not a valid icon); it starts with a placeholder.",
+  "zh": "{0}：在项目旁未找到其图标 PNG（或不是有效图标）；暂用占位图标。",
+  "comment": "{0}: stratagem id"
+ },
+ {
+  "key": "CustomContent.Import.ModelNotImported",
+  "en": "{0}: its model {1} is not imported; give it a model again in its delivery.",
+  "zh": "{0}：其模型 {1} 未被导入；请在其投放中重新设置模型。",
+  "comment": "{0}: stratagem id; {1}: model id"
+ },
+ {
+  "key": "CustomContent.Import.Ignored",
+  "en": "{0}: {1} is not a field ModBuilder knows; it was left out.",
+  "zh": "{0}：{1} 不是 ModBuilder 认识的字段；已略过。",
+  "comment": "{0}: stratagem id; {1}: field path"
+ },
+ {
+  "key": "CustomContent.Import.IdChanged",
+  "en": "{0} is already used here; imported as {1}.",
+  "zh": "{0} 在此已被使用；以 {1} 导入。",
+  "comment": "{0}: original id; {1}: new id"
+ },
+ {
+  "key": "CustomContent.Model.NeedsWeapon",
+  "en": "Choose the variant's weapon first.",
+  "zh": "请先选择变体的武器。"
+ },
+ {
+  "key": "CustomContent.Build.ModelNoGame",
+  "en": "A custom model is derived from your installed Helldivers 2, which ModBuilder cannot find. Set HD2_GAME_DATA to the game's data folder.",
+  "zh": "自定义模型从你已安装的 Helldivers 2 派生，但 ModBuilder 找不到游戏。请将 HD2_GAME_DATA 设为游戏的 data 文件夹。"
+ },
+ {
+  "key": "CustomContent.Build.ModelBase",
+  "en": "The model {0}: {1} is not a reviewed model base.",
+  "zh": "模型 {0}：{1} 不是已审核的模型基础。",
+  "comment": "{0}: model id; {1}: base weapon"
+ },
+ {
+  "key": "CustomContent.Build.ModelGame",
+  "en": "The model {0} could not be read from {1}: {2}",
+  "zh": "无法从 {1} 读取模型 {0}：{2}",
+  "comment": "{0}: model id; {1}: data folder; {2}: reason"
+ },
+ {
+  "key": "CustomContent.Evidence.Live",
+  "en": "Live-tested",
+  "zh": "已实机测试"
+ },
+ {
+  "key": "CustomContent.Evidence.Partial",
+  "en": "Partly tested",
+  "zh": "部分测试"
+ },
+ {
+  "key": "CustomContent.Evidence.Offline",
+  "en": "Not live-tested",
+  "zh": "未实机测试"
+ },
+ {
+  "key": "CustomContent.Evidence.MpLive",
+  "en": "several players: tested",
+  "zh": "多人：已测试"
+ },
+ {
+  "key": "CustomContent.Evidence.MpHost",
+  "en": "host only",
+  "zh": "仅限主机"
+ },
+ {
+  "key": "CustomContent.Evidence.MpPending",
+  "en": "several players: pending",
+  "zh": "多人：待测试"
+ },
+ {
+  "key": "CustomContent.Evidence.MpUntested",
+  "en": "several players: untested",
+  "zh": "多人：未测试"
+ },
+ {
+  "key": "CustomContent.Evidence.MpUnsupported",
+  "en": "solo only",
+  "zh": "仅限单人"
+ },
+ {
+  "key": "CustomContent.Evidence.MpPerMod",
+  "en": "several players: up to the mod's Lua",
+  "zh": "多人：取决于模组的 Lua"
+ },
+ {
+  "key": "CustomContent.Family.Expendable",
+  "en": "Expendable weapon",
+  "zh": "一次性武器"
+ },
+ {
+  "key": "CustomContent.Family.Expendable.Help",
+  "en": "A disposable clone of a reviewed expendable (EAT-17) with its own name, icon, round, impact and pod.",
+  "zh": "已审核一次性武器（EAT-17）的可丢弃克隆，拥有自己的名称、图标、弹药、撞击效果和补给舱。"
+ },
+ {
+  "key": "CustomContent.Family.Pelican",
+  "en": "Pelican gunship",
+  "zh": "鹈鹕炮艇"
+ },
+ {
+  "key": "CustomContent.Family.Pelican.Help",
+  "en": "The game's Pelican hovers over the beacon; its chin gun takes your round, rate, aim, sound and explosion.",
+  "zh": "游戏中的鹈鹕悬停在信标上方；其机头炮使用你设置的弹药、射速、瞄准、音效和爆炸。"
+ },
+ {
+  "key": "CustomContent.Family.Pod",
+  "en": "Custom pod",
+  "zh": "自定义补给舱"
+ },
+ {
+  "key": "CustomContent.Family.Pod.Help",
+  "en": "A carrier's pod packed with support weapons, backpacks or primaries of your choice.",
+  "zh": "载体的补给舱，装入你选择的支援武器、背包或主武器。"
+ },
+ {
+  "key": "CustomContent.Family.Silo",
+  "en": "Missile silo",
+  "zh": "导弹发射井"
+ },
+ {
+  "key": "CustomContent.Family.Silo.Help",
+  "en": "A vanilla silo whose missile detonates as another explosion (with a fallback).",
+  "zh": "原版发射井，其导弹以另一种爆炸引爆（可设后备）。"
+ },
+ {
+  "key": "CustomContent.Family.Variant",
+  "en": "Weapon variant",
+  "zh": "武器变体"
+ },
+ {
+  "key": "CustomContent.Family.Variant.Help",
+  "en": "A mission-scoped variant of a reviewed weapon: another round, its own name and icon, a recoloured model.",
+  "zh": "已审核武器的任务内变体：另一种弹药、自己的名称和图标、重新上色的模型。"
+ },
+ {
+  "key": "CustomContent.Group.Orbital",
+  "en": "Orbitals",
+  "zh": "轨道"
+ },
+ {
+  "key": "CustomContent.Group.AnyRed",
+  "en": "Any red-beam carrier",
+  "zh": "任意红色光束载体"
+ },
+ {
+  "key": "CustomContent.Group.Any",
+  "en": "Any carrier",
+  "zh": "任意载体"
+ },
+ {
+  "key": "CustomContent.Group.Support",
+  "en": "Support pods",
+  "zh": "支援补给舱"
+ },
+ {
+  "key": "CustomContent.Group.SupportPod",
+  "en": "Support pod racks",
+  "zh": "支援补给舱架"
+ },
+ {
+  "key": "CustomContent.Group.Expendable",
+  "en": "Expendable racks",
+  "zh": "一次性武器架"
+ },
+ {
+  "key": "CustomContent.Group.Weapon",
+  "en": "The weapon's own stratagem",
+  "zh": "武器自身的战略配备"
+ },
+ {
+  "key": "CustomContent.Group.Sentry",
+  "en": "Sentries",
+  "zh": "哨戒炮"
+ },
+ {
+  "key": "CustomContent.Group.Emplacement",
+  "en": "Emplacements",
+  "zh": "固定工事"
+ },
+ {
+  "key": "CustomContent.Group.Eagle",
+  "en": "Eagles",
+  "zh": "飞鹰"
+ },
+ {
+  "key": "CustomContent.Role.Blast",
+  "en": "blast",
+  "zh": "爆炸"
+ },
+ {
+  "key": "CustomContent.Role.Item",
+  "en": "pod item",
+  "zh": "补给舱物品"
+ },
+ {
+  "key": "CustomContent.Role.Model",
+  "en": "model",
+  "zh": "模型"
+ },
+ {
+  "key": "CustomContent.Role.WeaponIcon",
+  "en": "weapon icon",
+  "zh": "武器图标"
+ },
+ {
+  "key": "CustomContent.Unit.Calls",
+  "en": "calls",
+  "zh": "次"
+ },
+ {
+  "key": "CustomContent.Unit.Items",
+  "en": "items",
+  "zh": "件"
+ },
+ {
+  "key": "CustomContent.Unit.Metres",
+  "en": "m",
+  "zh": "米"
+ },
+ {
+  "key": "CustomStratagem.Blast.Objective",
+  "en": "{0} (objective: loads large packages)",
+  "zh": "{0}（目标：会加载大型资源包）",
+  "comment": "{0}: explosion name"
+ },
+ {
+  "key": "CustomStratagem.Carrier.Default",
+  "en": "default",
+  "zh": "默认"
+ },
+ {
+  "key": "CustomStratagem.Carrier.Group",
+  "en": "Carrier group",
+  "zh": "载体组"
+ },
+ {
+  "key": "CustomStratagem.Carrier.InSlot",
+  "en": "When picked, the carrier itself goes into the loadout slot and shows this stratagem's name, icon, cooldown and uses natively. HD2Runtime falls back to a token when it cannot (several players without custom multiplayer, or no carrier known yet).",
+  "zh": "被选中时，载体本身会放入配装栏位，并以原生方式显示此战略配备的名称、图标、冷却和次数。无法这样做时（多人但未启用自定义多人，或尚无已知载体），HD2Runtime 会回退为令牌。"
+ },
+ {
+  "key": "CustomStratagem.Carrier.Policy",
+  "en": "Custom policy",
+  "zh": "自定义策略"
+ },
+ {
+  "key": "CustomStratagem.Carrier.Policy.Help",
+  "en": "Choose the beacon and carrier families yourself (the older form, without a group).",
+  "zh": "自行选择信标和载体族系（较旧的形式，不使用组）。"
+ },
+ {
+  "key": "CustomStratagem.Carrier.Slots",
+  "en": "Pod capacity",
+  "zh": "补给舱容量"
+ },
+ {
+  "key": "CustomStratagem.Carrier.Slots.Auto",
+  "en": "the pod's items",
+  "zh": "补给舱物品数"
+ },
+ {
+  "key": "CustomStratagem.Carrier.Slots.Hint",
+  "en": "slots to ask the group for",
+  "zh": "向载体组请求的栏位数"
+ },
+ {
+  "key": "CustomStratagem.Checks.RuntimeWords",
+  "en": "Problems found by HD2Runtime's own validator are shown in the Runtime's own words.",
+  "zh": "由 HD2Runtime 自身验证器发现的问题以 Runtime 的原文显示。"
+ },
+ {
+  "key": "CustomStratagem.Family.Evidence",
+  "en": "In play: {0}; {1}. {2}",
+  "zh": "实机：{0}；{1}。{2}",
+  "comment": "{0}: evidence label; {1}: multiplayer label; {2}: Runtime's note (English)"
+ },
+ {
+  "key": "CustomStratagem.Field.ApproachDistance",
+  "en": "Approach distance",
+  "zh": "接近距离"
+ },
+ {
+  "key": "CustomStratagem.Field.ApproachHeight",
+  "en": "Approach height",
+  "zh": "接近高度"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneDonor",
+  "en": "Expendable donor",
+  "zh": "一次性武器供体"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneDonor.Help",
+  "en": "the reviewed expendable whose clone is delivered",
+  "zh": "被投放其克隆的已审核一次性武器"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneLevel",
+  "en": "Clone level",
+  "zh": "克隆程度"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneLevel.Help",
+  "en": "how much of the donor the clone takes: presentation, model or full (the default)",
+  "zh": "克隆从供体继承多少：外观、模型或全部（默认）"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneLobby",
+  "en": "A carrier weapon a lobby member brings",
+  "zh": "大厅成员携带的载体武器"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneOtherClass",
+  "en": "A clone of another component class",
+  "zh": "其他组件类别的克隆"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneRound",
+  "en": "Round",
+  "zh": "弹药"
+ },
+ {
+  "key": "CustomStratagem.Field.CloneRound.Help",
+  "en": "another support weapon's round the clone fires (instead of an impact payload)",
+  "zh": "克隆发射的另一种支援武器弹药（代替撞击爆炸）"
+ },
+ {
+  "key": "CustomStratagem.Field.GunAimHeight",
+  "en": "Aim height",
+  "zh": "瞄准高度"
+ },
+ {
+  "key": "CustomStratagem.Field.GunBehaveAs",
+  "en": "Behaviour",
+  "zh": "行为"
+ },
+ {
+  "key": "CustomStratagem.Field.GunBehaveAs.Help",
+  "en": "gatling_sentry: the Gatling Sentry's AI, casings and rate, with HD2Runtime's target lock",
+  "zh": "gatling_sentry：加特林哨戒炮的 AI、弹壳和射速，并使用 HD2Runtime 的目标锁定"
+ },
+ {
+  "key": "CustomStratagem.Field.GunCasing",
+  "en": "Casings",
+  "zh": "弹壳"
+ },
+ {
+  "key": "CustomStratagem.Field.GunFaceTarget",
+  "en": "Face the target",
+  "zh": "朝向目标"
+ },
+ {
+  "key": "CustomStratagem.Field.GunImpact",
+  "en": "Impact explosion",
+  "zh": "撞击爆炸"
+ },
+ {
+  "key": "CustomStratagem.Field.GunImpact.Help",
+  "en": "each round requests this explosion; a slow donor needs a low rate",
+  "zh": "每发弹药都会请求此爆炸；慢速供体需要较低射速"
+ },
+ {
+  "key": "CustomStratagem.Field.GunRateMultiplier",
+  "en": "Rate multiplier",
+  "zh": "射速倍率"
+ },
+ {
+  "key": "CustomStratagem.Field.GunRound",
+  "en": "Round",
+  "zh": "弹药"
+ },
+ {
+  "key": "CustomStratagem.Field.GunRound.Help",
+  "en": "native leaves the vanilla autocannon untouched; ap4 is the MG-206's armor-piercing round",
+  "zh": "native 不改动原版机炮；ap4 为 MG-206 的穿甲弹"
+ },
+ {
+  "key": "CustomStratagem.Field.GunUnlimitedAmmo",
+  "en": "Unlimited ammo",
+  "zh": "无限弹药"
+ },
+ {
+  "key": "CustomStratagem.Field.Hover",
+  "en": "Hover time",
+  "zh": "悬停时间"
+ },
+ {
+  "key": "CustomStratagem.Field.Hover.Help",
+  "en": "seconds over the beacon after its release",
+  "zh": "释放后在信标上方停留的秒数"
+ },
+ {
+  "key": "CustomStratagem.Field.OrbitAltitude",
+  "en": "Orbit altitude",
+  "zh": "盘旋高度"
+ },
+ {
+  "key": "CustomStratagem.Field.OrbitDuration",
+  "en": "Orbit duration",
+  "zh": "盘旋时长"
+ },
+ {
+  "key": "CustomStratagem.Field.OrbitEntry",
+  "en": "Spiral-in time",
+  "zh": "螺旋进入时间"
+ },
+ {
+  "key": "CustomStratagem.Field.OrbitPeriod",
+  "en": "Seconds per lap",
+  "zh": "每圈秒数"
+ },
+ {
+  "key": "CustomStratagem.Field.OrbitRadius",
+  "en": "Orbit radius",
+  "zh": "盘旋半径"
+ },
+ {
+  "key": "CustomStratagem.Field.PodCapacity",
+  "en": "More items than the rack holds",
+  "zh": "超出补给舱架容量的物品"
+ },
+ {
+  "key": "CustomStratagem.Field.PodMultiplayer",
+  "en": "A carrier pod with several players",
+  "zh": "多人时的载体补给舱"
+ },
+ {
+  "key": "CustomStratagem.Field.PodSecondary",
+  "en": "Secondaries and throwables",
+  "zh": "副武器和投掷物"
+ },
+ {
+  "key": "CustomStratagem.Field.SiloBlast",
+  "en": "Blast",
+  "zh": "爆炸"
+ },
+ {
+  "key": "CustomStratagem.Field.SiloBlast.Help",
+  "en": "the explosion requested where the missile detonates",
+  "zh": "在导弹引爆处请求的爆炸"
+ },
+ {
+  "key": "CustomStratagem.Field.SiloDonor",
+  "en": "Silo",
+  "zh": "发射井"
+ },
+ {
+  "key": "CustomStratagem.Field.SiloFallback",
+  "en": "Fallback blast",
+  "zh": "后备爆炸"
+ },
+ {
+  "key": "CustomStratagem.Field.SiloFallback.Help",
+  "en": "requested instead when the blast's packages are not resident",
+  "zh": "当爆炸的资源包未驻留时改为请求此爆炸"
+ },
+ {
+  "key": "CustomStratagem.Field.Sound",
+  "en": "Firing sound",
+  "zh": "射击音效"
+ },
+ {
+  "key": "CustomStratagem.Field.Sound.Help",
+  "en": "a firing sound of the catalogue; the stratagem that provides its bank is loaded for it",
+  "zh": "音效目录中的射击音效；提供其音效库的战略配备会为其加载"
+ },
+ {
+  "key": "CustomStratagem.Field.UsesPerMission",
+  "en": "Uses per mission",
+  "zh": "每局任务次数"
+ },
+ {
+  "key": "CustomStratagem.Field.VariantRound",
+  "en": "Round",
+  "zh": "弹药"
+ },
+ {
+  "key": "CustomStratagem.Field.VariantRound.Help",
+  "en": "another round of the weapon's own compatibility class",
+  "zh": "该武器自身兼容类别中的另一种弹药"
+ },
+ {
+  "key": "CustomStratagem.Field.VariantWeapon",
+  "en": "Weapon",
+  "zh": "武器"
+ },
+ {
+  "key": "CustomStratagem.Field.VariantWeapon.Help",
+  "en": "the reviewed weapon this variant is made of",
+  "zh": "此变体所基于的已审核武器"
+ },
+ {
+  "key": "CustomStratagem.Generated.Copied",
+  "en": "Copied",
+  "zh": "已复制"
+ },
+ {
+  "key": "CustomStratagem.Generated.Copy",
+  "en": "Copy",
+  "zh": "复制"
+ },
+ {
+  "key": "CustomStratagem.Generated.Json",
+  "en": "Runtime project form",
+  "zh": "Runtime 项目形式"
+ },
+ {
+  "key": "CustomStratagem.Generated.Json.Help",
+  "en": "This stratagem as HD2Runtime's own custom_stratagems.json holds it: what the Runtime SDK's validator and compiler read.",
+  "zh": "此战略配备在 HD2Runtime 自身 custom_stratagems.json 中的形式：即 Runtime SDK 验证器和编译器读取的内容。"
+ },
+ {
+  "key": "CustomStratagem.Generated.Json.Scripted",
+  "en": "A scripted stratagem has no project form: it is Lua only.",
+  "zh": "脚本战略配备没有项目形式：它只有 Lua。"
+ },
+ {
+  "key": "CustomStratagem.Generated.Lua",
+  "en": "Lua",
+  "zh": "Lua"
+ },
+ {
+  "key": "CustomStratagem.Generated.Lua.Help",
+  "en": "The register call the build writes: its fields exactly as HD2Runtime's SDK compiler writes them, then the Lua of the advanced section.",
+  "zh": "构建写入的注册调用：其字段与 HD2Runtime SDK 编译器写入的完全一致，随后是高级部分的 Lua。"
+ },
+ {
+  "key": "CustomStratagem.Group.Flight",
+  "en": "Flight",
+  "zh": "飞行"
+ },
+ {
+  "key": "CustomStratagem.Group.Gun",
+  "en": "Chin gun",
+  "zh": "机头炮"
+ },
+ {
+  "key": "CustomStratagem.Group.Model",
+  "en": "Model",
+  "zh": "模型"
+ },
+ {
+  "key": "CustomStratagem.Group.Orbit",
+  "en": "Orbit",
+  "zh": "盘旋"
+ },
+ {
+  "key": "CustomStratagem.Group.Pod",
+  "en": "Pod",
+  "zh": "补给舱"
+ },
+ {
+  "key": "CustomStratagem.Group.PodContents",
+  "en": "Pod contents",
+  "zh": "补给舱内容"
+ },
+ {
+  "key": "CustomStratagem.Group.Presentation",
+  "en": "Presentation",
+  "zh": "外观"
+ },
+ {
+  "key": "CustomStratagem.GunImpact.Slow",
+  "en": "{0} (slow: rate at most {1})",
+  "zh": "{0}（慢速：射速最多 {1}）",
+  "comment": "{0}: explosion name; {1}: rounds per minute"
+ },
+ {
+  "key": "CustomStratagem.Lua.Extra",
+  "en": "Extra fields",
+  "zh": "额外字段"
+ },
+ {
+  "key": "CustomStratagem.Lua.Extra.Help",
+  "en": "table fields added to the registration as written, for Runtime fields ModBuilder does not model",
+  "zh": "按原样加入注册的表字段，用于 ModBuilder 未建模的 Runtime 字段"
+ },
+ {
+  "key": "CustomStratagem.Lua.Line",
+  "en": "Line {0}: {1}",
+  "zh": "第 {0} 行：{1}",
+  "comment": "{0}: line number; {1}: message"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnActivate",
+  "en": "On activate",
+  "zh": "激活时"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnActivate.Help",
+  "en": "the beacon activated: deliver now (runs for every family)",
+  "zh": "信标已激活：立即投放（所有族系都会运行）"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnBeaconCreated",
+  "en": "On beacon created",
+  "zh": "信标创建时"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnBeaconCreated.Help",
+  "en": "the beacon's first update, after its delivery was changed",
+  "zh": "信标的首次更新，在其投放被更改之后"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnBeaconLanded",
+  "en": "On beacon landed",
+  "zh": "信标落地时"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnBeaconLanded.Help",
+  "en": "the countdown started: ctx.position is set",
+  "zh": "倒计时开始：ctx.position 已设置"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnCalled",
+  "en": "On called",
+  "zh": "呼叫时"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnCalled.Help",
+  "en": "the call-in started",
+  "zh": "呼叫已开始"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnDelivered",
+  "en": "On delivered",
+  "zh": "投放后"
+ },
+ {
+  "key": "CustomStratagem.Lua.OnDelivered.Help",
+  "en": "the delivery was captured: ctx.weapons, ctx.items, ctx.sentry, …",
+  "zh": "投放已捕获：ctx.weapons、ctx.items、ctx.sentry 等"
+ },
+ {
+  "key": "CustomStratagem.Lua.Saved",
+  "en": "Saved",
+  "zh": "已保存"
+ },
+ {
+  "key": "CustomStratagem.Lua.Saving",
+  "en": "Saving…",
+  "zh": "正在保存…"
+ },
+ {
+  "key": "CustomStratagem.Lua.Setup",
+  "en": "Setup",
+  "zh": "初始化"
+ },
+ {
+  "key": "CustomStratagem.Lua.Setup.Help",
+  "en": "Lua run once before the registration: local state and helper functions the callbacks share",
+  "zh": "在注册前运行一次的 Lua：回调共享的局部状态和辅助函数"
+ },
+ {
+  "key": "CustomStratagem.Lua.Setup.Signature",
+  "en": "-- runs once, before hd2.custom_stratagem.register",
+  "zh": "-- 在 hd2.custom_stratagem.register 之前运行一次"
+ },
+ {
+  "key": "CustomStratagem.Lua.Unsaved",
+  "en": "Unsaved changes",
+  "zh": "有未保存的更改"
+ },
+ {
+  "key": "CustomStratagem.Model.AllZones",
+  "en": "All zones",
+  "zh": "所有区域"
+ },
+ {
+  "key": "CustomStratagem.Model.Apply",
+  "en": "Use it",
+  "zh": "使用"
+ },
+ {
+  "key": "CustomStratagem.Model.Apply.Help",
+  "en": "The variant shows this model.",
+  "zh": "变体显示此模型。"
+ },
+ {
+  "key": "CustomStratagem.Model.Base",
+  "en": "base colour",
+  "zh": "基础颜色"
+ },
+ {
+  "key": "CustomStratagem.Model.Check",
+  "en": "Check only",
+  "zh": "仅检查"
+ },
+ {
+  "key": "CustomStratagem.Model.Check.Help",
+  "en": "HD2Runtime only logs whether the model would load (MODEL READY / MODEL NOT READY) and keeps the vanilla model: for a first test.",
+  "zh": "HD2Runtime 只记录模型是否能加载（MODEL READY / MODEL NOT READY）并保留原版模型：用于首次测试。"
+ },
+ {
+  "key": "CustomStratagem.Model.CheckGame",
+  "en": "Check my installed game",
+  "zh": "检查我已安装的游戏"
+ },
+ {
+  "key": "CustomStratagem.Model.Colours",
+  "en": "Colours",
+  "zh": "颜色"
+ },
+ {
+  "key": "CustomStratagem.Model.Create",
+  "en": "Give it its own model",
+  "zh": "为其设置专属模型"
+ },
+ {
+  "key": "CustomStratagem.Model.Debug",
+  "en": "Debug palette",
+  "zh": "调试调色板"
+ },
+ {
+  "key": "CustomStratagem.Model.Debug.Help",
+  "en": "Each of the 8 material zones gets its own bright colour: a first look shows which zone is which part of the weapon.",
+  "zh": "8 个材质区域各自使用鲜明的颜色：一眼即可看出哪个区域对应武器的哪个部分。"
+ },
+ {
+  "key": "CustomStratagem.Model.DebugColour",
+  "en": "debug colour",
+  "zh": "调试颜色"
+ },
+ {
+  "key": "CustomStratagem.Model.GameOk",
+  "en": "Your installed {0} (game build {1}, {2}) is the reviewed base: the model derives (unit {3}…).",
+  "zh": "你已安装的 {0}（游戏版本 {1}，{2}）是已审核的基础：模型可以派生（单位 {3}…）。",
+  "comment": "{0}: base weapon; {1}: game build; {2}: data folder; {3}: digest prefix"
+ },
+ {
+  "key": "CustomStratagem.Model.Help",
+  "en": "A recoloured copy of the weapon's own model. Nothing of the game is stored in the project: the export derives it from your installed game.",
+  "zh": "武器自身模型的重新上色副本。项目中不存储任何游戏数据：导出时从你已安装的游戏派生。"
+ },
+ {
+  "key": "CustomStratagem.Model.KeepBase",
+  "en": "keep the base",
+  "zh": "保留基础"
+ },
+ {
+  "key": "CustomStratagem.Model.Remove",
+  "en": "Remove model",
+  "zh": "移除模型"
+ },
+ {
+  "key": "CustomStratagem.Model.Summary",
+  "en": "Model {0}, from the {1}",
+  "zh": "模型 {0}，来自 {1}",
+  "comment": "{0}: model id; {1}: base weapon"
+ },
+ {
+  "key": "CustomStratagem.Model.Use",
+  "en": "Use",
+  "zh": "用途"
+ },
+ {
+  "key": "CustomStratagem.Model.UseAll",
+  "en": "use the all-zones colour",
+  "zh": "使用所有区域的颜色"
+ },
+ {
+  "key": "CustomStratagem.Model.Zone",
+  "en": "Zone {0}",
+  "zh": "区域 {0}",
+  "comment": "{0}: zone number 0-7"
+ },
+ {
+  "key": "CustomStratagem.Pod.Add",
+  "en": "Add item",
+  "zh": "添加物品"
+ },
+ {
+  "key": "CustomStratagem.Pod.Clone",
+  "en": "The clone (this expendable)",
+  "zh": "克隆（此一次性武器）"
+ },
+ {
+  "key": "CustomStratagem.Pod.Custom",
+  "en": "Custom contents",
+  "zh": "自定义内容"
+ },
+ {
+  "key": "CustomStratagem.Pod.Help",
+  "en": "Each item once (raise its count instead). The carrier's rack decides how many fit: 1 or 2 usable slots, or the pod capacity asked for.",
+  "zh": "每种物品只列一次（改为提高数量）。载体的补给舱架决定能装多少：1 或 2 个可用栏位，或所请求的补给舱容量。"
+ },
+ {
+  "key": "CustomStratagem.Pod.Item",
+  "en": "Pod item",
+  "zh": "补给舱物品"
+ },
+ {
+  "key": "CustomStratagem.Pod.Kind.Backpack",
+  "en": "Backpack",
+  "zh": "背包"
+ },
+ {
+  "key": "CustomStratagem.Pod.Kind.Primary",
+  "en": "Primary weapon",
+  "zh": "主武器"
+ },
+ {
+  "key": "CustomStratagem.Pod.Kind.Support",
+  "en": "Support weapon",
+  "zh": "支援武器"
+ },
+ {
+  "key": "CustomStratagem.Pod.RackCapacity",
+  "en": "the rack's",
+  "zh": "补给舱架容量"
+ },
+ {
+  "key": "CustomStratagem.Pod.RateSelector",
+  "en": "rate-of-fire selector: no per-call rate",
+  "zh": "射速选择器：不可按呼叫设置射速"
+ },
+ {
+  "key": "CustomStratagem.Pod.Reconfigure",
+  "en": "Reconfigure this weapon",
+  "zh": "重新配置此武器"
+ },
+ {
+  "key": "CustomStratagem.Pod.Role.Backpack",
+  "en": "backpack slot",
+  "zh": "背包栏位"
+ },
+ {
+  "key": "CustomStratagem.Pod.Role.Weapon",
+  "en": "weapon slot",
+  "zh": "武器栏位"
+ },
+ {
+  "key": "CustomStratagem.Pod.Total",
+  "en": "{0} items; capacity: {1}",
+  "zh": "{0} 件物品；容量：{1}",
+  "comment": "{0}: item count; {1}: capacity or 'the rack's'"
+ },
+ {
+  "key": "CustomStratagem.Pod.Unverified",
+  "en": "not live-tested in a pod",
+  "zh": "未在补给舱中实机测试"
+ },
+ {
+  "key": "CustomStratagem.Pod.Unverified.Help",
+  "en": "A primary weapon in a pod is not live-tested: the build writes its opt-in.",
+  "zh": "补给舱中的主武器尚未实机测试：构建时会写入其选择项。"
+ },
+ {
+  "key": "CustomStratagem.Pod.Vanilla",
+  "en": "Carrier's vanilla rack",
+  "zh": "载体的原版补给舱架"
+ },
+ {
+  "key": "CustomStratagem.Pod.Vanilla.Help",
+  "en": "The carrier weapon's own pod contents, with the clone in it.",
+  "zh": "载体武器自身的补给舱内容，其中包含克隆。"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Custom",
+  "en": "Custom",
+  "zh": "自定义"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Donor",
+  "en": "Donor's own",
+  "zh": "供体自身"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Icon",
+  "en": "Marker and prompt icon",
+  "zh": "标记和提示图标"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Icon.Donor",
+  "en": "The donor weapon's own icon.",
+  "zh": "供体武器自身的图标。"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Icon.Stratagem",
+  "en": "The custom stratagem's icon.",
+  "zh": "自定义战略配备的图标。"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Name",
+  "en": "Weapon name",
+  "zh": "武器名称"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Name.Donor",
+  "en": "The donor weapon's own name.",
+  "zh": "供体武器自身的名称。"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Name.Stratagem",
+  "en": "The custom stratagem's name ({0}).",
+  "zh": "自定义战略配备的名称（{0}）。",
+  "comment": "{0}: stratagem HUD name"
+ },
+ {
+  "key": "CustomStratagem.Presentation.OwnIcon",
+  "en": "Own icon",
+  "zh": "专属图标"
+ },
+ {
+  "key": "CustomStratagem.Presentation.Stratagem",
+  "en": "Stratagem's",
+  "zh": "战略配备的"
+ },
+ {
+  "key": "CustomStratagem.Preview.CarrierOwn",
+  "en": "the carrier's",
+  "zh": "载体自身的"
+ },
+ {
+  "key": "CustomStratagem.Preview.CustomTrait",
+  "en": "CUSTOM STRATAGEM",
+  "zh": "自定义战略配备",
+  "comment": "The Runtime shows CUSTOM STRATAGEM in game; this is only the preview's label"
+ },
+ {
+  "key": "CustomStratagem.Preview.EagleRearm",
+  "en": "per rearm",
+  "zh": "每次重新装填"
+ },
+ {
+  "key": "CustomStratagem.Preview.Errors.One",
+  "en": "{0} problem refuses the build",
+  "zh": "{0} 个问题阻止构建",
+  "comment": "{0}: count"
+ },
+ {
+  "key": "CustomStratagem.Preview.Errors.Other",
+  "en": "{0} problems refuse the build",
+  "zh": "{0} 个问题阻止构建",
+  "comment": "{0}: count"
+ },
+ {
+  "key": "CustomStratagem.Preview.Hud",
+  "en": "HUD name",
+  "zh": "HUD 名称"
+ },
+ {
+  "key": "CustomStratagem.Preview.More",
+  "en": "{0} more",
+  "zh": "还有 {0} 个",
+  "comment": "{0}: count"
+ },
+ {
+  "key": "CustomStratagem.Preview.Policy",
+  "en": "custom policy ({0} beacon)",
+  "zh": "自定义策略（{0}信标）",
+  "comment": "{0}: beacon label"
+ },
+ {
+  "key": "CustomStratagem.Preview.Ready",
+  "en": "Ready to build",
+  "zh": "可以构建"
+ },
+ {
+  "key": "CustomStratagem.Preview.ReadyWarnings",
+  "en": "Ready to build · warnings: {0}",
+  "zh": "可以构建 · 警告：{0}",
+  "comment": "{0}: count"
+ },
+ {
+  "key": "CustomStratagem.Preview.Unlimited",
+  "en": "unlimited",
+  "zh": "无限"
+ },
+ {
+  "key": "CustomStratagem.Scripted.Pod",
+  "en": "Vanilla pod",
+  "zh": "原版补给舱"
+ },
+ {
+  "key": "CustomStratagem.Scripted.Pod.Hint",
+  "en": "optional: a support stratagem's own pod comes down (on_delivered sees it)",
+  "zh": "可选：投下某个支援战略配备自身的补给舱（on_delivered 可见）"
+ },
+ {
+  "key": "CustomStratagem.Scripted.Runtime",
+  "en": "Nothing: the callbacks deliver",
+  "zh": "无：由回调投放"
+ },
+ {
+  "key": "CustomStratagem.Section.Build",
+  "en": "Build",
+  "zh": "构建"
+ },
+ {
+  "key": "CustomStratagem.Section.Carrier",
+  "en": "Carrier",
+  "zh": "载体"
+ },
+ {
+  "key": "CustomStratagem.Section.Carrier.Hint",
+  "en": "which vanilla stratagem carries it",
+  "zh": "由哪个原版战略配备承载"
+ },
+ {
+  "key": "CustomStratagem.Section.Lua",
+  "en": "Lua",
+  "zh": "Lua"
+ },
+ {
+  "key": "CustomStratagem.Sections",
+  "en": "Sections",
+  "zh": "部分"
+ },
+ {
+  "key": "CustomStratagem.Snippet.Barrage",
+  "en": "Barrage",
+  "zh": "弹幕"
+ },
+ {
+  "key": "CustomStratagem.Snippet.Counter",
+  "en": "Call counter",
+  "zh": "呼叫计数器"
+ },
+ {
+  "key": "CustomStratagem.Snippet.Delivered",
+  "en": "Convert delivered rounds",
+  "zh": "转换投放的弹药"
+ },
+ {
+  "key": "CustomStratagem.Snippet.Explosion",
+  "en": "Explosion at the beacon",
+  "zh": "信标处爆炸"
+ },
+ {
+  "key": "CustomStratagem.Snippet.Log",
+  "en": "Log the call",
+  "zh": "记录呼叫"
+ },
+ {
+  "key": "CustomStratagem.Snippet.Pelican",
+  "en": "Pelican gunship",
+  "zh": "鹈鹕炮艇"
+ },
+ {
+  "key": "CustomStratagem.Snippet.Token",
+  "en": "Token selection",
+  "zh": "令牌选择"
+ },
+ {
+  "key": "CustomStratagem.Traits",
+  "en": "Traits",
+  "zh": "特性"
+ },
+ {
+  "key": "CustomStratagem.Traits.Add",
+  "en": "Add a trait",
+  "zh": "添加特性"
+ },
+ {
+  "key": "CustomStratagem.Traits.Default",
+  "en": "the family's",
+  "zh": "族系默认"
+ },
+ {
+  "key": "CustomStratagem.Traits.Default.Help",
+  "en": "No traits: the panel shows the delivery family's own after CUSTOM STRATAGEM.",
+  "zh": "未设置特性：面板会在 CUSTOM STRATAGEM 之后显示投放族系自身的特性。"
+ },
+ {
+  "key": "CustomStratagem.Traits.Hint",
+  "en": "up to {0}, 1–{1} printable characters, shown in capitals",
+  "zh": "最多 {0} 个，每个 1–{1} 个可打印字符，以大写显示",
+  "comment": "{0}: maximum traits; {1}: maximum length"
+ },
+ {
+  "key": "CustomStratagem.Uses.Hint",
+  "en": "per player and mission; empty: unlimited",
+  "zh": "每名玩家每局任务；留空：无限"
+ },
+ {
+  "key": "CustomStratagems.Card.Uses",
+  "en": "{0} uses",
+  "zh": "{0} 次",
+  "comment": "{0}: uses per mission"
+ },
+ {
+  "key": "CustomStratagems.CopyProject",
+  "en": "Copy as custom_stratagems.json",
+  "zh": "复制为 custom_stratagems.json"
+ },
+ {
+  "key": "CustomStratagems.Create.Examples",
+  "en": "Or start from an example of the {0} family:",
+  "zh": "或从 {0} 族系的示例开始：",
+  "comment": "{0}: family label"
+ },
+ {
+  "key": "CustomStratagems.Gallery.Help",
+  "en": "Simple examples for the main delivery families (support, sentry, Eagle, Pelican, silo) and two of HD2Runtime's own examples. Each builds into exactly the registration the Runtime's own SDK compiles for it; icons start as placeholders.",
+  "zh": "主要投送族系（支援、哨戒炮、飞鹰、鹈鹕、发射井）的简单示例，另有两个 HD2Runtime 自身的示例。每个示例构建出的注册都与 Runtime 自身 SDK 为其编译的完全一致；图标以占位图标开始。"
+ },
+ {
+  "key": "CustomStratagems.Gallery.Title",
+  "en": "Examples",
+  "zh": "示例"
+ },
+ {
+  "key": "CustomStratagems.Import",
+  "en": "Import Runtime project…",
+  "zh": "导入 Runtime 项目…"
+ },
+ {
+  "key": "CustomStratagems.Imported.One",
+  "en": "{0} custom stratagem imported:",
+  "zh": "已导入 {0} 个自定义战略配备：",
+  "comment": "{0}: count"
+ },
+ {
+  "key": "CustomStratagems.Imported.Other",
+  "en": "{0} custom stratagems imported:",
+  "zh": "已导入 {0} 个自定义战略配备：",
+  "comment": "{0}: count"
+ },
+ {
+  "key": "CustomStratagems.MoveEarlier",
+  "en": "Register earlier",
+  "zh": "提前注册"
+ },
+ {
+  "key": "CustomStratagems.MoveLater",
+  "en": "Register later",
+  "zh": "延后注册"
+ },
+ {
+  "key": "CustomStratagem.Family.Change",
+  "en": "Change family",
+  "zh": "更改族系"
+ }
+]
