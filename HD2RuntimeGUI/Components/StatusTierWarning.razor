@@ -1,0 +1,17 @@
+@inject BuilderWorkspace Workspace
+@* HD2Runtime 0.30.2: an extended status (attach tier enemy_slot or other_system) chosen in a status slot. No attack has been live-tested with
+   one, so the write always carries allow_unverified_effect (on every row, live-proven ones included) and the export requires HD2Runtime 0.30.2
+   (0.30.0 refuses it). Warning only: nothing needs to be ticked. *@
+@if (Workspace.ExtendedStatus(Value) is { } status)
+{
+    <div class="field-wide" data-status-extended="@status.Key" data-status-tier="@status.Tier">
+        <AckPanel Title="@T.Format("Status.Extended.Title", Workspace.StatusLabel(status.Key))" Kind="unverified" Description="@status.TierText">
+            <p class="subtle">@T.Markup("Status.Extended.Export.Html", "allow_unverified_effect=true", RuntimeRequirement.Release0302)</p>
+            @if (status.Duration is double seconds) { <p class="subtle" data-status-duration>@T.Format("Status.Extended.Duration", seconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))</p> }
+        </AckPanel>
+    </div>
+}
+@code {
+    // The chosen status key (a saved edit's desired value); nothing is shown for any other status or none.
+    [Parameter] public string? Value { get; set; }
+}

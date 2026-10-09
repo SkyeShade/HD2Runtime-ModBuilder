@@ -77,7 +77,9 @@ public sealed class PlayerWeaponHeatCatalogReader : IPlayerWeaponHeatCatalogRead
                 foreach (var f in w.Fields)
                 {
                     var a = fields.SingleOrDefault(a => a.SemanticFieldId == f.Id);
-                    if (a == null || a.Editable != f.Writable || a.DerivedReadOnly != f.Derived
+                    // 0.30.2: a field the authoring catalog blocks for a default customization item's override after its companions
+                    // were generated stays writable here (the LAS-5 Scythe's heat capacity and heatsinks); the authoring catalog decides.
+                    if (a == null || a.Editable != f.Writable && !(f.Writable && PlayerWeaponCatalogReader.OverriddenAfterSummary(a)) || a.DerivedReadOnly != f.Derived
                         || !WeaponScalar.Equal(a, a.CurrentDefault, f.Value)
                         || f.Value.ValueKind is not (JsonValueKind.Number or JsonValueKind.Null)
                         || (!f.Writable && string.IsNullOrWhiteSpace(f.Reason))) throw new InvalidDataException("Heat capability disagrees with authoring metadata: " + w.Weapon + " / " + f.Id);

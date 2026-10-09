@@ -194,8 +194,8 @@ public sealed class EquipmentTests
         var choices = MountedStatusSlots.For(sdk, s1);
         Assert.True(choices.AllowNone); Assert.Contains("stun_medium", choices.Statuses); Assert.Contains("stun_small", choices.Statuses);
         Assert.All(choices.Statuses, k => Assert.True(sdk.StatusEffects!.Find(k)!.Attachable || k == "stun_small"));
-        // Only attachable statuses: an enemy-only status is refused where the edit is made.
-        await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(s1.InstanceKey, "acid_splash"));
+        // Only attachable statuses: a never-attachable status (0.30.2 attaches the enemy-only ones as extended statuses) is refused where the edit is made.
+        await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(s1.InstanceKey, "smoke_covered"));
         await Assert.ThrowsAsync<InvalidDataException>(() => w.SetEntityAsync(s1.InstanceKey, "Stun Medium"));
 
         await w.SetEntityAsync(s1.InstanceKey, "stun_medium");

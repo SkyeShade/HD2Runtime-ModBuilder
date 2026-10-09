@@ -64,7 +64,7 @@ code, cooldown, uses, family, carrier) with its build readiness, every error one
 |---|---|
 | Identity | HUD name, panel name, description, **traits** (up to 4, after the automatic CUSTOM STRATAGEM), internal id (*Change ID…*) |
 | Icon | 256 × 256 PNG or placeholder; preview as the game masks it; automatic or raw preparation |
-| Call-in | arrow code (refuses other custom codes and native ones; tells when a mission-only native code is related), cooldown, **uses per mission** |
+| Call-in | arrow code (refuses other custom codes and native ones; tells when a mission-only native code is related), cooldown, **uses per mission** (Unlimited or Limited 1 to 100; below) |
 | Carrier | **carrier groups** that can carry this payload (the family's default marked) with pod capacity for pod groups, or a custom beacon / family policy; preferred and allowed families, exclusions, extra call-in packages |
 | Delivery | the family cards, Runtime's notes and play status, then only that family's editors (below) and what Runtime refuses, with its reason |
 | Lua | the escape hatch (below) |
@@ -120,7 +120,7 @@ The Lua section holds, per stratagem, everything data cannot say, in the order t
 | `on_called`, `on_beacon_created`, `on_beacon_landed`, `on_activate`, `on_delivered` | `name=function(ctx) … end,` in the register call |
 | `fields` | extra registration fields written as they are (for Runtime fields ModBuilder does not model, such as `selection = 'token',`) |
 
-The editor is ModBuilder's Lua editor: completion from the **target Runtime's own stub** (bundled `hd2runtime-stubs-0.30.0.lua`;
+The editor is ModBuilder's Lua editor: completion from the **target Runtime's own stub** (bundled `hd2runtime-stubs-0.30.3.lua`;
 `ctx` is typed as `HD2CustomStratagemCall`, so `ctx:` offers `barrage`, `log`, `associate`, `spawned`), syntax markers as you type, and
 snippets built from real signatures (log the call, a barrage of the stratagem's own shell, an explosion at the beacon, a Pelican
 gunship, converting delivered rounds, a call counter, token selection). A change is saved shortly after typing stops. `on_delivered` is
@@ -274,9 +274,20 @@ donors with rack counts and rate selectors, rounds, clone and variant donors, se
 explosion donors, Pelican explosion donors with their rate limits, sounds, silos, blasts, pod items and racks, carrier groups, native
 codes, carrier families, stratagems). Unknown keys are read leniently, as the Runtime asks builders to.
 
-ModBuilder 1.7 bundles the schema of HD2Runtime 0.30.0 at `893d31f` (`CustomContent/Targets/CustomStratagemSchema-0.30.0.json`,
-byte for byte, SHA-256 `624d7d1c…9a9e`), with that Runtime's model facts (`ModelBaseCapabilities-0.30.0.json`), LuaLS stub and example
-projects. `HD2RUNTIME_CUSTOM_SCHEMA=<path>` makes a run use another schema file (a Runtime developer testing schema changes); a schema
+ModBuilder bundles the schema of HD2Runtime 0.30.3 at `7da218b` (`CustomContent/Targets/CustomStratagemSchema-0.30.3.json`, byte for
+byte, SHA-256 `aa898c24…d74e`; 0.30.2's was `9dc2f986…6945`, and 1.7.0 bundled 0.30.0's, `624d7d1c…9a9e`), with that Runtime's model facts
+(`ModelBaseCapabilities-0.30.3.json`), LuaLS stub and example projects. 0.30.2 changed only the sound catalogue of the custom stratagem API (`primary/smg37/seaf` is now
+`seaf/3`, `secondary/gp31/alt` is now `other/wep_grenadier_rifle/1`; the Runtime still plays the old names). A saved custom stratagem
+with an old name shows the schema's refusal under its sound field with a **Use** button for the new name. The custom stratagem API is
+0.30.0's, so custom content still requires HD2Runtime 0.30.0, or 0.30.2 when it uses one of the two new names.
+
+0.30.3 changed only the range of a stratagem's `uses`: -1 to 100, where 0 or -1 (or none) mean unlimited (0.30.2: 1 to 100). The editor
+offers **Unlimited** (no value, which every 0.30 release reads as unlimited) or **Limited** with a count of 1 to 100; a count of 0 is
+unlimited too. ModBuilder never writes 0 or -1 itself, but keeps one read from an imported Runtime project, so the project round-trips:
+the field then says the value requires HD2Runtime 0.30.3 and offers **Use unlimited (no value)**, and the export requires 0.30.3
+(`RuntimeRequirement.Release0303`) until it is removed. Below -1 is refused in Runtime's words. An Eagle's uses stay per rearm.
+
+`HD2RUNTIME_CUSTOM_SCHEMA=<path>` makes a run use another schema file (a Runtime developer testing schema changes); a schema
 whose format the target does not know is refused with the reason and the bundled one is used.
 
 The bound SDK and the custom content target are independent: a project bound to an older SDK (0.28.1) can have custom content (its

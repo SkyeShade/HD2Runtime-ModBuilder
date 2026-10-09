@@ -1,0 +1,14 @@
+[
+ {
+  "key": "CustomContent.Field.Renamed",
+  "en": "HD2Runtime renamed this sound: {0} is now {1}. The Runtime still plays the old name, but its custom stratagem schema lists only the new one.",
+  "zh": "HD2Runtime 已重命名此声音：{0} 现为 {1}。Runtime 仍会播放旧名称，但其自定义战略配备架构只列出新名称。",
+  "comment": "{0}: saved sound name; {1}: its new name"
+ },
+ {
+  "key": "CustomContent.Field.UseRenamed",
+  "en": "Use {0}",
+  "zh": "改用 {0}",
+  "comment": "{0}: the new sound name"
+ }
+]

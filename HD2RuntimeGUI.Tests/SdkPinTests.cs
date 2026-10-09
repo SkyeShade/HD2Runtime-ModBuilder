@@ -7,7 +7,7 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// ModBuilder 1.7.0 is built against HD2Runtime 0.30.0 (1.4.2 to 1.6.0: 0.28.1). The fixture sdk-<SdkPin.Version>.zip is that release asset; the
+// ModBuilder 1.7.1 is built against HD2Runtime 0.30.3 (1.7.0: 0.30.0; 1.4.2 to 1.6.0: 0.28.1). The fixture sdk-<SdkPin.Version>.zip is that release asset; the
 // bundled SDK is its files byte for byte, a newer bundled SDK becomes current on upgrade, and a same-version build that differs (a local
 // sdk/ folder of a later Runtime commit) is always reported as a different build.
 public sealed class SdkPinTests

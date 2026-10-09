@@ -329,7 +329,7 @@ try {
     assert.equal(await evaluate(`${q('[data-code-editor] .arrow-seq')}.innerText.replace(/[^↑↓←→]/g, '')`), '↑↑↓↓', 'reopened: call-in code');
     await go('export');
     await waitFor(q('[data-export-custom]'), 'export notice');
-    assert.match(await evaluate(`${q('[data-export-custom]')}.innerText`), /HD2Runtime 0\.30\.0 or newer/);
+    assert.match(await evaluate(`${q('[data-export-custom]')}.innerText`), /HD2Runtime 0\.30\.3 or newer/);
     await evaluate("document.querySelector('.page-heading .primary').click()"); await idle();
     await waitFor(q('.export-success'), 'export succeeded');
     const exported = await evaluate("document.querySelector('.export-success code.path').innerText");

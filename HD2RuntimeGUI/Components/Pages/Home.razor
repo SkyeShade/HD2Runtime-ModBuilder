@@ -52,7 +52,7 @@
             <section class="empty-state workspace-empty" data-empty-workspace="@Page"><div class="empty-icon">◇</div><h2>@PageTitle</h2><p>@T["Home.NoProject.Help"]</p>
                 <div class="actions"><button @onclick="ShowLibrary">@T["Home.NoProject.OpenLibrary"]</button><button class="primary" @onclick="BeginCreate">@T["ProjectLibrary.CreateNewMod"]</button></div></section>
         }
-        else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => { StratagemCategory = c; StratagemSupportTab = null; }" SupportTab="@StratagemSupportTab" Changed="RefreshWeaponUI" /> }
+        else if (Page == "stratagems") { <Stratagems Category="@StratagemCategory" CategoryChanged="c => { StratagemCategory = c; StratagemSupportTab = null; }" SupportTab="@StratagemSupportTab" Open="@StratagemOpen" Changed="RefreshWeaponUI" /> }
         else if (Page == "support") { <SupportWeapons Changed="RefreshWeaponUI" /> }
         else if (Page == "boosters") { <Boosters Changed="RefreshWeaponUI" /> }
         else if (Page == "helldiver") { <HelldiverPage Changed="RefreshWeaponUI" /> }
@@ -217,7 +217,7 @@
             {
                 <section class="panel"><h2>@T["Export.Title"]</h2><p>@T.Format("Export.Help", active.SdkVersion, active.RuntimeApi)</p><label for="export-directory">@T["Export.Directory.Label"]</label><div class="input-action"><input id="export-directory" @bind="ExportDirectory" /><button @onclick="SaveExportDirectory">@T["Export.Directory.Save"]</button></div><p class="subtle">@T["Export.Reproducible"]</p>@if (Workspace.Metadata?.Has028 == true) { <p class="subtle" data-export-apply-timing>@T.Markup("Export.ApplyTiming.Html", "registered operations settled")</p> }<button class="primary" @onclick="BuildExport">@T["Export.BuildButton"]</button></section>
                 @if (CustomContentBuild.Has(active))
-                { <p class="custom-notice" data-export-custom>@T.Format("Export.CustomContent", CustomContentBuild.RequiredRuntime(active, Workspace.Metadata!, Workspace.CustomTarget), Workspace.CustomTarget.RuntimeLabel)</p> }
+                { <p class="custom-notice" data-export-custom>@T.Format("Export.CustomContent", RuntimeRequirement.Minimum(active, Workspace.Metadata!), Workspace.CustomTarget.RuntimeLabel)</p> }
                 <ArsenalPresentationPanel Changed="RefreshWeaponUI" />
                 <PackagedFilesPanel Changed="RefreshWeaponUI" />
                 @if (Workspace.LastExport != null) { <section class="panel export-success" role="status"><span class="badge green">@T["Export.Succeeded"]</span><h2>@T["Export.Complete"]</h2><code class="path">@Workspace.LastExport</code><button @onclick="() => Run(Workspace.OpenExportAsync)">@T["Export.OpenFolder"]</button></section> }

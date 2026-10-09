@@ -189,6 +189,9 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
             if (payload.Composition.GetValueOrDefault(AttackOutputReader.FileName) is { } outputs) sdk = sdk with { AttackOutputs = AttackOutputReader.Read(outputs, sdk.Version, sdk.PlayerWeapons!) };
             else if (sdk.Has028) throw MissingFile(AttackOutputReader.FileName, "SDK is missing attack output capabilities.");
             if (sdk.AttackOutputs is { } hosts && sdk.Has028) LinkProjectileHosts(hosts, sdk.SupportAuthoring!, sdk.Entities!.VehicleWeapons!);
+            // 0.30.2 sentry and emplacement hosts name published stratagems.
+            if (sdk.Entities?.VehicleWeapons?.StratagemHosts.Values.Any(h => sdk.Stratagems?.Root(h.Stratagem) == null) == true)
+                throw new InvalidDataException("Inconsistent stratagem projectile host link.");
             // 0.28.0 reference catalogs: every weapon feed is a published player or support weapon.
             if (sdk.Has028)
             {
@@ -203,6 +206,18 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
                 if (!sdk.PlayerWeapons!.Weapons.SelectMany(w => w.Fields).Concat(sdk.PlayerWeapons.Subweapons?.SelectMany(s => s.Fields) ?? [])
                         .Where(f => f.Type == WeaponCapability.StatusReference).SelectMany(f => f.AllowedReferences ?? []).All(k => sdk.StatusEffects.Find(k) != null))
                     throw new InvalidDataException("Inconsistent status reference link.");
+                // 0.30.2 extended statuses are published in every player status slot's allowed list; until they are authored
+                // (AuthoredTypes.ExtendedStatuses) a slot offers the others, and its current status.
+                if (!AuthoredTypes.ExtendedStatuses && sdk.StatusEffects.Statuses.Values.Any(s => s.Extended))
+                {
+                    var statuses = sdk.StatusEffects;
+                    WeaponCapability Offered(WeaponCapability f) => f.Type == WeaponCapability.StatusReference && f.AllowedReferences is { } keys
+                        && keys.Any(k => statuses.Find(k) is { Extended: true } && !(f.CurrentDefault.ValueKind == System.Text.Json.JsonValueKind.String && f.CurrentDefault.GetString() == k))
+                        ? f with { AllowedReferences = keys.Where(k => statuses.Find(k) is not { Extended: true } || f.CurrentDefault.ValueKind == System.Text.Json.JsonValueKind.String && f.CurrentDefault.GetString() == k).ToArray() } : f;
+                    var pw = sdk.PlayerWeapons!;
+                    sdk = sdk with { PlayerWeapons = pw with { Weapons = pw.Weapons.Select(w => w with { Fields = w.Fields.Select(Offered).ToArray() }).ToArray(),
+                        Subweapons = pw.Subweapons?.Select(w => w with { Fields = w.Fields.Select(Offered).ToArray() }).ToArray() } };
+                }
             }
         }
         // The LuaLS stub only drives custom Lua autocomplete, for any SDK that ships one: an unreadable stub leaves autocomplete off
@@ -221,11 +236,17 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         var vehicleFields = vehicles.Published.Values.Where(f => f.Type == "projectile_reference").ToArray();
         foreach (var s in outputs.ProjectileSources)
         {
-            if (s.HostKind == AttackProjectileSource.SupportKind)
+            // 0.30.2 sentry and emplacement hosts: a mounted-weapon source with no field instance, described by the vehicle weapon catalog's
+            // stratagem host (writable exactly where the source is directly writable, the same attack and compatibility class).
+            if (s.HostKind == AttackProjectileSource.VehicleKind && vehicles.StratagemHosts.TryGetValue(s.Weapon, out var host))
+                Check(host.Writable == s.DirectWritable && host.Baseline.Attack == s.Attack && !vehicleFields.Any(f => f.Weapon == s.Weapon)
+                    && outputs.ProjectileSources.Count(o => o.HostKind == s.HostKind && o.Weapon == s.Weapon) == 1);
+            else if (s.HostKind == AttackProjectileSource.SupportKind)
                 Check(supportFields.Count(f => f.SupportWeapon == s.Weapon && f.Target.AttackRole == s.Attack) == (s.DirectWritable ? 1 : 0));
             else if (s.HostKind == AttackProjectileSource.VehicleKind)
                 Check(vehicleFields.Count(f => f.Weapon == s.Weapon && f.Target.Attack == s.Attack) == (s.DirectWritable ? 1 : 0));
         }
+        Check(vehicles.StratagemHosts.Values.All(h => outputs.Source(AttackProjectileSource.VehicleKind, h.Key, h.Baseline.Attack) != null));
         Check(supportFields.All(f => outputs.Source(f.SupportWeapon, f.Target.AttackRole!) is { DirectWritable: true, HostKind: AttackProjectileSource.SupportKind })
             && vehicleFields.All(f => outputs.Source(f.Weapon, f.Target.Attack!) is { DirectWritable: true, HostKind: AttackProjectileSource.VehicleKind }));
     }

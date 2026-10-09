@@ -1,4 +1,4 @@
-"""Validate ModBuilder custom content exports with HD2Runtime's own custom stratagem registration (HD2Runtime 0.30.0).
+"""Validate ModBuilder custom content exports with HD2Runtime's own custom stratagem registration (HD2Runtime 0.30.3).
 
     py -3 -B tools/custom-content/validate-runtime.py --runtime ../HD2Runtime HD2RuntimeGUI.Tests/bin/Debug/net10.0/custom-content-exports/*.zip
 
@@ -51,7 +51,7 @@ def addon_from_export(zip_path: Path, read_archive, resource_hash) -> tuple[str,
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--runtime', type=Path, required=True, help='HD2Runtime 0.30.0 tree (read-only)')
+    parser.add_argument('--runtime', type=Path, required=True, help='HD2Runtime 0.30.3 tree (read-only)')
     parser.add_argument('exports', nargs='+', type=Path)
     args = parser.parse_args()
     root = args.runtime.resolve()

@@ -28,7 +28,7 @@
         <dt>@T["CustomStratagem.Field.Cooldown"]</dt>
         <dd data-preview-cooldown>@(cooldown.Supported ? Stratagem.Cooldown is { } cd ? CustomLabels.Number(cd) + " " + CustomLabels.Unit(T, "seconds") : T["CustomStratagem.Preview.CarrierOwn"] : T["CustomStratagem.Preview.EagleRearm"])</dd>
         <dt>@T["CustomStratagem.Field.UsesPerMission"]</dt>
-        <dd data-preview-uses>@(Stratagem.Delivery.Family == DeliveryFamily.Eagle ? T["CustomStratagem.Preview.EagleRearm"] : Stratagem.Uses?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? T["CustomStratagem.Preview.Unlimited"])</dd>
+        <dd data-preview-uses>@(Stratagem.Delivery.Family == DeliveryFamily.Eagle ? T["CustomStratagem.Preview.EagleRearm"] : (Stratagem.Uses is { } uses and > 0 ? uses.ToString(System.Globalization.CultureInfo.InvariantCulture) : T["CustomStratagem.Preview.Unlimited"]))</dd>
         <dt>@T["CustomStratagem.Field.MaxPerPlayer"]</dt>
         <dd data-preview-per-player>@(Stratagem.MaxPerPlayer?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? T["CustomStratagem.Preview.NoLimit"])</dd>
         <dt>@T["CustomStratagem.Section.Delivery"]</dt>

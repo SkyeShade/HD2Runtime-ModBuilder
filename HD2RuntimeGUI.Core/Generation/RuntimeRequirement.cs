@@ -6,8 +6,10 @@ namespace HD2RuntimeGUI.Core.Generation;
 /// <summary>
 /// The minimum HD2Runtime an export declares (hd2runtime.json requires.hd2runtime.min_version, the README and the wrapper's check): the bound
 /// SDK's version, raised by the custom content target's (CustomContentBuild.RequiredRuntime) and by every field or support attack role the
-/// project writes that only a newer Runtime has. The floors mirror HD2Runtime 0.30.0's scripts/validate_examples.py
-/// (UNRELEASED_FIELDS, KIND_FIELD_FLOORS, SUPPORT_ROLES_UNRELEASED), which refuses an example that writes them with a lower min_version.
+/// project writes that only a newer Runtime has. The floors mirror HD2Runtime 0.30.2's scripts/validate_examples.py
+/// (UNRELEASED_FIELDS, KIND_FIELD_FLOORS, SUPPORT_ROLES_UNRELEASED for 0.30.0; NEXT_RELEASE, WEAPON_ROOTS_0_30_2 and the player-weapon
+/// explosion status pattern for 0.30.2), which refuses an example that writes them with a lower min_version, and 0.30.3's custom stratagem
+/// uses range (an explicit 0 or -1, unlimited, which 0.30.2 refuses).
 /// Older floors (0.24.0 boosters, 0.28.0 fields, ...) never raise anything: a project writes only what its bound SDK publishes.
 /// </summary>
 public static class RuntimeRequirement
@@ -18,6 +20,29 @@ public static class RuntimeRequirement
     // The first SDK that carries the 0.30 behaviour: the 0.30.0-dev test builds (a prerelease sorts below its release, so ">= First030" holds
     // for both). SDK checks use it, never the export floors.
     public const string First030 = "0.30.0-dev";
+    // The release that added a feature of 0.30.2 (0.30.1 added none): writes on the seven weapons it resolved to their proven roots, status
+    // slots on player-weapon explosions, the sentry / emplacement projectile hosts, and the two sound names its catalogue added (custom
+    // stratagems: the Runtime 0.30.0 does not know them). What 0.30.0 released keeps Release030.
+    public const string Release0302 = "0.30.2";
+    public static readonly IReadOnlySet<string> WeaponRoots0302 = new HashSet<string>(StringComparer.Ordinal)
+    { "GP-31 Grenade Pistol", "P-72 Crisper", "LAS-5 Scythe", "LAS-7 Dagger", "CQC-42 Machete", "CQC-73 Entrenchment Tool", "SMG-37 Defender" };
+    public static readonly IReadOnlySet<string> Sounds0302 = new HashSet<string>(StringComparer.Ordinal) { "seaf/3", "other/wep_grenadier_rifle/1" };
+    // The release that added a feature of 0.30.3: a custom stratagem's uses may be 0 or -1, both unlimited (0.30.2 refuses uses below 1).
+    // ModBuilder writes no uses for unlimited (every 0.30 Runtime reads that as unlimited) and keeps an explicit 0 or -1 only from an imported
+    // Runtime project, so it round-trips; such a value raises the export to 0.30.3.
+    public const string Release0303 = "0.30.3";
+    /// <summary>Whether a custom stratagem's uses is an explicit unlimited (0 or -1, HD2Runtime 0.30.3) rather than none.</summary>
+    public static bool ExplicitUnlimitedUses(int? uses) => uses is 0 or -1;
+    // The 23 statuses 0.30.2 made attachable (schemas/status_attachment_policy.json: tiers enemy_slot and other_system). Runtime 0.30.0 accepts
+    // none of them in a status slot, so a write of one needs 0.30.2 (the validator has no rule of its own; Runtime refuses them at load).
+    public static readonly IReadOnlySet<string> ExtendedStatuses0302 = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "confusion", "lava", "acid_splash", "choked", "stun_massive", "inverted_aim_assist", "tremor", "tornado_stun",
+        "acid_stream", "thermite", "cyborg_fire", "burning_light", "radiation_light", "radiation_heavy", "electric", "bleed", "poison", "gloom",
+        "slowed", "rooted", "blind", "deaf", "stun_illuminate",
+    };
+    private static bool ExtendedStatus(string fieldType, System.Text.Json.JsonElement value) => fieldType == WeaponCapability.StatusReference
+        && value.ValueKind == System.Text.Json.JsonValueKind.String && ExtendedStatuses0302.Contains(value.GetString()!);
     // UNRELEASED_FIELDS, normalised as the validator normalises them (projectile/damage/explosion role and phase qualifiers removed).
     public static readonly IReadOnlySet<string> Fields030 = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -75,9 +100,41 @@ public static class RuntimeRequirement
         {
             foreach (var f in Field("support_weapon", c.SemanticFieldId)) yield return f;
             if (c.AttackRole is { } role && SupportRoles030.Contains(role)) yield return (Release030, "support attack role " + role);
+            if (ExtendedStatus(c.FieldType, c.DesiredValue)) yield return (Release0302, "extended status " + c.DesiredValue.GetString());
         }
-        foreach (var c in project.EntityChanges.Where(c => c.Enabled)) foreach (var f in Field(c.Resource, c.SemanticFieldId)) yield return f;
-        foreach (var c in project.WeaponChanges.Where(c => c.Enabled)) foreach (var f in Field("player_weapon", c.SemanticFieldId)) yield return f;
+        foreach (var c in project.EntityChanges.Where(c => c.Enabled))
+        {
+            foreach (var f in Field(c.Resource, c.SemanticFieldId)) yield return f;
+            if (ExtendedStatus(c.FieldType, c.DesiredValue)) yield return (Release0302, "extended status " + c.DesiredValue.GetString());
+        }
+        foreach (var c in project.WeaponChanges.Where(c => c.Enabled))
+        {
+            foreach (var f in Field("player_weapon", c.SemanticFieldId)) yield return f;
+            if (WeaponRoots0302.Contains(c.Weapon)) yield return (Release0302, c.Weapon + " (blocked as a duplicate identity before 0.30.2)");
+            if (AuthoredTypes.IsPlayerExplosionStatus(c.SemanticFieldId)) yield return (Release0302, "player weapon explosion status " + c.SemanticFieldId);
+            if (ExtendedStatus(c.FieldType, c.DesiredValue)) yield return (Release0302, "extended status " + c.DesiredValue.GetString());
+        }
+        // Object scalars (a projectile's direct hit, an explosion row: Player Weapons with the composition graphs) take the status floors.
+        foreach (var c in project.CompositionChanges.Where(c => c.Enabled && c.Scalar != null))
+        {
+            if (AuthoredTypes.IsPlayerExplosionStatus(c.Scalar!.SemanticFieldId)) yield return (Release0302, "player weapon explosion status " + c.Scalar.SemanticFieldId);
+            if (ExtendedStatus(c.Scalar.FieldType, c.Scalar.DesiredValue)) yield return (Release0302, "extended status " + c.Scalar.DesiredValue.GetString());
+        }
+        foreach (var c in (project.AttackOutputChanges ?? []).Where(c => c.Enabled))
+        {
+            if (c.IsPlayer && WeaponRoots0302.Contains(c.Weapon)) yield return (Release0302, c.Weapon + " (blocked as a duplicate identity before 0.30.2)");
+            if (c.Kind == AttackOutputChange.VehicleHost && sdk?.Entities?.VehicleWeapons?.StratagemHosts.ContainsKey(c.Weapon) == true)
+                yield return (Release0302, "sentry / emplacement projectile host " + c.Weapon);
+        }
+        if (project.CustomContent is { } content)
+        {
+            foreach (var a in content.Assignments.Where(a => a.Enabled && a.HostKind == AttackOutputChange.PlayerHost && WeaponRoots0302.Contains(a.Weapon)))
+                yield return (Release0302, a.Weapon + " (blocked as a duplicate identity before 0.30.2)");
+            foreach (var sound in Sounds(System.Text.Json.JsonSerializer.SerializeToNode(content, Storage.JsonStorage.Options)).Where(Sounds0302.Contains).Distinct())
+                yield return (Release0302, "custom stratagem sound " + sound);
+            foreach (var s in content.Stratagems.Where(s => ExplicitUnlimitedUses(s.Uses)))
+                yield return (Release0303, "custom stratagem " + s.Id + " uses " + s.Uses + " (unlimited)");
+        }
         if (sdk?.AttackOutputs is not { } outputs) yield break;
         bool Donor(string? output) => output != null && outputs.Output(output)?.IsDonor == true;
         string? Token(System.Text.Json.JsonElement value) => value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : null;
@@ -87,6 +144,15 @@ public static class RuntimeRequirement
         foreach (var c in project.SupportChanges.Where(c => c.Enabled && c.SemanticFieldId == FunctionProjectile.Field && Donor(Token(c.DesiredValue))))
             yield return (Release030, "projectile donor " + Token(c.DesiredValue));
     }
+
+    // Every string a custom content section stores under a "sound" key (a Pelican gun's, a weapon's).
+    private static IEnumerable<string> Sounds(System.Text.Json.Nodes.JsonNode? node) => node switch
+    {
+        System.Text.Json.Nodes.JsonObject o => o.SelectMany(p => p.Key.Equals("sound", StringComparison.OrdinalIgnoreCase)
+            && p.Value is System.Text.Json.Nodes.JsonValue v && v.TryGetValue<string>(out var s) ? [s] : Sounds(p.Value)),
+        System.Text.Json.Nodes.JsonArray a => a.SelectMany(Sounds),
+        _ => [],
+    };
 
     /// <summary>The bound SDK's version (or the custom content target's), raised to the highest floor of what the project writes.</summary>
     public static string Minimum(ModProject project, SdkMetadata sdk)

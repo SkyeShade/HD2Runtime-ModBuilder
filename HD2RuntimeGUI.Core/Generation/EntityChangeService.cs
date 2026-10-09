@@ -213,7 +213,9 @@ public sealed class EntityLua(IEntityChangeService service) : IEntityLua
                 var body = "{\n    id=" + LuaGenerator.Quote("entity-" + SupportChangeService.Hash(project.ResourceId + "\n" + group.Key)[..24]) + ",\n    target=" + Target(f.Target, AmmoFeed(catalog, rows.Select(r => r.Field))) + ",\n";
                 if (f.AllowSharedRequired) body += "    allow_shared=true,\n";
                 if (rows.Any(r => r.Field.Acknowledgement == "allow_unverified_reference" && EntityScalar.AcknowledgementRequired(r.Field, r.Change.DesiredValue))) body += "    allow_unverified_reference=true,\n";
-                if (rows.Any(r => r.Field.Acknowledgement == "allow_unverified_effect" && EntityScalar.AcknowledgementRequired(r.Field, r.Change.DesiredValue))) body += "    allow_unverified_effect=true,\n";
+                // 0.30.2: an extended status needs allow_unverified_effect on every row, a live-proven value's included.
+                if (rows.Any(r => r.Field.Acknowledgement == "allow_unverified_effect" && EntityScalar.AcknowledgementRequired(r.Field, r.Change.DesiredValue)
+                    || CompositionOptIns.Extended(sdk, r.Field.Type, r.Change.DesiredValue))) body += "    allow_unverified_effect=true,\n";
                 if (rows.Length == 1)
                 { var r = rows[0]; body += $"    field={r.Field.ApiFieldConstant},\n    expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},\n    value={Value(r.Field, r.Change)},\n"; }
                 else body += "    changes={\n" + string.Join("\n", rows.Select(r => $"        {{field={r.Field.ApiFieldConstant},expect={EntityScalar.Lua(r.Field, r.Change.ExpectedValue)},value={Value(r.Field, r.Change)}}},")) + "\n    },\n";

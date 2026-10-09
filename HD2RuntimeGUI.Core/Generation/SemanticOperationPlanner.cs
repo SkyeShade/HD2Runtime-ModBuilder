@@ -124,8 +124,9 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                 target, semantic, Accessor(sdk, semantic), c.Scalar == null ? Explosion(c.ExpectedExplosion!) : Scalar(f, c.Scalar.ExpectedValue),
                 c.Scalar == null ? Explosion(c.DesiredExplosion!) : Scalar(f, c.Scalar.DesiredValue), c.EnsureEnabled, f.AffectsMultipleWeapons, new(c.Weapon, c.AttackRole),
                 Key: c.Scalar == null ? null : ModOptionsService.ObjectKey(c),
-                // Object fields Runtime has not proven in play (including status slots outside the live-proven direct-hit rows) carry the opt-in.
-                Unverified: c.Scalar != null && CompositionOptIns.EffectFor(f, c.Scalar.DesiredValue)));
+                // Object fields Runtime has not proven in play (including status slots outside the live-proven direct-hit rows) carry the opt-in,
+                // and so does every extended status (0.30.2), on any row.
+                Unverified: c.Scalar != null && CompositionOptIns.EffectFor(sdk, f, c.Scalar.DesiredValue)));
         }
         var swaps = project.ProjectileChanges.Where(c => c.Enabled).ToArray();
         if (sdk.Plans != null)

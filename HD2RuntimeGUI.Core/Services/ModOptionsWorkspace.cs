@@ -79,7 +79,9 @@ public sealed partial class BuilderWorkspace
                 }
                 case "support":
                 {
-                    var value = SupportChangeService.Catalog(sdk).Field(parts[0]).Value.Baseline.GetRawText();
+                    var field = SupportChangeService.Catalog(sdk).Field(parts[0]); var value = field.Value.Baseline.GetRawText();
+                    // 0.30.2 noEffect: an option on an unedited backpack-fed ammunition row would be a new edit of it (refused).
+                    NoEffectRows.RefuseNew(field, null, field.Value.Baseline);
                     return ModOptionsService.SupportTarget(sdk, supportChanges.Create(sdk, parts[0], value)) is { } t ? new(t, x => ApplySupportValue(x, parts[0], value, false)) : null;
                 }
                 case "stratagem":

@@ -49,6 +49,8 @@ public interface ICustomContentTarget
     CustomFieldInfo Describe(string path, CustomStratagem? stratagem = null);
     /// <summary>How a dropdown shows one of a field's choices (a pod item's name, an attack output's label); the value itself otherwise.</summary>
     string ChoiceLabel(string path, string value);
+    /// <summary>The current name of a saved choice the Runtime renamed (a sound name), when the field offers it; null otherwise.</summary>
+    string? RenamedChoice(string path, string value) => null;
     /// <summary>The custom stratagem in the Runtime's own project form (custom_stratagems.json).</summary>
     System.Text.Json.Nodes.JsonObject ProjectForm(CustomStratagem stratagem);
     /// <summary>The carrier groups that can carry the stratagem's payload, and the one Runtime uses when none is chosen.</summary>
@@ -86,7 +88,7 @@ public interface ICustomContentTarget
 public static class CustomContentTargets
 {
     public const string SchemaEnvironment = "HD2RUNTIME_CUSTOM_SCHEMA";
-    public const string BundledSchemaResource = "HD2RuntimeGUI.Core.CustomContent.Targets.CustomStratagemSchema-0.30.0.json";
+    public const string BundledSchemaResource = "HD2RuntimeGUI.Core.CustomContent.Targets.CustomStratagemSchema-0.30.3.json";
     private static readonly Lazy<ICustomContentTarget> current = new(Load);
     public static ICustomContentTarget Current => current.Value;
     /// <summary>Why the schema named by HD2RUNTIME_CUSTOM_SCHEMA was not used (null when it was, or when none is named).</summary>

@@ -213,9 +213,10 @@ public sealed class Runtime027Tests
         Assert.Equal("0.28.0", status.Latest!.Version); Assert.True(status.UpdateAvailable); Assert.Equal("0.31.0", status.NewerUnsupported);
         Assert.Contains("needs a newer HD2Runtime ModBuilder", status.Message); Assert.DoesNotContain("0.31.0", e.GitHub.Downloads);
         Assert.Equal(SdkCompatibility.NewestSupportedVersion, SdkPin.Version); Assert.False(SdkCompatibility.IsSupported("0.31.0")); Assert.True(SdkCompatibility.IsSupported("0.5.1"));
-        // The bundled pin is 0.30.0: the 0.30.0-dev test SDKs sort below it and stay supported; 0.30.1 needs the ModBuilder that pins it.
+        // The bundled pin is 0.30.3: 0.30.0, 0.30.1, 0.30.2 and the 0.30.0-dev test SDKs sort below it and stay supported; 0.30.4 needs the ModBuilder that pins it.
         Assert.True(SdkCompatibility.IsSupported("0.28.1")); Assert.True(SdkCompatibility.IsSupported("0.30.0-dev")); Assert.True(SdkCompatibility.IsSupported("0.30.0"));
-        Assert.False(SdkCompatibility.IsSupported("0.30.1"));
+        Assert.True(SdkCompatibility.IsSupported("0.30.1")); Assert.True(SdkCompatibility.IsSupported("0.30.2"));
+        Assert.True(SdkCompatibility.IsSupported("0.30.3")); Assert.False(SdkCompatibility.IsSupported("0.30.4"));
     }
     [Fact] public async Task A_release_this_version_cannot_read_is_skipped_instead_of_breaking_the_check()
     {

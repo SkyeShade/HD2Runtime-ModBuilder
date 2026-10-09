@@ -44,9 +44,12 @@ internal static class PublishedArtifactVersion
         {
             "0.20.1" or "0.21.0" or "0.22.0" or "0.22.1" or "0.23.0" or "0.23.1" or "0.23.2" or "0.24.0" or "0.25.0" or "0.25.1" => Reused019,
             "0.26.0" => Reused026,
-            // 0.28.0 and 0.28.1 republish all eight byte-for-byte from 0.27.0, and so do the 0.30.0-dev test SDKs and the 0.30.0 release
-            // (there is no 0.29). A later SDK that changes them fails these digests and is refused rather than misread.
-            "0.27.0" or "0.28.0" or "0.28.1" or "0.30.0-dev" or "0.30.0" => Reused027,
+            // 0.28.0 and 0.28.1 republish all eight byte-for-byte from 0.27.0, and so do the 0.30.0-dev test SDKs, the 0.30.0 release (there is
+            // no 0.29) and 0.30.1 (no SDK content change). A later SDK that changes them under the 0.19.0 label fails these digests and is
+            // refused rather than misread. 0.30.2 regenerated all eight (the seven weapons resolved to their proven roots) and labels them with
+            // its own version, so they match the catalog version above and need no digest; 0.30.2 graphs labelled 0.19.0 are refused. 0.30.3
+            // relabels the same graphs 0.30.3 (only the version string changed), so it needs no digest either.
+            "0.27.0" or "0.28.0" or "0.28.1" or "0.30.0-dev" or "0.30.0" or "0.30.1" => Reused027,
             _ => null,
         };
         return pinned != null && pinned.TryGetValue(file, out var digest) && Convert.ToHexString(SHA256.HashData(bytes)).Equals(digest, StringComparison.OrdinalIgnoreCase);

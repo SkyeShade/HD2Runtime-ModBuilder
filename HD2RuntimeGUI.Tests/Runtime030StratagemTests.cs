@@ -116,7 +116,9 @@ public sealed class Runtime030StratagemTests
         Assert.NotEmpty(entries["mod/" + GameplayArchive.ArchiveName + ".gpu_resources"]);
         var report = JsonNode.Parse(entries["build-report.json"])!;
         Assert.Equal(id, report["image_sources"]![0]!["image"]!.GetValue<string>()); Assert.Null(report["custom_content"]);
-        Assert.Equal(RuntimeRequirement.Release030, JsonNode.Parse(entries["hd2runtime.json"])!["requires"]!["hd2runtime"]!["min_version"]!.GetValue<string>());
+        // A project bound to the pinned 0.30.3 declares it (the presentation itself is 0.30.0's: its floor is Release030).
+        Assert.Equal(SdkPin.Version, JsonNode.Parse(entries["hd2runtime.json"])!["requires"]!["hd2runtime"]!["min_version"]!.GetValue<string>());
+        Assert.All(RuntimeRequirement.Floors(w.Project!), f => Assert.Equal(RuntimeRequirement.Release030, f.Floor));
 
         // Back to a stratagem's icon: the image is no longer kept, and the empty store goes away.
         await w.SetStratagemAsync(icon.InstanceKey, "\"Orbital Gas Strike\"");
@@ -177,7 +179,8 @@ public sealed class Runtime030StratagemTests
         Assert.Contains("hd2.fields.windup.wind_up_seconds", w.LuaPreview); Assert.Contains("hd2.fields.beam.fire_rate", w.LuaPreview);
         var lua = w.LuaPreview;
         await w.OpenAsync(w.Project.Id); Assert.Null(w.BuildError); Assert.Equal(lua, w.LuaPreview);
-        Assert.Equal(RuntimeRequirement.Release030, RuntimeRequirement.Minimum(w.Project!, sdk));
+        Assert.Equal(SdkPin.Version, RuntimeRequirement.Minimum(w.Project!, sdk));
+        Assert.Contains(RuntimeRequirement.Floors(w.Project!, sdk), f => f.Floor == RuntimeRequirement.Release030);
     }
 
     // An export with every Phase 4 surface, copied with the F1-F9 fixtures (build-rc.ps1 validates them with Runtime's own validator).
@@ -199,7 +202,7 @@ public sealed class Runtime030StratagemTests
         await w.SetStratagemAsync(Field(sdk, Gatling, "weapon.recoil_drift_horizontal").InstanceKey, "10");
         await w.SetStratagemAsync(Field(sdk, "A/LAS-98 Laser Sentry", "beam.fire_rate").InstanceKey, "90");
         var (manifest, lua) = await ExportFixtureTests.Export(w, "S1-stratagem-authoring");
-        Assert.Equal(RuntimeRequirement.Release030, manifest.RootElement.GetProperty("requires").GetProperty("hd2runtime").GetProperty("min_version").GetString());
+        Assert.Equal(SdkPin.Version, manifest.RootElement.GetProperty("requires").GetProperty("hd2runtime").GetProperty("min_version").GetString());
         Assert.Contains("value=hd2.resources.image('", lua); Assert.Contains("value='Orbital Gas Strike'", lua);
         // The Precision Strike takes the barrage's native code: the opt-in Runtime requires for it.
         var precision = lua[lua.IndexOf("hd2.stratagem('Orbital Precision Strike')", StringComparison.Ordinal)..];

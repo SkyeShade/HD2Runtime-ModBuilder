@@ -2429,6 +2429,10 @@
     <value>{0} 不是 Runtime 可投放的支援物品。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="CustomContent.Check.UsesExplicitUnlimited" xml:space="preserve">
+    <value>无限次呼叫，写为 uses = {0}：需要 HD2Runtime {1}（不写值在所有 0.30 版本中均表示无限）。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="CustomContent.Check.UsesNative" xml:space="preserve">
     <value>每局任务 {0} 次呼叫，每名玩家各自计算：载体栏位以原生方式计数。</value>
     <comment>new: needs native review</comment>
@@ -2705,6 +2709,10 @@
     <value>当前 HD2Runtime 架构无法安全支持。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="CustomContent.Field.Renamed" xml:space="preserve">
+    <value>HD2Runtime 已重命名此声音：{0} 现为 {1}。Runtime 仍会播放旧名称，但其自定义战略配备架构只列出新名称。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="CustomContent.Field.Required" xml:space="preserve">
     <value>必填</value>
     <comment>new: needs native review</comment>
@@ -2723,6 +2731,10 @@
   </data>
   <data name="CustomContent.Field.UnknownChoice" xml:space="preserve">
     <value>{0}（不在此 Runtime 的目录中）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="CustomContent.Field.UseRenamed" xml:space="preserve">
+    <value>改用 {0}</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="CustomContent.Field.VariantNoOtherRound" xml:space="preserve">
@@ -4713,8 +4725,32 @@
     <value>{0} · {1}</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="CustomStratagem.Uses.Count" xml:space="preserve">
+    <value>每局任务的使用次数</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="CustomStratagem.Uses.Explicit" xml:space="preserve">
+    <value>无限，按导入的 Runtime 项目写为 uses = {0}。HD2Runtime {1} 及更高版本将 {0} 视为无限；较早的 0.30 版本会拒绝它，因此导出需要 HD2Runtime {1}。不写值在所有 0.30 版本中均表示无限。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="CustomStratagem.Uses.Hint" xml:space="preserve">
-    <value>每名玩家每局任务；留空：无限</value>
+    <value>每名玩家每局任务</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="CustomStratagem.Uses.Limited" xml:space="preserve">
+    <value>有限</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="CustomStratagem.Uses.Mode" xml:space="preserve">
+    <value>每局任务次数：无限或有限</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="CustomStratagem.Uses.Unlimited" xml:space="preserve">
+    <value>无限</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="CustomStratagem.Uses.UseNoValue" xml:space="preserve">
+    <value>改为无限（不写值）</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="CustomStratagems.AddAnother" xml:space="preserve">
@@ -8229,6 +8265,10 @@
     <value>相关的支援对象必须使用相同的生效方式。</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="Messages.Build.Support.NoEffect" xml:space="preserve">
+    <value>{0} 在游戏中没有效果，因此为只读：{1}</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Messages.Build.Support.OverchargeExplosionChoice" xml:space="preserve">
     <value>请从已发布的过载爆炸中选择一个：{0}。</value>
     <comment>new: needs native review</comment>
@@ -9669,6 +9709,58 @@
     <value>版本</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="NoEffect.Badge" xml:space="preserve">
+    <value>游戏中无效果</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Changes.Count.One" xml:space="preserve">
+    <value>{0} 项修改在游戏中无效果</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Changes.Count.Other" xml:space="preserve">
+    <value>{0} 项修改在游戏中无效果</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Changes.Tooltip" xml:space="preserve">
+    <value>这些弹药由背包携带。HD2Runtime 接受这些修改，ModBuilder 也仍会导出；展开此条目即可就地删除它们。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.EditBackpack" xml:space="preserve">
+    <value>改为编辑背包</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Note.Home" xml:space="preserve">
+    <value>{0} 的弹药存放在 {1} 中，由其空投舱的第 {2} 格投放。HD2Runtime {3} 将该背包的弹药设为只读，因此也无法在那里编辑。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Note.HomeAuthorable" xml:space="preserve">
+    <value>{0} 的弹药存放在 {1} 中：请改为编辑其背包弹药。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Note.HomeUnknown" xml:space="preserve">
+    <value>{0} 的弹药存放在其背包中。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Note.Reason.Html" xml:space="preserve">
+    <value>&lt;strong&gt;游戏中无效果。&lt;/strong&gt;{0}</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Remove" xml:space="preserve">
+    <value>删除此修改</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.Saved.Html" xml:space="preserve">
+    <value>此项目在这里保存了一项修改：&lt;strong&gt;{0}&lt;/strong&gt;。HD2Runtime 仍接受它，ModBuilder 也仍原样导出，但预计它不会在游戏中产生任何变化。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.ShowBackpack" xml:space="preserve">
+    <value>显示背包</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="NoEffect.ShowBackpack.Tooltip" xml:space="preserve">
+    <value>打开该呼叫的空投舱，并定位到投放此背包的格位</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="NotFound.Message" xml:space="preserve">
     <value>抱歉，你要找的内容不存在。</value>
     <comment>issue #1</comment>
@@ -10957,6 +11049,54 @@
     <value>武器</value>
     <comment>new: needs native review</comment>
   </data>
+  <data name="SentrySwap.Aim.Emplacement" xml:space="preserve">
+    <value>炮台由玩家瞄准：速度或下坠不同的弹药落点会与准星所示不同。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Aim.Note" xml:space="preserve">
+    <value>哨戒炮按其自身弹药瞄准。速度或下坠不同的弹药可能打不中移动目标，迫击炮发射平射弹药则可能完全打不中。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Aim.Warning" xml:space="preserve">
+    <value>此哨戒炮仍按其自身弹药瞄准，而不是按 {0}。速度或下坠不同时可能打不中移动目标；迫击炮发射平射弹药则可能完全打不中。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Family.Emplacement" xml:space="preserve">
+    <value>炮台</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Family.Sentry" xml:space="preserve">
+    <value>哨戒炮</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Round.Damage" xml:space="preserve">
+    <value>伤害</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Round.Mass" xml:space="preserve">
+    <value>质量</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Round.Own" xml:space="preserve">
+    <value>自身弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Round.Unknown" xml:space="preserve">
+    <value>未公布</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Round.Velocity" xml:space="preserve">
+    <value>速度</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.Title" xml:space="preserve">
+    <value>发射的弹药</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="SentrySwap.TypeLevel" xml:space="preserve">
+    <value>作用于你这台电脑上的每一个 {0}，包括队友的。其他玩家的电脑仍使用原版弹药。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Settings.About.Help" xml:space="preserve">
     <value>SDK 元数据提供静态证据与期望值。单独安装的运行时会在游戏内验证改动。</value>
     <comment>issue #1</comment>
@@ -11227,6 +11367,38 @@
   </data>
   <data name="Snippets.WriteConflicts.Title" xml:space="preserve">
     <value>写入冲突报告</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Explosion.Badge" xml:space="preserve">
+    <value>未经实机测试</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Explosion.NotLiveTested" xml:space="preserve">
+    <value>玩家武器爆炸上的状态尚未在游戏中测试过（HD2Runtime 待进行的测试：PurifierIncendiaryCharge）。导出会写入 allow_unverified_effect=true，并要求 HD2Runtime 0.30.2。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Extended.Duration" xml:space="preserve">
+    <value>其定义持续 {0} 秒（状态持续时间，所有施加此状态的攻击共用）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Extended.Export.Html" xml:space="preserve">
+    <value>尚无任何攻击（任何行）在游戏中测试过此状态：导出会为其写入 &lt;code&gt;{0}&lt;/code&gt;，并要求 HD2Runtime {1}（0.30.0 会拒绝此状态）。</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Extended.Title" xml:space="preserve">
+    <value>{0}：扩展状态，未经游戏内测试</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Tier.EnemySlot" xml:space="preserve">
+    <value>敌人槽位（未验证）</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Tier.OtherSystem" xml:space="preserve">
+    <value>实验性</value>
+    <comment>new: needs native review</comment>
+  </data>
+  <data name="Status.Tier.PlayerAttack" xml:space="preserve">
+    <value>可附加</value>
     <comment>new: needs native review</comment>
   </data>
   <data name="Stratagem.Acquisition.WorldPickup" xml:space="preserve">

@@ -14,7 +14,7 @@
         <div class="composition-control @(change != null ? "modified" : "")" data-projectile-host="@Weapon" data-host-kind="@Kind">
             <div class="panel-heading"><h3>@T.Format("Projectile.Title", Role.Replace('_', ' '))</h3>
                 <span class="badge @(change != null ? "modified-badge" : "")">@(change != null ? T["Common.Modified"] : host != null ? T["Composition.Guarded"] : T["Common.ReadOnly"])</span></div>
-            <p class="@(change != null ? "modified-value" : "subtle")" data-attack-fires>@T.Markup("AttackOutput.Fires.Html", fired?.Label ?? entry.Own?.Label ?? Weapon)
+            <p class="@(change != null ? "modified-value" : "subtle")" data-attack-fires>@T.Markup("AttackOutput.Fires.Html", fired?.Label ?? entry.Own?.Label ?? OwnLabel ?? Weapon)
                 @if (change == null) { <span class="subtle">@(" " + T["AttackOutput.OwnProjectile"])</span> }</p>
             @if (change != null && fired is { IsDonor: true }) { <p class="donor-chosen"><DonorDetail Output="fired" /></p> }
             @if (entry.Carrier is { } backpack) { <p class="subtle" data-host-carrier>@T.Format("ProjectileBuilder.Host.Carrier", backpack)</p> }
@@ -54,6 +54,8 @@
     [Parameter, EditorRequired] public string Weapon { get; set; } = "";
     [Parameter] public string Role { get; set; } = "primary";
     [Parameter] public EventCallback Changed { get; set; }
+    // What the host's own round is called when the catalog publishes no row for it (a sentry: its stratagem).
+    [Parameter] public string? OwnLabel { get; set; }
     private string? Error; private bool Busy;
     private Task Choose(AttackOutputDonor donor) => Run(() => Workspace.SetHostOutputAsync(Kind, Weapon, Role, donor.Output.SemanticId));
     // Why each opt-in applies to this pair: the host field's effect reason, one weapon entity in several mounts, the cross-class rule.

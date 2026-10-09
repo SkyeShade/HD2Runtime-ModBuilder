@@ -168,7 +168,7 @@ public sealed class AttackOutputCatalog
     // every write, whatever the class, mechanism or host (a weapon's second projectile is a donor even for its own weapon).
     public IReadOnlyList<AttackOutputDonor> Donors(AttackOutputHost host) => Outputs
         .Where(o => o.Family == "projectile" && o.SelectableAsProjectileReference && o.AttackReferenceAllowed && o.Offered
-            && (o.IsDonor || o.Owner.Name != host.Weapon && host.SharedEntity?.Contains(o.Owner.Name) != true))
+            && (o.IsDonor || o.Owner.Name != host.Weapon && host.SharedEntity?.Contains(o.Owner.Name) != true) && !OwnRound(host.Weapon, o))
         .Select(o =>
         {
             var cross = o.CompatibilityClass != host.CompatibilityClass;
@@ -183,6 +183,9 @@ public sealed class AttackOutputCatalog
             return new AttackOutputDonor(o, cross, refusal == null, refusal, [.. baseline.Concat(extra).Distinct().Order(StringComparer.Ordinal)], proven || live);
         })
         .OrderBy(d => d.Allowed ? 0 : 1).ThenBy(d => d.CrossClass ? 1 : 0).ThenBy(d => d.Output.Label, StringComparer.OrdinalIgnoreCase).ToArray();
+    // 0.30.2: a sentry's or emplacement's own round (a stratagem-owned row of the host "<stratagem> / weapon") is its baseline, not a donor:
+    // restoring it needs no opt-in, so ModBuilder restores it by removing the swap.
+    public static bool OwnRound(string host, AttackOutput o) => o.Owner.Kind == "stratagem" && host == o.Owner.Name + " / weapon";
     // Runtime refuses a reference to assets it cannot load first (asset-loading.md): the output publishes no catalogued package.
     public static string DonorAssetRefusal(AttackOutput o) => "ASSET_UNAVAILABLE: " + CoreText.Format("Messages.Output.NoPackage", o.Label);
     // Outputs no attack can fire as its projectile, with the published reason (never offered as donors; listed so nothing is hidden).

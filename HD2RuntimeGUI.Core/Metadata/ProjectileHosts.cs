@@ -26,6 +26,17 @@ public static class ProjectileHosts
             return sdk.PlayerWeapons is { } weapons ? catalog.Host(weapons, weapon, role, out reason) : null;
         var source = catalog.Source(kind, weapon, role);
         reason = source?.Reason ?? CoreText.Get("Messages.Output.NoActiveSource");
+        // 0.30.2 sentry and emplacement hosts (hd2.stratagem(name):attack(role):projectile_source()): no field instance; the vehicle weapon
+        // catalog's stratagem host gives the class, Runtime's reason when read-only (the A/MG-43 and A/G-16), and the opt-in every donor needs
+        // (allow_unverified_effect: no type-level swap is live-tested).
+        if (kind == AttackProjectileSource.VehicleKind && source != null && sdk.Entities?.VehicleWeapons?.StratagemHosts.TryGetValue(weapon, out var sentry) == true)
+        {
+            if (!sentry.Writable) { reason = sentry.Reason ?? reason; return null; }
+            if (!AuthoredTypes.StratagemProjectileHosts) { reason = AuthoredTypes.NotAuthoredReason; return null; }
+            if (source is not { DirectWritable: true, Status: AttackProjectileSource.ActiveDirect } || sentry.Baseline.Attack != role) return null;
+            return new(weapon, role, AttackOutputHost.Component, sentry.CompatibilityClass, [sentry.Acknowledgement], null, catalog.HostModel.ComponentHosts.Contains(weapon),
+                kind, null, null, source.SharedEntity);
+        }
         if (source is not { DirectWritable: true, Status: AttackProjectileSource.ActiveDirect }) return null;
         if (kind == AttackProjectileSource.SupportKind)
         {
@@ -76,5 +87,6 @@ public static class ProjectileHosts
         .Where(s => s.HostKind == kind && (kind == AttackProjectileSource.VehicleKind ? s.Weapon.StartsWith(owner + " / ", StringComparison.Ordinal) : s.Weapon == owner)).ToArray() ?? [];
     // The row a host's own attack fires: a player attack's output (a component host fires its own row; an ammunition host its ammunition row,
     // which the catalog publishes as the weapon's output), a support or mounted weapon's output.
-    private static AttackOutput? Own(AttackOutputCatalog catalog, AttackProjectileSource s) => catalog.Outputs.FirstOrDefault(o => o.Owner.Name == s.Weapon && o.Family == "projectile");
+    private static AttackOutput? Own(AttackOutputCatalog catalog, AttackProjectileSource s) => catalog.Outputs.FirstOrDefault(o => o.Owner.Name == s.Weapon && o.Family == "projectile")
+        ?? catalog.Outputs.FirstOrDefault(o => o.Family == "projectile" && AttackOutputCatalog.OwnRound(s.Weapon, o));
 }

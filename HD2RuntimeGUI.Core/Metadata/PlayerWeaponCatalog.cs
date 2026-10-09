@@ -220,7 +220,8 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
             else if (c.SemanticAliases != null || c.BackingCollisionAudit != null || c.Summary.SemanticAliasRules != null
                 || c.Weapons.SelectMany(w => w.Fields).Any(f => f.AliasOf != null || f.SemanticTarget != null || f.Canonical != null || f.Preferred != null || f.Deprecated != null || f.AcceptedForWrites != null))
                 throw new InvalidDataException("Alias metadata requires capability schema v2.");
-            if (s.Weapons != c.Weapons.Count || s.FieldInstances != c.Weapons.Sum(w => w.Fields.Count) || s.WritableFieldInstances != c.Weapons.Sum(w => w.Fields.Count(f => f.Editable)) || s.DuplicateWeapons != c.Weapons.Count(w => w.OrdinaryWritesBlocked) || s.UniqueWeapons + s.DuplicateWeapons != s.Weapons || s.SemanticFieldDefinitions != c.FieldDefinitions.Count || s.WritableSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Writable) || s.ReadOnlySemanticFieldDefinitions != c.FieldDefinitions.Count(f => !f.Writable) || s.DerivedSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Derived)) throw new InvalidDataException("Capability catalog summary mismatch.");
+            var writable = c.Weapons.Sum(w => w.Fields.Count(f => f.Editable));
+            if (s.Weapons != c.Weapons.Count || s.FieldInstances != c.Weapons.Sum(w => w.Fields.Count) || (s.WritableFieldInstances != writable && s.WritableFieldInstances != writable + c.Weapons.Sum(w => w.Fields.Count(OverriddenAfterSummary))) ||s.DuplicateWeapons != c.Weapons.Count(w => w.OrdinaryWritesBlocked) || s.UniqueWeapons + s.DuplicateWeapons != s.Weapons || s.SemanticFieldDefinitions != c.FieldDefinitions.Count || s.WritableSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Writable) || s.ReadOnlySemanticFieldDefinitions != c.FieldDefinitions.Count(f => !f.Writable) || s.DerivedSemanticFieldDefinitions != c.FieldDefinitions.Count(f => f.Derived)) throw new InvalidDataException("Capability catalog summary mismatch.");
             // Value types this build does not author yet are validated as published, then kept read-only (AuthoredTypes).
             static WeaponCapability Gate(WeaponCapability f) => f.Editable && !AuthoredTypes.Weapon(f) ? f with { Editable = false, AcceptedForWrites = false, Reason = AuthoredTypes.NotAuthoredReason } : f;
             return c.Weapons.Any(w => w.Fields.Any(f => Gate(f) != f)) || c.Subweapons?.Any(w => w.Fields.Any(f => Gate(f) != f)) == true
@@ -231,6 +232,15 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
         catch (Exception e) when (e is JsonException or NullReferenceException or InvalidOperationException or KeyNotFoundException or FormatException or ArgumentException)
         { throw new InvalidDataException("Malformed player-weapon capability catalog: " + e.Message, e); }
     }
+    // 0.30.2 makes a component field read-only when a default customization item overwrites it at every weapon build (the LAS-5 Scythe's
+    // heat capacity and heatsinks, under its Laser Heatsink): effect.activeSource OVERRIDDEN with overriddenBy, and this reason. Runtime's
+    // generator applies that block after it counted the summary, so summary.writableFieldInstances still counts these fields as writable
+    // (3365 published, 3361 editable), and the heat companion still lists them writable. The authoring catalog decides: the fields stay
+    // read-only, and the summary (and the companion) are accepted with exactly that difference, never with any other.
+    internal static bool OverriddenAfterSummary(WeaponCapability f) => !f.Editable && f.AcceptedForWrites == false && f.Backing?.Kind == "component"
+        && f.Reason?.StartsWith("A default customization item (", StringComparison.Ordinal) == true
+        && f.Effect is { ValueKind: JsonValueKind.Object } e && e.TryGetProperty("activeSource", out var source) && source.ValueKind == JsonValueKind.String && source.GetString() == "OVERRIDDEN"
+        && e.TryGetProperty("overriddenBy", out var by) && by.ValueKind == JsonValueKind.String;
     // Value types and their native storage (bytes): 0.28.0 adds the rate slots, weapon-function inputs, the programmable-ammunition
     // projectile, and the armory's trait / penetration presentation.
     private static readonly Dictionary<string, (string Storage, int Width)> ListStorage = new()

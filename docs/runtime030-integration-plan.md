@@ -470,13 +470,26 @@ fixed in the Runtime.
 10. **`scripts/validate_examples.py` recognises a projectile donor only by its `(projectile N)` name.** A donor written as its semantic id
     (`hd2.attack_output('output/v1/projectile/…')`, as `docs/attack-outputs.md` shows) is reported as `need=0.28.0`, so the 0.30.0-dev floor
     is not enforced for it. ModBuilder declares the floor itself (`RuntimeRequirement`).
+11. **0.30.2 catalog summaries counted before the last corrections.** `scripts/generate_weapon_authoring.py`:
+    - `block_overridden` makes the LAS-5 Scythe's `heat.capacity` and three heatsink fields read-only after
+      `summary.writableFieldInstances` was counted (3365 published, 3361 editable), and `PlayerWeaponHeatCapabilities.json` still lists
+      the four writable;
+    - `apply_root_corrections_ammo` re-resolves the GP-31's effective capacity and updates `effectiveCapacityResolved` but not
+      `effectiveCapacityNativeResolved` (47 published, 48 `RESOLVED`);
+    - it also makes the CQC-42 Machete's companion magazine fields writable although the authoring catalog publishes no magazine field
+      for it.
+    ModBuilder accepts exactly these differences (the authoring catalog decides what is writable). Fix: count the summaries after both
+    corrections and apply `block_overridden` to the heat companion.
+12. **The attack output catalogue names the vehicle accessor for the 0.30.2 sentry and emplacement hosts** (`projectileSources[].write`:
+    `hd2.vehicle(vehicle):weapon(mount):...`); `VehicleWeaponCapabilities.stratagemHosts[].api` and the docs use
+    `hd2.stratagem(name):attack(role):projectile_source()`.
 
 ## Swapping the bundled SDK
 
-The same steps apply to any later SDK (they were used for the 0.30.0-dev builds and the final 0.30.0). Steps 1 and 2, the custom content target's files (schema, model
+The same steps apply to any later SDK (they were used for the 0.30.0-dev builds, the final 0.30.0, 0.30.2 and 0.30.3). Steps 1 and 2, the custom content target's files (schema, model
 bases, stub, the two templates that are Runtime examples) and the conformance oracle are scripted, byte for byte:
 `py -3 -B tools/swap-bundled-sdk.py --zip <HD2Runtime-x.y.z-sdk.zip> --commit <full Runtime commit>`. It prints what a new version string
-still needs by hand (step 3). Swapping the current 0.30.0 ZIP again changes nothing.
+still needs by hand (step 3). Swapping the current 0.30.3 ZIP again changes nothing.
 
 1. **Copy the files, byte for byte (no text-mode copy).**
    - Copy the SDK ZIP to `HD2RuntimeGUI.Tests/Fixtures/sdk-<version>.zip`.
@@ -489,9 +502,13 @@ still needs by hand (step 3). Swapping the current 0.30.0 ZIP again changes noth
    - `SdkPinTests.The_fixture_is_the_pinned_release_asset_and_the_bundle_is_its_files` reports the fingerprint it computes.
    - `SdkCompatibility.NewestSupportedVersion` follows `SdkPin.Version`.
 3. **For a new version string (the final 0.30.0), also:**
-   - `PublishedArtifactVersion`: it already maps `0.30.0`; check that the eight graphs are still byte-identical;
-   - `Runtime030Tests.Version` and `Fixture`, and the version literals in `OldProjectCompatibilityTests`' 0.30 cases;
-   - `RuntimeRequirement.Release030`, if the floors should name the release;
+   - `PublishedArtifactVersion`: the eight player-weapon graphs. While a release republishes them byte for byte under the old `0.19.0`
+     label (0.30.0, 0.30.1), map its version to that digest set. When a release regenerates them it labels them with its own version
+     (0.30.2, 0.30.3): they then match the catalog version and need no mapping, and a regenerated graph still labelled `0.19.0` is refused;
+   - `Runtime030Tests.Version` and `Fixture` (keep the previous pin's fixture as `Previous` for the projects bound to it), and the version
+     literals in `OldProjectCompatibilityTests`' 0.30 cases;
+   - a `RuntimeRequirement.Release0x0y` floor only for what the release adds (0.30.2: `Release0302`; 0.30.3: `Release0303`); existing
+     floors keep naming the release that added their feature;
    - `$RuntimeCommit` / `$RuntimeVersion` / `$RuntimeTree` in `scripts/build-rc.ps1`, `$RuntimeTree` / `$SdkVersion` in
      `scripts/run-rc-smokes.ps1`, and the expected SDK in `tools/*-smoke.mjs`;
    - the custom content target (Phase 10).
@@ -499,7 +516,7 @@ still needs by hand (step 3). Swapping the current 0.30.0 ZIP again changes noth
    A 0.30.0 final is not a prerelease: `GitHubReleaseClient` offers it as a download. It replaces 0.30.0-dev for new projects. Projects
    bound to 0.30.0-dev keep that binding until they are rebound.
 4. **Run the full test suite.**
-   - The counts in `Runtime030Tests` (2406 stratagem fields, 32 donors, 94 presentation sources) are checks of the pinned data.
+   - The counts in `Runtime030Tests` (2406 stratagem fields, 31 donors since 0.30.2, 94 presentation sources) and `Runtime0302Tests` are checks of the pinned data.
    - A build that changes them needs those numbers reviewed, not just updated.
 
 A same-version swap (another 0.30.0-dev build) leaves a user's already-cached 0.30.0-dev in place. The SDK cache treats a version as
@@ -507,6 +524,59 @@ immutable, and Settings reports the new bundle as "not the pinned build" until t
 ran an earlier dev build.
 
 ## Development SDK build record
+
+- **Bundled since 1.7.1: HD2Runtime 0.30.3, release candidate `7da218b`** (2026-10-09; tag `v0.30.3` = `dcd996d`, which adds only
+  migration post-validation records). Swapped with `tools/swap-bundled-sdk.py` from the **published** release asset
+  `HD2Runtime-0.30.3-sdk.zip`, SHA-256 `f1f53735470328968fab658427188b93ba8f49d925f0a6e469b30e2ae997af9d` (identical to
+  `HD2Runtime/build/release-candidate-0.30.3/`: 2,060 Runtime tests, 121 examples VALIDATED, 211 packaged-runtime scenarios), content
+  fingerprint `491a89a90717841ecbba19cfcea213f6e3b90d11eb01afffab0d018027d72ede`. Against 0.30.2 the SDK changed only version strings (the
+  eight graphs are 0.30.2's, relabelled 0.30.3, so `PublishedArtifactVersion` needs no digest) and the custom stratagem `uses` range. The
+  rest of 0.30.3 is Runtime fixes (a false *Another mod changed the stratagem data* card; one stray entity map row blocking every write).
+  What 0.30.3 changed for ModBuilder:
+  - **Unlimited custom stratagem uses.** `metadata.uses` is -1 to 100, where 0 or -1 (or none) mean unlimited (0.30.2: 1 to 100; `tune`
+    and `register` accept them too). `RuntimeProjectValidator` follows the schema's range. The editor offers **Unlimited** (no value, which
+    every 0.30 release reads as unlimited) or **Limited** 1 to 100. An explicit 0 or -1 is kept only from an imported Runtime project, so it
+    round-trips; it raises the export to 0.30.3 (`RuntimeRequirement.Release0303`: 0.30.2 refuses it), said in the field with **Use
+    unlimited (no value)**, which removes the floor. New oracle cases: `uses-minus-one` (valid), `uses-minus-two` (refused) and
+    `uses-hundred-valid`; `uses-zero` is now valid.
+  - **Custom content target** files renamed `*-0.30.3.*` (`CustomStratagemSchema-0.30.3.json`, SHA-256 `aa898c24…d74e`;
+    `ModelBaseCapabilities-0.30.3.json`, `hd2runtime-stubs-0.30.3.lua`) and `WeaponSoundCatalogue-0.30.3.json`. The target's floor stays
+    0.30.0 and its banner is unchanged.
+  - **Floors:** 0.30.0's features keep `Release030` and 0.30.2's keep `Release0302`; a project bound to 0.30.3 declares 0.30.3. Projects
+    bound to 0.30.2 (fixture `sdk-0.30.2.zip`), 0.30.0 or 0.30.0-dev open and export on their SDK and rebind to 0.30.3
+    (`OldProjectCompatibilityTests`). The project format stays 14, so ModBuilder 1.7.1 is a patch release. Export validation and the
+    smokes use a `git archive` of `7da218b` (`%TEMP%\hd2runtime-0.30.3-7da218b`).
+
+- **Bundled by the 1.7.x SDK move (after 1.7.0, not released; 1.7.1 bundles 0.30.3): HD2Runtime 0.30.2, release candidate `dd32795`** (2026-10-09; tag `v0.30.2` =
+  `4118452`, which adds only migration post-validation records). Swapped with `tools/swap-bundled-sdk.py` from the **published** release
+  asset `HD2Runtime-0.30.2-sdk.zip`, SHA-256 `eff875477cf7a3c70696b3fcbf15e92ad5456329d6c4c1aad1eebe4a2139c56e` (identical to
+  `HD2Runtime/build/release-candidate-0.30.2/`: 2,058 Runtime tests, 121 examples VALIDATED, 211 packaged-runtime scenarios), content
+  fingerprint `8b249a051681c8b43a59a70d79362acfa4df6660574dd017f05d1a5ef15d00eb`. 0.30.1 (Public play warnings only) changed no SDK
+  content; its eight graphs are 0.30.0's bytes, so `PublishedArtifactVersion` maps `0.30.1` to the same digests. What 0.30.2 changed for
+  ModBuilder:
+  - **Seven weapons resolved** to their proven roots (GP-31, P-72, LAS-5, LAS-7, CQC-42, CQC-73, SMG-37): UNIQUE and writable through the
+    existing editors (233 authored instances); an edit on one requires 0.30.2 (`RuntimeRequirement.Release0302`, mirroring the validator's
+    `WEAPON_ROOTS_0_30_2`). The GP-31 and the Dagger read their own values. All eight graphs were regenerated and are now labelled 0.30.2.
+    The ammo companion carries `candidateRoots` (modelled) and drops `resourceValues`.
+  - **Generator inconsistencies, accepted narrowly** ([Runtime-side fixes](#runtime-side-fixes-to-report-upstream), item 11): the authoring summary counts the LAS-5 Scythe's four
+    heat fields as writable after `block_overridden` made them read-only (3365 vs 3361), the heat companion still lists them writable, and
+    the ammo summary's `effectiveCapacityNativeResolved` omits the re-resolved GP-31 (47 vs 48). The CQC-42 Machete's ammo companion has
+    writable magazine fields the authoring catalog does not publish (evidence only).
+  - **New, read-only until authored** (`AuthoredTypes`, classified in the capability audit; survey in
+    `artifacts/survey/sdk-0.30.2-new-capabilities.md`): status slots on player-weapon explosions (26 instances on 13 weapons), 23 extended
+    statuses (`attachTier` enemy_slot / other_system, not offered by any status slot), 9 sentry and emplacement projectile hosts
+    (`VehicleWeaponCapabilities.stratagemHosts`, 7 writable), and `noEffect.reason` on 11 backpack-fed ammunition rows (read; the fields
+    stay authored).
+  - **Retired:** the attack output `SMG-37 Defender (projectile 150)` (31 donors). A saved swap to it reports at its selector after a rebind.
+  - **Sounds:** `primary/smg37/seaf` is now `seaf/3` and `secondary/gp31/alt` is `other/wep_grenadier_rifle/1` (the catalogue's
+    `aliases`; the Runtime plays both). The custom stratagem schema lists only the new names: a saved custom stratagem with an old one
+    shows the refusal under its sound field with the new name offered there. The new names require 0.30.2.
+  - **Custom content target** files renamed `*-0.30.2.*` (`CustomStratagemSchema-0.30.2.json`, SHA-256 `9dc2f986…6945`; only its sound
+    list changed) and `WeaponSoundCatalogue-0.30.2.json`. The target stays `hd2runtime-0.30`; its floor stays the API's release, 0.30.0
+    (`Runtime030Target.MinimumRuntime`), and the API status is unchanged, so the banner is too.
+  - **Floors:** what 0.30.0 released keeps `Release030`; a project bound to 0.30.2 declares 0.30.2. Projects bound to 0.30.0 or 0.30.0-dev
+    open and export on their SDK and rebind to 0.30.2 (`OldProjectCompatibilityTests`). Export validation and the smokes use a
+    `git archive` of `dd32795` (`%TEMP%\hd2runtime-0.30.2-dd32795`).
 
 - **Bundled: HD2Runtime 0.30.0 release candidate `893d31f`** (2026-10-08; `wip/custom-projectile-rows`, VERSION 0.30.0, research
   `db778ed`). The Runtime built it with `scripts/build_release.py` into `HD2Runtime/build/release-candidate-0.30.0/` (2,026 Runtime tests,

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using HD2RuntimeGUI.Core.CustomContent;
 using HD2RuntimeGUI.Core.Generation;
+using HD2RuntimeGUI.Core.Metadata;
 using HD2RuntimeGUI.Core.Models;
 using HD2RuntimeGUI.Core.Projects;
 using HD2RuntimeGUI.Core.Services;
@@ -192,7 +193,7 @@ public sealed class CustomContentProjectTests
         // A donor (an Eagle payload, an orbital shell…) has no dependencyKey in Runtime's own table, so it is never a base, and a component
         // that loads its source's package refuses it; ballistics (no package) may still come from one.
         var donor = w.Metadata.AttackOutputs.Outputs.First(o => o.IsDonor);
-        Assert.Equal(32, w.Metadata.AttackOutputs.Outputs.Count(o => o.IsDonor));
+        Assert.Equal(31, w.Metadata.AttackOutputs.Outputs.Count(o => o.IsDonor));
         Assert.DoesNotContain(sources, s => s.Output.IsDonor);
         Assert.NotNull(w.CustomTarget.ProjectileOutputIssue(donor.SemanticId, true, w.Metadata));
         Assert.Null(w.CustomTarget.ProjectileOutputIssue(donor.SemanticId, false, w.Metadata));
@@ -265,7 +266,7 @@ public sealed class CustomContentProjectTests
             new CustomProjectileHost(CustomProjectileHost.AmmoMode, Reprimand, "alternate") })
         {
             var info = w.CustomProjectileHostSupport(host);
-            Assert.False(info.Supported); Assert.Contains("HD2Runtime 0.30.0", info.Reason);
+            Assert.False(info.Supported); Assert.Contains(w.CustomTarget.RuntimeLabel, info.Reason);
             // Nothing is assigned where the target cannot bind it, and no draft starts there.
             var refused = await Assert.ThrowsAsync<InvalidDataException>(() => w.AssignCustomProjectileAsync(host, id));
             Assert.Equal(info.Reason, refused.Message);
@@ -437,8 +438,9 @@ public sealed class CustomContentProjectTests
         Assert.Equal(PackagedFiles.Generated.Append("images/" + gas + ".png").Order(StringComparer.Ordinal), entries.Keys.Order(StringComparer.Ordinal));
         Assert.Equal(File.ReadAllBytes(Fixture("art.png")), entries["images/" + gas + ".png"]);
         var manifest = JsonNode.Parse(entries["hd2runtime.json"])!;
-        Assert.Equal("0.30.0", (string)manifest["requires"]!["hd2runtime"]!["min_version"]!);
-        Assert.Contains("HD2Runtime 0.30.0+", (string)JsonNode.Parse(entries["manifest.json"])!["Description"]!);
+        // Bound to the pinned 0.30.3, the export requires it (custom content alone requires the custom stratagem API's 0.30.0: Runtime0302Tests).
+        Assert.Equal(SdkPin.Version, (string)manifest["requires"]!["hd2runtime"]!["min_version"]!);
+        Assert.Contains("HD2Runtime " + SdkPin.Version + "+", (string)JsonNode.Parse(entries["manifest.json"])!["Description"]!);
         var report = JsonNode.Parse(entries["build-report.json"])!["custom_content"]!;
         Assert.Equal(("hd2runtime-0.30", true), ((string)report["target"]!, (bool)report["experimental"]!));
         Assert.Equal([gas], report["stratagems"]!.AsArray().Select(x => (string)x!)); Assert.Equal([bolt], report["projectiles"]!.AsArray().Select(x => (string)x!));
@@ -455,7 +457,7 @@ public sealed class CustomContentProjectTests
         Assert.Contains("[\"" + gas + "\"]={source=\"images/" + gas + ".png\"", record);
         var addon = System.Text.Encoding.UTF8.GetString(resources[(ResourceArchive.LuaType, GameplayArchive.ResourceHash(resource))].Main[8..]);
         Assert.StartsWith("-- HD2-Addon: " + resource, addon);
-        Assert.Contains("local required_runtime='0.30.0'", addon); Assert.Contains("local function at_least(have,need)", addon);
+        Assert.Contains("local required_runtime='" + SdkPin.Version + "'", addon); Assert.Contains("local function at_least(have,need)", addon);
         // The bound SDK stays the mod's declared SDK (Runtime's legacy acknowledgements read x,y,z): never the newer Runtime it requires.
         Assert.Contains("local x,y,z=version('" + w.Project!.SdkVersion + "')", addon); Assert.DoesNotContain("local minimum=", addon);
         Assert.Contains("register_custom_stratagem('" + gas + "', function()", addon);

@@ -2172,6 +2172,10 @@
     <value>{0} is not a support item Runtime can deliver.</value>
     <comment>{0}: name</comment>
   </data>
+  <data name="CustomContent.Check.UsesExplicitUnlimited" xml:space="preserve">
+    <value>Unlimited calls, written as uses = {0}: requires HD2Runtime {1} (no value is unlimited on every 0.30 release).</value>
+    <comment>{0}: 0 or -1; {1}: 0.30.3</comment>
+  </data>
   <data name="CustomContent.Check.UsesNative" xml:space="preserve">
     <value>{0} calls per mission, each player's own: the carrier's slot counts them natively.</value>
     <comment>{0}: number of uses</comment>
@@ -2397,6 +2401,10 @@
   <data name="CustomContent.Field.RefusedDefault" xml:space="preserve">
     <value>Not supported safely by the current HD2Runtime schema.</value>
   </data>
+  <data name="CustomContent.Field.Renamed" xml:space="preserve">
+    <value>HD2Runtime renamed this sound: {0} is now {1}. The Runtime still plays the old name, but its custom stratagem schema lists only the new one.</value>
+    <comment>{0}: saved sound name; {1}: its new name</comment>
+  </data>
   <data name="CustomContent.Field.Required" xml:space="preserve">
     <value>required</value>
   </data>
@@ -2412,6 +2420,10 @@
   <data name="CustomContent.Field.UnknownChoice" xml:space="preserve">
     <value>{0} (not in this Runtime's catalogue)</value>
     <comment>{0}: saved value</comment>
+  </data>
+  <data name="CustomContent.Field.UseRenamed" xml:space="preserve">
+    <value>Use {0}</value>
+    <comment>{0}: the new sound name</comment>
   </data>
   <data name="CustomContent.Field.VariantNoOtherRound" xml:space="preserve">
     <value>No other round is reviewed for the {0}'s compatibility class: it keeps its own.</value>
@@ -4025,8 +4037,27 @@
     <value>{0} · {1}</value>
     <comment>{0}: field labels this mode or donor does not use; {1}: the reason</comment>
   </data>
+  <data name="CustomStratagem.Uses.Count" xml:space="preserve">
+    <value>Number of uses per mission</value>
+  </data>
+  <data name="CustomStratagem.Uses.Explicit" xml:space="preserve">
+    <value>Unlimited, written as uses = {0} as in the imported Runtime project. HD2Runtime {1} and later read {0} as unlimited; older 0.30 releases refuse it, so the export requires HD2Runtime {1}. No value means unlimited on every 0.30 release.</value>
+    <comment>{0}: 0 or -1; {1}: the HD2Runtime version that accepts it (0.30.3)</comment>
+  </data>
   <data name="CustomStratagem.Uses.Hint" xml:space="preserve">
-    <value>per player and mission; empty: unlimited</value>
+    <value>per player and mission</value>
+  </data>
+  <data name="CustomStratagem.Uses.Limited" xml:space="preserve">
+    <value>Limited</value>
+  </data>
+  <data name="CustomStratagem.Uses.Mode" xml:space="preserve">
+    <value>Uses per mission: unlimited or limited</value>
+  </data>
+  <data name="CustomStratagem.Uses.Unlimited" xml:space="preserve">
+    <value>Unlimited</value>
+  </data>
+  <data name="CustomStratagem.Uses.UseNoValue" xml:space="preserve">
+    <value>Use unlimited (no value)</value>
   </data>
   <data name="CustomStratagems.AddAnother" xml:space="preserve">
     <value>Add another</value>
@@ -7208,6 +7239,10 @@
     <value>Related support objects must use the same persistence setting.</value>
     <comment>persistence setting: "Keep applied" (hd2.ensure) or "Apply once"</comment>
   </data>
+  <data name="Messages.Build.Support.NoEffect" xml:space="preserve">
+    <value>{0} has no effect in game, so it is read-only: {1}</value>
+    <comment>{0}: field name; {1}: HD2Runtime's reason (English, not translated)</comment>
+  </data>
   <data name="Messages.Build.Support.OverchargeExplosionChoice" xml:space="preserve">
     <value>Choose one of the published overcharge explosions: {0}.</value>
     <comment>{0}: comma-separated weapon names whose overcharge explosion the field accepts</comment>
@@ -8469,6 +8504,52 @@
     <value>Version</value>
     <comment>Label</comment>
   </data>
+  <data name="NoEffect.Badge" xml:space="preserve">
+    <value>No effect in game</value>
+  </data>
+  <data name="NoEffect.Changes.Count.One" xml:space="preserve">
+    <value>{0} edit has no effect in game</value>
+    <comment>{0}: number of saved edits of backpack-fed ammunition rows</comment>
+  </data>
+  <data name="NoEffect.Changes.Count.Other" xml:space="preserve">
+    <value>{0} edits have no effect in game</value>
+    <comment>{0}: number of saved edits of backpack-fed ammunition rows</comment>
+  </data>
+  <data name="NoEffect.Changes.Tooltip" xml:space="preserve">
+    <value>The backpack holds this ammunition. HD2Runtime accepts these edits and ModBuilder still exports them; open the entry to remove them where they are.</value>
+  </data>
+  <data name="NoEffect.EditBackpack" xml:space="preserve">
+    <value>Edit the backpack instead</value>
+  </data>
+  <data name="NoEffect.Note.Home" xml:space="preserve">
+    <value>{0} keeps its ammunition in the {1}, delivered in slot {2} of its drop pod. HD2Runtime {3} keeps that backpack's ammunition read-only, so it cannot be edited there either.</value>
+    <comment>{0}: weapon name; {1}: backpack name (not translated); {2}: drop-pod slot number; {3}: SDK version</comment>
+  </data>
+  <data name="NoEffect.Note.HomeAuthorable" xml:space="preserve">
+    <value>{0} keeps its ammunition in the {1}: edit its backpack ammunition instead.</value>
+    <comment>{0}: weapon name; {1}: backpack name (not translated)</comment>
+  </data>
+  <data name="NoEffect.Note.HomeUnknown" xml:space="preserve">
+    <value>{0} keeps its ammunition in its backpack.</value>
+    <comment>{0}: weapon name</comment>
+  </data>
+  <data name="NoEffect.Note.Reason.Html" xml:space="preserve">
+    <value>&lt;strong&gt;No effect in game.&lt;/strong&gt; {0}</value>
+    <comment>{0}: HD2Runtime's reason (English, not translated)</comment>
+  </data>
+  <data name="NoEffect.Remove" xml:space="preserve">
+    <value>Remove this edit</value>
+  </data>
+  <data name="NoEffect.Saved.Html" xml:space="preserve">
+    <value>This project saved an edit here: &lt;strong&gt;{0}&lt;/strong&gt;. HD2Runtime still accepts it and ModBuilder still exports it unchanged, but it is not expected to change anything in game.</value>
+    <comment>{0}: the saved value</comment>
+  </data>
+  <data name="NoEffect.ShowBackpack" xml:space="preserve">
+    <value>Show the backpack</value>
+  </data>
+  <data name="NoEffect.ShowBackpack.Tooltip" xml:space="preserve">
+    <value>Opens the call-in's drop pod at the slot that delivers this backpack</value>
+  </data>
   <data name="NotFound.Message" xml:space="preserve">
     <value>Sorry, the content you are looking for does not exist.</value>
   </data>
@@ -9627,6 +9708,54 @@
     <value>Weapon</value>
     <comment>Weapon editor section heading</comment>
   </data>
+  <data name="SentrySwap.Aim.Emplacement" xml:space="preserve">
+    <value>Emplacements are aimed by the player: a round with another speed or drop lands elsewhere than the sight suggests.</value>
+    <comment>Note on an emplacement's fired round</comment>
+  </data>
+  <data name="SentrySwap.Aim.Note" xml:space="preserve">
+    <value>A sentry aims for its own round. A round with another speed or drop may miss moving targets, and a flat round from a mortar may miss entirely.</value>
+    <comment>Shown before a round is chosen for a sentry</comment>
+  </data>
+  <data name="SentrySwap.Aim.Warning" xml:space="preserve">
+    <value>This sentry still aims for its own round, not for {0}. If the speed or drop differ it may miss moving targets; a flat round from a mortar may miss entirely.</value>
+    <comment>{0}: the chosen round. Warning shown while a sentry fires another round</comment>
+  </data>
+  <data name="SentrySwap.Family.Emplacement" xml:space="preserve">
+    <value>Emplacement</value>
+    <comment>Badge: the host is an emplacement (aimed by the player)</comment>
+  </data>
+  <data name="SentrySwap.Family.Sentry" xml:space="preserve">
+    <value>Sentry</value>
+    <comment>Badge: the host is a sentry (aims by itself)</comment>
+  </data>
+  <data name="SentrySwap.Round.Damage" xml:space="preserve">
+    <value>Damage</value>
+    <comment>Row label: direct damage of the round</comment>
+  </data>
+  <data name="SentrySwap.Round.Mass" xml:space="preserve">
+    <value>Mass</value>
+    <comment>Row label: projectile mass</comment>
+  </data>
+  <data name="SentrySwap.Round.Own" xml:space="preserve">
+    <value>Own round</value>
+    <comment>Column header: the round the sentry or emplacement fires natively</comment>
+  </data>
+  <data name="SentrySwap.Round.Unknown" xml:space="preserve">
+    <value>not published</value>
+    <comment>Table cell: the SDK publishes no value for the chosen round</comment>
+  </data>
+  <data name="SentrySwap.Round.Velocity" xml:space="preserve">
+    <value>Speed</value>
+    <comment>Row label: projectile speed</comment>
+  </data>
+  <data name="SentrySwap.Title" xml:space="preserve">
+    <value>Fired round</value>
+    <comment>Section title in a sentry or emplacement stratagem's editor: which projectile its turret fires (HD2Runtime 0.30.2 projectile host swap)</comment>
+  </data>
+  <data name="SentrySwap.TypeLevel" xml:space="preserve">
+    <value>Applies to every {0} on your machine, teammates' too. Other players' machines keep the stock round.</value>
+    <comment>{0}: stratagem name. The swap is type-level: each machine simulates turret shots from its own data</comment>
+  </data>
   <data name="Settings.About.Help" xml:space="preserve">
     <value>SDK metadata provides static evidence and expected values. The separately installed runtime validates changes in game.</value>
   </data>
@@ -9881,6 +10010,37 @@
   <data name="Snippets.WriteConflicts.Title" xml:space="preserve">
     <value>Write-conflict report</value>
     <comment>Snippet title (hd2.diagnostics.write_conflicts).</comment>
+  </data>
+  <data name="Status.Explosion.Badge" xml:space="preserve">
+    <value>Not live-tested</value>
+    <comment>Badge on a status slot of a player weapon's explosion</comment>
+  </data>
+  <data name="Status.Explosion.NotLiveTested" xml:space="preserve">
+    <value>No status on a player-weapon explosion has been tested in game yet (HD2Runtime's pending test: PurifierIncendiaryCharge). The export writes allow_unverified_effect=true and requires HD2Runtime 0.30.2.</value>
+  </data>
+  <data name="Status.Extended.Duration" xml:space="preserve">
+    <value>Its definition lasts {0} s (the status duration, shared by every attack that applies it).</value>
+    <comment>{0}: seconds</comment>
+  </data>
+  <data name="Status.Extended.Export.Html" xml:space="preserve">
+    <value>No attack has been tested in game with it, on any row: the export writes &lt;code&gt;{0}&lt;/code&gt; for it and requires HD2Runtime {1} (0.30.0 refuses this status).</value>
+    <comment>{0}: the Runtime opt-in (allow_unverified_effect=true); {1}: Runtime version</comment>
+  </data>
+  <data name="Status.Extended.Title" xml:space="preserve">
+    <value>{0}: extended status, not tested in game</value>
+    <comment>{0}: status name</comment>
+  </data>
+  <data name="Status.Tier.EnemySlot" xml:space="preserve">
+    <value>Enemy slot (unverified)</value>
+    <comment>Status picker group: statuses the game applies through enemy or hazard damage slots (attach tier enemy_slot)</comment>
+  </data>
+  <data name="Status.Tier.OtherSystem" xml:space="preserve">
+    <value>Experimental</value>
+    <comment>Status picker group: statuses the game never applies through a damage slot (attach tier other_system)</comment>
+  </data>
+  <data name="Status.Tier.PlayerAttack" xml:space="preserve">
+    <value>Attachable</value>
+    <comment>Status picker group: statuses a player attack already applies (HD2Runtime attach tier player_attack)</comment>
   </data>
   <data name="Stratagem.Acquisition.WorldPickup" xml:space="preserve">
     <value>World Pickup</value>

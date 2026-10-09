@@ -27,10 +27,11 @@ public sealed class Runtime030DonorTests
         using var e = new TestEnvironment(); var (w, sdk) = await Fresh(e); var catalog = sdk.AttackOutputs!;
         Assert.True(AuthoredTypes.ProjectileDonors);
         Assert.DoesNotContain(catalog.Unavailable(), u => u.Output.IsDonor);
-        // A player component host lists all 32, each with Runtime's refusal or both opt-ins, whatever its class.
+        // A player component host lists all 31 (32 in 0.30.0; 0.30.2 retired SMG-37 Defender (projectile 150)), each with Runtime's refusal or
+        // both opt-ins, whatever its class.
         var reprimand = w.OutputHost(Reprimand, "primary", out _)!;
         var donors = catalog.Donors(reprimand).Where(d => d.Output.IsDonor).ToArray();
-        Assert.Equal(32, donors.Length);
+        Assert.Equal(31, donors.Length);
         Assert.All(donors.Where(d => d.Allowed), d => Assert.Equal(Both, d.Acknowledgements));
         var bomb = Donor(sdk, reprimand, Bomb); Assert.True(bomb.Allowed && bomb.CrossClass && !bomb.ProvenOnHost);
         Assert.Equal(("owner entity loadout package", true), (bomb.Output.Package.Via, bomb.Output.Package.AutoLoad));
@@ -53,7 +54,8 @@ public sealed class Runtime030DonorTests
         Assert.Equal(Both, change.Acknowledgements); Assert.Equal("Eagle 500kg Bomb (projectile 239)", change.OutputName); Assert.Null(w.BuildError);
         // Runtime docs/attack-outputs.md's own example: target the attack, expect its projectile, value hd2.attack_output(donor), both opt-ins.
         Assert.Equal(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Golden", "projectile-donor-swap.lua")).Replace("\r\n", "\n"), w.LuaPreview);
-        Assert.Equal(RuntimeRequirement.Release030, RuntimeRequirement.Minimum(w.Project, sdk));
+        // Bound to the pinned 0.30.3, the export declares it; the donor's own floor is 0.30.0's.
+        Assert.Equal(SdkPin.Version, RuntimeRequirement.Minimum(w.Project, sdk));
         Assert.Contains((RuntimeRequirement.Release030, "projectile donor " + Bomb), RuntimeRequirement.Floors(w.Project, sdk));
         // A project that declares an older SDK is raised to the Runtime that has the donors (the validator's usesMoreDonors).
         var older = sdk with { Version = "0.28.1" };
@@ -101,7 +103,7 @@ public sealed class Runtime030DonorTests
         await w.SetHostOutputAsync(AttackOutputChange.VehicleHost, Patriot, "primary", Gatling);
         await w.SetSelectorAsync(CompositionKind.Player, Liberator, new(null, null, Railcannon, w.AmmoModes(CompositionKind.Player, Liberator)!.Input.Input));
         var (manifest, lua) = await ExportFixtureTests.Export(w, "D1-projectile-donors");
-        Assert.Equal(RuntimeRequirement.Release030, manifest.RootElement.GetProperty("requires").GetProperty("hd2runtime").GetProperty("min_version").GetString());
+        Assert.Equal(SdkPin.Version, manifest.RootElement.GetProperty("requires").GetProperty("hd2runtime").GetProperty("min_version").GetString());
         foreach (var donor in new[] { Bomb, Hmg, Precision, Gatling, Railcannon }) Assert.Contains("hd2.attack_output('" + donor + "')", lua);
         Assert.Equal(5, lua.Split("allow_unverified_reference=true").Length - 1);
     }

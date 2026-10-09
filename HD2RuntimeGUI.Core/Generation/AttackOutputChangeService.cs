@@ -14,6 +14,8 @@ namespace HD2RuntimeGUI.Core.Generation;
 //   support            target hd2.support_weapon(S):attack(role)                       expect <target>:projectile()   hd2.fields.attack.projectile
 //   mounted            target <mount>:attack(role):projectile_source().target          expect <mount>:attack(role)    hd2.fields.attack.projectile
 //     where <mount> is hd2.vehicle(V):weapon(M), or hd2.backpack(B):drone():weapon() for a Guard Dog drone gun.
+//   sentry/emplacement target <source>.target                                       expect <source>.expect         hd2.fields.attack.projectile
+//     (0.30.2) where <source> is hd2.stratagem(S):attack(role):projectile_source() and the host key is "<S> / weapon" (type-level).
 public static class AttackOutputChangeService
 {
     public static readonly string[] FlagOrder = ["allow_shared", "allow_unverified_effect", "allow_unverified_reference"];
@@ -80,6 +82,9 @@ public static class AttackOutputChangeService
             case AttackOutputChange.SupportHost:
                 var attack = "hd2.support_weapon(" + LuaGenerator.Quote(c.Weapon) + "):attack(" + role + ")";
                 return (attack, "hd2.fields.attack.projectile", attack + ":projectile()");
+            case AttackOutputChange.VehicleHost when sdk.Entities?.VehicleWeapons?.StratagemHosts.TryGetValue(c.Weapon, out var sentry) == true:
+                var source = VehicleWeaponReader.StratagemHostAccessor(sentry.Stratagem, c.AttackRole);
+                return (source + ".target", "hd2.fields.attack.projectile", source + ".expect");
             case AttackOutputChange.VehicleHost:
                 var mounted = MountLua(sdk, c.Weapon) + ":attack(" + role + ")";
                 return (mounted + ":projectile_source().target", "hd2.fields.attack.projectile", mounted);

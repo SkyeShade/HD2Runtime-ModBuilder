@@ -1487,6 +1487,7 @@ h2.native-name { font-size:21px }
 .reference-method { display:flex; flex-direction:column; margin:5px 0 }
 .reference-table { width:100%; border-collapse:collapse; font-size:12.5px; margin:6px 0 }
 .reference-table th, .reference-table td { padding:3px 6px; text-align:left; vertical-align:top; border-bottom:1px solid var(--border) }
+.reference-table.sentry-round { width:auto; min-width:340px }
 .reference-table th { color:var(--muted); font-weight:600 }
 .action-group { margin-bottom:18px }
 .action-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid var(--border) }
@@ -1967,6 +1968,11 @@ html:lang(zh-Hans) { font-family:'Segoe UI Variable','Segoe UI','Microsoft YaHei
 .support-replace p { margin:0 0 4px }
 .support-replace ul { margin:0 0 6px; padding-left:18px }
 .support-replace-actions { display:flex; flex-wrap:wrap; gap:6px }
+/* ---- HD2Runtime 0.30.2 noEffect: backpack-fed ammunition rows (NoEffectNote above them, a saved edit resolved in its row) ---- */
+.no-effect-note { margin:0 0 8px; padding:8px 12px; border-left:3px solid var(--border); background:var(--surface2); border-radius:6px; font-size:12.5px }
+.no-effect-note p { margin:0 0 4px }
+.no-effect-note p:last-child { margin:0 }
+.revealed { outline:2px solid var(--accent); outline-offset:3px; border-radius:8px }
 /* ---- HD2Runtime 0.30 projectile donors (DonorDetail: role, projectile type and flight in the donor lists and where a donor is chosen) ---- */
 .donor-detail { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px }
 .donor-detail.compact { margin-top:3px }

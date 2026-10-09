@@ -146,7 +146,7 @@ public static class StatusReferences
     public static (IReadOnlyList<string> Allowed, bool AllowNone) Support(SdkMetadata sdk, SupportField f)
     {
         var current = f.Value.Baseline.ValueKind == JsonValueKind.String ? f.Value.Baseline.GetString()! : StatusReference.None;
-        var attachable = sdk.StatusEffects?.Statuses.Values.Where(s => s.Attachable).Select(s => s.SemanticId) ?? [];
+        var attachable = sdk.StatusEffects?.Statuses.Values.Where(s => s.Attachable && AuthoredTypes.Status(s)).Select(s => s.SemanticId) ?? [];
         var allowed = attachable.Concat(current == StatusReference.None ? [] : [current]).Distinct(StringComparer.Ordinal).ToArray();
         var slot = Slot(f.SemanticFieldId);
         var last = (sdk.SupportAuthoring?.FieldInstances ?? []).Where(x => x.IsStatusReference && x.Backing.ObjectKey == f.Backing.ObjectKey && Slot(x.SemanticFieldId) != null
@@ -202,9 +202,13 @@ public static class CompositionOptIns
     // it whatever the field publishes (require_unverified_donor), so the write carries them unconditionally.
     public static bool Donor(SdkMetadata? sdk, string type, JsonElement value) => type == WeaponCapability.FunctionProjectileReference
         && Compared(type, value) is { } token && FunctionProjectile.IsOutput(token) && sdk?.AttackOutputs?.Output(token)?.IsDonor == true;
-    public static bool EffectFor(SdkMetadata? sdk, WeaponCapability f, JsonElement value) => EffectFor(f, value) || Donor(sdk, f.Type, value);
+    // 0.30.2 (schemas/status_attachment_policy.json): an extended status (attachTier enemy_slot or other_system) needs allow_unverified_effect
+    // on every row, live-proven direct-hit rows included, whatever the field publishes: a per-value opt-in.
+    public static bool Extended(SdkMetadata? sdk, string type, JsonElement value) => type == WeaponCapability.StatusReference
+        && value.ValueKind == JsonValueKind.String && sdk?.StatusEffects?.Find(value.GetString()!) is { Extended: true };
+    public static bool EffectFor(SdkMetadata? sdk, WeaponCapability f, JsonElement value) => EffectFor(f, value) || Donor(sdk, f.Type, value) || Extended(sdk, f.Type, value);
     public static bool ReferenceFor(SdkMetadata? sdk, WeaponCapability f, JsonElement value) => ReferenceFor(f, value) || Donor(sdk, f.Type, value);
-    public static bool EffectFor(SdkMetadata? sdk, SupportField f, JsonElement value) => EffectFor(f, value) || Donor(sdk, f.Value.Type, value);
+    public static bool EffectFor(SdkMetadata? sdk, SupportField f, JsonElement value) => EffectFor(f, value) || Donor(sdk, f.Value.Type, value) || Extended(sdk, f.Value.Type, value);
     public static bool ReferenceFor(SdkMetadata? sdk, SupportField f, JsonElement value) => ReferenceFor(f, value) || Donor(sdk, f.Value.Type, value);
 }
 

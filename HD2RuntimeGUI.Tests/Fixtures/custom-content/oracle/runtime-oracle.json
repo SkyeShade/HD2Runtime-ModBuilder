@@ -1,5 +1,5 @@
 {
- "sdk_schema_sha256": "624d7d1c5c01b14ada3711eb952d6906bd232ba9baa5c96da1d22c99062e9a9e",
+ "sdk_schema_sha256": "aa898c243f82b3d90237871b505e022c1018247b15a56e3b77c84060f339d74e",
  "examples": [
   {
    "name": "EagleStunRocketPodsExample",
@@ -2847,10 +2847,8 @@
      }
     ]
    },
-   "problems": [
-    "stratagems[eat17_gas].uses: must be at least 1"
-   ],
-   "addon": null
+   "problems": [],
+   "addon": "-- Generated from custom_stratagems.json by the HD2Runtime SDK (hd2.py custom-stratagem compile; format hd2runtime-custom-stratagems/1).\n-- Edit custom_stratagems.json, not this file: the build compiles it again.\nlocal hd2=require('mods/skyeshade/hd2runtime')\nhd2.custom_stratagem.register({\n    id='eat17_gas',\n    name='EAT-17G GAS EXPENDABLE ANTI-TANK',\n    name_cased='EAT-17G Gas Expendable Anti-Tank',\n    description='Drops two expendable launchers whose rockets burst into the Orbital Gas Strike\\'s gas cloud on impact.',\n    icon=hd2.resources.image('eat17_gas'),\n    code={'down','down','right','up','right'},\n    cooldown=70,\n    uses=0,\n    carrier={beacon='support',prefer_families={'support','backpack'}},\n    delivery={family='support',items={{donor='EAT-17 Expendable Anti-Tank',modify={impact_explosion='Orbital Gas Strike'}}}},\n})\n"
   },
   {
    "name": "uses-fraction",
@@ -2949,6 +2947,149 @@
     "stratagems[eat17_gas].uses: must be at most 100"
    ],
    "addon": null
+  },
+  {
+   "name": "uses-minus-one",
+   "project": {
+    "format": "hd2runtime-custom-stratagems/1",
+    "stratagems": [
+     {
+      "id": "eat17_gas",
+      "name": "EAT-17G GAS EXPENDABLE ANTI-TANK",
+      "name_cased": "EAT-17G Gas Expendable Anti-Tank",
+      "description": "Drops two expendable launchers whose rockets burst into the Orbital Gas Strike's gas cloud on impact.",
+      "icon": {
+       "image": "eat17_gas",
+       "source": "images/eat17_gas.png"
+      },
+      "code": [
+       "down",
+       "down",
+       "right",
+       "up",
+       "right"
+      ],
+      "cooldown": 70,
+      "carrier": {
+       "beacon": "support",
+       "prefer_families": [
+        "support",
+        "backpack"
+       ]
+      },
+      "payload": {
+       "family": "support",
+       "items": [
+        {
+         "donor": "EAT-17 Expendable Anti-Tank",
+         "modify": {
+          "impact_explosion": "Orbital Gas Strike"
+         }
+        }
+       ]
+      },
+      "uses": -1
+     }
+    ]
+   },
+   "problems": [],
+   "addon": "-- Generated from custom_stratagems.json by the HD2Runtime SDK (hd2.py custom-stratagem compile; format hd2runtime-custom-stratagems/1).\n-- Edit custom_stratagems.json, not this file: the build compiles it again.\nlocal hd2=require('mods/skyeshade/hd2runtime')\nhd2.custom_stratagem.register({\n    id='eat17_gas',\n    name='EAT-17G GAS EXPENDABLE ANTI-TANK',\n    name_cased='EAT-17G Gas Expendable Anti-Tank',\n    description='Drops two expendable launchers whose rockets burst into the Orbital Gas Strike\\'s gas cloud on impact.',\n    icon=hd2.resources.image('eat17_gas'),\n    code={'down','down','right','up','right'},\n    cooldown=70,\n    uses=-1,\n    carrier={beacon='support',prefer_families={'support','backpack'}},\n    delivery={family='support',items={{donor='EAT-17 Expendable Anti-Tank',modify={impact_explosion='Orbital Gas Strike'}}}},\n})\n"
+  },
+  {
+   "name": "uses-minus-two",
+   "project": {
+    "format": "hd2runtime-custom-stratagems/1",
+    "stratagems": [
+     {
+      "id": "eat17_gas",
+      "name": "EAT-17G GAS EXPENDABLE ANTI-TANK",
+      "name_cased": "EAT-17G Gas Expendable Anti-Tank",
+      "description": "Drops two expendable launchers whose rockets burst into the Orbital Gas Strike's gas cloud on impact.",
+      "icon": {
+       "image": "eat17_gas",
+       "source": "images/eat17_gas.png"
+      },
+      "code": [
+       "down",
+       "down",
+       "right",
+       "up",
+       "right"
+      ],
+      "cooldown": 70,
+      "carrier": {
+       "beacon": "support",
+       "prefer_families": [
+        "support",
+        "backpack"
+       ]
+      },
+      "payload": {
+       "family": "support",
+       "items": [
+        {
+         "donor": "EAT-17 Expendable Anti-Tank",
+         "modify": {
+          "impact_explosion": "Orbital Gas Strike"
+         }
+        }
+       ]
+      },
+      "uses": -2
+     }
+    ]
+   },
+   "problems": [
+    "stratagems[eat17_gas].uses: must be at least -1"
+   ],
+   "addon": null
+  },
+  {
+   "name": "uses-hundred-valid",
+   "project": {
+    "format": "hd2runtime-custom-stratagems/1",
+    "stratagems": [
+     {
+      "id": "eat17_gas",
+      "name": "EAT-17G GAS EXPENDABLE ANTI-TANK",
+      "name_cased": "EAT-17G Gas Expendable Anti-Tank",
+      "description": "Drops two expendable launchers whose rockets burst into the Orbital Gas Strike's gas cloud on impact.",
+      "icon": {
+       "image": "eat17_gas",
+       "source": "images/eat17_gas.png"
+      },
+      "code": [
+       "down",
+       "down",
+       "right",
+       "up",
+       "right"
+      ],
+      "cooldown": 70,
+      "carrier": {
+       "beacon": "support",
+       "prefer_families": [
+        "support",
+        "backpack"
+       ]
+      },
+      "payload": {
+       "family": "support",
+       "items": [
+        {
+         "donor": "EAT-17 Expendable Anti-Tank",
+         "modify": {
+          "impact_explosion": "Orbital Gas Strike"
+         }
+        }
+       ]
+      },
+      "uses": 100
+     }
+    ]
+   },
+   "problems": [],
+   "addon": "-- Generated from custom_stratagems.json by the HD2Runtime SDK (hd2.py custom-stratagem compile; format hd2runtime-custom-stratagems/1).\n-- Edit custom_stratagems.json, not this file: the build compiles it again.\nlocal hd2=require('mods/skyeshade/hd2runtime')\nhd2.custom_stratagem.register({\n    id='eat17_gas',\n    name='EAT-17G GAS EXPENDABLE ANTI-TANK',\n    name_cased='EAT-17G Gas Expendable Anti-Tank',\n    description='Drops two expendable launchers whose rockets burst into the Orbital Gas Strike\\'s gas cloud on impact.',\n    icon=hd2.resources.image('eat17_gas'),\n    code={'down','down','right','up','right'},\n    cooldown=70,\n    uses=100,\n    carrier={beacon='support',prefer_families={'support','backpack'}},\n    delivery={family='support',items={{donor='EAT-17 Expendable Anti-Tank',modify={impact_explosion='Orbital Gas Strike'}}}},\n})\n"
   },
   {
    "name": "max-per-player-zero",

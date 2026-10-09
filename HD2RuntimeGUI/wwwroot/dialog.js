@@ -19,7 +19,16 @@ window.builderDialog = {
 };
 // Brings an element into view after a page change (the weapon attack a custom projectile was created for, for example).
 window.builderView = {
-    reveal(selector) { document.querySelector(selector)?.scrollIntoView({ block: 'center' }); },
+    // highlight: also opens the collapsed sections around it and marks it briefly (a backpack opened from a weapon's ammunition row).
+    reveal(selector, highlight) {
+        const el = document.querySelector(selector); if (!el) return;
+        if (highlight) {
+            for (let d = el.closest('details'); d; d = d.parentElement?.closest('details')) d.open = true;
+            el.classList.remove('revealed'); void el.offsetWidth; el.classList.add('revealed');
+            setTimeout(() => el.classList.remove('revealed'), 2400);
+        }
+        el.scrollIntoView({ block: 'center' });
+    },
     // A section of a long editor: opened when it is a collapsed <details>, then scrolled to its top.
     jump(selector) {
         const el = document.querySelector(selector); if (!el) return;

@@ -82,6 +82,13 @@ public partial class Home : IDisposable
         else Navigate("custom-stratagems");
     }
     private string? StratagemSupportTab;
+    // A stratagem opened from elsewhere (a backpack-fed weapon's "Show the backpack", NoEffectRows), with the element to bring into view.
+    private HD2RuntimeGUI.Services.StratagemOpenRequest? StratagemOpen;
+    private void StratagemRequested(HD2RuntimeGUI.Services.StratagemOpenRequest request) => InvokeAsync(() =>
+    {
+        if (Page != "stratagems") { StratagemCategory = ""; StratagemSupportTab = null; }
+        StratagemOpen = request; Navigate("stratagems"); StateHasChanged();
+    });
     private bool IsSelected(NavItem item) => item.Page.StartsWith("stratagems:", StringComparison.Ordinal)
         ? Page == "stratagems" && StratagemCategory == item.Page["stratagems:".Length..] : Page == item.Page && (item.Page != "stratagems" || StratagemCategory == "");
     private void NavigateTo(string page)
@@ -133,8 +140,8 @@ public partial class Home : IDisposable
     private bool LegacyDraftModified => SelectedField?.Expected != null && FieldPresentation.Parse(NewValue) is { } value && !System.Text.Json.JsonElement.DeepEquals(System.Text.Json.JsonSerializer.SerializeToElement(SelectedField.Expected), value);
     private string SupportedValues => string.Join(", ", Workspace.Metadata!.Transitions.Where(t => t.Resource == TargetKey && t.Field == FieldKey).Select(t => $"{t.Expected} → {t.Value}"));
     // Icons import in parallel with project loading and the GitHub check; open pages refresh through Icons.Changed.
-    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; Navigator.CustomProjectileRequested += CustomProjectileRequested; Navigator.HostRequested += HostRequested; _ = AutoImportIconsAsync(); _ = AppUpdates.StartAutomaticChecksAsync(); await Run(Workspace.InitializeAsync, "Home.Busy.Loading"); }
-    public void Dispose() { Icons.Changed -= IconsChanged; Navigator.CustomProjectileRequested -= CustomProjectileRequested; Navigator.HostRequested -= HostRequested; }
+    protected override async Task OnInitializedAsync() { Icons.Changed += IconsChanged; Navigator.CustomProjectileRequested += CustomProjectileRequested; Navigator.HostRequested += HostRequested; Navigator.StratagemRequested += StratagemRequested; _ = AutoImportIconsAsync(); _ = AppUpdates.StartAutomaticChecksAsync(); await Run(Workspace.InitializeAsync, "Home.Busy.Loading"); }
+    public void Dispose() { Icons.Changed -= IconsChanged; Navigator.CustomProjectileRequested -= CustomProjectileRequested; Navigator.HostRequested -= HostRequested; Navigator.StratagemRequested -= StratagemRequested; }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (FocusDialog && Dialog != null) { FocusDialog = false; await JS.InvokeVoidAsync("builderDialog.focus", DialogElement); }

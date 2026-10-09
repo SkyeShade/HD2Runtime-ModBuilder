@@ -16,10 +16,9 @@
         {
             @* 0.28.0 status slot: an attachable status from Runtime's status catalog or the slot's own one; 'none' only where the slot may be cleared. *@
             var choices = MountedStatusSlots.For(Sdk!, Field);
-            <select data-status-select disabled="@(Workspace.Project == null)" @onchange="e => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, e.Value?.ToString() ?? string.Empty))" aria-label="@(Label ?? Field.DisplayName)">
-                @if (choices.AllowNone) { <option value="@StatusReference.None" selected="@(Value == StatusReference.None)">@T["EntityField.Status.None"]</option> }
-                @foreach (var key in choices.Statuses) { <option value="@key" selected="@(Value == key)">@StatusLabel(key)@(key == Field.CurrentDefault.GetString() ? " " + T["EntityField.Status.CurrentSuffix"] : "")</option> }
-            </select>
+            @* 0.30.2: grouped by attach tier like every status picker (StatusReferenceSelect). *@
+            <StatusReferenceSelect Allowed="choices.Statuses" AllowNone="choices.AllowNone" Value="@Value" Current="@Field.CurrentDefault.GetString()" NoneLabel="@T["EntityField.Status.None"]"
+                Label="@(Label ?? Field.DisplayName)" Disabled="@(Workspace.Project == null)" data-status-select="true" Changed="v => Run(() => Workspace.SetEntityAsync(Field.InstanceKey, v))" />
         }
         else if (Field.IsEnum)
         {
@@ -69,6 +68,7 @@
             @if (Field.Acknowledgement == "allow_unverified_effect" && Field.AcknowledgementReason != null) { <p data-field-unverified-reason>@T.Format("EntityField.UnverifiedReason", Field.AcknowledgementReason)</p> }
             <p>@(Tiers?.GetValueOrDefault(Field.Evidence.Tier) is { } tier ? T.Markup("EntityField.EvidenceTier.Html", EvidenceBadge.Label(Field.Evidence.Tier), tier) : T.Markup("EntityField.Evidence.Html", EvidenceBadge.Label(Field.Evidence.Tier)))</p><p>@Field.Provenance</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
+    @if (Field.IsStatusReference && edited) { <StatusTierWarning Value="@Value" /> }
     @* A dormant member (0.28.0 development SDKs): the game reads another field, so point at the one that takes effect. *@
     @if (Field.Effect is { ActiveSource: FieldEffect.Dormant } dormant && dormant.ActiveField != null)
     { <p class="field-wide subtle" data-field-active-instead>@T.Markup("EntityField.ActiveInstead.Html", dormant.ActiveField)</p> }

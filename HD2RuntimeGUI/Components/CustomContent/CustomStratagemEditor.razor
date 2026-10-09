@@ -102,7 +102,7 @@ else
                         @{ var cooldown = target.Describe("cooldown", s); var uses = target.Describe("uses", s); var perPlayer = target.Describe("max_per_player", s); }
                         <div class="custom-fields">
                             @NumberField("cooldown", "CustomStratagem.Field.Cooldown", "CustomStratagem.Cooldown.Hint", cooldown, s.Cooldown, v => Edit(x => x.Cooldown = v), false, owner)
-                            @NumberField("uses", "CustomStratagem.Field.UsesPerMission", "CustomStratagem.Uses.Hint", uses, s.Uses, v => Edit(x => x.Uses = v is { } u ? (int)Math.Round(u) : null), true, owner)
+                            @UsesField(uses, s.Uses, owner)
                             @NumberField("max_per_player", "CustomStratagem.Field.MaxPerPlayer", "CustomStratagem.MaxPerPlayer.Hint", perPlayer, s.MaxPerPlayer, v => Edit(x => x.MaxPerPlayer = v is { } m ? (int)Math.Round(m) : null), true, owner)
                         </div>
                     </div>
@@ -298,7 +298,41 @@ else
         foreach (var issue in Workspace.CustomDiagnosticsFor(owner).Where(d => d.Field == field && (d.Severity is CustomSeverity.Error or CustomSeverity.Warning || info && d.Severity == CustomSeverity.Info)))
         { <p class="field-issue @CustomLabels.SeverityCss(issue.Severity) @(issue.Severity == CustomSeverity.Error ? "danger-text" : "")" data-field-issue="@field">@CustomLabels.Mark(issue.Severity) @issue.Message</p> }
     };
-    // A number of the call-in (cooldown, uses): the Runtime's range and unit, empty for the carrier's own, refused with the Runtime's reason.
+    // Uses per mission: Unlimited (no value, which every HD2Runtime 0.30 reads as unlimited) or Limited with a count of 1 up to the Runtime's
+    // maximum (0 typed in the count is unlimited too). An explicit 0 or -1 (unlimited, HD2Runtime 0.30.3) is only kept from an imported Runtime
+    // project, so it round-trips: it requires 0.30.3, said here, with the fix that writes no value instead (RuntimeRequirement.Release0303).
+    private RenderFragment UsesField(CustomFieldInfo info, int? value, string owner) => __builder =>
+    {
+        var explicitUnlimited = RuntimeRequirement.ExplicitUnlimitedUses(value);
+        var unlimited = value is null or <= 0;
+        <div class="custom-field @(info.Supported ? "" : "refused")" data-custom-field="uses"><label for="custom-uses">@T["CustomStratagem.Field.UsesPerMission"] <small>@T["CustomStratagem.Uses.Hint"]</small></label>
+            @if (info.Supported)
+            {
+                <div class="input-unit">
+                    <select id="custom-uses" aria-label="@T["CustomStratagem.Uses.Mode"]" disabled="@Busy" data-custom-uses-mode
+                            @onchange="e => Edit(x => x.Uses = e.Value as string == UsesLimited ? (x.Uses is > 0 ? x.Uses : 1) : null)">
+                        <option value="unlimited" selected="@unlimited">@T["CustomStratagem.Uses.Unlimited"]</option>
+                        <option value="@UsesLimited" selected="@(!unlimited)">@T["CustomStratagem.Uses.Limited"]</option>
+                    </select>
+                    @if (!unlimited)
+                    {
+                        <input id="custom-uses-count" type="number" step="1" min="1" max="@CustomLabels.Number(info.Max)" value="@CustomLabels.Number(value)" disabled="@Busy"
+                               aria-label="@T["CustomStratagem.Uses.Count"]" data-custom-uses-count
+                               @onchange="e => Edit(x => x.Uses = int.TryParse(e.Value as string, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var v) ? (v > 0 ? v : null) : x.Uses)" />
+                        <span>@CustomLabels.Unit(T, info.Unit)</span>
+                    }
+                </div>
+                @if (explicitUnlimited)
+                {
+                    <p class="field-reason" data-uses-explicit>@T.Format("CustomStratagem.Uses.Explicit", value!.Value, RuntimeRequirement.Release0303)
+                        <button class="quiet" disabled="@Busy" data-uses-no-value @onclick="() => Edit(x => x.Uses = null)">@T["CustomStratagem.Uses.UseNoValue"]</button></p>
+                }
+            }
+            else { <input id="custom-uses" disabled placeholder="@T["CustomContent.Field.NotSupportedShort"]" /><p class="field-reason" data-field-reason>@T["CustomContent.Field.NotSupported"] @info.Reason</p> }
+            @FieldIssues(owner, "uses")</div>
+    };
+    private const string UsesLimited = "limited";
+    // A number of the call-in (cooldown, max per player): the Runtime's range and unit, empty for the carrier's own, refused with the Runtime's reason.
     private RenderFragment NumberField(string path, string label, string hint, CustomFieldInfo info, double? value, Func<double?, Task> set, bool integer, string owner) => __builder =>
     {
         <div class="custom-field @(info.Supported ? "" : "refused")" data-custom-field="@path"><label for="@("custom-" + path)">@T[label] <small>@T[hint]</small></label>

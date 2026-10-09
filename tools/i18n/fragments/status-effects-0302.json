@@ -1,0 +1,49 @@
+[
+ {
+  "key": "Status.Tier.PlayerAttack",
+  "en": "Attachable",
+  "zh": "可附加",
+  "comment": "Status picker group: statuses a player attack already applies (HD2Runtime attach tier player_attack)"
+ },
+ {
+  "key": "Status.Tier.EnemySlot",
+  "en": "Enemy slot (unverified)",
+  "zh": "敌人槽位（未验证）",
+  "comment": "Status picker group: statuses the game applies through enemy or hazard damage slots (attach tier enemy_slot)"
+ },
+ {
+  "key": "Status.Tier.OtherSystem",
+  "en": "Experimental",
+  "zh": "实验性",
+  "comment": "Status picker group: statuses the game never applies through a damage slot (attach tier other_system)"
+ },
+ {
+  "key": "Status.Extended.Title",
+  "en": "{0}: extended status, not tested in game",
+  "zh": "{0}：扩展状态，未经游戏内测试",
+  "comment": "{0}: status name"
+ },
+ {
+  "key": "Status.Extended.Export.Html",
+  "en": "No attack has been tested in game with it, on any row: the export writes <code>{0}</code> for it and requires HD2Runtime {1} (0.30.0 refuses this status).",
+  "zh": "尚无任何攻击（任何行）在游戏中测试过此状态：导出会为其写入 <code>{0}</code>，并要求 HD2Runtime {1}（0.30.0 会拒绝此状态）。",
+  "comment": "{0}: the Runtime opt-in (allow_unverified_effect=true); {1}: Runtime version"
+ },
+ {
+  "key": "Status.Extended.Duration",
+  "en": "Its definition lasts {0} s (the status duration, shared by every attack that applies it).",
+  "zh": "其定义持续 {0} 秒（状态持续时间，所有施加此状态的攻击共用）。",
+  "comment": "{0}: seconds"
+ },
+ {
+  "key": "Status.Explosion.Badge",
+  "en": "Not live-tested",
+  "zh": "未经实机测试",
+  "comment": "Badge on a status slot of a player weapon's explosion"
+ },
+ {
+  "key": "Status.Explosion.NotLiveTested",
+  "en": "No status on a player-weapon explosion has been tested in game yet (HD2Runtime's pending test: PurifierIncendiaryCharge). The export writes allow_unverified_effect=true and requires HD2Runtime 0.30.2.",
+  "zh": "玩家武器爆炸上的状态尚未在游戏中测试过（HD2Runtime 待进行的测试：PurifierIncendiaryCharge）。导出会写入 allow_unverified_effect=true，并要求 HD2Runtime 0.30.2。"
+ }
+]

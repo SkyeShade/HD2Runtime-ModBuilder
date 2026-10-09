@@ -8,6 +8,7 @@
         <span class="field-flags">
             @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
             @if (Field.AffectsMultipleWeapons) { <span class="badge amber" data-flag="allow_shared" title="@T["ObjectField.Shared.Tooltip"]">@T["Common.Shared"]</span> }
+            @if (Editable && ExplosionStatus) { <span class="badge amber" data-explosion-status title="@T["Status.Explosion.NotLiveTested"]">@T["Status.Explosion.Badge"]</span> }
             @if (!Editable) { <span class="badge" title="@Field.Reason">@T["Common.ReadOnly"]</span> }
         </span></div>
     <div class="field-value">
@@ -35,10 +36,15 @@
         <div class="field-wide"><AckPanel Title="@OptInWarnings.Title(T, "allow_shared")" Description="@T["ObjectField.Shared.Description"]" Items="@Field.SharedWithWeapons.Append(Workspace.EffectiveProjectile(Weapon, Role).Weapon).Append(Weapon).Distinct().ToArray()" /></div>
     }
     @* Runtime's allow_unverified_effect for this object field (every value but a live-proven one) is always written; this only warns. *@
-    @if (Saved?.Scalar is { } scalar && CompositionOptIns.EffectFor(Field, scalar.DesiredValue))
+    @if (Saved?.Scalar is { } scalar && CompositionOptIns.EffectFor(Field, scalar.DesiredValue) && !WarnedByStatusRow)
     {
-        <div class="field-wide"><AckPanel Title="@T.Format("WeaponField.UnverifiedEffect.Title", Field.DisplayName)" Kind="unverified" Description="@Field.AcknowledgementReason" /></div>
+        <div class="field-wide"><AckPanel Title="@T.Format("WeaponField.UnverifiedEffect.Title", Field.DisplayName)" Kind="unverified" Description="@Field.AcknowledgementReason">
+            @* 0.30.2: no status on a player-weapon explosion is live-tested yet (Runtime's pending test PurifierIncendiaryCharge). *@
+            @if (ExplosionStatus) { <p class="subtle" data-explosion-status-note>@T["Status.Explosion.NotLiveTested"]</p> }
+        </AckPanel></div>
     }
+    @if (Field.Type == WeaponCapability.StatusReference && Saved?.Scalar is { } chosen) { <StatusTierWarning Value="@(chosen.DesiredValue.ValueKind == System.Text.Json.JsonValueKind.String ? chosen.DesiredValue.GetString() : null)" /> }
+    @if (StrengthlessSlot is int slot) { <p class="field-wide notice" data-status-strength-hint="@slot">@T.Format("VehicleWeapon.Status.StrengthHint", slot)</p> }
     @if (Saved != null && Workspace.CompositionIssue(Saved) is { } issue) { <p class="field-wide notice warning">@issue</p> }
     @if (Error != null) { <p class="field-wide dialog-error" role="alert">@Error</p> }
 </div>
@@ -51,6 +57,24 @@
     [Parameter] public EventCallback Changed { get; set; }
     private CompositionChange? Saved => Workspace.Project!.CompositionChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Role && c.Kind == Kind && c.Phase == Phase && c.Scalar?.SemanticFieldId == Field.SemanticFieldId);
     private bool Editable => Field.Editable && !Field.DerivedReadOnly;
+    // 0.30.2 status slots on a player weapon's explosion row (Player Weapons › impact / expiry actions).
+    private bool ExplosionStatus => Kind == "explosion" && AuthoredTypes.IsPlayerExplosionStatus(Field.SemanticFieldId);
+    // An explosion status strength whose slot's status row is edited too: that row's panel covers the pair (warned once per slot).
+    private bool WarnedByStatusRow => ExplosionStatus && Field.Type != WeaponCapability.StatusReference && Workspace.Project!.CompositionChanges.Any(c => c.Weapon == Weapon
+        && c.AttackRole == Role && c.Kind == Kind && c.Phase == Phase && c.Scalar?.SemanticFieldId == Field.SemanticFieldId[..^"_strength".Length] + "_type");
+    // A status slot that gains a status (it had none) while its paired strength stays 0: the slot's number, else null.
+    private int? StrengthlessSlot
+    {
+        get
+        {
+            if (Field.Type != WeaponCapability.StatusReference || Field.CurrentDefault.GetString() != StatusReference.None || StatusReferences.Slot(Field.SemanticFieldId) is not int k
+                || Saved?.Scalar is not { DesiredValue: { ValueKind: System.Text.Json.JsonValueKind.String } desired } || desired.GetString() == StatusReference.None) return null;
+            var id = Field.SemanticFieldId[..^"_type".Length] + "_strength";
+            if (Workspace.ObjectFields(Weapon, Role, Kind, Phase).FirstOrDefault(f => f.SemanticFieldId == id) is not { } strength) return null;
+            var value = Workspace.Project!.CompositionChanges.SingleOrDefault(c => c.Weapon == Weapon && c.AttackRole == Role && c.Kind == Kind && c.Phase == Phase && c.Scalar?.SemanticFieldId == id)?.Scalar?.DesiredValue ?? strength.CurrentDefault;
+            return value.ValueKind == System.Text.Json.JsonValueKind.Number && value.GetDouble() == 0 ? k : null;
+        }
+    }
     private System.Text.Json.JsonElement Current => Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault;
     private string Value = "", Loaded = ""; private CompositionChange? Previous; private bool Busy; private string? Error;
     protected override void OnParametersSet() { var key = Weapon + Role + Kind + Phase + Field.SemanticFieldId; if (Loaded == key && Previous == Saved) return; Loaded = key; Previous = Saved; Value = Field.Format(Saved?.Scalar?.DesiredValue ?? Field.CurrentDefault); }

@@ -1253,8 +1253,8 @@
  },
  {
   "key": "CustomStratagem.Uses.Hint",
-  "en": "per player and mission; empty: unlimited",
-  "zh": "每名玩家每局任务；留空：无限"
+  "en": "per player and mission",
+  "zh": "每名玩家每局任务"
  },
  {
   "key": "CustomStratagems.Card.Uses",

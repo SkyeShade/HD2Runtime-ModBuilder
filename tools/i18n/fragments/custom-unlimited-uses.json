@@ -1,0 +1,39 @@
+[
+ {
+  "key": "CustomStratagem.Uses.Mode",
+  "en": "Uses per mission: unlimited or limited",
+  "zh": "每局任务次数：无限或有限"
+ },
+ {
+  "key": "CustomStratagem.Uses.Unlimited",
+  "en": "Unlimited",
+  "zh": "无限"
+ },
+ {
+  "key": "CustomStratagem.Uses.Limited",
+  "en": "Limited",
+  "zh": "有限"
+ },
+ {
+  "key": "CustomStratagem.Uses.Count",
+  "en": "Number of uses per mission",
+  "zh": "每局任务的使用次数"
+ },
+ {
+  "key": "CustomStratagem.Uses.Explicit",
+  "en": "Unlimited, written as uses = {0} as in the imported Runtime project. HD2Runtime {1} and later read {0} as unlimited; older 0.30 releases refuse it, so the export requires HD2Runtime {1}. No value means unlimited on every 0.30 release.",
+  "zh": "无限，按导入的 Runtime 项目写为 uses = {0}。HD2Runtime {1} 及更高版本将 {0} 视为无限；较早的 0.30 版本会拒绝它，因此导出需要 HD2Runtime {1}。不写值在所有 0.30 版本中均表示无限。",
+  "comment": "{0}: 0 or -1; {1}: the HD2Runtime version that accepts it (0.30.3)"
+ },
+ {
+  "key": "CustomStratagem.Uses.UseNoValue",
+  "en": "Use unlimited (no value)",
+  "zh": "改为无限（不写值）"
+ },
+ {
+  "key": "CustomContent.Check.UsesExplicitUnlimited",
+  "en": "Unlimited calls, written as uses = {0}: requires HD2Runtime {1} (no value is unlimited on every 0.30 release).",
+  "zh": "无限次呼叫，写为 uses = {0}：需要 HD2Runtime {1}（不写值在所有 0.30 版本中均表示无限）。",
+  "comment": "{0}: 0 or -1; {1}: 0.30.3"
+ }
+]

@@ -14,6 +14,7 @@ param(
 # Upload all four to the GitHub release tagged v<version> on SkyeShade/HD2Runtime-ModBuilder.
 # The package also contains HD2RuntimeGUI.exe, a byte-identical copy of HD2RuntimeModBuilder.exe: ModBuilder 1.0.0 only
 # accepts packages that contain its old entry point. Updaters from 1.0.1 on do not install it (see docs/app-updates.md).
+# Since 1.7.1 it also carries LICENSE, TRADEMARKS.md and THIRD_PARTY.md at the root, copied byte for byte from the repository.
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem, System.Drawing
@@ -26,6 +27,7 @@ $entrypoint = 'HD2RuntimeModBuilder.exe'
 $legacyEntrypoint = 'HD2RuntimeGUI.exe'
 $updaterExe = 'HD2RuntimeModBuilder.Updater.exe'
 $inventoryName = 'modbuilder-files.json'
+$legalFiles = @('LICENSE', 'TRADEMARKS.md', 'THIRD_PARTY.md')
 $utf8 = New-Object System.Text.UTF8Encoding $false
 
 function Assert-ReleasePath([string]$path) {
@@ -87,6 +89,8 @@ try {
     Get-ChildItem -LiteralPath $stage -Filter '*.pdb' -File -Recurse | Remove-Item -Force
     # Compatibility copy for the ModBuilder 1.0.0 updater (it requires HD2RuntimeGUI.exe in the package); it starts the same app.
     Copy-Item -LiteralPath (Join-Path $stage $entrypoint) -Destination (Join-Path $stage $legacyEntrypoint)
+    # The licence, the trademark policy and the attributions ship beside the application (since 1.7.1), byte for byte from the repository.
+    foreach ($legal in $legalFiles) { Copy-Item -LiteralPath (Join-Path $repoRoot $legal) -Destination (Join-Path $stage $legal) -Force }
 
     # ---- Verify the application folder -----------------------------------------------------------------------------
     $exe = Join-Path $stage $entrypoint
@@ -115,6 +119,10 @@ try {
         if ($files -notcontains $required) { throw "Release is missing $required." }
     }
     if ((Get-Sha256 (Join-Path $stage $legacyEntrypoint)) -ne (Get-Sha256 $exe)) { throw "$legacyEntrypoint is not a copy of $entrypoint." }
+    foreach ($legal in $legalFiles) {
+        if ($files -notcontains $legal) { throw "Release is missing $legal." }
+        if ((Get-Sha256 (Join-Path $stage $legal)) -ne (Get-Sha256 (Join-Path $repoRoot $legal))) { throw "$legal is not the repository's copy." }
+    }
 
     # ---- Inventory, ZIP, manifest -----------------------------------------------------------------------------------
     $entries = foreach ($file in $files) {
@@ -136,7 +144,7 @@ try {
     try {
         $names = @($read.Entries | ForEach-Object { $_.FullName })
         if ($names.Count -ne $files.Count + 1) { throw "ZIP has $($names.Count) entries, expected $($files.Count + 1)." }
-        foreach ($required in @($entrypoint, $legacyEntrypoint, $updaterExe, $inventoryName, 'appicon.ico')) { if ($names -notcontains $required) { throw "ZIP root is missing $required." } }
+        foreach ($required in @($entrypoint, $legacyEntrypoint, $updaterExe, $inventoryName, 'appicon.ico') + $legalFiles) { if ($names -notcontains $required) { throw "ZIP root is missing $required." } }
         $bad = @($names | Where-Object { $_ -match '\\' -or $_.StartsWith('/') -or $_ -match '(^|/)\.\.(/|$)' -or $_.StartsWith("$name/") })
         if ($bad.Count -gt 0) { throw "ZIP has unexpected entry names:`n$($bad -join "`n")" }
     } finally { $read.Dispose() }

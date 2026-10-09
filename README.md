@@ -17,11 +17,11 @@ HD2Runtime ModBuilder is a Windows app for building Helldivers 2 gameplay mods o
 
 ## Download
 
-1. Download **`HD2Runtime-ModBuilder-v1.7.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
+1. Download **`HD2Runtime-ModBuilder-v1.7.1-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
 2. Extract it to a folder you can write to (for example `Documents\HD2Runtime ModBuilder`).
 3. Run **`HD2RuntimeModBuilder.exe`**.
 
-The ZIP also contains `HD2RuntimeGUI.exe`, an identical copy kept so that HD2Runtime ModBuilder 1.0.0 (which was `HD2RuntimeGUI.exe`) can update itself. It starts the same app; you can ignore or delete it.
+The ZIP also contains `HD2RuntimeGUI.exe`, an identical copy kept so that HD2Runtime ModBuilder 1.0.0 (which was `HD2RuntimeGUI.exe`) can update itself. It starts the same app; you can ignore or delete it. `LICENSE`, `TRADEMARKS.md` and `THIRD_PARTY.md` (since 1.7.1) are the licence, the trademark policy and the attributions.
 
 Windows 10/11 x64 with the Microsoft Edge WebView2 Runtime (included with Windows 11) is required; .NET is bundled. Install [HD2Runtime](https://github.com/SkyeShade/HD2Runtime) and its dependencies to use the mods you build. The executable is unsigned, so SmartScreen may warn on first launch.
 
@@ -33,7 +33,7 @@ HD2Runtime ModBuilder checks [GitHub Releases](https://github.com/SkyeShade/HD2R
 
 Updating 1.0.0 to 1.0.1 or later replaces `HD2RuntimeGUI.exe` with `HD2RuntimeModBuilder.exe`. A taskbar pin or shortcut to the old exe needs to be pinned again.
 
-Release notes: [1.7.0](docs/release-notes/v1.7.0.md) · [1.6.0](docs/release-notes/v1.6.0.md) · [1.5.0](docs/release-notes/v1.5.0.md) · [1.4.3](docs/release-notes/v1.4.3.md) · [1.4.2](docs/release-notes/v1.4.2.md) · [1.4.1](docs/release-notes/v1.4.1.md) · [1.4.0](docs/release-notes/v1.4.0.md) · [1.3.1](docs/release-notes/v1.3.1.md) · [1.3.0](docs/release-notes/v1.3.0.md) · [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
+Release notes: [1.7.1](docs/release-notes/v1.7.1.md) · [1.7.0](docs/release-notes/v1.7.0.md) · [1.6.0](docs/release-notes/v1.6.0.md) · [1.5.0](docs/release-notes/v1.5.0.md) · [1.4.3](docs/release-notes/v1.4.3.md) · [1.4.2](docs/release-notes/v1.4.2.md) · [1.4.1](docs/release-notes/v1.4.1.md) · [1.4.0](docs/release-notes/v1.4.0.md) · [1.3.1](docs/release-notes/v1.3.1.md) · [1.3.0](docs/release-notes/v1.3.0.md) · [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
 
 ## Why "HD2RuntimeGUI" still appears
 
@@ -58,7 +58,7 @@ The names HD2Runtime, HD2R and HD2Runtime ModBuilder, the reticle icon and the w
 git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
 ```
 
-A Windows-first .NET 10 MAUI Blazor Hybrid app. Version 1.7.0 is built against **HD2Runtime SDK 0.30.0** (see [SDK 0.30 authoring](#sdk-030-authoring); projects bound to the 0.30.0-dev SDK of the 1.7.0 test builds keep working) and also supports **0.28.1** (release [v0.28.1](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.28.1), `96ab2d2`; 0.28.0's capabilities: the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.28.0**, **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK. Its experimental custom content targets the **HD2Runtime 0.30.0** custom stratagem API through a bundled copy of Runtime's `CustomStratagemSchema.json`, independent of the bound SDK.
+A Windows-first .NET 10 MAUI Blazor Hybrid app. The current build is built against **HD2Runtime SDK 0.30.3** (1.7.0 shipped with 0.30.0; see [SDK 0.30 authoring](#sdk-030-authoring); projects bound to 0.30.0, 0.30.2 or to the 0.30.0-dev SDK of the 1.7.0 test builds keep working) and also supports **0.28.1** (release [v0.28.1](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.28.1), `96ab2d2`; 0.28.0's capabilities: the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.28.0**, **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK. Its experimental custom content targets the **HD2Runtime 0.30** custom stratagem API (released in 0.30.0) through a bundled copy of HD2Runtime 0.30.3's `CustomStratagemSchema.json`, independent of the bound SDK.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 4,555 entries, 121 field definitions (102 writable, 19 read-only, 9 derived)** in SDK 0.28.0. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
@@ -179,6 +179,20 @@ ModBuilder 1.7.0 bundles HD2Runtime 0.30.0; new projects bind to it, and a proje
 Runtime it needs in `requires.hd2runtime.min_version`: the bound SDK, raised to 0.30.0 by any 0.30 field, projectile donor or custom content.
 A project bound to the 0.30.0-dev SDK of the 1.7.0 test builds opens and exports on it (HD2Runtime 0.30.0 loads mods that declare
 0.30.0-dev) until you rebind it to 0.30.0.
+
+The current build bundles **HD2Runtime 0.30.3** (0.30.1 changed no SDK content; 0.30.3 changed only its version and the custom stratagem
+uses range). New projects bind to it; projects bound to 0.30.0, 0.30.2 or 0.30.0-dev open and export on their SDK until you rebind them.
+0.30.2 resolves seven weapons that were read-only as duplicate identities
+(GP-31 Grenade Pistol, P-72 Crisper, LAS-5 Scythe, LAS-7 Dagger, CQC-42 Machete, CQC-73 Entrenchment Tool, SMG-37 Defender): their fields
+are editable, and an edit on one of them requires HD2Runtime 0.30.2. Sentry and emplacement projectile swaps are authored (below).
+
+**Status effects (HD2Runtime 0.30.2).** The explosion rows of 13 player weapons (impact actions in Player Weapons: CB-9, GL-15, GP-20,
+GP-31, P-33, P-34, P/40-K, PLAS-1, PLAS-101, PLAS-15, PLAS-39, R-36, SG-8P) take a status and its strength, written like Runtime's
+`PurifierIncendiaryCharge` example (`...:terminal_action('impact'):explosion()` with `hd2.fields.explosion.damage_status_1_type`). Every
+status picker (player direct hits and explosions, support and mounted weapons) offers 23 more statuses, grouped by Runtime's tier:
+*Attachable*, *Enemy slot (unverified)* and *Experimental*. Choosing one of the extended statuses shows its tier's text (bleed lasts 9999 s).
+None of this is tested in game yet: the export writes `allow_unverified_effect` (and `allow_shared` on shared rows) and requires
+HD2Runtime 0.30.2. A status slot that gains a status while its strength is still 0 says so.
 See [the integration plan](docs/runtime030-integration-plan.md) for what each item maps to.
 
 - **Stratagems.** Call-in codes on every stratagem (an arrow editor; a code equal to a native one carries the opt-in and a warning; a code
@@ -193,6 +207,13 @@ See [the integration plan](docs/runtime030-integration-plan.md) for what each it
   deprecated ids fixed in place.
 - **Projectile donors.** HD2Runtime 0.30's 32 donors (Eagle payloads, orbital shells, sentry rounds, second projectiles) in every projectile
   selector, with their emitter, flight and package loading; every donor write carries both opt-ins.
+- **Sentry and emplacement rounds (HD2Runtime 0.30.2).** Stratagems › Defensive › a sentry or emplacement has a **Fired round** section: the
+  A/AC-8, A/M-12, A/MLS-4X, A/M-23 and A/GM-17 sentries and the E/MG-101 and E/AT-12 emplacements can fire another catalogued projectile
+  (`hd2.stratagem(name):attack('primary'):projectile_source()`). Every swap is written with `allow_unverified_effect`, a cross-class one
+  also with `allow_unverified_reference`; restoring the own round removes the swap. The swap applies to every sentry of that stratagem on
+  your machine (teammates' too); other machines keep the stock round. A sentry still aims for its own round, so the section shows its
+  speed, damage and mass next to the chosen round's and warns that it may miss. The A/MG-43 and A/G-16 are read-only with Runtime's reason.
+  Custom projectiles are not offered here. Exports require HD2Runtime 0.30.2.
 - **Custom Lua.** The 0.30 stub (`hd2.enemies` callable, `hd2.resources`, `hd2.diagnostics.performance()`), pickers for homing, spawn
   weights, limbs, velocity, loadout and ammunition, resupply, the Pelican and the 171 weapon sounds, new snippets and live evidence.
 
@@ -240,7 +261,7 @@ Every write carries the opt-ins Runtime asks for; the page only warns. Projects 
 
 ModBuilder 1.7 can create **new** game content, not only change existing objects. It targets HD2Runtime 0.30.0's custom stratagem API (released; experimental with several players) and its internal custom projectile modules (solo / host only), so everything in this area is marked **Experimental**. See [docs/custom-content.md](docs/custom-content.md) for the full design.
 
-- **Custom Stratagems** (sidebar): new stratagems that HD2Runtime registers for the mod (`hd2.custom_stratagem.register`), built in a studio with a live preview of how the stratagem presents and how ready it is. Each has an internal ID (generated once, changed only explicitly), a HUD name, a panel name, a description, up to four traits, a 256 × 256 PNG icon, a graphical call-in code (↑ ↓ ← →, never another custom or a native code), a cooldown, uses per mission, a carrier (one of HD2Runtime's carrier groups that can carry the payload, or a custom beacon and family policy) and one delivery family, each showing what HD2Runtime has live-tested of it:
+- **Custom Stratagems** (sidebar): new stratagems that HD2Runtime registers for the mod (`hd2.custom_stratagem.register`), built in a studio with a live preview of how the stratagem presents and how ready it is. Each has an internal ID (generated once, changed only explicitly), a HUD name, a panel name, a description, up to four traits, a 256 × 256 PNG icon, a graphical call-in code (↑ ↓ ← →, never another custom or a native code), a cooldown, uses per mission (**Unlimited**, written as no value, or **Limited** with a count; an imported `uses = 0` or `-1`, unlimited since HD2Runtime 0.30.3, is kept and requires 0.30.3, with **Use unlimited (no value)** in place), a carrier (one of HD2Runtime's carrier groups that can carry the payload, or a custom beacon and family policy) and one delivery family, each showing what HD2Runtime has live-tested of it:
   - **Orbital barrage:** a Runtime barrage of a reviewed shell in an adjustable vanilla pattern, or a vanilla barrage with each shell's impact replaced;
   - **Eagle strike:** a vanilla Eagle's strike with its own uses, rearm time and impact;
   - **Pelican gunship:** the game's Pelican over the beacon, its hover, approach and orbit, and its chin gun's round, Gatling behaviour, rate, spread, aim, firing sound and impact explosion;

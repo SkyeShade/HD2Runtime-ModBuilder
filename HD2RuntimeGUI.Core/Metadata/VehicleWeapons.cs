@@ -42,7 +42,16 @@ public sealed record VehicleWeaponVehicle(string Vehicle, VehicleWeaponMount[] M
 public sealed record VehicleWeaponSummary(int Vehicles, int WeaponMounts, int FieldInstances, int WritableFieldInstances, int WeaponLocalFields,
     int SharedMountedWeaponFields, int SharedFields, int GameplayProvenFields, int UnverifiedEffectFields);
 public sealed record VehicleWeaponCatalogJson(string Contract, int SchemaVersion, string Hd2RuntimeVersion, Dictionary<string, string> Scopes,
-    VehicleWeaponVehicle[] Vehicles, VehicleWeaponFieldInstance[] FieldInstances, VehicleWeaponSummary Summary);
+    VehicleWeaponVehicle[] Vehicles, VehicleWeaponFieldInstance[] FieldInstances, VehicleWeaponSummary Summary,
+    VehicleStratagemHost[]? StratagemHosts = null, VehicleStratagemHostSummary? StratagemHostSummary = null);
+// 0.30.2 sentry and emplacement projectile hosts: a stratagem whose deployed entity carries its own ProjectileWeapon record ("<stratagem> /
+// weapon"), reached through hd2.stratagem(name):attack(role):projectile_source(), not through a vehicle mount. Type-level writes (every sentry
+// of that stratagem on this machine), each needing allow_unverified_effect. Authored since 1.7.1 (AuthoredTypes.StratagemProjectileHosts).
+public sealed record VehicleStratagemHostBaseline(string Weapon, string Attack);
+public sealed record VehicleStratagemHostRound(double Velocity, double Damage, double Mass);
+public sealed record VehicleStratagemHost(string Stratagem, string Family, string Key, string SemanticId, string Api, string Field, bool Writable, string? Reason,
+    string Acknowledgement, string CompatibilityClass, VehicleStratagemHostBaseline Baseline, VehicleStratagemHostRound? BaselineRound);
+public sealed record VehicleStratagemHostSummary(int Hosts, int Writable);
 
 public sealed class VehicleWeaponCatalog
 {
@@ -51,6 +60,8 @@ public sealed class VehicleWeaponCatalog
     public required IReadOnlyDictionary<string, VehicleWeaponFieldInstance> Published { get; init; }
     // The same fields adapted to the entity authoring pipeline (target resource "vehicle_weapon").
     public required EntityField[] FieldInstances { get; init; }
+    // 0.30.2 sentry and emplacement projectile hosts, keyed by their attack-output source name ("<stratagem> / weapon"); empty before.
+    public IReadOnlyDictionary<string, VehicleStratagemHost> StratagemHosts { get; init; } = new Dictionary<string, VehicleStratagemHost>(StringComparer.Ordinal);
     public VehicleWeaponVehicle? Find(string vehicle) => Vehicles.FirstOrDefault(v => v.Vehicle == vehicle);
     // 0.28.0: the weapon a backpack's drone carries (Guard Dogs), keyed by the backpack name.
     public VehicleWeaponVehicle? CarriedBy(string backpack) => Vehicles.FirstOrDefault(v => v.Carrier?.Backpack == backpack);
@@ -80,7 +91,7 @@ public static class MountedStatusSlots
     public static Choices For(SdkMetadata sdk, EntityField f)
     {
         var current = f.CurrentDefault.ValueKind == JsonValueKind.String ? f.CurrentDefault.GetString()! : StatusReference.None;
-        var statuses = (sdk.StatusEffects?.Statuses.Values.Where(s => s.Attachable).Select(s => s.SemanticId) ?? []).ToList();
+        var statuses = (sdk.StatusEffects?.Statuses.Values.Where(s => s.Attachable && AuthoredTypes.Status(s)).Select(s => s.SemanticId) ?? []).ToList();
         if (current != StatusReference.None) statuses.Add(current);
         var next = sdk.Entities is { } e ? Siblings(e, f).FirstOrDefault(x => Slot(x) == Slot(f) + 1) : null;
         var allowNone = current == StatusReference.None || next == null || next.CurrentDefault.GetString() == StatusReference.None;
@@ -175,12 +186,23 @@ public static class VehicleWeaponReader
                 && s.WeaponLocalFields == all.Count(f => f.Scope == "weapon_local") && s.SharedMountedWeaponFields == all.Count(f => f.Scope == "shared_mounted_weapon")
                 && s.SharedFields == all.Count(f => f.Scope != "weapon_local")
                 && s.GameplayProvenFields == all.Count(f => f.GameplayEvidence != null) && s.UnverifiedEffectFields == all.Count(f => f.Acknowledgement != null));
+            // 0.30.2 stratagem hosts: one per stratagem, its own key, the published accessor and field, the attack's own baseline; a read-only
+            // host says why. They are never vehicles, mounts or field instances.
+            var stratagemHosts = new Dictionary<string, VehicleStratagemHost>(StringComparer.Ordinal);
+            foreach (var h in c.StratagemHosts ?? [])
+                Check(stratagemHosts.TryAdd(h.Key, h) && h.Key == h.Stratagem + " / weapon" && ValidKey(h.Key) && !weapons.ContainsKey(h.Key) && vehicles.Find(h.Stratagem) == null
+                    && h.SemanticId.StartsWith("vehicle-weapon/v1/", StringComparison.Ordinal) && Role.IsMatch(h.Baseline.Attack) && h.Baseline.Weapon == h.Key
+                    && h.Api == StratagemHostAccessor(h.Stratagem, h.Baseline.Attack) && h.Field == "hd2.fields.attack.projectile"
+                    && h.Acknowledgement == "allow_unverified_effect" && !string.IsNullOrWhiteSpace(h.CompatibilityClass) && !string.IsNullOrWhiteSpace(h.Family)
+                    && h.Writable == (h.Reason == null) && (h.Reason == null || !string.IsNullOrWhiteSpace(h.Reason)));
+            Check((c.StratagemHosts == null) == (c.StratagemHostSummary == null)
+                && (c.StratagemHostSummary is not { } hs || hs.Hosts == stratagemHosts.Count && hs.Writable == stratagemHosts.Values.Count(h => h.Writable)));
             var carried = c.Vehicles.Where(v => v.Carrier != null).Select(v => v.Vehicle).ToHashSet(StringComparer.Ordinal);
             // Consumers name other mounts as "<vehicle> (slot N)": the weapon key of that mount, so one settings row gets one identity
             // whichever mount reaches it.
             var mountKeys = c.Vehicles.SelectMany(v => v.Mounts.Where(m => m.Weapon != null).Select(m => (Name: v.Vehicle + " (slot " + m.Slot.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")", m.Weapon!.Key)))
                 .ToDictionary(x => x.Name, x => x.Key, StringComparer.Ordinal);
-            return new() { Vehicles = c.Vehicles, Scopes = c.Scopes, Published = published,
+            return new() { Vehicles = c.Vehicles, Scopes = c.Scopes, Published = published, StratagemHosts = stratagemHosts,
                 FieldInstances = all.Select(f => Adapt(f, carried.Contains(Split(f.Weapon).Vehicle), SharedRow(f, mountKeys))).ToArray() };
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or NullReferenceException or ArgumentException or InvalidOperationException)
@@ -196,6 +218,8 @@ public static class VehicleWeaponReader
 
     // 0.28.0 Guard Dog drones: the weapon a backpack's drone carries is reached through the backpack, never through hd2.vehicle.
     public static string CarrierAccessor(string backpack) => "hd2.backpack(" + Generation.LuaGenerator.Quote(backpack) + "):drone():weapon()";
+    // 0.30.2 sentry and emplacement hosts are reached through their stratagem (published as hd2.stratagem('<name>'):attack('<role>'):projectile_source()).
+    public static string StratagemHostAccessor(string stratagem, string attack) => "hd2.stratagem('" + stratagem.Replace("\\", "\\\\").Replace("'", "\\'") + "'):attack('" + attack + "'):projectile_source()";
     // A shared settings row identified by every weapon that fires it (scope, component, attack role and the canonical consumer set). Only
     // used to find one row edited through two targets; OwnerKey (and so every saved evidence hash) is unchanged.
     private static string? SharedRow(VehicleWeaponFieldInstance f, IReadOnlyDictionary<string, string> mountKeys) => f.Scope is "weapon_local" or "shared_mounted_weapon" ? null

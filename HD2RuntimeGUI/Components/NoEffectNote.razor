@@ -1,0 +1,18 @@
+@inject BuilderWorkspace Workspace
+@inject BuilderNavigator Navigator
+@* HD2Runtime 0.30.2 noEffect (NoEffectRows): once above a group of backpack-fed ammunition rows, Runtime's reason and where the ammunition
+   really is: the backpack the weapon's call-in delivers, with a button that opens it on its stratagem's page. *@
+@{ var sdk = Workspace.Metadata ?? Workspace.SdkStatus?.Installed; var home = NoEffectRows.Home(sdk, Weapon); }
+<div class="no-effect-note" data-no-effect-note="@Weapon">
+    @foreach (var reason in Fields.Select(f => f.NoEffect!.Reason).Distinct()) { <p data-no-effect-reason>@T.Markup("NoEffect.Note.Reason.Html", reason)</p> }
+    <p data-no-effect-home="@home?.Backpack">@(home == null ? T.Format("NoEffect.Note.HomeUnknown", Weapon) : home.Authorable ? T.Format("NoEffect.Note.HomeAuthorable", Weapon, home.Backpack)
+        : T.Format("NoEffect.Note.Home", Weapon, home.Backpack, home.Slot, sdk?.Version))
+        @if (BackpackButton(home) is { } label) { @(" ")<button class="link-button" data-no-effect-backpack="@home!.Backpack" title="@(home.Authorable ? null : T["NoEffect.ShowBackpack.Tooltip"])" @onclick="() => Open(Navigator, home)">@label →</button> }</p>
+</div>
+@code {
+    [Parameter, EditorRequired] public string Weapon { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<SupportField> Fields { get; set; } = [];
+    // "Edit the backpack instead" where the SDK publishes the backpack's ammunition; otherwise the backpack is shown where it is delivered.
+    public string? BackpackButton(AmmoHome? home) => home?.Reveal == null ? null : home.Authorable ? T["NoEffect.EditBackpack"] : T["NoEffect.ShowBackpack"];
+    public static void Open(BuilderNavigator navigator, AmmoHome home) => navigator.OpenStratagem(home.Stratagem, home.Reveal);
+}

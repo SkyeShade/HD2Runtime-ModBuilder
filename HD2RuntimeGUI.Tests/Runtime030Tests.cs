@@ -8,17 +8,20 @@ using Xunit;
 
 namespace HD2RuntimeGUI.Tests;
 
-// The HD2Runtime 0.30.0 SDK (fixture sdk-0.30.0.zip, the release candidate at Runtime 893d31f; docs/runtime030-integration-plan.md, Phases 1,
-// 2 and 10): it loads fully, the 0.30.0-dev test SDK earlier 1.7.0 builds bundled (fixture sdk-0.30.0-dev.zip) still loads but is never
-// downloaded, what 0.30 adds is modelled and either authored with Runtime's own rules or shown read-only with the not-authored reason, and
+// The HD2Runtime 0.30 SDKs (docs/runtime030-integration-plan.md, Phases 1, 2 and 10, and "Swapping the bundled SDK"): the pinned 0.30.3
+// (fixture sdk-0.30.3.zip, the release asset built at Runtime 7da218b) loads fully; 0.30.2 (fixture sdk-0.30.2.zip, bundled by the 1.7.x SDK
+// move), the 0.30.0 release ModBuilder 1.7.0 bundled (fixture sdk-0.30.0.zip) and 0.30.1 still load; the 0.30.0-dev test SDK earlier 1.7.0 builds bundled (fixture sdk-0.30.0-dev.zip) still loads but is
+// never downloaded; what 0.30 adds is modelled and either authored with Runtime's own rules or shown read-only with the not-authored reason;
 // exports declare the Runtime their fields need.
 public sealed class Runtime030Tests
 {
-    public const string Version = "0.30.0", Fixture = "sdk-0.30.0.zip", DevVersion = "0.30.0-dev", DevFixture = "sdk-0.30.0-dev.zip";
+    // The bundled pin (0.30.3 since 1.7.1), 0.30.2 (the 1.7.x SDK move), the 0.30.0 release 1.7.0 bundled, and the 0.30.0-dev test SDK earlier
+    // 1.7.0 builds bundled.
+    public const string Version = "0.30.3", Fixture = "sdk-0.30.3.zip", Previous = "0.30.2", PreviousFixture = "sdk-0.30.2.zip", Release = "0.30.0", ReleaseFixture = "sdk-0.30.0.zip", DevVersion = "0.30.0-dev", DevFixture = "sdk-0.30.0-dev.zip";
     public static string FixturePath => Path.Combine(AppContext.BaseDirectory, "Fixtures", Fixture);
     private static async Task<SdkMetadata> Local(TestEnvironment e) => await new SdkCache(e.Paths, e.Reader, e.GitHub) { LocalSdkPath = FixturePath }.GetCurrentAsync();
 
-    [Fact] public async Task The_0_30_0_sdk_loads_fully_as_a_local_sdk_and_as_the_bundled_pin()
+    [Fact] public async Task The_pinned_0_30_sdk_loads_fully_as_a_local_sdk_and_as_the_bundled_pin()
     {
         using var e = new TestEnvironment(); var sdk = await Local(e);
         Assert.Equal(Version, sdk.Version); Assert.Null(SemVersion.Parse(sdk.Version).Prerelease);
@@ -28,8 +31,11 @@ public sealed class Runtime030Tests
         Assert.Equal(2406, sdk.Stratagems!.FieldInstances.Length);
         var bundled = await SdkFixtures.Install(e, Version);
         Assert.Equal(sdk.ContentFingerprint, bundled.ContentFingerprint); Assert.True(bundled.IsPinnedBuild);
-        // The 0.28.1 SDK still loads unchanged next to it, and so does the 0.30.0-dev test SDK (local or cached), as a build other than the pin.
+        // The 0.28.1 SDK and the 0.30.0 release still load unchanged next to it, and so does the 0.30.0-dev test SDK (local or cached), as a
+        // build other than the pin.
         Assert.Equal("0.28.1", (await SdkFixtures.Install(e, "0.28.1")).Version);
+        var release = await SdkFixtures.Install(e, Release);
+        Assert.Equal(Release, release.Version); Assert.False(release.IsPinnedBuild ?? false); Assert.NotEqual(SdkPin.ContentFingerprint, release.ContentFingerprint);
         var dev = await new SdkCache(e.Paths, e.Reader, e.GitHub) { LocalSdkPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", DevFixture) }.GetCurrentAsync();
         Assert.Equal(DevVersion, dev.Version); Assert.Null(dev.IsPinnedBuild); Assert.NotNull(dev.Stratagems); Assert.NotNull(dev.LuaApi);
         var cached = await SdkFixtures.Install(e, DevVersion);
@@ -51,7 +57,8 @@ public sealed class Runtime030Tests
             """u8.ToArray();
         Assert.Empty(GitHubReleaseClient.ParseReleases(releases));
         Assert.True(SdkCompatibility.IsSupported(Version)); Assert.True(SdkCompatibility.IsSupported(DevVersion)); Assert.True(SdkCompatibility.IsSupported("0.28.1"));
-        Assert.False(SdkCompatibility.IsSupported("0.30.1"));
+        Assert.True(SdkCompatibility.IsSupported(Release)); Assert.True(SdkCompatibility.IsSupported("0.30.1"));
+        Assert.True(SdkCompatibility.IsSupported(Previous)); Assert.False(SdkCompatibility.IsSupported("0.30.4"));
     }
 
     [Fact] public async Task New_value_types_and_targets_are_modelled_and_read_only_until_they_are_authored()
@@ -99,7 +106,8 @@ public sealed class Runtime030Tests
         Assert.Equal(EntityNotice.Dormant, Assert.Single(thrust.Notices!).Kind);
         // Projectile donors: offered since Phase 7 (Runtime030DonorTests), none listed as not authored; owners keep their own row.
         var outputs = sdk.AttackOutputs!;
-        Assert.Equal(32, outputs.Outputs.Count(o => o.IsDonor));
+        // 0.30.2 retired SMG-37 Defender (projectile 150), the SEAF SMG's round (32 donors in 0.30.0).
+        Assert.Equal(31, outputs.Outputs.Count(o => o.IsDonor));
         Assert.All(outputs.Outputs.Where(o => o.IsDonor), o => Assert.True(o.Slots == null && o.Flight != null && o.Names!.Length > 0 && o.Offered));
         Assert.DoesNotContain(outputs.Unavailable(), u => u.Code == "NOT_AUTHORED");
         // An owner with its own row and donor rows keeps its own row; an owner with donor rows only (SMG-37, GP-31) has no own row to swap from.
@@ -134,11 +142,11 @@ public sealed class Runtime030Tests
         project.StratagemChanges.Add(new StratagemChange { SemanticFieldId = "stratagem.cooldown" });
         Assert.Equal("0.28.1", RuntimeRequirement.Minimum(project, sdk));
         project.StratagemChanges.Add(new StratagemChange { SemanticFieldId = "weapon.horizontal_spread" });
-        Assert.Equal(Version, RuntimeRequirement.Minimum(project, sdk));
-        Assert.Equal((Version, "stratagem weapon.horizontal_spread"), Assert.Single(RuntimeRequirement.Floors(project)));
+        Assert.Equal(Release, RuntimeRequirement.Minimum(project, sdk));
+        Assert.Equal((Release, "stratagem weapon.horizontal_spread"), Assert.Single(RuntimeRequirement.Floors(project)));
         project.StratagemChanges.Clear();
         project.SupportChanges.Add(new SupportChange { SemanticFieldId = "damage.standard_damage", AttackRole = "overcharge_explosion" });
-        Assert.Equal(Version, RuntimeRequirement.Minimum(project, sdk));
+        Assert.Equal(Release, RuntimeRequirement.Minimum(project, sdk));
         project.SupportChanges[0] = project.SupportChanges[0] with { Enabled = false };
         Assert.Equal("0.28.1", RuntimeRequirement.Minimum(project, sdk));
         project.EntityChanges.Add(new EntityChange { Resource = "enemy", SemanticFieldId = "gore.whole_body_gib_damage" });
@@ -148,7 +156,7 @@ public sealed class Runtime030Tests
         // The wrapper: the plain one for an older binding that needs nothing newer; the SemVer one otherwise, still declaring the bound SDK.
         var older = new ModProject { SdkVersion = "0.28.1", ResourceId = "mods/tests/wrap" };
         Assert.Equal(ModExporter.Wrap(older, "return 1"), ModExporter.WrapFor(older, "return 1", "0.28.1"));
-        var raised = ModExporter.WrapFor(older, "return 1", Version);
+        var raised = ModExporter.WrapFor(older, "return 1", Release);
         Assert.Contains("local x,y,z=version('0.28.1')", raised); Assert.Contains("local required_runtime='0.30.0'", raised);
         var bound = new ModProject { SdkVersion = Version, ResourceId = "mods/tests/wrap" };
         Assert.Equal(ModExporter.Wrap(bound, "return 1", Version), ModExporter.WrapFor(bound, "return 1", Version));
@@ -159,8 +167,8 @@ public sealed class Runtime030Tests
         Assert.Equal(DevVersion, RuntimeRequirement.Minimum(dev, devSdk));
         Assert.Equal(ModExporter.Wrap(dev, "return 1", DevVersion), ModExporter.WrapFor(dev, "return 1", DevVersion));
         dev.StratagemChanges.Add(new StratagemChange { SemanticFieldId = "weapon.horizontal_spread" });
-        Assert.Equal(Version, RuntimeRequirement.Minimum(dev, devSdk));
-        var devRaised = ModExporter.WrapFor(dev, "return 1", Version);
+        Assert.Equal(Release, RuntimeRequirement.Minimum(dev, devSdk));
+        var devRaised = ModExporter.WrapFor(dev, "return 1", Release);
         Assert.Contains("local x,y,z=version('0.30.0-dev')", devRaised); Assert.Contains("local required_runtime='0.30.0'", devRaised);
     }
 }

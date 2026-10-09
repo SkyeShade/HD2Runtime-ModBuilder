@@ -36,11 +36,13 @@
                     <WeaponFunctionsPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" />
                 }
                 @if (domain.Key == "Presentation" && branch.Key.Path == "weapon" && !ModifiedOnly) { <WeaponPresentationPanel Kind="@CompositionKind.Support" Weapon="@Weapon" Changed="Refresh" /> }
+                @* 0.30.2 noEffect: the backpack-fed weapons' own ammunition rows, Runtime's reason and the backpack that holds the ammunition. *@
+                @if (domain.Where(NoEffectRows.Is).ToArray() is { Length: > 0 } inert) { <NoEffectNote Weapon="@Weapon" Fields="inert" /> }
                 <div class="stat-grid">@foreach (var f in domain.Where(f => !ChargeFields.Is(f) && (ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f)))) { <SupportFieldEditor @key="f.InstanceKey" Field="f" Changed="Refresh" /> }</div>
                 @* 0.30.0 charge: the charge.* fields by charge stage, with Runtime's ranges and notes (SupportChargePanel). *@
                 @if (branch.Key.Path == "weapon" && domain.Any(ChargeFields.Is)) { <SupportChargePanel Weapon="@Weapon" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> }
             }
-            @{ var unverified = branch.Where(f => Saved(f) is { } s && CompositionOptIns.EffectFor(f, s.DesiredValue) && (ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f))).ToArray(); }
+            @{ var unverified = branch.Where(f => Saved(f) is { } s && CompositionOptIns.EffectFor(Workspace.Metadata, f, s.DesiredValue) && (ModifiedOnly || f.SemanticFieldId != FireModes.ModesField && !Paneled(f))).ToArray(); }
             @if (unverified.Length > 0)
             {
                 <AckPanel Title="@T["Support.Unverified.Title"]" Kind="unverified" Items="@unverified.Select(f => f.Display.Name).ToArray()" ItemsLabel="@T["Support.Unverified.ItemsLabel"]"

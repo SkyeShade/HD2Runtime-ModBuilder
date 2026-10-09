@@ -1,10 +1,20 @@
 @inject BuilderWorkspace Workspace
 @* A typed status reference (HD2Runtime 0.28.0): one of the statuses the field publishes (player weapons) or the status catalog allows on the
-   slot (support weapons), or none where the slot may be cleared. Status names are shown as the SDK publishes them. *@
-<select class="status-reference" aria-label="@Label" data-status-reference="@Value" disabled="@Disabled" @onchange="e => Changed.InvokeAsync(e.Value?.ToString() ?? StatusReference.None)">
-    @if (AllowNone || Value == StatusReference.None) { <option value="@StatusReference.None" selected="@(Value == StatusReference.None)">@T["Common.None"]</option> }
-    @foreach (var key in Allowed.Where(k => k != StatusReference.None).Distinct())
-    { <option value="@key" selected="@(Value == key)">@Workspace.StatusLabel(key)</option> }
+   slot (support and mounted weapons), or none where the slot may be cleared. Status names are shown as the SDK publishes them. 0.30.2:
+   the statuses are grouped by attach tier (Attachable / Enemy slot / Experimental), each group titled with the tier's published text; an
+   extended status chosen here is explained next to the field (StatusTierWarning). *@
+<select class="status-reference" aria-label="@Label" data-status-reference="@Value" disabled="@Disabled" @attributes="Attributes" @onchange="e => Changed.InvokeAsync(e.Value?.ToString() ?? StatusReference.None)">
+    @if (AllowNone || Value == StatusReference.None) { <option value="@StatusReference.None" selected="@(Value == StatusReference.None)">@(NoneLabel ?? T["Common.None"])</option> }
+    @foreach (var group in Workspace.StatusGroups(Allowed.Where(k => k != StatusReference.None).Distinct()))
+    {
+        if (group.Tier == null) { foreach (var key in group.Keys) { @Option(key) } }
+        else
+        {
+            <optgroup label="@TierLabel(group.Tier)" title="@Workspace.StatusTierText(group.Tier)" data-status-tier="@group.Tier">
+                @foreach (var key in group.Keys) { @Option(key) }
+            </optgroup>
+        }
+    }
 </select>
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<string> Allowed { get; set; } = [];
@@ -12,6 +22,19 @@
     [Parameter] public string Value { get; set; } = StatusReference.None;
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public bool Disabled { get; set; }
+    // The slot's own status, marked "(current)" (mounted weapons); none when not set.
+    [Parameter] public string? Current { get; set; }
+    [Parameter] public string? NoneLabel { get; set; }
     // Receives the chosen status key ('none' to clear).
     [Parameter] public EventCallback<string> Changed { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Attributes { get; set; }
+    private RenderFragment Option(string key) => @<option value="@key" selected="@(Value == key)">@Workspace.StatusLabel(key)@(key == Current ? " " + T["EntityField.Status.CurrentSuffix"] : "")</option>;
+    // The published tiers; a tier this build does not name shows its token.
+    private string TierLabel(string tier) => tier switch
+    {
+        StatusEffect.PlayerAttackTier => T["Status.Tier.PlayerAttack"],
+        "enemy_slot" => T["Status.Tier.EnemySlot"],
+        "other_system" => T["Status.Tier.OtherSystem"],
+        _ => tier,
+    };
 }

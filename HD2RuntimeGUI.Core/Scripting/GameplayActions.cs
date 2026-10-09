@@ -137,17 +137,34 @@ public static partial class GameplayActions
 public sealed record WeaponSound(string Name, string Label, string Family, string Kind, string? Stratagem, bool ResidentOnly, bool PelicanDefault, bool Midi,
     double DesignedRpm, double? RangeM);
 
-/// <summary>The weapon sound catalogue of the SDK this build pins (0.30.0, embedded byte for byte as Scripting/Bundled/WeaponSoundCatalogue-
-/// 0.30.0.json). It is offered only for an SDK whose stub publishes hd2.sounds; the names are Runtime's, never translated.</summary>
+/// <summary>The weapon sound catalogue of the SDK this build pins (0.30.3, embedded byte for byte as Scripting/Bundled/WeaponSoundCatalogue-
+/// 0.30.3.json). It is offered only for an SDK whose stub publishes hd2.sounds; the names are Runtime's, never translated.</summary>
 public static class WeaponSounds
 {
-    public const string Resource = "HD2RuntimeGUI.Core.Scripting.Bundled.WeaponSoundCatalogue-0.30.0.json";
-    private static readonly Lazy<IReadOnlyList<WeaponSound>> Bundled = new(() =>
+    public const string Resource = "HD2RuntimeGUI.Core.Scripting.Bundled.WeaponSoundCatalogue-0.30.3.json";
+    private static readonly Lazy<byte[]> BundledBytes = new(() =>
     {
         using var stream = typeof(WeaponSounds).Assembly.GetManifestResourceStream(Resource) ?? throw new InvalidDataException("Weapon sound catalogue missing.");
-        using var buffer = new MemoryStream(); stream.CopyTo(buffer); return Read(buffer.ToArray());
+        using var buffer = new MemoryStream(); stream.CopyTo(buffer); return buffer.ToArray();
     });
+    private static readonly Lazy<IReadOnlyList<WeaponSound>> Bundled = new(() => Read(BundledBytes.Value));
+    private static readonly Lazy<IReadOnlyDictionary<string, string>> BundledAliases = new(() => Aliases(BundledBytes.Value));
     public static IReadOnlyList<WeaponSound> For(LuaApiIndex? api) => GameplayActions.Available(api, GameplayActions.SoundList) ? Bundled.Value : [];
+    /// <summary>Older sound names the Runtime still resolves (the catalogue's aliases): 0.30.2 renamed primary/smg37/seaf to seaf/3 and
+    /// secondary/gp31/alt to other/wep_grenadier_rifle/1 when the SMG-37 Defender and the GP-31 resolved to their proven roots. The Runtime
+    /// plays the old names; the SDK's custom stratagem schema lists only the new ones, so a saved custom stratagem with an old name is
+    /// offered its new name where the sound is chosen.</summary>
+    public static IReadOnlyDictionary<string, string> Renamed => BundledAliases.Value;
+    public static IReadOnlyDictionary<string, string> Aliases(byte[] bytes)
+    {
+        using var doc = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 16 });
+        if (!doc.RootElement.TryGetProperty("aliases", out var aliases)) return new Dictionary<string, string>(StringComparer.Ordinal);
+        var names = doc.RootElement.GetProperty("sounds").EnumerateArray().Select(s => s.GetProperty("name").GetString()).ToHashSet(StringComparer.Ordinal);
+        var map = aliases.EnumerateObject().ToDictionary(a => a.Name, a => a.Value.GetString()!, StringComparer.Ordinal);
+        // An alias names a catalogued sound and is not itself one.
+        if (map.Any(a => string.IsNullOrWhiteSpace(a.Key) || names.Contains(a.Key) || !names.Contains(a.Value))) throw new InvalidDataException("Inconsistent weapon sound aliases.");
+        return map;
+    }
     public static IReadOnlyList<WeaponSound> Read(byte[] bytes)
     {
         using var doc = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 16 });

@@ -1,6 +1,6 @@
 """Write the conformance oracle of ModBuilder's custom stratagem engine: what HD2Runtime's own SDK tools say about a corpus of projects.
 
-    py -3 -B tools/custom-content/make-runtime-oracle.py --sdk <extracted HD2Runtime-0.30.0-sdk.zip>
+    py -3 -B tools/custom-content/make-runtime-oracle.py --sdk <extracted HD2Runtime-0.30.3-sdk.zip>
 
 The SDK is used read-only (Python writes no bytecode). For every Runtime example project (sdk/fixtures/custom_stratagems) and for a corpus of
 mutations of them that break one rule each, it records sdk/tools/custom_stratagem_project.py's validate() problems, and for every valid one
@@ -89,6 +89,10 @@ def mutations(examples: dict) -> list:
     case('uses-zero', 'GasEatExample', lambda p: S(p).__setitem__('uses', 0))
     case('uses-fraction', 'GasEatExample', lambda p: S(p).__setitem__('uses', 2.5))
     case('uses-high', 'GasEatExample', lambda p: S(p).__setitem__('uses', 101))
+    # 0.30.3: 0 or -1 (or none) means unlimited; below -1 is refused.
+    case('uses-minus-one', 'GasEatExample', lambda p: S(p).__setitem__('uses', -1))
+    case('uses-minus-two', 'GasEatExample', lambda p: S(p).__setitem__('uses', -2))
+    case('uses-hundred-valid', 'GasEatExample', lambda p: S(p).__setitem__('uses', 100))
     case('max-per-player-zero', 'GasEatExample', lambda p: S(p).__setitem__('max_per_player', 0))
     case('max-per-player-high', 'GasEatExample', lambda p: S(p).__setitem__('max_per_player', 5))
     case('max-per-player-fraction', 'GasEatExample', lambda p: S(p).__setitem__('max_per_player', 1.5))

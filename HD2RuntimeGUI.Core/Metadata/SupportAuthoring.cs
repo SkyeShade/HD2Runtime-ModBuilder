@@ -58,7 +58,10 @@ public sealed record SupportField(string InstanceKey, string SupportWeapon, Supp
     SupportFireMode? FireMode = null, SupportReticle? Reticle = null, FieldLiveEvidence? LiveEvidence = null,
     SupportProjectileReference? ProjectileReference = null, SupportFireRate? FireRate = null, SupportFunctionAmmo? FunctionAmmo = null,
     SupportPresentation? Presentation = null, SupportWeaponFunction? WeaponFunction = null, JsonElement? Effect = null,
-    SupportCharge? Charge = null, SupportChargeLevel? ChargeLevel = null)
+    SupportCharge? Charge = null, SupportChargeLevel? ChargeLevel = null,
+    // 0.30.2: a write Runtime accepts but expects to change nothing in game (the backpack-fed weapons' own ammunition rows: the backpack holds
+    // the ammunition). Shown read-only with the reason; an edit saved before is kept and exported (older mods keep working), see NoEffectRows.
+    SupportNoEffect? NoEffect = null)
 {
     // A typed status reference (value kind "reference"): a status key, or 'none'.
     [JsonIgnore] public bool IsStatusReference => Value.Kind == "reference" && Value.Type == WeaponCapability.StatusReference;
@@ -72,6 +75,7 @@ public sealed record SupportField(string InstanceKey, string SupportWeapon, Supp
     [JsonIgnore] public bool IsScalar => Value.Kind == "scalar";
 }
 // 0.26.0: support weapons whose ammunition is stored in their backpack (support weapon -> ammoBackpack).
+public sealed record SupportNoEffect(string Reason);
 public sealed record SupportAmmoBackpackBaseline(int Capacity, int StartAmount, int RefillAmount);
 public sealed record SupportAmmoBackpack(string Backpack, string SemanticId, string Accessor, string Owner, bool WeaponOwnsMagazine,
     string[] Fields, SupportAmmoBackpackBaseline Baseline, string Catalog);
@@ -167,6 +171,8 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
                     FireModes.ValidateCapability(fm.FireModeState, f.Value.Baseline, f.Writable, fm.AllowedModes, fm.ModeValues, fm.MaxModes, fm.NativeSlots?.Select(x => (double)x).ToList());
                 if (f.IsScalar && f.Value.Type is "number" or "integer" or "boolean" or WeaponCapability.FireModeSet) _ = Generation.SupportScalar.Normalize(f, f.Value.Baseline);
                 Check(Regex.IsMatch(f.ApiFieldConstant, @"\Ahd2\.fields\.[a-z_]+\.[a-z_0-9]+\z"));
+                // 0.30.2 noEffect: published on plain ammunition scalars, with a reason.
+                Check(f.NoEffect == null || !string.IsNullOrWhiteSpace(f.NoEffect.Reason) && f.IsScalar && f.SemanticFieldId.Split('.')[0] is "magazine" or "rounds");
                 ValidateTarget(f.Target);
                 var o = objects[f.Backing.ObjectKey]; var g = operations[f.Backing.OperationGroupingKey];
                 // 0.28.0 weapon_selector groups write a weapon's rates, function bindings and function projectile together in one

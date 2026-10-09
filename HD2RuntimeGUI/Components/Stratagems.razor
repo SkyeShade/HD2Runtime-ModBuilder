@@ -195,6 +195,17 @@ else
     {
         if (shownCategory != Category) { shownCategory = Category; Family = ""; }
         if (SupportTab != shownSupportTab) { shownSupportTab = SupportTab; if (SupportTab != null) Family = SupportTab; }
+        if (Open != null && Open.Id != shownOpen) { shownOpen = Open.Id; Selected = Open.Stratagem; reveal = Open.Reveal; }
+    }
+    // A stratagem opened from elsewhere (BuilderNavigator.OpenStratagem): selected, then the requested element is scrolled into view.
+    [Parameter] public StratagemOpenRequest? Open { get; set; }
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private int shownOpen; private string? reveal;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (reveal is not { } selector) return;
+        reveal = null;
+        try { await JS.InvokeVoidAsync("builderView.reveal", selector, true); } catch (Exception e) when (e is JSException or JSDisconnectedException) { }
     }
     private bool InCategory(string family) => StratagemCategories.Find(Category) is not { } c || c.Families.Contains(family);
     private bool Visible(StratagemCatalog c, StratagemDefinition s) => StratagemCategories.Listed(s, (Workspace.Metadata ?? Workspace.SdkStatus?.Installed)?.Entities) && InCategory(s.Family) && StratagemBrowser.Matches(c, s, Family, Search, System, Availability);

@@ -53,7 +53,10 @@ public sealed record AmmoResourceValues(string Resource, AmmoValues Values);
 public sealed record PlayerWeaponAmmo(string Name, string Slot, IReadOnlyList<string> Resources, bool OrdinaryWritesBlocked,
     string BackingDomain, EffectiveAmmoCapacity EffectiveCapacity, AlternateMagazineOptions AlternateMagazineOptions,
     AmmoFields Fields, bool Shared, bool Writable, IReadOnlyList<string> Diagnostics,
-    DefaultMagazineOption? DefaultMagazineOption, IReadOnlyList<AmmoResourceValues>? ResourceValues)
+    DefaultMagazineOption? DefaultMagazineOption, IReadOnlyList<AmmoResourceValues>? ResourceValues,
+    // 0.30.2: a weapon the stat-fingerprint mapper matched to two roots and Runtime resolved to its proven root (research/weapon-roots): the
+    // candidates it was chosen from. Resources is the proven root alone; the per-root ResourceValues are gone with the ambiguity.
+    IReadOnlyList<string>? CandidateRoots = null)
 {
     [JsonIgnore] public string? SemanticDomain => BackingDomain switch { "WeaponMagazineComponentData" => "magazine", "WeaponRoundsComponentData" => "rounds", _ => null };
 }
@@ -92,6 +95,9 @@ public sealed class PlayerWeaponAmmoCatalogReader : IPlayerWeaponAmmoCatalogRead
                 var weapon = authoring.Weapon(w.Name);
                 if (w.Slot != weapon.Slot || w.OrdinaryWritesBlocked != weapon.OrdinaryWritesBlocked || !w.Resources.Order().SequenceEqual(weapon.Resources.Order()))
                     throw new InvalidDataException("Ammo weapon identity mismatch.");
+                if (w.CandidateRoots is { } roots && (roots.Count < 2 || roots.Distinct().Count() != roots.Count || w.OrdinaryWritesBlocked || w.ResourceValues != null
+                    || w.Resources.Count != 1 || !roots.Contains(w.Resources[0])))
+                    throw new InvalidDataException("Invalid weapon root correction.");
                 if (w.BackingDomain is not ("none" or "WeaponMagazineComponentData" or "WeaponRoundsComponentData")
                     || w.EffectiveCapacity.Status is not ("NOT_APPLICABLE" or "RESOLVED" or "CORRELATED_CUSTOMIZATION" or "AMBIGUOUS_RUNTIME_IDENTITY"))
                     throw new UnsupportedSdkException("Unsupported ammo ownership model.");
@@ -108,6 +114,9 @@ public sealed class PlayerWeaponAmmoCatalogReader : IPlayerWeaponAmmoCatalogRead
                     // The companion may retain read-only evidence for a blocked identity
                     // without exposing a semantic descriptor. Never manufacture a control.
                     if (capability == null && !f.Writable && w.OrdinaryWritesBlocked) continue;
+                    // 0.30.2's root correction lifts the companion's block (its direct fields become writable) also where the authoring
+                    // catalog publishes no field of that domain for the weapon (the CQC-42 Machete's magazine): evidence only, no control.
+                    if (capability == null && w.CandidateRoots != null && capabilities.Length == 0) continue;
                     if (capability == null || capability.Editable != f.Writable || capability.DerivedReadOnly != f.Derived
                         || !WeaponScalar.Equal(capability, capability.CurrentDefault, f.Value)
                         || (f.Writable && f.Shared && !capability.AffectsMultipleWeapons))
@@ -126,12 +135,17 @@ public sealed class PlayerWeaponAmmoCatalogReader : IPlayerWeaponAmmoCatalogRead
                 if (w.Diagnostics == null || w.Diagnostics.Any(d => string.IsNullOrWhiteSpace(d) || d.Length > 4000) || w.AlternateMagazineOptions.Options == null) throw new InvalidDataException("Missing or invalid ammo evidence.");
             }
             var s = c.Summary;
+            // 0.30.2's root correction re-resolves a rounds-feed weapon whose two roots differed (the GP-31 Grenade Pistol) after Runtime
+            // counted effectiveCapacityNativeResolved: that count lacks exactly those weapons (47 published, 48 resolved), while
+            // effectiveCapacityResolved includes them. Accepted with exactly that difference, never with another.
+            var resolved = c.Weapons.Count(w => w.EffectiveCapacity.Status == "RESOLVED");
+            var recounted = c.Weapons.Count(w => w.CandidateRoots != null && w.SemanticDomain == "rounds" && w.EffectiveCapacity.Status == "RESOLVED");
             if (s.Weapons != c.Weapons.Count || s.NotApplicable != c.Weapons.Count(w => w.EffectiveCapacity.Status == "NOT_APPLICABLE")
                 || s.WeaponsWithWritableAmmoFields != c.Weapons.Count(w => w.Writable)
                 || s.DefaultMagazineOptions != c.Weapons.Count(w => w.DefaultMagazineOption != null)
                 || s.CustomizationCorrelated != c.Weapons.Count(w => w.EffectiveCapacity.Status == "CORRELATED_CUSTOMIZATION")
-                || s.EffectiveCapacityNativeResolved != c.Weapons.Count(w => w.EffectiveCapacity.Status == "RESOLVED")
-                || s.EffectiveCapacityResolved != s.EffectiveCapacityNativeResolved + s.CustomizationCorrelated
+                || s.EffectiveCapacityNativeResolved != resolved && s.EffectiveCapacityNativeResolved + recounted != resolved
+                || s.EffectiveCapacityResolved != resolved + s.CustomizationCorrelated
                 || s.RoundsFeedWeapons != c.Weapons.Count(w => w.SemanticDomain == "rounds")
                 || s.DirectMagazineWeapons != c.Weapons.Count(w => w.SemanticDomain == "magazine" && w.DefaultMagazineOption == null)
                 || s.NativeMagazineOptionsCataloged != c.NativeMagazineOptions.Count

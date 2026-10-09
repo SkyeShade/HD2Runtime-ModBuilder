@@ -1,0 +1,54 @@
+@inject BuilderWorkspace Workspace
+@* The round a sentry or emplacement fires (HD2Runtime 0.30.2 stratagem projectile hosts, attack-outputs.md "Sentry and emplacement hosts"):
+   the unified projectile host swap on "<stratagem> / weapon", written through hd2.stratagem(name):attack('primary'):projectile_source().
+   The write is type-level (every one of that stratagem on this machine, teammates' too; other machines keep the stock round), and a sentry
+   aims for its own round, so the own round's flight is shown next to the chosen one. The A/MG-43 and A/G-16 are read-only with Runtime's
+   reason. Opt-ins are written with the swap (ProjectileHostSwap lists them); nothing needs ticking. *@
+@{ var sdk = Workspace.Metadata; var host = sdk?.Entities?.VehicleWeapons?.StratagemHosts.Values.FirstOrDefault(h => h.Stratagem == Stratagem); }
+@if (sdk != null && host != null && (!ModifiedOnly || Workspace.HostOutput(AttackOutputChange.VehicleHost, host.Key, host.Baseline.Attack) != null))
+{
+    var change = Workspace.HostOutput(AttackOutputChange.VehicleHost, host.Key, host.Baseline.Attack);
+    var fired = change is { Enabled: true } ? sdk.AttackOutputs?.Output(change.Output) : null;
+    var sentry = host.Family == "Sentry";
+    <section class="panel sentry-projectile @(change != null ? "modified" : "")" data-sentry-projectile="@host.Key" data-host-family="@host.Family">
+        <div class="panel-heading"><h2>@T["SentrySwap.Title"]</h2><span class="badge">@(sentry ? T["SentrySwap.Family.Sentry"] : T["SentrySwap.Family.Emplacement"])</span></div>
+        @if (host.Writable)
+        {
+            <p class="notice" data-sentry-type-level>@T.Format("SentrySwap.TypeLevel", Stratagem)</p>
+            @if (host.BaselineRound is { } own)
+            {
+                var velocity = fired == null ? null : Velocity(fired);
+                <table class="reference-table sentry-round" data-sentry-round>
+                    <thead><tr><th></th><th>@T["SentrySwap.Round.Own"]</th>@if (fired != null) { <th data-sentry-round-donor>@fired.Label</th> }</tr></thead>
+                    <tbody>
+                        <tr><th>@T["SentrySwap.Round.Velocity"]</th><td data-own-velocity>@T.Format("AttackOutput.Donor.Speed", Number(own.Velocity))</td>
+                            @if (fired != null) { <td data-donor-velocity>@(velocity is { } v ? T.Format("AttackOutput.Donor.Speed", Number(v)) : T["SentrySwap.Round.Unknown"])</td> }</tr>
+                        <tr><th>@T["SentrySwap.Round.Damage"]</th><td data-own-damage>@Number(own.Damage)</td>
+                            @if (fired != null) { <td>@T["SentrySwap.Round.Unknown"]</td> }</tr>
+                        <tr><th>@T["SentrySwap.Round.Mass"]</th><td data-own-mass>@Number(own.Mass)</td>
+                            @if (fired != null) { <td>@(fired.Flight?.Mass is { } m ? Number(m) : T["SentrySwap.Round.Unknown"])</td> }</tr>
+                    </tbody>
+                </table>
+            }
+            @if (sentry)
+            {
+                @if (fired != null) { <p class="notice warning" role="alert" data-sentry-aim>@T.Format("SentrySwap.Aim.Warning", fired.Label)</p> }
+                else { <p class="subtle" data-sentry-aim-note>@T["SentrySwap.Aim.Note"]</p> }
+            }
+            else { <p class="subtle" data-emplacement-aim>@T["SentrySwap.Aim.Emplacement"]</p> }
+        }
+        <ProjectileHostSwap @key="host.Key" Kind="@AttackOutputChange.VehicleHost" Weapon="@host.Key" Role="@host.Baseline.Attack" OwnLabel="@Stratagem" Changed="Refresh" />
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public string Stratagem { get; set; } = "";
+    [Parameter] public bool ModifiedOnly { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    // The chosen round's speed: a 0.30.0 donor publishes its flight; another row's owner publishes its projectile velocity field.
+    private double? Velocity(AttackOutput o) => o.Flight?.Velocity
+        ?? (Workspace.RowScalars(o.SemanticId).FirstOrDefault(s => s.Key == "velocity")?.Baseline is { ValueKind: System.Text.Json.JsonValueKind.Number } v ? v.GetDouble() : null);
+    private async Task Refresh() { StateHasChanged(); await Changed.InvokeAsync(); }
+    private static string Number(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    // Whether a stratagem has a sentry or emplacement projectile host (shown in its editor even when nothing else of it is listed).
+    public static bool Has(SdkMetadata? sdk, string stratagem) => sdk?.Entities?.VehicleWeapons?.StratagemHosts.Values.Any(h => h.Stratagem == stratagem) == true;
+}

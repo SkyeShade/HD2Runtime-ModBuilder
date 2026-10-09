@@ -54,7 +54,8 @@ public sealed class CustomStratagem
     public List<string> Code { get; set; } = [];
     // Seconds from the call-in's arrival; null keeps the carrier's own.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? Cooldown { get; set; }
-    // Calls per mission, each player's own; null: unlimited.
+    // Calls per mission, each player's own; null: unlimited. 0 or -1 (unlimited too, HD2Runtime 0.30.3) only as imported from a Runtime project,
+    // kept so it round-trips (RuntimeRequirement.Release0303); ModBuilder itself writes null for unlimited.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Uses { get; set; }
     // At most this many of each player's loadout slots hold it (a further pick is refused); null: no limit.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? MaxPerPlayer { get; set; }

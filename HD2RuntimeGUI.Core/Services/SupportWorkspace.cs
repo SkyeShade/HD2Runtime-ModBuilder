@@ -39,6 +39,8 @@ public sealed partial class BuilderWorkspace
     {
         var next = supportChanges.Create(Metadata!, instance, value);
         var old = p.SupportChanges.SingleOrDefault(c => c.InstanceKey == instance);
+        // 0.30.2 noEffect: a new edit of a backpack-fed ammunition row is refused with Runtime's reason (NoEffectRows).
+        NoEffectRows.RefuseNew(SupportChangeService.Catalog(Metadata!).Field(instance), old, next.DesiredValue);
         if (old != null) next = next with { Id = old.Id, Enabled = old.Enabled, EnsureEnabled = old.EnsureEnabled, Group = old.Group, Notes = old.Notes,
             EffectAcknowledgement = old.EffectAcknowledgement,
             ExpectedValue = acceptBaseline ? next.ExpectedValue : old.ExpectedValue,

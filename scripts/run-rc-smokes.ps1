@@ -2,13 +2,13 @@
 param(
     # The packaged executable to test (default: the release candidate built by build-rc.ps1).
     [string]$App,
-    [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'programmable-ammo', 'projectile-builder', 'export', 'old-project', 'custom-content', 'r030-stratagems'),
-    # The read-only HD2Runtime tree of the pinned SDK (build-rc.ps1 extracts it with git archive): 0.30.0 at 893d31f.
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.30.0-893d31f'),
+    [string[]]$Smokes = @('scripting', 'language', 'runtime028', 'programmable-ammo', 'projectile-builder', 'export', 'old-project', 'custom-content', 'r030-stratagems', 'helldiver', 'armor', 'sentry-swaps'),
+    # The read-only HD2Runtime tree of the pinned SDK (build-rc.ps1 extracts it with git archive): 0.30.3 at 7da218b.
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.30.3-7da218b'),
     # The tree that validates the custom-content smoke's export (its custom stratagems register there too); the pinned tree by default.
     [string]$CustomRuntimeTree,
     # The pinned SDK fixture (HD2RuntimeGUI.Tests\Fixtures\sdk-<version>.zip, SdkPin.Version).
-    [string]$SdkVersion = '0.30.0',
+    [string]$SdkVersion = '0.30.3',
     [int]$BasePort = 9260
 )
 
@@ -19,11 +19,15 @@ param(
 #   runtime028   underbarrel, programmable ammo, mounted projectile host, event/action and localization (+ Runtime validation of its export)
 #   programmable-ammo  base / alternate mode cards: add, donor, labels, reopen, remove, support + native weapons, narrow layout, zh-Hans (+ export validation)
 #   projectile-builder  hosts (player, support, mounted), read-only reasons, donor rows, slots, mode presentation, LAS-98 beam
-#   export       export in both languages (byte-identical) + validation of the export by the pinned HD2Runtime (0.30.0)
+#   export       export in both languages (byte-identical) + validation of the export by the pinned HD2Runtime (0.30.3)
 #   old-project  a ModBuilder 1.3.1 user's data folder: projects stay on 0.27.0, rebind and export
 #   custom-content  experimental custom stratagems and projectiles: templates, families, icon, call-in, the projectile selector's custom
 #                group (create from a weapon, cancel, complete, rename, duplicate, clear, inline errors, support host), reference
-#                protection, violet styling, zh-Hans (+ HD2Runtime 0.30.0 registration and export validation)
+#                protection, violet styling, zh-Hans (+ HD2Runtime 0.30.3 registration and export validation)
+#   r030-stratagems  HD2Runtime 0.30 stratagem authoring (call-in codes, presentation, call-in time, barrage, Eagle, sentry fields)
+#   helldiver    the Player page (hd2.helldiver()): fields, zones, Lua, reopen
+#   armor        the Armor page: kits, classes, curves, passives, Lua, reopen
+#   sentry-swaps HD2Runtime 0.30.2 sentry and emplacement rounds: A/AC-8 and E/AT-12 swaps, notes, read-only A/MG-43, Changes, reopen
 
 $ErrorActionPreference = 'Stop'
 if (-not $CustomRuntimeTree) { $CustomRuntimeTree = $RuntimeTree }

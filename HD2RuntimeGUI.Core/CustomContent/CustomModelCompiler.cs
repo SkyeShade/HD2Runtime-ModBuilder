@@ -107,7 +107,7 @@ public static class CustomModelCompiler
     public const ulong UnitType = 0xE0A48D0BE9A7453F, MaterialType = 0xEAC0B497876ADEDF, TextureType = 0xCD4238C6A0C69E32;
     public const string Record = "hd2runtime_models";
     // The reviewed facts of the pinned Runtime (sdk/ModelBaseCapabilities.json), embedded; ModelBases.Read parses them.
-    public const string BundledResource = "HD2RuntimeGUI.Core.CustomContent.Targets.ModelBaseCapabilities-0.30.0.json";
+    public const string BundledResource = "HD2RuntimeGUI.Core.CustomContent.Targets.ModelBaseCapabilities-0.30.3.json";
     public static byte[] BundledBases()
     {
         using var stream = typeof(CustomModelCompiler).Assembly.GetManifestResourceStream(BundledResource)

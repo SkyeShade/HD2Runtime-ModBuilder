@@ -301,7 +301,7 @@ public sealed class WeaponCompositionTests
         Assert.Contains("target=hd2.support_weapon('M-1000 Maxigun'):attack('primary'):projectile()", op);
         Assert.Contains("{field=hd2.fields.damage.status_1_type,expect='none',value='stun_medium'}", op);
         Assert.Contains("allow_shared=true", op); Assert.DoesNotContain("allow_unverified_effect", op);
-        await Assert.ThrowsAsync<InvalidDataException>(() => w.SetSupportAsync(type.InstanceKey, "\"electric\""));
+        await Assert.ThrowsAsync<InvalidDataException>(() => w.SetSupportAsync(type.InstanceKey, "\"smoke_covered\""));
         // A flamethrower row: its statuses stay packed, so only the last used slot may be cleared.
         var first = Support(sdk, "FLAM-40 Flamethrower", "damage.status_1_type", "primary"); var last = Support(sdk, "FLAM-40 Flamethrower", "damage.status_3_type", "primary");
         Assert.False(w.StatusChoices(first).AllowNone); Assert.True(w.StatusChoices(last).AllowNone); Assert.Contains("fire", w.StatusChoices(first).Allowed);

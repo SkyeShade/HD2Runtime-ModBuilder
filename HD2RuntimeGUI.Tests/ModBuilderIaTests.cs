@@ -74,19 +74,22 @@ public sealed class ModBuilderIaTests
         Assert.Contains("HD2Runtime-ModBuilder-v$version-win-x64", publish); Assert.Contains("modbuilder-update.json", publish); Assert.Contains("resizetizer", publish);
         Assert.Contains("$product = 'HD2Runtime ModBuilder'", publish); Assert.Contains("ProductName -ne $product", publish); Assert.Contains("git status --porcelain", publish);
         Assert.Contains("HD2RuntimeModBuilder.Updater.exe", publish); Assert.Contains("Assert-ReticleIcon", publish);
+        // Since 1.7.1 the licence, the trademark policy and the attributions ship at the ZIP root, checked against the repository's copies.
+        Assert.Contains("$legalFiles = @('LICENSE', 'TRADEMARKS.md', 'THIRD_PARTY.md')", publish); Assert.Contains("is not the repository's copy", publish);
+        foreach (var legal in new[] { "LICENSE", "TRADEMARKS.md", "THIRD_PARTY.md" }) Assert.True(File.Exists(Path.Combine(root, legal)), legal);
     }
 
     [Fact] public void Release_uses_the_renamed_repository_and_documents_itself()
     {
         var root = Root();
-        Assert.Contains("<Hd2RuntimeGuiVersion>1.7.0</Hd2RuntimeGuiVersion>", File.ReadAllText(Path.Combine(root, "Directory.Build.props")));
-        Assert.Equal("1.7.0", BuildInfo.Version);
+        Assert.Contains("<Hd2RuntimeGuiVersion>1.7.1</Hd2RuntimeGuiVersion>", File.ReadAllText(Path.Combine(root, "Directory.Build.props")));
+        Assert.Equal("1.7.1", BuildInfo.Version);
         Assert.Equal("https://github.com/SkyeShade/HD2Runtime-ModBuilder", BuildInfo.RepositoryUrl);
-        Assert.Equal("HD2Runtime-ModBuilder/1.7.0", BuildInfo.UserAgent);
+        Assert.Equal("HD2Runtime-ModBuilder/1.7.1", BuildInfo.UserAgent);
         var readme = File.ReadAllText(Path.Combine(root, "README.md"));
         Assert.Contains("# HD2Runtime ModBuilder\n\n**Visual authoring for [HD2Runtime]", readme.ReplaceLineEndings("\n"));
         Assert.Contains("git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git", readme);
-        Assert.Contains("HD2Runtime-ModBuilder-v1.7.0-win-x64.zip", readme); Assert.Contains("HD2RuntimeModBuilder.exe", readme);
+        Assert.Contains("HD2Runtime-ModBuilder-v1.7.1-win-x64.zip", readme); Assert.Contains("HD2RuntimeModBuilder.exe", readme);
         Assert.True(readme.IndexOf("## For developers", StringComparison.Ordinal) > readme.IndexOf("## Download", StringComparison.Ordinal));
         Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.0.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.1.2.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.2.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.3.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.3.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.4.0.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.4.1.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.4.2.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.4.3.md"))); Assert.True(File.Exists(Path.Combine(root, "docs", "release-notes", "v1.5.0.md")));
         Assert.Contains("modbuilder-update-v2.json", File.ReadAllText(Path.Combine(root, "docs", "app-updates.md")));

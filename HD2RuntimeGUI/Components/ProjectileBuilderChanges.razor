@@ -10,7 +10,7 @@
         {
             <div class="change-row @(c.Enabled ? "" : "disabled-row")" data-host-change="@c.Weapon">
                 <label class="switch-label"><input type="checkbox" role="switch" checked="@c.Enabled" @onchange="() => Run(() => Workspace.ToggleAttackOutputAsync(c.Id))" aria-label="@T["Changes.Other.Enable"]" /></label>
-                <div class="change-name"><strong>@c.Weapon</strong><small>@ProjectileDonorList.OwnerKind(T, c.Kind) · @T.Format("Projectile.Title", c.AttackRole.Replace('_', ' '))</small></div>
+                <div class="change-name"><strong>@c.Weapon</strong><small>@KindLabel(c) · @T.Format("Projectile.Title", c.AttackRole.Replace('_', ' '))</small></div>
                 <div class="change-value modified-value">@T.Markup("AttackOutput.FiresChange.Html", c.OutputName)</div>
                 <button class="reset-action" @onclick="() => Run(() => Workspace.SetHostOutputAsync(c.Kind, c.Weapon, c.AttackRole, null))">@T["Projectile.Reset"]</button>
             </div>
@@ -40,5 +40,8 @@
     private string Value(string v) => OutputRowChangeService.ParseHandle(v) is { } h ? T.Format("ProjectileBuilder.Slot.Handle", Workspace.Metadata?.AttackOutputs?.Output(h.Output)?.Label ?? h.Output, Slot(v))
         : v == OutputRowChangeService.None ? T["ProjectileBuilder.Slot.None"] : v;
     private string Slot(string v) => OutputRowChangeService.ParseHandle(v) is { } h ? OutputRowChangeService.Label(OutputRowChangeService.SlotFields.Single(f => OutputRowChangeService.SlotKey(f) == h.Slot)) : v;
+    // A sentry or emplacement host (0.30.2) is named by its family; other hosts by their owner kind.
+    private string KindLabel(AttackOutputChange c) => Workspace.Metadata?.Entities?.VehicleWeapons?.StratagemHosts.GetValueOrDefault(c.Weapon) is { } sentry
+        ? T[sentry.Family == "Sentry" ? "SentrySwap.Family.Sentry" : "SentrySwap.Family.Emplacement"] : ProjectileDonorList.OwnerKind(T, c.Kind);
     private async Task Run(Func<Task> action) { try { await action(); Error = null; await Changed.InvokeAsync(); } catch (Exception e) when (e is InvalidDataException or InvalidOperationException or IOException) { Error = e.Message; } }
 }

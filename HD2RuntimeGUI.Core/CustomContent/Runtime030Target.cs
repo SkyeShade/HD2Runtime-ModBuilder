@@ -32,7 +32,11 @@ public sealed class Runtime030Target : ICustomContentTarget
     }
     public string Id => TargetId;
     public string RuntimeLabel => "HD2Runtime " + schema.RuntimeVersion;
-    public string MinimumRuntime => schema.RuntimeVersion;
+    // The custom stratagem API was released with HD2Runtime 0.30.0. A later 0.30.x schema that only grows its catalogues or ranges (0.30.2: two
+    // sound names; 0.30.3: uses 0 and -1, unlimited) keeps that floor; what it adds raises an export's requirement where it is used (RuntimeRequirement.Floors). A development schema
+    // (0.30.0-dev) is its own floor.
+    public string MinimumRuntime => SemVersion.Parse(schema.RuntimeVersion).CompareTo(SemVersion.Parse(Generation.RuntimeRequirement.Release030)) > 0
+        ? Generation.RuntimeRequirement.Release030 : schema.RuntimeVersion;
     public CustomSchema Schema => schema;
     public string ProjectileCarrier => Carrier;
 
@@ -210,6 +214,11 @@ public sealed class Runtime030Target : ICustomContentTarget
         if (path == "payload.round" && schema.Catalogs.VariantDonors.SelectMany(d => d.Rounds).FirstOrDefault(r => r.Output == value) is { } round) return round.Label;
         return value;
     }
+    // A saved sound the Runtime renamed (0.30.2: primary/smg37/seaf is seaf/3, secondary/gp31/alt is other/wep_grenadier_rifle/1). The Runtime
+    // still plays the old name, but this schema (and so its validator) lists only the new one: the field offers the new name in place.
+    public string? RenamedChoice(string path, string value) =>
+        path.EndsWith(".sound", StringComparison.Ordinal) && !schema.Catalogs.Sounds.Contains(value)
+            && Scripting.WeaponSounds.Renamed.TryGetValue(value, out var renamed) && schema.Catalogs.Sounds.Contains(renamed) ? renamed : null;
 
     // ---- validation -----------------------------------------------------------------------------------------------------------------------
 
@@ -268,7 +277,10 @@ public sealed class Runtime030Target : ICustomContentTarget
             Add(CustomSeverity.Pass, CustomDiagnostic.CallIn, "code", CoreText.Get("CustomContent.Check.CodeUnique"));
         if (s.Code.Count > 0 && schema.Catalogs.NativeCodes.Where(n => !n.Catalogued && Prefix(s.Code, n.Code)).ToArray() is { Length: > 0 } guarded)
             Add(CustomSeverity.Info, CustomDiagnostic.CallIn, "code", CoreText.Format("CustomContent.Check.CodeMissionGuard", guarded.Length));
-        if (s.Uses is { } uses && family != DeliveryFamily.Eagle) Add(CustomSeverity.Info, CustomDiagnostic.CallIn, "uses", CoreText.Format("CustomContent.Check.UsesNative", uses));
+        if (s.Uses is { } uses and > 0 && family != DeliveryFamily.Eagle) Add(CustomSeverity.Info, CustomDiagnostic.CallIn, "uses", CoreText.Format("CustomContent.Check.UsesNative", uses));
+        // 0.30.3: an explicit 0 or -1 (kept from an imported Runtime project) is unlimited too, but 0.30.2 refuses it (RuntimeRequirement.Release0303).
+        if (Generation.RuntimeRequirement.ExplicitUnlimitedUses(s.Uses) && family != DeliveryFamily.Eagle)
+            Add(CustomSeverity.Info, CustomDiagnostic.CallIn, "uses", CoreText.Format("CustomContent.Check.UsesExplicitUnlimited", s.Uses!.Value, Generation.RuntimeRequirement.Release0303));
         // Images: the icon and any delivered weapon's own icon must be images of the project.
         void Image(string? id, string field)
         {
@@ -463,7 +475,7 @@ public sealed class Runtime030Target : ICustomContentTarget
         if (content.Stratagems.Count > 0)
         {
             Line("if type(hd2.custom_stratagem) ~= 'table' then");
-            Line("    print('[ModBuilder] custom stratagems need HD2Runtime " + schema.RuntimeVersion + " or newer; they are not registered')");
+            Line("    print('[ModBuilder] custom stratagems need HD2Runtime " + MinimumRuntime + " or newer; they are not registered')");
             Line("else");
             Line("    -- Each custom stratagem on its own: a problem in one (its setup or Runtime's refusal at registration) never stops the others.");
             Line("    local function register_custom_stratagem(id, build)");

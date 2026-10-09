@@ -36,6 +36,11 @@
                     @foreach (var choice in info.Choices ?? []) { <option value="@choice">@ChoiceLabel(choice)</option> }
                     @if (current is { Length: > 0 } && info.Choices?.Contains(current) != true) { <option value="@current">@T.Format("CustomContent.Field.UnknownChoice", current)</option> }
                 </select>
+                @if (current is { Length: > 0 } && info.Choices?.Contains(current) != true && Workspace.CustomTarget.RenamedChoice(Def.Path, current) is { } renamed)
+                {
+                    <p class="field-reason" data-renamed-choice>@T.Format("CustomContent.Field.Renamed", current, renamed)
+                        <button class="quiet" disabled="@Busy" data-use-renamed @onclick="() => Set(renamed)">@T.Format("CustomContent.Field.UseRenamed", renamed)</button></p>
+                }
                 break;
             case CustomFieldKind.Payload:
                 var payload = value as ContentRef;

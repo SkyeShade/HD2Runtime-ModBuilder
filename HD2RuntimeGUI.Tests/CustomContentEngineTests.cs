@@ -39,7 +39,9 @@ public sealed class CustomContentEngineTests
     [Fact] public void The_bundled_schema_is_HD2Runtime_0_30_dev_and_reads_every_family_refusal_and_catalogue()
     {
         var schema = Target.Schema;
-        Assert.Equal("0.30.0", schema.RuntimeVersion); Assert.Equal("hd2runtime-custom-stratagems/1", schema.Format); Assert.Equal(1, schema.SchemaVersion);
+        // HD2Runtime 0.30.3's schema (0.30.2 changed its sound catalogue since 0.30.0, 0.30.3 its uses range); the custom stratagem API it
+        // describes is 0.30.0's.
+        Assert.Equal("0.30.3", schema.RuntimeVersion); Assert.Equal(RuntimeRequirement.Release030, Target.MinimumRuntime); Assert.Equal("hd2runtime-custom-stratagems/1", schema.Format); Assert.Equal(1, schema.SchemaVersion);
         Assert.Equal("hd2.custom_stratagem.register", schema.Api); Assert.Equal("bundled", schema.Source);
         Assert.Equal(["script", "support", "expendable", "sentry", "eagle", "orbital", "pelican", "silo", "pod", "weapon"], schema.Families.Select(f => f.Family));
         Assert.Equal(["support", "expendable", "sentry", "eagle", "orbital", "pelican", "silo", "pod", "weapon"], schema.Families.Where(f => f.Builder).Select(f => f.Family));
@@ -243,6 +245,33 @@ public sealed class CustomContentEngineTests
         };
         s.Icon = s.Id;
         Assert.NotEmpty(Errors(s));
+    }
+
+    // HD2Runtime 0.30.3: a custom stratagem's uses may be 0 or -1, both unlimited (0.30.2 refuses uses below 1). ModBuilder writes no uses for
+    // unlimited, which every 0.30 Runtime accepts; an explicit 0 or -1 from an imported Runtime project is kept (it round-trips) and raises the
+    // export to 0.30.3, until the field's "Use unlimited (no value)" removes it. Below -1 is refused.
+    [Fact] public void Explicit_unlimited_uses_are_kept_from_a_runtime_project_and_require_0_30_3()
+    {
+        var info = Target.Describe("uses", Example("GasEatExample"));
+        Assert.Equal((-1d, 100d, "unlimited"), (info.Min, info.Max, info.Default));
+        foreach (var value in new[] { 0, -1 })
+        {
+            var form = (JsonObject)((JsonArray)Oracle["examples"]!).Single(e => e!["name"]!.GetValue<string>() == "GasEatExample")!["project"]!["stratagems"]![0]!.DeepClone();
+            form["uses"] = value;
+            var s = RuntimeProjectForm.Read(form); s.Icon = s.Id;
+            Assert.Equal(value, s.Uses); Assert.Empty(Errors(s));
+            Assert.Equal(value, Target.ProjectForm(s)["uses"]!.GetValue<int>());
+            Assert.Contains("    uses=" + value + ",\n", Target.Registration(s));
+            var project = Project(Content(s));
+            Assert.Contains((RuntimeRequirement.Release0303, "custom stratagem " + s.Id + " uses " + value + " (unlimited)"), RuntimeRequirement.Floors(project));
+            Assert.Contains(Target.Validate(Content(s), project, null), d => d.Severity == CustomSeverity.Info && d.Field == "uses" && d.Message.Contains("0.30.3"));
+            // The fix: no value, unlimited on every 0.30 Runtime, and the floor is gone.
+            s.Uses = null;
+            Assert.False(Target.ProjectForm(s).ContainsKey("uses")); Assert.DoesNotContain("uses=", Target.Registration(s));
+            Assert.DoesNotContain(RuntimeRequirement.Floors(Project(Content(s))), f => f.Floor == RuntimeRequirement.Release0303);
+        }
+        Assert.NotEmpty(Errors(Example("GasEatExample").With(x => { x.Uses = -2; x.Icon = x.Id; })));
+        Assert.Empty(Errors(Example("GasEatExample").With(x => { x.Uses = 100; x.Icon = x.Id; })));
     }
 
     [Fact] public void Codes_that_equal_or_start_another_custom_stratagems_code_are_refused_on_both()

@@ -82,6 +82,7 @@ public static class CapabilitySurfaces
         [AttackProjectileSource.PlayerKind] = "Player Weapons › projectile output",
         [AttackProjectileSource.SupportKind] = "Stratagems › Support › weapon › projectile host swap",
         [AttackProjectileSource.VehicleKind] = "Stratagems › Support › vehicle / Guard Dog › mount › projectile host swap",
+        [CapabilityExemptions.StratagemHostKind] = "Stratagems › Offensive / Defensive › sentry or emplacement › projectile",
     };
     // A published field whose value is edited through another surface: the attack projectile of support and mounted weapons is the
     // unified projectile host swap (AttackOutputChange), not a field row.
@@ -96,6 +97,8 @@ public static class CapabilitySurfaces
     public const string CustomLua = "Custom Lua › event reference, pickers and snippets";
     // The local player's armor values (hd2.armor_stats.player():set) and passive override (hd2.player_passives.set): calls, not field instances.
     public const string ArmorPlayer = "Armor › player (solo)";
+    // The statuses a status slot offers (player, support and mounted weapons' damage rows).
+    public const string StatusSlots = "Player Weapons and Stratagems › status effects (status slots)";
 }
 
 /// <summary>Capabilities deliberately left out, each with its justification. Keys are "area|capability|type" (type may be "*").</summary>
@@ -109,7 +112,12 @@ public static class CapabilityExemptions
         // b3f42ec: a weapon's own firing sound (offline only in the Runtime); read-only until the firing sound editor lands.
         ["player_weapon|weapon.sound|weapon_sound"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Firing sound (weapon.sound): shown read-only until its editor lands with the next SDK binding."),
         ["support_weapon|weapon.sound|scalar/weapon_sound"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Firing sound (weapon.sound): shown read-only until its editor lands with the next SDK binding."),
+        // HD2Runtime 0.30.2 additions, read and kept read-only (AuthoredTypes) until their editors land (artifacts/survey/sdk-0.30.2-new-capabilities.md).
     };
+    // The audit's name for the 0.30.2 sentry and emplacement hosts (published as mounted-weapon sources, reached through their stratagem).
+    public const string StratagemHostKind = "stratagem_weapon";
+    private static (CapabilityClass, string) Deferred0302(string what, string editor) =>
+        (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "HD2Runtime 0.30.2: " + what + " is shown read-only until " + editor + " lands.");
     private static (CapabilityClass, string) Deferred030(string phase, string editor) =>
         (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "HD2Runtime 0.30.0: shown read-only until its editor (" + editor + ") lands, docs/runtime030-integration-plan.md Phase " + phase + ".");
     public static (CapabilityClass Class, string Reason)? Find(string area, string capability, string type) =>
@@ -201,17 +209,39 @@ public static class CapabilityAudit
                 }
         }
 
+        // ---- 0.30.2 status attach tiers: which statuses a status slot may take (older SDKs publish no tier).
+        if (sdk.StatusEffects is { } statuses && statuses.Statuses.Values.Any(x => x.AttachTier != null))
+            foreach (var g in statuses.Statuses.Values.Where(x => x.Attachable).GroupBy(x => x.AttachTier!).OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                var key = "attachable status (" + g.Key + ")"; var ex = CapabilityExemptions.Find("status_effect", key, "status");
+                var offered = g.All(AuthoredTypes.Status);
+                var c = ex?.Class ?? (offered ? CapabilityClass.SUPPORTED_UI : CapabilityClass.MISSING_UI);
+                entries.Add(new("status_effect", key, "status", c, g.Count(), offered ? g.Count() : 0, offered ? 0 : g.Count(),
+                    c == CapabilityClass.SUPPORTED_UI ? CapabilitySurfaces.StatusSlots : null, ex?.Reason ?? (offered ? null : AuthoredTypes.NotAuthoredReason)));
+            }
+        // ---- 0.30.2 noEffect: support fields whose write Runtime accepts but expects to change nothing (a notice, not a field type).
+        if (sdk.SupportAuthoring?.FieldInstances.Where(f => f.NoEffect != null).ToArray() is { Length: > 0 } inert)
+        {
+            // Shown: the rows are read-only with Runtime's reason and point to the backpack; an edit saved before is resolved in its row (NoEffectRows).
+            entries.Add(new("support_weapon_notice", "noEffect", "notice", CapabilityClass.SUPPORTED_UI, inert.Length, 0, inert.Length,
+                "Stratagems › Support › weapon fields (read-only with the reason, backpack link)", null));
+        }
+
         // ---- Attack outputs: projectile hosts, donors, builder slots and mode presentation.
         if (sdk.AttackOutputs is { } ao)
         {
-            foreach (var g in ao.ProjectileSources.GroupBy(s => (s.HostKind, Writable: s.DirectWritable || s.Status == AttackProjectileSource.Indirect && ao.Ammunition(s.Weapon) != null)).OrderBy(g => g.Key.HostKind))
+            // 0.30.2 sentry and emplacement hosts are published as mounted-weapon sources but reached through their stratagem: their own row.
+            string Kind(AttackProjectileSource s) => s.HostKind == AttackProjectileSource.VehicleKind && sdk.Entities?.VehicleWeapons?.StratagemHosts.ContainsKey(s.Weapon) == true
+                ? CapabilityExemptions.StratagemHostKind : s.HostKind;
+            foreach (var g in ao.ProjectileSources.GroupBy(s => (HostKind: Kind(s), Writable: s.DirectWritable || s.Status == AttackProjectileSource.Indirect && ao.Ammunition(s.Weapon) != null)).OrderBy(g => g.Key.HostKind))
             {
+                var key = "projectile host (" + g.Key.HostKind + ")"; var ex = CapabilityExemptions.Find("attack_output", key, g.Key.Writable ? "writable" : "read-only");
                 var surface = CapabilitySurfaces.ProjectileHosts.GetValueOrDefault(g.Key.HostKind);
-                var c = !g.Key.Writable ? CapabilityClass.RUNTIME_READ_ONLY : surface != null ? CapabilityClass.SUPPORTED_UI : CapabilityClass.MISSING_UI;
-                entries.Add(new("attack_output", "projectile host (" + g.Key.HostKind + ")", g.Key.Writable ? "writable" : "read-only", c, g.Count(), g.Key.Writable ? g.Count() : 0,
+                var c = ex?.Class ?? (!g.Key.Writable ? CapabilityClass.RUNTIME_READ_ONLY : surface != null ? CapabilityClass.SUPPORTED_UI : CapabilityClass.MISSING_UI);
+                entries.Add(new("attack_output", key, g.Key.Writable ? "writable" : "read-only", c, g.Count(), g.Key.Writable ? g.Count() : 0,
                     g.Key.Writable ? 0 : g.Count(), c == CapabilityClass.SUPPORTED_UI ? surface : null,
-                    c == CapabilityClass.RUNTIME_READ_ONLY ? "shown read-only with Runtime's reason (" + string.Join("; ", g.Select(s => s.Status).Distinct().Order()) + ")"
-                        : c == CapabilityClass.MISSING_UI ? "host kind not handled by the attack-output editor" : null));
+                    ex?.Reason ?? (c == CapabilityClass.RUNTIME_READ_ONLY ? "shown read-only with Runtime's reason (" + string.Join("; ", g.Select(s => s.Status).Distinct().Order()) + ")"
+                        : c == CapabilityClass.MISSING_UI ? "host kind not handled by the attack-output editor" : null)));
             }
             foreach (var g in ao.Outputs.Where(o => o.Offered).GroupBy(o => (o.Family, o.SelectableAsProjectileReference)).OrderBy(g => g.Key.Family, StringComparer.Ordinal).ThenBy(g => g.Key.SelectableAsProjectileReference))
             {

@@ -1,0 +1,14 @@
+[
+ { "key": "SentrySwap.Title", "en": "Fired round", "zh": "发射的弹药", "comment": "Section title in a sentry or emplacement stratagem's editor: which projectile its turret fires (HD2Runtime 0.30.2 projectile host swap)" },
+ { "key": "SentrySwap.Family.Sentry", "en": "Sentry", "zh": "哨戒炮", "comment": "Badge: the host is a sentry (aims by itself)" },
+ { "key": "SentrySwap.Family.Emplacement", "en": "Emplacement", "zh": "炮台", "comment": "Badge: the host is an emplacement (aimed by the player)" },
+ { "key": "SentrySwap.TypeLevel", "en": "Applies to every {0} on your machine, teammates' too. Other players' machines keep the stock round.", "zh": "作用于你这台电脑上的每一个 {0}，包括队友的。其他玩家的电脑仍使用原版弹药。", "comment": "{0}: stratagem name. The swap is type-level: each machine simulates turret shots from its own data" },
+ { "key": "SentrySwap.Round.Own", "en": "Own round", "zh": "自身弹药", "comment": "Column header: the round the sentry or emplacement fires natively" },
+ { "key": "SentrySwap.Round.Velocity", "en": "Speed", "zh": "速度", "comment": "Row label: projectile speed" },
+ { "key": "SentrySwap.Round.Damage", "en": "Damage", "zh": "伤害", "comment": "Row label: direct damage of the round" },
+ { "key": "SentrySwap.Round.Mass", "en": "Mass", "zh": "质量", "comment": "Row label: projectile mass" },
+ { "key": "SentrySwap.Round.Unknown", "en": "not published", "zh": "未公布", "comment": "Table cell: the SDK publishes no value for the chosen round" },
+ { "key": "SentrySwap.Aim.Note", "en": "A sentry aims for its own round. A round with another speed or drop may miss moving targets, and a flat round from a mortar may miss entirely.", "zh": "哨戒炮按其自身弹药瞄准。速度或下坠不同的弹药可能打不中移动目标，迫击炮发射平射弹药则可能完全打不中。", "comment": "Shown before a round is chosen for a sentry" },
+ { "key": "SentrySwap.Aim.Warning", "en": "This sentry still aims for its own round, not for {0}. If the speed or drop differ it may miss moving targets; a flat round from a mortar may miss entirely.", "zh": "此哨戒炮仍按其自身弹药瞄准，而不是按 {0}。速度或下坠不同时可能打不中移动目标；迫击炮发射平射弹药则可能完全打不中。", "comment": "{0}: the chosen round. Warning shown while a sentry fires another round" },
+ { "key": "SentrySwap.Aim.Emplacement", "en": "Emplacements are aimed by the player: a round with another speed or drop lands elsewhere than the sight suggests.", "zh": "炮台由玩家瞄准：速度或下坠不同的弹药落点会与准星所示不同。", "comment": "Note on an emplacement's fired round" }
+]

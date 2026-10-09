@@ -102,6 +102,8 @@ public sealed class AdvancedCapabilitiesReader : IAdvancedCapabilitiesReader
                 foreach (var f in weapon.Fields.Where(f => f.Domain == "explosion" && f.Editable))
                 {
                     var explosion = explosions.Explosions.Single(e => e.ExplosionType == f.ExplosionType);
+                    // 0.30.2 status slots on the explosion's damage row: published by the authoring catalog only (the graph lists the scalars).
+                    if (AuthoredTypes.IsPlayerExplosionStatus(f.SemanticFieldId)) { if (!explosion.Writable) throw new InvalidDataException("Explosion authoring baseline mismatch."); continue; }
                     var value = explosion.Fields.Single(x => x.Id == f.SemanticTarget);
                     if (!explosion.Writable || value.Type != f.Type || !Generation.WeaponScalar.Equal(f, value.Value, f.CurrentDefault)) throw new InvalidDataException("Explosion authoring baseline mismatch.");
                 }

@@ -52,6 +52,7 @@
     {
         <div class="field-wide"><AckPanel Title="@T.Format("WeaponField.UnverifiedEffect.Title", Field.DisplayName)" Kind="unverified" Description="@Field.AcknowledgementReason" /></div>
     }
+    @if (Field.Type == WeaponCapability.StatusReference && Change != null && Modified) { <StatusTierWarning Value="@(CurrentValue.ValueKind == System.Text.Json.JsonValueKind.String ? CurrentValue.GetString() : null)" /> }
     @* 0.30.0 (docs/fire-rate-modes.md): the older fire_rate field writes only the default (Y) slot of a weapon with a rate selector. *@
     @if (Field.SemanticFieldId == FireRateModes.LegacyField && Workspace.Selector(CompositionKind.Player, Weapon.Name)?.Rates is { } rates && rates.Baseline.Count(r => r != 0) > 1)
     { <p class="field-wide subtle" data-fire-rate-y-slot>@T["FireRate.LegacyYSlot"]</p> }

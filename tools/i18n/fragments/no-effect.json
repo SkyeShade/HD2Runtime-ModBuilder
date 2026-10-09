@@ -1,0 +1,80 @@
+[
+ {
+  "key": "Messages.Build.Support.NoEffect",
+  "en": "{0} has no effect in game, so it is read-only: {1}",
+  "zh": "{0} 在游戏中没有效果，因此为只读：{1}",
+  "comment": "{0}: field name; {1}: HD2Runtime's reason (English, not translated)"
+ },
+ {
+  "key": "NoEffect.Badge",
+  "en": "No effect in game",
+  "zh": "游戏中无效果"
+ },
+ {
+  "key": "NoEffect.Note.Reason.Html",
+  "en": "<strong>No effect in game.</strong> {0}",
+  "zh": "<strong>游戏中无效果。</strong>{0}",
+  "comment": "{0}: HD2Runtime's reason (English, not translated)"
+ },
+ {
+  "key": "NoEffect.Note.Home",
+  "en": "{0} keeps its ammunition in the {1}, delivered in slot {2} of its drop pod. HD2Runtime {3} keeps that backpack's ammunition read-only, so it cannot be edited there either.",
+  "zh": "{0} 的弹药存放在 {1} 中，由其空投舱的第 {2} 格投放。HD2Runtime {3} 将该背包的弹药设为只读，因此也无法在那里编辑。",
+  "comment": "{0}: weapon name; {1}: backpack name (not translated); {2}: drop-pod slot number; {3}: SDK version"
+ },
+ {
+  "key": "NoEffect.Note.HomeAuthorable",
+  "en": "{0} keeps its ammunition in the {1}: edit its backpack ammunition instead.",
+  "zh": "{0} 的弹药存放在 {1} 中：请改为编辑其背包弹药。",
+  "comment": "{0}: weapon name; {1}: backpack name (not translated)"
+ },
+ {
+  "key": "NoEffect.Note.HomeUnknown",
+  "en": "{0} keeps its ammunition in its backpack.",
+  "zh": "{0} 的弹药存放在其背包中。",
+  "comment": "{0}: weapon name"
+ },
+ {
+  "key": "NoEffect.ShowBackpack",
+  "en": "Show the backpack",
+  "zh": "显示背包"
+ },
+ {
+  "key": "NoEffect.ShowBackpack.Tooltip",
+  "en": "Opens the call-in's drop pod at the slot that delivers this backpack",
+  "zh": "打开该呼叫的空投舱，并定位到投放此背包的格位"
+ },
+ {
+  "key": "NoEffect.EditBackpack",
+  "en": "Edit the backpack instead",
+  "zh": "改为编辑背包"
+ },
+ {
+  "key": "NoEffect.Saved.Html",
+  "en": "This project saved an edit here: <strong>{0}</strong>. HD2Runtime still accepts it and ModBuilder still exports it unchanged, but it is not expected to change anything in game.",
+  "zh": "此项目在这里保存了一项修改：<strong>{0}</strong>。HD2Runtime 仍接受它，ModBuilder 也仍原样导出，但预计它不会在游戏中产生任何变化。",
+  "comment": "{0}: the saved value"
+ },
+ {
+  "key": "NoEffect.Remove",
+  "en": "Remove this edit",
+  "zh": "删除此修改"
+ },
+ {
+  "key": "NoEffect.Changes.Count.One",
+  "en": "{0} edit has no effect in game",
+  "zh": "{0} 项修改在游戏中无效果",
+  "comment": "{0}: number of saved edits of backpack-fed ammunition rows"
+ },
+ {
+  "key": "NoEffect.Changes.Count.Other",
+  "en": "{0} edits have no effect in game",
+  "zh": "{0} 项修改在游戏中无效果",
+  "comment": "{0}: number of saved edits of backpack-fed ammunition rows"
+ },
+ {
+  "key": "NoEffect.Changes.Tooltip",
+  "en": "The backpack holds this ammunition. HD2Runtime accepts these edits and ModBuilder still exports them; open the entry to remove them where they are.",
+  "zh": "这些弹药由背包携带。HD2Runtime 接受这些修改，ModBuilder 也仍会导出；展开此条目即可就地删除它们。"
+ }
+]

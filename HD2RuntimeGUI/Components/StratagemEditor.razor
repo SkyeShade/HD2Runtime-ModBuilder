@@ -36,7 +36,8 @@
         }
         </div></details>
     }
-    @if (link != null && !RearmOnly && (!ModifiedOnly || Workspace.Project?.SupportChanges.Any(c => c.Weapon == link.Weapon.Name) == true) || graph.Entities.Length > 0 || graph.Attacks.Length > 0)
+    var sentryRound = !RearmOnly && SentryProjectileSwap.Has(sdk, Name) && (!ModifiedOnly || Workspace.Project?.AttackOutputChanges?.Any(c => c.Kind == AttackOutputChange.VehicleHost && c.Weapon == Name + " / weapon") == true);
+    @if (link != null && !RearmOnly && (!ModifiedOnly || Workspace.Project?.SupportChanges.Any(c => c.Weapon == link.Weapon.Name) == true) || graph.Entities.Length > 0 || graph.Attacks.Length > 0 || sentryRound)
     {
     <details class="ia-section" data-section="delivered" open><summary>@T["Stratagem.Section.Delivered"] <small>@DeliveredLabel(graph, link)</small></summary><div class="ia-body">
     @if (link != null && !RearmOnly)
@@ -101,6 +102,8 @@
             </section>
         }
     }
+    @* 0.30.2: the round a sentry or emplacement fires (projectile host swap, type-level). *@
+    @if (sentryRound) { <SentryProjectileSwap Stratagem="@Name" ModifiedOnly="ModifiedOnly" Changed="Refresh" /> }
     @foreach (var attack in graph.Attacks)
     {
         <section class="panel" data-stratagem-branch="@attack.Attack.Role">

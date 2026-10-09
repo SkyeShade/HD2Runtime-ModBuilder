@@ -10,7 +10,15 @@ namespace HD2RuntimeGUI.Core.Metadata;
 
 // sdk/StatusEffectCatalog.json (hd2runtime.status_effects.v1).
 public sealed record StatusEffect(string SemanticId, string Name, string Family, double? Duration, JsonElement? TickDamage, bool Attachable,
-    string? AttachableReason, bool SharedGlobal, string? DurationField);
+    string? AttachableReason, bool SharedGlobal, string? DurationField,
+    // 0.30.2: why a status is attachable (attachmentModel.attachTiers): player_attack (a player-side attack applies it), enemy_slot (enemy or
+    // hazard slots apply it) or other_system (experimental: never slot-applied). Older catalogs publish no tier.
+    string? AttachTier = null)
+{
+    public const string PlayerAttackTier = "player_attack";
+    // The 0.30.2 statuses beyond what player-side attacks apply: every write of one needs allow_unverified_effect, on every row.
+    [JsonIgnore] public bool Extended => AttachTier is not (null or PlayerAttackTier);
+}
 public sealed record StatusEffectCatalogJson(string Contract, int SchemaVersion, string Hd2RuntimeVersion, JsonElement AttachmentModel, StatusEffect[] Statuses);
 public sealed class StatusEffectCatalog
 {
@@ -19,6 +27,11 @@ public sealed class StatusEffectCatalog
     public StatusEffect? Find(string semanticId) => Statuses.GetValueOrDefault(semanticId);
     // The status name as published (underscores shown as spaces), or the key.
     public string Label(string semanticId) => Find(semanticId)?.Name.Replace('_', ' ') ?? semanticId;
+    // 0.30.2: the published tiers in their order (player_attack, enemy_slot, other_system) and each tier's text (attachmentModel.attachTiers).
+    public IReadOnlyList<string> Tiers => AttachmentModel.ValueKind == JsonValueKind.Object && AttachmentModel.TryGetProperty("attachTiers", out var t)
+        && t.ValueKind == JsonValueKind.Object ? t.EnumerateObject().Select(p => p.Name).ToArray() : [];
+    public string? TierText(string tier) => AttachmentModel.ValueKind == JsonValueKind.Object && AttachmentModel.TryGetProperty("attachTiers", out var t)
+        && t.ValueKind == JsonValueKind.Object && t.TryGetProperty(tier, out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() : null;
 }
 
 // sdk/WeaponPresentationCapabilities.json (hd2runtime.weapon.presentation.v1).
@@ -62,7 +75,10 @@ public sealed class WeaponFeedCatalog
 
 // sdk/LiveEvidenceCatalog.json (hd2runtime.live_evidence.v1): a family of live tests and what it proved.
 public sealed record LiveEvidenceFamily(string Status, string? Domain, string[]? Fields, string? Scope, string[]? Tests, string? AcknowledgementRemoved,
-    string[]? Observations, string[]? NotPromoted);
+    string[]? Observations, string[]? NotPromoted,
+    // 0.30.2 (weapon_roots_0_30_2): the exact (target, field) pairs the family proved.
+    LiveEvidenceTarget[]? ProvenTargets = null);
+public sealed record LiveEvidenceTarget(string Target, string Field);
 public sealed record LiveEvidenceCatalogJson(string Contract, int SchemaVersion, string Hd2RuntimeVersion, string Build, Dictionary<string, string> StatusLevels,
     Dictionary<string, JsonElement> Families);
 public sealed class LiveEvidenceCatalog
@@ -100,6 +116,12 @@ public static class SupplementalCatalogReader
         var c = Parse<StatusEffectCatalogJson>(bytes, StatusFile, "hd2runtime.status_effects.v1", version);
         Check(c.Statuses.Length > 0 && c.Statuses.All(s => !string.IsNullOrWhiteSpace(s.SemanticId) && !string.IsNullOrWhiteSpace(s.Name) && s.SemanticId != StatusReference.None)
             && c.Statuses.Select(s => s.SemanticId).Distinct().Count() == c.Statuses.Length && c.Statuses.All(s => s.Attachable || !string.IsNullOrWhiteSpace(s.AttachableReason)), StatusFile);
+        // 0.30.2 tiers: every attachable status names a published tier and nothing else has one.
+        if (c.Statuses.Any(s => s.AttachTier != null))
+        {
+            var tiers = c.AttachmentModel.TryGetProperty("attachTiers", out var t) && t.ValueKind == JsonValueKind.Object ? t.EnumerateObject().Select(p => p.Name).ToHashSet(StringComparer.Ordinal) : [];
+            Check(tiers.Contains(StatusEffect.PlayerAttackTier) && c.Statuses.All(s => s.Attachable ? s.AttachTier != null && tiers.Contains(s.AttachTier) : s.AttachTier == null), StatusFile);
+        }
         return new() { Statuses = c.Statuses.ToDictionary(s => s.SemanticId, StringComparer.Ordinal), AttachmentModel = c.AttachmentModel.Clone() };
     }
     public static WeaponPresentationCatalog Presentation(byte[] bytes, string version)

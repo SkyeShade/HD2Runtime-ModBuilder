@@ -99,28 +99,28 @@ public sealed class OldProjectCompatibilityTests
         Assert.Equal(Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview), wrapper); Assert.DoesNotContain("required_runtime", wrapper);
     }
 
-    // ---- SDK 0.30.0 (ModBuilder 1.7.0) ------------------------------------------------------------------------------------------------
-    // The bundled SDK is HD2Runtime 0.30.0. New projects bind it; from 0.30 on their wrapper checks the installed Runtime by SemVer (the plain
+    // ---- SDK 0.30.0 (ModBuilder 1.7.0), 0.30.2 (the 1.7.x SDK move) and 0.30.3 (1.7.1) ----------------------------------------------------
+    // The bundled SDK is HD2Runtime 0.30.3. New projects bind it; from 0.30 on their wrapper checks the installed Runtime by SemVer (the plain
     // wrapper's pattern refuses the '0.30.0-dev' of the test SDKs) and still declares the bound SDK as local x,y,z, which Runtime's
     // core/sdk_compatibility.lua reads (only the MAJOR.MINOR.PATCH core).
-    [Fact] public async Task A_new_project_binds_the_0_30_0_SDK_with_the_SemVer_wrapper()
+    [Fact] public async Task A_new_project_binds_the_0_30_3_SDK_with_the_SemVer_wrapper()
     {
         using var e = new TestEnvironment(); var w = Upgraded(e); await w.InitializeAsync();
-        Assert.Equal("0.30.0", SdkPin.Version); Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
+        Assert.Equal("0.30.3", SdkPin.Version); Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
         await w.CreateAsync(new("Purifier 0.30", "Tests", "mods/tests/purifier_030", "0.1.0"), w.SdkStatus.Installed);
         Assert.Equal(SdkPin.Version, w.Project!.SdkVersion);
         await w.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
         Assert.Null(w.BuildError); Assert.Equal(1, Count(w.LuaPreview, "allow_unverified_effect=true"));
         var (min, addon, wrapper) = await Export(w);
         Assert.Equal(SdkPin.Version, min); Assert.Equal(w.LuaPreview, addon);
-        Assert.Contains("local x,y,z=version('0.30.0')", wrapper); Assert.Contains("local required_runtime='0.30.0'", wrapper);
+        Assert.Contains("local x,y,z=version('0.30.3')", wrapper); Assert.Contains("local required_runtime='0.30.3'", wrapper);
         Assert.Contains("local function at_least(have,need)", wrapper); Assert.Contains("local key='HD2RuntimeMod:mods/tests/purifier_030'", wrapper);
         Assert.Equal(Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview, SdkPin.Version), wrapper);
     }
 
     // 0.30.0 adds allow_unverified_effect to the 30 PLAS-45 Epoch primary / primary_impact fields (their row is now known to be fired only by the
-    // partial-charge shot). Runtime applies a 0.28.x export's write without it as a legacy operation; rebinding moves the edit to 0.30.0
-    // unchanged, the generated operation carries the opt-in (never a manual acknowledgement), and the export declares 0.30.0.
+    // partial-charge shot). Runtime applies a 0.28.x export's write without it as a legacy operation; rebinding moves the edit to the pinned
+    // 0.30.3 unchanged, the generated operation carries the opt-in (never a manual acknowledgement), and the export declares the pin.
     private const string Epoch = "PLAS-45 Epoch", EpochVelocity = "support-field/v1/plas-45-epoch/projectile-reference/primary/projectile-velocity/9ed92fa3a82b5806";
     [Fact] public async Task An_SDK_0_28_1_Epoch_edit_rebinds_to_0_30_with_the_opt_in_0_30_requires()
     {
@@ -146,10 +146,10 @@ public sealed class OldProjectCompatibilityTests
         Assert.Equal(SdkPin.Version, min); Assert.Contains("local x,y,z=version('" + SdkPin.Version + "')", wrapper);
         Assert.Equal(SdkPin.Version, (await e.Store.LoadAsync(id)).SdkVersion);
     }
-    // A tester's project bound to the 0.30.0-dev test SDK (an earlier 1.7.0 build bundled it): the upgraded ModBuilder makes the bundled 0.30.0
-    // current, opens the project untouched on its cached 0.30.0-dev, exports it as before (HD2Runtime 0.30.0 loads mods that declare
-    // 0.30.0-dev), and rebinding to 0.30.0 keeps every edit and operation and declares 0.30.0.
-    [Fact] public async Task A_project_bound_to_the_0_30_0_dev_test_SDK_opens_exports_and_rebinds_to_0_30_0()
+    // A tester's project bound to the 0.30.0-dev test SDK (an earlier 1.7.0 build bundled it): the upgraded ModBuilder makes the bundled 0.30.3
+    // current, opens the project untouched on its cached 0.30.0-dev, exports it as before (HD2Runtime 0.30.x loads mods that declare
+    // 0.30.0-dev), and rebinding to 0.30.3 keeps every edit and operation and declares 0.30.3.
+    [Fact] public async Task A_project_bound_to_the_0_30_0_dev_test_SDK_opens_exports_and_rebinds_to_the_pin()
     {
         using var e = new TestEnvironment(); var dev = await SdkFixtures.Install(e, "0.30.0-dev"); var w0 = e.Workspace();
         Assert.Equal("0.30.0-dev", dev.Version); Assert.Null(dev.IsPinnedBuild);
@@ -166,7 +166,78 @@ public sealed class OldProjectCompatibilityTests
         await w.RebindToInstalledSdkAsync();
         Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(luaDev, w.LuaPreview);
         (min, _, wrapper) = await Export(w);
-        Assert.Equal("0.30.0", min); Assert.Contains("local x,y,z=version('0.30.0')", wrapper);
+        Assert.Equal(SdkPin.Version, min); Assert.Contains("local x,y,z=version('" + SdkPin.Version + "')", wrapper);
+        Assert.Equal(SdkPin.Version, (await e.Store.LoadAsync(id)).SdkVersion);
+    }
+    // A ModBuilder 1.7.0 project, bound to the HD2Runtime 0.30.0 release 1.7.0 bundled (cached by 1.7.0): the upgraded ModBuilder makes the
+    // bundled 0.30.3 current, opens the project untouched on its 0.30.0, exports it declaring 0.30.0, and rebinding to 0.30.3 keeps every edit and
+    // operation and declares 0.30.3. What 0.30.2 renamed or retired is reported where it is used, with the fix there: a custom stratagem's old
+    // sound name offers its new name in place, and a swap to the retired SMG-37 Defender (projectile 150) says so at its selector until another
+    // projectile (or the attack's own) is chosen.
+    private const string Retired = "output/v1/projectile/smg-37-defender-projectile-150", Reprimand = "SMG-32 Reprimand";
+    [Fact] public async Task A_project_bound_to_the_0_30_0_release_opens_exports_and_rebinds_to_the_pin()
+    {
+        using var e = new TestEnvironment(); var release = await SdkFixtures.Install(e, Runtime030Tests.Release); var w0 = e.Workspace();
+        Assert.Equal(Runtime030Tests.Release, release.Version); Assert.False(release.IsPinnedBuild ?? false);
+        await w0.CreateAsync(new("Purifier 0.30.0", "Tests", "mods/tests/purifier_0300", "0.1.0"), release);
+        await w0.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
+        var id = w0.Project!.Id; var lua030 = w0.LuaPreview; var saved = File.ReadAllBytes(e.Paths.ProjectFile(id));
+        Assert.Null(w0.BuildError);
+        var w = Upgraded(e); await w.InitializeAsync();
+        Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
+        await w.OpenAsync(id);
+        Assert.Equal(Runtime030Tests.Release, w.Project!.SdkVersion); Assert.Equal(saved, File.ReadAllBytes(e.Paths.ProjectFile(id))); Assert.Equal(lua030, w.LuaPreview);
+        var (min, _, wrapper) = await Export(w);
+        Assert.Equal(Runtime030Tests.Release, min); Assert.Contains("local x,y,z=version('0.30.0')", wrapper); Assert.Contains("local required_runtime='0.30.0'", wrapper);
+        // What 1.7.0 could save on 0.30.0 and 0.30.2 renamed or retired: a swap to SMG-37 Defender (projectile 150), and a custom Pelican whose
+        // gun plays a sound name 0.30.2 renamed.
+        Assert.Contains(w.Metadata!.AttackOutputs!.Outputs, o => o.SemanticId == Retired);
+        await w.SetAttackOutputAsync(Reprimand, "primary", Retired);
+        var gunship = await w.CreateCustomStratagemFromTemplateAsync("SimplePelican");
+        await w.EditCustomStratagemAsync(gunship, s => (s.Delivery.Pelican!.Gun ??= new()).Sound = "primary/smg37/seaf");
+        // The renamed sound: the schema's refusal under the field, and the new name offered there; choosing it clears the problem.
+        var owner = Core.CustomContent.CustomDiagnostic.StratagemOwner(gunship);
+        Assert.Contains(w.CustomDiagnosticsFor(owner), d => d.Severity == Core.CustomContent.CustomSeverity.Error && d.About("payload.gun.sound"));
+        var renamed = w.CustomTarget.RenamedChoice("payload.gun.sound", "primary/smg37/seaf");
+        Assert.Equal("seaf/3", renamed);
+        await w.EditCustomStratagemAsync(gunship, s => s.Delivery.Pelican!.Gun!.Sound = renamed);
+        Assert.DoesNotContain(w.CustomDiagnosticsFor(owner), d => d.About("payload.gun.sound") && d.Severity == Core.CustomContent.CustomSeverity.Error);
+        // On its 0.30.0 binding the export still declares that SDK, and requires 0.30.2 for the sound name 0.30.0 does not know.
+        Assert.Null(w.BuildError);
+        (min, _, wrapper) = await Export(w);
+        Assert.Equal("0.30.2", min); Assert.Contains("local x,y,z=version('0.30.0')", wrapper);
+        // Rebinding to 0.30.3 keeps the edits; the retired donor is reported at its selector (never a crash), and restoring the attack's own
+        // projectile resolves it.
+        await w.RebindToInstalledSdkAsync();
+        Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Single(w.Project.CompositionChanges);
+        var swap = Assert.Single(w.Project.AttackOutputChanges!);
+        Assert.NotNull(w.AttackOutputIssue(swap));
+        await w.SetAttackOutputAsync(Reprimand, "primary", null);
+        Assert.Null(w.Project.AttackOutputChanges); Assert.Null(w.BuildError);
+        (min, _, wrapper) = await Export(w);
+        Assert.Equal(SdkPin.Version, min); Assert.Contains("local x,y,z=version('" + SdkPin.Version + "')", wrapper);
+    }
+    // A project bound to 0.30.2 (the SDK of the 1.7.x SDK move, before 1.7.1 pinned 0.30.3): the upgraded ModBuilder makes the bundled 0.30.3
+    // current, opens the project untouched on its 0.30.2 (fixture sdk-0.30.2.zip), exports it declaring 0.30.2, and rebinding to 0.30.3 keeps
+    // every edit and operation and declares 0.30.3.
+    [Fact] public async Task A_project_bound_to_0_30_2_opens_exports_and_rebinds_to_the_pin()
+    {
+        using var e = new TestEnvironment(); var v0302 = await SdkFixtures.Install(e, Runtime030Tests.Previous); var w0 = e.Workspace();
+        Assert.Equal("0.30.2", v0302.Version); Assert.False(v0302.IsPinnedBuild ?? false);
+        await w0.CreateAsync(new("Purifier 0.30.2", "Tests", "mods/tests/purifier_0302", "0.1.0"), v0302);
+        await w0.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
+        var id = w0.Project!.Id; var lua0302 = w0.LuaPreview; var saved = File.ReadAllBytes(e.Paths.ProjectFile(id));
+        Assert.Null(w0.BuildError); Assert.Equal(1, Count(lua0302, "allow_unverified_effect=true"));
+        var w = Upgraded(e); await w.InitializeAsync();
+        Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
+        await w.OpenAsync(id);
+        Assert.Equal("0.30.2", w.Project!.SdkVersion); Assert.Equal(saved, File.ReadAllBytes(e.Paths.ProjectFile(id))); Assert.Equal(lua0302, w.LuaPreview);
+        var (min, _, wrapper) = await Export(w);
+        Assert.Equal("0.30.2", min); Assert.Contains("local x,y,z=version('0.30.2')", wrapper); Assert.Contains("local required_runtime='0.30.2'", wrapper);
+        await w.RebindToInstalledSdkAsync();
+        Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(lua0302, w.LuaPreview);
+        (min, _, wrapper) = await Export(w);
+        Assert.Equal("0.30.3", min); Assert.Contains("local x,y,z=version('0.30.3')", wrapper);
         Assert.Equal(SdkPin.Version, (await e.Store.LoadAsync(id)).SdkVersion);
     }
     // The generated operation (pcall-isolated block) that names a weapon.

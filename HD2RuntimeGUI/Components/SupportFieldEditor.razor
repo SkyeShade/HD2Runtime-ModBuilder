@@ -1,8 +1,11 @@
 @inject BuilderWorkspace Workspace
+@inject BuilderNavigator Navigator
 @* One published support-weapon scalar as a compact row. Shared and unverified-effect guards stay visible as badges. *@
 @* An option-only edit (1.6.0, vanilla value kept for its in-game option) shows as the unedited field with its option. *@
 @* 1.7.0 (Runtime 0.30.0): an edit that would replace another saved edit (one native value written through two fields, the overcharge explosion
    reference and the overcharge explosion row) asks inside the row first; a field written through another field's edit shows that edit. *@
+@* 1.7.1 (Runtime 0.30.2 noEffect, NoEffectRows): a backpack-fed weapon's own ammunition row is read-only with Runtime's reason (NoEffectNote
+   above the rows); an edit saved before stays, is exported unchanged, and is resolved here: remove it, or go to the backpack. *@
 @{ var saved = Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey); var edited = saved != null && !Workspace.OptionOnly(saved);
    var through = saved == null ? Workspace.SupportWrittenThrough(Field) : null; }
 <div class="field-row @(edited ? "modified" : "")" data-support-field="@Field.InstanceKey" data-semantic-field="@Field.SemanticFieldId" data-support-role="@Field.Target.AttackRole">
@@ -14,12 +17,14 @@
             @if (Field.SharedScope.RequiresAcknowledgement) { <span class="badge amber" data-flag="allow_shared" title="@T["SupportField.Shared.Tooltip"]">@T["Common.Shared"]</span> }
             @if (UnverifiedEffect) { <span class="badge amber" data-flag="allow_unverified_effect" title="@Field.Operation.AcknowledgementReason">@T["SupportField.EffectUnproven"]</span> }
             @if (Field.Reticle?.Evidence is { GameplayProven: true } proven) { <span class="badge green" data-gameplay-proven title="@proven.GameplaySource">@T["SupportField.GameplayProven"]</span> }
+            @if (Field.NoEffect is { } inert) { <span class="badge" data-no-effect title="@inert.Reason">@T["NoEffect.Badge"]</span> }
             @if (edited) { <span class="badge modified-badge">@T["Common.Modified"]</span> }
         </span></div>
     <div class="field-value">
         @* A published field this build cannot write shows Runtime's baseline and reason. 1.4.0 status references are a choice of statuses;
            the other composition values (rates, weapon functions, programmable ammunition, armory labels) are edited in their panels. *@
         @if (!Field.Writable) { <span class="readonly-value">@Display(Field.Value.Baseline)</span> <span class="badge" title="@Field.BlockedReason">@T["Common.ReadOnly"]</span> }
+        else if (Field.NoEffect is { } inertValue) { <span class="readonly-value" data-no-effect-value>@Display(saved?.DesiredValue ?? Field.Value.Baseline)</span> <span class="badge" title="@inertValue.Reason">@T["Common.ReadOnly"]</span> }
         else if (Field.IsStatusReference)
         {
             var (allowed, none) = Workspace.StatusChoices(Field);
@@ -41,17 +46,27 @@
     else if (saved != null && edited) { <div class="field-baseline modified-value" data-baseline="@Format(saved.ExpectedValue)" data-desired="@Format(saved.DesiredValue)">@T.Markup("SupportField.BaseToDesired.Html", Display(saved.ExpectedValue), Display(saved.DesiredValue))</div> }
     else { <div class="field-baseline subtle" data-baseline="@Format(Field.Value.Baseline)">@T.Format("SupportField.Base", Display(Field.Value.Baseline))</div> }
     <div class="field-tools">
-        @if (Field.Writable || saved != null) { <OptionToggle Key="@ModOptionsService.SupportKey(Field.InstanceKey)" Changed="Changed" /> }
+        @if (Field.Writable && Field.NoEffect == null || saved != null) { <OptionToggle Key="@ModOptionsService.SupportKey(Field.InstanceKey)" Changed="Changed" /> }
         @if (saved != null)
         {
             <label class="field-toggle" title="@T["SupportField.Include.Tooltip"]"><input type="checkbox" checked="@saved.Enabled" @onchange="() => Run(() => Workspace.ToggleSupportAsync(Field.InstanceKey))" /> @T["Common.On"]</label>
-            @if (edited) { <button class="reset-action small" @onclick="Reset">@T["SupportField.Reset"]</button> }
+            @if (edited && Field.NoEffect == null) { <button class="reset-action small" @onclick="Reset">@T["SupportField.Reset"]</button> }
         }
         <details class="field-info"><summary title="@T["SupportField.Info.Tooltip"]">ⓘ</summary><div class="field-info-body">
             @if (!Field.Writable && Field.BlockedReason != null) { <p data-support-blocked>@T.Markup("WeaponField.NotWritable.Html", Field.BlockedReason)</p> }
+            @if (Field.NoEffect is { } inertInfo) { <p>@T.Markup("NoEffect.Note.Reason.Html", inertInfo.Reason)</p> }
             @if (UnverifiedEffect) { <p><strong>@T["SupportField.EffectUnproven.Label"]</strong> @Field.Operation.AcknowledgementReason</p> }
             <p>@Field.Provenance.Baseline · @Field.Provenance.Ownership</p><p>@Field.Backing.SemanticType · @Field.Target.AttackRole</p><code>@Field.SemanticFieldId</code></div></details>
     </div>
+    @if (Field.NoEffect != null && saved != null)
+    {
+        var home = NoEffectRows.Home(Workspace.Metadata, Field.SupportWeapon);
+        <div class="field-wide support-replace no-effect-saved" role="group" data-no-effect-saved="@Field.InstanceKey">
+            <p>@T.Markup("NoEffect.Saved.Html", Display(saved.DesiredValue))</p>
+            <div class="support-replace-actions"><button class="primary" data-no-effect-remove @onclick="Reset">@T["NoEffect.Remove"]</button>
+                @if (home?.Reveal != null) { <button data-no-effect-backpack="@home.Backpack" title="@(home.Authorable ? null : T["NoEffect.ShowBackpack.Tooltip"])" @onclick="() => NoEffectNote.Open(Navigator, home)">@(home.Authorable ? T["NoEffect.EditBackpack"] : T["NoEffect.ShowBackpack"])</button> }</div>
+        </div>
+    }
     @if (Pending is { } pending)
     {
         var reason = pending.Replaced[0].Reason;
@@ -76,6 +91,7 @@
     @* 0.30.0 (docs/fire-rate-modes.md): the older fire_rate field writes only the default (Y) slot of a weapon with a rate selector. *@
     @if (Field.SemanticFieldId == FireRateModes.LegacyField && Workspace.Selector(CompositionKind.Support, Field.SupportWeapon)?.Rates is { } rates && rates.Baseline.Count(r => r != 0) > 1)
     { <p class="field-wide subtle" data-fire-rate-y-slot>@T["FireRate.LegacyYSlot"]</p> }
+    @if (Field.IsStatusReference && saved != null && edited) { <StatusTierWarning Value="@(saved.DesiredValue.ValueKind == System.Text.Json.JsonValueKind.String ? saved.DesiredValue.GetString() : null)" /> }
     @if (Notes != null) { <div class="field-wide">@Notes</div> }
     @* allow_unverified_effect is acknowledged once per group in SupportAuthoringEditor's panel. *@
     @if (saved != null && Workspace.SupportIssue(saved) is { } issue)
@@ -103,7 +119,7 @@
     // 0.24.0+: Runtime requires allow_unverified_effect=true for this field.
     // 1.4.0: an exact value a live test proved on this weapon (liveEvidence.values) is written without the opt-in.
     private bool UnverifiedEffect => Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey) is { } c
-        ? CompositionOptIns.EffectFor(Field, c.DesiredValue) : Field.Operation.Acknowledgement == "allow_unverified_effect";
+        ? CompositionOptIns.EffectFor(Workspace.Metadata, Field, c.DesiredValue) : Field.Operation.Acknowledgement == "allow_unverified_effect";
     private string Value => Format(Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue
         ?? Workspace.SupportWrittenThrough(Field)?.Change.DesiredValue ?? Field.Value.Baseline);
     private string StringValue => (Workspace.Project?.SupportChanges.SingleOrDefault(c => c.InstanceKey == Field.InstanceKey)?.DesiredValue ?? Field.Value.Baseline) is { ValueKind: System.Text.Json.JsonValueKind.String } v

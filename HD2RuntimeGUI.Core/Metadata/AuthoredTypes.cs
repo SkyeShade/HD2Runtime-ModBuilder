@@ -47,7 +47,22 @@ public static class AuthoredTypes
     // explosions), authored since 1.7.0: two of them share one damage row, which the field editor resolves inline (ChargeFields.SameBytes).
     public static readonly IReadOnlySet<string> SupportRoles030 = new HashSet<string>(StringComparer.Ordinal) { "full_charge", "full_charge_impact", "overcharge_explosion" };
     public static readonly bool SupportChargeRoles = true;
-    public static bool Weapon(WeaponCapability f) => PlayerWeapon.Contains(f.Type);
+    // 0.30.2 status slots on player-weapon explosions (explosion.<role>.<phase>.damage.status_<k>_type and _strength; Runtime's validator
+    // floor is 0.30.2), authored since 1.7.1 on the explosion rows of Player Weapons (the direct-hit status editor; every write carries the
+    // fields' published allow_unverified_effect, and allow_shared on the shared rows).
+    public static readonly bool PlayerExplosionStatus = true;
+    private static readonly System.Text.RegularExpressions.Regex PlayerExplosionStatusField =
+        new(@"\Aexplosion\.[^.]+\.(impact|expiry)\.damage\.status_\d+_(type|strength)\z", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+    public static bool IsPlayerExplosionStatus(string semanticFieldId) => PlayerExplosionStatusField.IsMatch(semanticFieldId);
+    // 0.30.2 extended statuses (StatusEffectCatalog attachTier enemy_slot and other_system, 23 of them): every write needs
+    // allow_unverified_effect on every row, live-proven rows included. Offered by every status slot since 1.7.1, grouped by tier; the write
+    // carries the opt-in when the chosen value is extended (CompositionOptIns.Extended) and the export requires 0.30.2 (RuntimeRequirement).
+    public static readonly bool ExtendedStatuses = true;
+    public static bool Status(StatusEffect s) => ExtendedStatuses || !s.Extended;
+    // 0.30.2 sentry and emplacement projectile hosts (VehicleWeaponCapabilities stratagemHosts; hd2.stratagem(name):attack('primary')
+    // :projectile_source()): authored since 1.7.1 in the sentry or emplacement editor (the A/MG-43 and A/G-16 stay read-only with Runtime's reason).
+    public static readonly bool StratagemProjectileHosts = true;
+    public static bool Weapon(WeaponCapability f) => PlayerWeapon.Contains(f.Type) && (PlayerExplosionStatus || !IsPlayerExplosionStatus(f.SemanticFieldId));
     public static bool VehicleWeapon(VehicleWeaponFieldInstance f, bool carried) => MountedWeapon.Contains(f.Type) && (CarriedWeapons || !carried);
     public static bool SupportField(SupportField f) => Support.Contains(f.Value.Kind + "/" + f.Value.Type)
         && (SupportChargeRoles || f.Target.AttackRole is not { } role || !SupportRoles030.Contains(role));

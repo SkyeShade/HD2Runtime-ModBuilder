@@ -107,7 +107,7 @@
                         <span class="custom-card-meta">
                             <span class="badge custom" data-card-family="@s.Delivery.Family">@CustomLabels.FamilyGlyph(s.Delivery.Family) @CustomLabels.Family(T, s.Delivery.Family)</span>
                             @if (s.Cooldown is { } cooldown && s.Delivery.Family != DeliveryFamily.Eagle) { <span data-card-cooldown>@T.Format("CustomStratagems.Card.Cooldown", CustomLabels.Number(cooldown))</span> }
-                            @if (s.Uses is { } uses) { <span data-card-uses>@T.Format("CustomStratagems.Card.Uses", uses)</span> }
+                            @if (s.Uses is { } uses and > 0) { <span data-card-uses>@T.Format("CustomStratagems.Card.Uses", uses)</span> }
                             @if (s.MaxPerPlayer is { } perPlayer) { <span data-card-per-player>@T.Format("CustomStratagems.Card.MaxPerPlayer", perPlayer)</span> }
                             <ArrowSequence Code="s.Code" Small="true" />
                         </span>
