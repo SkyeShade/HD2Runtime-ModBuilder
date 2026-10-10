@@ -26,6 +26,10 @@ public static class CompositionPlanLua
             for (var b = a + 1; b < operations.Count; b++)
                 if (op.Owner == operations[b].Owner || op.Contexts.Intersect(operations[b].Contexts).Any()) Join(a, b);
             if (op.Replacement == null) continue;
+            // A chain uses original definition handles. Join its selectors into one atomic plan;
+            // changing a donor's selector no longer changes the identity of that donor definition.
+            for (var b = 0; b < operations.Count; b++)
+                if (a != b && operations[b].Replacement != null && operations[b].Contexts.Contains(op.Replacement)) Join(a, b);
             var next = Owners(op.Replacement); var previous = Owners(op.Contexts.Single());
             for (var b = 0; b < operations.Count; b++)
             {
@@ -35,8 +39,11 @@ public static class CompositionPlanLua
                 if (next.Contains(other.Owner) || other.Family != "weapon" && other.Contexts.Intersect(op.Contexts).Any())
                 {
                     Join(a, b);
-                    if (!dependencies.TryGetValue(b, out var list)) dependencies[b] = list = [];
-                    list.Add(a);
+                    if (!other.OriginalTarget)
+                    {
+                        if (!dependencies.TryGetValue(b, out var list)) dependencies[b] = list = [];
+                        list.Add(a);
+                    }
                 }
             }
         }

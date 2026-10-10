@@ -186,12 +186,15 @@ public sealed class CompositionChangeService : ICompositionChangeService
         var swaps = project.ProjectileChanges.Where(c => c.Enabled).ToArray();
         foreach (var swap in swaps)
         {
-            if (swaps.Any(s => s.Weapon == swap.ReplacementProjectile.Weapon && s.AttackRole == swap.ReplacementProjectile.AttackRole)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ReplacedSource"));
+            if (SourceIsReplaced(project, swap.ReplacementProjectile) && !CanUseOriginal(sdk, swap.ReplacementProjectile))
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ReplacedSource"));
             if (project.WeaponChanges.Any(c => c.Enabled && c.Weapon == swap.Weapon && sdk.PlayerWeapons?.FindCanonicalField(c.Weapon, c.SemanticFieldId) is { } f && ProjectileOwned(f))) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.WeaponLevelOverrides"));
         }
         foreach (var c in project.CompositionChanges.Where(c => c.Enabled))
         {
             Validate(project, sdk, c);
+            if (SourceIsReplaced(project, c.Target) && (c.Kind != "projectile" || !CanUseOriginal(sdk, c.Target)))
+                throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.ReplacedSource"));
             if (c.Scalar != null && project.WeaponChanges.Any(w => w.Enabled && w.Weapon == c.Scalar.Weapon && sdk.PlayerWeapons!.FindCanonicalField(w.Weapon, w.SemanticFieldId)?.SemanticFieldId == c.Scalar.SemanticFieldId)) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.OlderOverride"));
             // Semantic handles follow live references. Do not generate a stale source chain.
             var source = c.Kind == "terminal" ? c.DesiredExplosion : c.ExplosionTarget;
@@ -208,6 +211,13 @@ public sealed class CompositionChangeService : ICompositionChangeService
             if (group.Select(c => c.DesiredExplosion!.IsNone ? 0 : Explosion(sdk, c.DesiredExplosion).ExplosionType).Distinct().Count() > 1) throw new InvalidDataException(CoreText.Get("Messages.Build.Composition.SharedTerminalConflict"));
     }
     public static string ProjectileLua(ProjectileReference p) => "hd2.weapon(" + LuaGenerator.Quote(p.Weapon) + "):attack(" + LuaGenerator.Quote(p.AttackRole) + "):projectile()";
+    internal static bool SourceIsReplaced(ModProject project, ProjectileReference p) => project.ProjectileChanges.Any(c => c.Enabled && c.Weapon == p.Weapon && c.AttackRole == p.AttackRole);
+    internal static bool CanUseOriginal(SdkMetadata sdk, ProjectileReference p) => sdk.Plans?.OriginalPlayerProjectiles == true
+        && sdk.PlayerWeapons!.Weapon(p.Weapon).Fields.Any(f => f.Domain == "attack" && f.ReferenceRole == p.AttackRole
+            && f.Editable && f.CompatibilityClass == "conventional_plain" && f.Backing?.Component == "ProjectileWeaponComponentData"
+            && f.Backing.Offset == 0);
+    internal static string ProjectileLua(ModProject project, SdkMetadata sdk, ProjectileReference p) =>
+        SourceIsReplaced(project, p) && CanUseOriginal(sdk, p) ? ProjectileLua(p).Replace(":projectile()", ":original_projectile()") : ProjectileLua(p);
     private static string TerminalLua(ProjectileReference p, string phase) => ProjectileLua(p) + ":terminal_action(" + LuaGenerator.Quote(phase) + ")";
     private static string ExplosionLua(ExplosionReference r, string terminal) => r.IsNone ? terminal + ":no_explosion()" : TerminalLua(r.Projectile!, r.Phase!) + ":explosion()";
     public static IEnumerable<string> Operations(ModProject project, SdkMetadata sdk, ICompositionChangeService service)
