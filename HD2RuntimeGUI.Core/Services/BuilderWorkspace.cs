@@ -106,15 +106,41 @@ public sealed partial class BuilderWorkspace(IProjectStore store, IProjectServic
             if (project == null || !ReferenceEquals(project, Project)) throw new InvalidOperationException(CoreText.Get("Messages.Workspace.ProjectChanged"));
             var (projectiles, composition, custom) = (project.ProjectileChanges.ToList(), project.CompositionChanges.ToList(), project.CustomContent);
             var edits = ObjectEditsOnCurrentProjectile(weapon, role);
+            var options = project.ModOptions;
             try
             {
                 ApplyProjectile(project, weapon, role, replacement, acceptBaseline: false);
+                // A shared original bullet still used by another attack must not lose its tuning
+                // when this weapon switches away. Rehome those edits on the remaining consumer.
+                if (!keepValues) PreserveBorrowedProjectileEdits(project, edits);
                 var result = Retarget(project, weapon, role, edits, keepValues);
                 await SaveChangesAsync(); return result;
             }
-            catch { project.ProjectileChanges = projectiles; project.CompositionChanges = composition; project.CustomContent = custom; throw; }
+            catch { project.ProjectileChanges = projectiles; project.CompositionChanges = composition; project.CustomContent = custom; project.ModOptions = options; throw; }
         }
         finally { weaponEditGate.Release(); }
+    }
+    private void PreserveBorrowedProjectileEdits(ModProject project, IReadOnlyList<CompositionChange> edits)
+    {
+        foreach (var edit in edits.Where(c => c.Enabled && c.Kind == "projectile" && c.Scalar != null))
+        {
+            if (!CompositionChangeService.CanUseOriginal(Metadata!, edit.Target)) continue;
+            var borrower = project.ProjectileChanges.Where(c => c.Enabled && c.ReplacementProjectile == edit.Target
+                    && (c.Weapon != edit.Weapon || c.AttackRole != edit.AttackRole))
+                .OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal).FirstOrDefault();
+            if (borrower == null || EffectiveProjectile(edit.Weapon, edit.AttackRole) == edit.Target) continue;
+            var copy = System.Text.Json.JsonSerializer.Deserialize<CompositionChange>(System.Text.Json.JsonSerializer.Serialize(edit))!;
+            copy.Weapon = borrower.Weapon; copy.AttackRole = borrower.AttackRole;
+            // Keep explicit recipient edits; conflicting values remain a validation error before this swap.
+            if (project.CompositionChanges.Any(c => c.Weapon == copy.Weapon && c.AttackRole == copy.AttackRole
+                && c.Kind == copy.Kind && c.Phase == copy.Phase && c.Scalar?.SemanticFieldId == copy.Scalar!.SemanticFieldId)) continue;
+            project.CompositionChanges.Add(copy);
+            if (project.ModOptions?.Rows.Any(r => r.Key == ModOptionsService.ObjectKey(edit)) == true)
+            {
+                project.ModOptions = System.Text.Json.JsonSerializer.Deserialize<ModOptionsSettings>(System.Text.Json.JsonSerializer.Serialize(project.ModOptions))!;
+                foreach (var row in project.ModOptions.Rows.Where(r => r.Key == ModOptionsService.ObjectKey(edit))) row.Key = ModOptionsService.ObjectKey(copy);
+            }
+        }
     }
     /// <summary>Moves orphaned object edits of one attack to the projectile it fires now (keepValues) or discards them.</summary>
     public async Task<ObjectEditCarryResult> ResolveOrphanedObjectEditsAsync(string weapon, string role, bool keepValues)

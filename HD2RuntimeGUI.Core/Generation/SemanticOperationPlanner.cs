@@ -42,6 +42,7 @@ public sealed record PlannedSemanticOperation(SemanticBackingObject Owner, strin
     public string Family { get; init; } = "";
     public IReadOnlyList<ProjectileReference> Contexts { get; init; } = [];
     public ProjectileReference? Replacement { get; init; }
+    public bool OriginalTarget => Target.EndsWith(":original_projectile()", StringComparison.Ordinal);
     public string Lua(string resourceId, OptionBindings? options = null)
     {
         var identity = resourceId + "\n" + Owner.Kind + "\n" + Owner.Identity;
@@ -118,7 +119,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
             var f = c.Scalar == null ? CompositionChangeService.TerminalField(sdk, c.Target, c.Phase!) : sdk.PlayerWeapons!.Field(c.Scalar.Weapon, c.Scalar.SemanticFieldId);
             var terminal = CompositionChangeService.ProjectileLua(c.Target) + ":terminal_action(" + LuaGenerator.Quote(c.Phase ?? "impact") + ")";
             string Explosion(ExplosionReference r) => r.IsNone ? terminal + ":no_explosion()" : CompositionChangeService.ProjectileLua(r.Projectile!) + ":terminal_action(" + LuaGenerator.Quote(r.Phase!) + "):explosion()";
-            var target = c.Kind == "terminal" ? terminal : c.Kind == "explosion" ? Explosion(c.ExplosionTarget!) : CompositionChangeService.ProjectileLua(c.Target);
+            var target = c.Kind == "terminal" ? terminal : c.Kind == "explosion" ? Explosion(c.ExplosionTarget!) : CompositionChangeService.ProjectileLua(project, sdk, c.Target);
             var semantic = c.Kind == "terminal" ? "terminal.explosion" : Generic(f.SemanticFieldId);
             edits.Add(new(SemanticBackingObject.For(sdk, c.Scalar?.Weapon ?? c.Target.Weapon, f), c.Scalar?.Weapon ?? c.Target.Weapon, c.Kind == "terminal" ? "terminal:" + c.Phase : c.Kind,
                 target, semantic, Accessor(sdk, semantic), c.Scalar == null ? Explosion(c.ExpectedExplosion!) : Scalar(f, c.Scalar.ExpectedValue),
@@ -140,7 +141,7 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                 var field = sdk.PlayerWeapons!.Weapon(swap.Weapon).Fields.Single(f => f.Domain == "attack" && f.ReferenceRole == swap.AttackRole);
                 var target = "hd2.weapon(" + LuaGenerator.Quote(swap.Weapon) + "):attack(" + LuaGenerator.Quote(swap.AttackRole) + ")";
                 edits.Add(new(SemanticBackingObject.For(sdk, swap.Weapon, field), swap.Weapon, "attack:" + target, target, "attack.projectile",
-                    "hd2.fields.attack.projectile", target + ":projectile()", CompositionChangeService.ProjectileLua(swap.ReplacementProjectile), swap.EnsureEnabled, false,
+                    "hd2.fields.attack.projectile", target + ":projectile()", CompositionChangeService.ProjectileLua(project, sdk, swap.ReplacementProjectile), swap.EnsureEnabled, false,
                     new(swap.Weapon, swap.AttackRole), swap.ReplacementProjectile));
             }
         }
@@ -189,7 +190,8 @@ public sealed class SemanticOperationPlanner : ISemanticOperationPlanner
                     throw new InvalidDataException(CoreText.Get("Messages.Build.Plan.ConflictingValues"));
                 var e = fields.First(); values.Add(new(BranchConstant(sdk, candidate, e) ?? e.Field, e.Expected, e.Desired) { Keys = fields.Select(x => x.Key).ToArray() });
             }
-            result.Add(new(group.Key.Owner, candidate.Target, group.First().Ensure, group.Any(e => e.Shared), values)
+            result.Add(new(group.Key.Owner, candidate.Target, group.First().Ensure,
+                candidate.Target.EndsWith(":original_projectile()", StringComparison.Ordinal) || group.Any(e => e.Shared), values)
             { AllowUnverifiedEffect = group.Any(e => e.Unverified), AllowUnverifiedReference = group.Any(e => e.UnverifiedReference), Family = candidate.Family, Contexts = group.Where(e => e.Context != null).Select(e => e.Context!).Distinct().OrderBy(c => c.Weapon, StringComparer.Ordinal).ThenBy(c => c.AttackRole, StringComparer.Ordinal).ToArray(), Replacement = candidate.Replacement });
         }
         return result;
