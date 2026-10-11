@@ -48,7 +48,8 @@ internal static class PublishedArtifactVersion
             // no 0.29) and 0.30.1 (no SDK content change). A later SDK that changes them under the 0.19.0 label fails these digests and is
             // refused rather than misread. 0.30.2 regenerated all eight (the seven weapons resolved to their proven roots) and labels them with
             // its own version, so they match the catalog version above and need no digest; 0.30.2 graphs labelled 0.19.0 are refused. 0.30.3
-            // relabels the same graphs 0.30.3 (only the version string changed), so it needs no digest either.
+            // relabels the same graphs 0.30.3 (only the version string changed), and 0.31.0 labels its regenerated graphs
+            // 0.31.0, so neither needs a digest.
             "0.27.0" or "0.28.0" or "0.28.1" or "0.30.0-dev" or "0.30.0" or "0.30.1" => Reused027,
             _ => null,
         };

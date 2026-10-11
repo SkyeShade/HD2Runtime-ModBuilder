@@ -274,7 +274,9 @@ public sealed class SdkCache(AppPaths paths, IMetadataReader reader, IGitHubRele
         foreach (var w in fed)
         {
             var a = w.AmmoBackpack!; var b = entities.Backpacks.Find(a.Backpack);
-            Check(b is { Feeds: { } feeds, Ammo: { } ammo } && feeds.SupportWeapon == w.Name && b.SemanticId == a.SemanticId && !a.WeaponOwnsMagazine && !feeds.WeaponOwnsMagazine
+            // A team-reload weapon (0.31.0) owns its magazine; a backpack-fed one does not. Both sides say the same.
+            Check(b is { Feeds: { } feeds, Ammo: { } ammo } && feeds.SupportWeapon == w.Name && b.SemanticId == a.SemanticId
+                && a.WeaponOwnsMagazine == a.IsTeamReload && feeds.WeaponOwnsMagazine == a.IsTeamReload && (feeds.Relationship == SupportAmmoBackpack.TeamReload) == a.IsTeamReload
                 && ammo.Capacity == a.Baseline.Capacity && ammo.StartAmount == a.Baseline.StartAmount && ammo.RefillAmount == a.Baseline.RefillAmount);
             var fields = entities.Backpacks.FieldInstances.Where(f => f.Target.Backpack == a.Backpack && f.UiGroup == Backpack.AmmoGroup).ToArray();
             Check(fields.Select(f => f.SemanticFieldId).Order(StringComparer.Ordinal).SequenceEqual(a.Fields.Order(StringComparer.Ordinal))

@@ -43,9 +43,9 @@ public sealed class Runtime0302Tests
     {
         using var e = new TestEnvironment();
         var pin = await SdkFixtures.Install(e, Runtime030Tests.Version);
-        Assert.Equal("0.30.3", pin.Version); Assert.True(pin.IsPinnedBuild); Assert.NotNull(pin.PlayerWeapons); Assert.NotNull(pin.AttackOutputs);
+        Assert.Equal(SdkPin.Version, pin.Version); Assert.True(pin.IsPinnedBuild); Assert.NotNull(pin.PlayerWeapons); Assert.NotNull(pin.AttackOutputs);
         foreach (var graph in Graphs)
-            Assert.Equal("0.30.3", JsonDocument.Parse(SdkFixtures.Entry(Runtime030Tests.Version, graph)).RootElement.GetProperty("hd2RuntimeVersion").GetString());
+            Assert.Equal(SdkPin.Version, JsonDocument.Parse(SdkFixtures.Entry(Runtime030Tests.Version, graph)).RootElement.GetProperty("hd2RuntimeVersion").GetString());
         // 0.30.2 (the SDK of projects bound by the 1.7.x SDK move) still loads, with its graphs labelled 0.30.2, as a build other than the pin.
         var v0302 = await SdkFixtures.Install(e, Runtime030Tests.Previous);
         Assert.Equal("0.30.2", v0302.Version); Assert.Null(v0302.IsPinnedBuild); Assert.NotNull(v0302.PlayerWeapons); Assert.NotNull(v0302.Composition); Assert.NotNull(v0302.AttackOutputs);
@@ -77,9 +77,9 @@ public sealed class Runtime0302Tests
             Assert.Equal("UNIQUE", weapon.Resolution); Assert.False(weapon.OrdinaryWritesBlocked); Assert.Single(weapon.Resources);
             Assert.Contains(weapon.Fields, f => f.Editable);
         }
-        // 237 published writable; the two weapon.sound fields stay read-only until they are authored (the GP-31's explosion status slot is
-        // authored since 1.7.1).
-        Assert.Equal(235, Roots.Sum(n => pw.Weapon(n).Fields.Count(f => f.Editable)));
+        // 0.31.0 publishes 254 writable (the Scythe and Dagger gained beam pulse, wind-up and beam swap fields); the two weapon.sound fields and
+        // the Dagger's beam swap stay read-only until they are authored (the GP-31's explosion status slot is authored since 1.7.1).
+        Assert.Equal(251, Roots.Sum(n => pw.Weapon(n).Fields.Count(f => f.Editable)));
         // The GP-31 and the Dagger read their own values now (the Dagger's old 2000 heat capacity was the other root's).
         Assert.Equal(100d, pw.Field("LAS-7 Dagger", "heat.capacity").CurrentDefault.GetDouble());
         Assert.Equal(4, pw.Field("GP-31 Grenade Pistol", "rounds.starting_rounds").CurrentDefault.GetInt32());
@@ -91,8 +91,8 @@ public sealed class Runtime0302Tests
             Assert.False(f.Editable); Assert.StartsWith("A default customization item (", f.Reason);
         }
         Assert.True(pw.Field("LAS-5 Scythe", "heat.heat_per_second").Editable);
-        // 3365 counted writable by the summary, 3361 published editable, 3306 authored by this build (weapon sounds not yet).
-        Assert.Equal(3365, pw.Summary.WritableFieldInstances); Assert.Equal(3306, pw.Weapons.Sum(w => w.Fields.Count(f => f.Editable)));
+        // 0.31.0: 3434 counted writable by the summary, 3430 published editable, 3373 authored by this build (weapon sounds and beam swaps not yet).
+        Assert.Equal(3434, pw.Summary.WritableFieldInstances); Assert.Equal(3373, pw.Weapons.Sum(w => w.Fields.Count(f => f.Editable)));
         // The ammo companion names the candidate roots each correction chose from.
         var gp31 = sdk.PlayerAmmo!.Weapons.Single(w => w.Name == "GP-31 Grenade Pistol");
         Assert.Equal(2, gp31.CandidateRoots!.Count); Assert.Contains(Assert.Single(gp31.Resources), gp31.CandidateRoots);
@@ -114,9 +114,9 @@ public sealed class Runtime0302Tests
         Assert.True(ProjectileHosts.Entry(sdk, AttackProjectileSource.VehicleKind, Sentry, "primary")!.Writable);
         var mg43 = ProjectileHosts.Entry(sdk, AttackProjectileSource.VehicleKind, Mg43, "primary")!;
         Assert.Equal((false, hosts[Mg43].Reason), (mg43.Writable, mg43.Reason));
-        // Backpack-fed ammunition rows: writes accepted but expected to do nothing (noEffect.reason), read.
-        var none = sdk.SupportAuthoring.FieldInstances.Where(f => f.NoEffect != null).ToArray();
-        Assert.Equal(11, none.Length); Assert.Equal(5, none.Select(f => f.SupportWeapon).Distinct().Count());
+        // Backpack-fed ammunition rows: 0.30.2 and 0.30.3 publish them as writes expected to do nothing (noEffect.reason, NoEffectTests);
+        // 0.31.0 made them the team-reload weapons' own spares, real fields.
+        Assert.DoesNotContain(sdk.SupportAuthoring.FieldInstances, f => f.NoEffect != null);
         // The capability audit classifies each with its reason, and nothing is unexpectedly missing.
         var report = CapabilityAudit.Run(sdk, CapabilityAuditTests.Files(Runtime030Tests.Version));
         Assert.Empty(report.UnexpectedMissing);
@@ -125,7 +125,8 @@ public sealed class Runtime0302Tests
         Assert.Equal(CapabilityClass.RUNTIME_READ_ONLY, report.Entries.Single(x => x.Capability == "projectile host (" + CapabilityExemptions.StratagemHostKind + ")" && x.Type == "read-only").Class);
         AuditEntry Entry(string area, string capability) => report.Entries.Single(x => x.Area == area && x.Capability == capability);
         Assert.Equal((CapabilityClass.SUPPORTED_UI, 11), (Entry("status_effect", "attachable status (player_attack)").Class, Entry("status_effect", "attachable status (player_attack)").Instances));
-        Assert.Equal((CapabilityClass.SUPPORTED_UI, 11), (Entry("support_weapon_notice", "noEffect").Class, Entry("support_weapon_notice", "noEffect").Instances));
+        // 0.31.0 publishes no noEffect rows (NoEffectTests audits them on 0.30.3).
+        Assert.DoesNotContain(report.Entries, x => x.Area == "support_weapon_notice" && x.Capability == "noEffect");
     }
 
     [Fact] public async Task Features_of_0_30_2_raise_the_required_runtime_and_what_0_30_0_released_keeps_its_floor()
@@ -151,9 +152,9 @@ public sealed class Runtime0302Tests
         Assert.Equal(RuntimeRequirement.Release030, RuntimeRequirement.Minimum(old, pinned with { Version = "0.28.1" }));
         var renamed = new ModProject { SdkVersion = "0.28.1", CustomContent = Pelican("seaf/3") };
         Assert.Equal(RuntimeRequirement.Release0302, RuntimeRequirement.Minimum(renamed, pinned with { Version = "0.28.1" }));
-        // A project bound to 0.30.2 declares 0.30.2 whatever it writes, and one bound to the pinned 0.30.3 declares 0.30.3.
+        // A project bound to 0.30.2 declares 0.30.2 whatever it writes, and one bound to the pinned SDK declares it.
         Assert.Equal("0.30.2", RuntimeRequirement.Minimum(new ModProject { SdkVersion = "0.30.2" }, pinned with { Version = Runtime030Tests.Previous }));
-        Assert.Equal("0.30.3", RuntimeRequirement.Minimum(new ModProject { SdkVersion = "0.30.3" }, pinned));
+        Assert.Equal(SdkPin.Version, RuntimeRequirement.Minimum(new ModProject { SdkVersion = SdkPin.Version }, pinned));
     }
 
     [Fact] public void The_renamed_sounds_are_offered_in_place_of_their_old_names()

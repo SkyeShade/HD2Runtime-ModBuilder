@@ -17,7 +17,7 @@ HD2Runtime ModBuilder is a Windows app for building Helldivers 2 gameplay mods o
 
 ## Download
 
-1. Download **`HD2Runtime-ModBuilder-v1.7.1-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
+1. Download **`HD2Runtime-ModBuilder-v1.8.0-win-x64.zip`** from the [latest release](https://github.com/SkyeShade/HD2Runtime-ModBuilder/releases/latest).
 2. Extract it to a folder you can write to (for example `Documents\HD2Runtime ModBuilder`).
 3. Run **`HD2RuntimeModBuilder.exe`**.
 
@@ -33,7 +33,7 @@ HD2Runtime ModBuilder checks [GitHub Releases](https://github.com/SkyeShade/HD2R
 
 Updating 1.0.0 to 1.0.1 or later replaces `HD2RuntimeGUI.exe` with `HD2RuntimeModBuilder.exe`. A taskbar pin or shortcut to the old exe needs to be pinned again.
 
-Release notes: [1.7.1](docs/release-notes/v1.7.1.md) · [1.7.0](docs/release-notes/v1.7.0.md) · [1.6.0](docs/release-notes/v1.6.0.md) · [1.5.0](docs/release-notes/v1.5.0.md) · [1.4.3](docs/release-notes/v1.4.3.md) · [1.4.2](docs/release-notes/v1.4.2.md) · [1.4.1](docs/release-notes/v1.4.1.md) · [1.4.0](docs/release-notes/v1.4.0.md) · [1.3.1](docs/release-notes/v1.3.1.md) · [1.3.0](docs/release-notes/v1.3.0.md) · [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
+Release notes: [1.8.0](docs/release-notes/v1.8.0.md) · [1.7.1](docs/release-notes/v1.7.1.md) · [1.7.0](docs/release-notes/v1.7.0.md) · [1.6.0](docs/release-notes/v1.6.0.md) · [1.5.0](docs/release-notes/v1.5.0.md) · [1.4.3](docs/release-notes/v1.4.3.md) · [1.4.2](docs/release-notes/v1.4.2.md) · [1.4.1](docs/release-notes/v1.4.1.md) · [1.4.0](docs/release-notes/v1.4.0.md) · [1.3.1](docs/release-notes/v1.3.1.md) · [1.3.0](docs/release-notes/v1.3.0.md) · [1.2.0](docs/release-notes/v1.2.0.md) · [1.1.2](docs/release-notes/v1.1.2.md) · [1.1.1](docs/release-notes/v1.1.1.md) · [1.1.0](docs/release-notes/v1.1.0.md) · [1.0.1](docs/release-notes/v1.0.1.md) · [1.0.0](docs/release-notes/v1.0.0.md).
 
 ## Why "HD2RuntimeGUI" still appears
 
@@ -58,7 +58,7 @@ The names HD2Runtime, HD2R and HD2Runtime ModBuilder, the reticle icon and the w
 git clone https://github.com/SkyeShade/HD2Runtime-ModBuilder.git
 ```
 
-A Windows-first .NET 10 MAUI Blazor Hybrid app. The current build is built against **HD2Runtime SDK 0.30.3** (1.7.0 shipped with 0.30.0; see [SDK 0.30 authoring](#sdk-030-authoring); projects bound to 0.30.0, 0.30.2 or to the 0.30.0-dev SDK of the 1.7.0 test builds keep working) and also supports **0.28.1** (release [v0.28.1](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.28.1), `96ab2d2`; 0.28.0's capabilities: the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.28.0**, **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK. Its experimental custom content targets the **HD2Runtime 0.30** custom stratagem API (released in 0.30.0) through a bundled copy of HD2Runtime 0.30.3's `CustomStratagemSchema.json`, independent of the bound SDK.
+A Windows-first .NET 10 MAUI Blazor Hybrid app. The current build is built against **HD2Runtime SDK 0.31.0** (1.7.1 shipped with 0.30.3, 1.7.0 with 0.30.0; see [SDK 0.30 authoring](#sdk-030-authoring); projects bound to 0.30.0, 0.30.2, 0.30.3 or to the 0.30.0-dev SDK of the 1.7.0 test builds keep working) and also supports **0.28.1** (release [v0.28.1](https://github.com/SkyeShade/HD2Runtime/releases/tag/v0.28.1), `96ab2d2`; 0.28.0's capabilities: the unified projectile system and projectile builder, programmable ammunition, rate-of-fire modes, weapon feeds, armory presentation, underbarrels, Guard Dogs and equipment, enemies and structures, event scripting and custom Lua) and also supports **0.28.0**, **0.27.0** (throwables and automatic asset loading for reference swaps), **0.26.0** (every magazine option, third-person reticles, fire-mode lists, mounted vehicle weapons, mission uses, backpack-fed support ammunition and drop-pod contents), **0.25.1** (stratagem icons, in-game Mod Options) and the **0.24 guarded booster, vehicle, backpack, magazine-attachment, shield-relay, defensive and offensive stratagem, support/player-weapon, heat, ammo and composition-plan APIs**; older projects stay pinned to their SDK. Its experimental custom content targets the **HD2Runtime 0.30** custom stratagem API (released in 0.30.0) through a bundled copy of HD2Runtime 0.31.0's `CustomStratagemSchema.json`, independent of the bound SDK.
 
 The published `PlayerWeaponAuthoringCapabilities.json` drives player-weapon identities, controls, defaults, evidence and permissions: **80 weapons, 4,555 entries, 121 field definitions (102 writable, 19 read-only, 9 derived)** in SDK 0.28.0. There is no manually maintained weapon/field catalog in the UI. The nine derived definitions are included in the read-only count.
 
@@ -180,8 +180,12 @@ Runtime it needs in `requires.hd2runtime.min_version`: the bound SDK, raised to 
 A project bound to the 0.30.0-dev SDK of the 1.7.0 test builds opens and exports on it (HD2Runtime 0.30.0 loads mods that declare
 0.30.0-dev) until you rebind it to 0.30.0.
 
-The current build bundles **HD2Runtime 0.30.3** (0.30.1 changed no SDK content; 0.30.3 changed only its version and the custom stratagem
-uses range). New projects bind to it; projects bound to 0.30.0, 0.30.2 or 0.30.0-dev open and export on their SDK until you rebind them.
+The current build bundles **HD2Runtime 0.31.0** (0.30.1 changed no SDK content; 0.30.3 changed only its version and the custom stratagem
+uses range). New projects bind to it; projects bound to 0.30.0, 0.30.2, 0.30.3 or 0.30.0-dev open and export on their SDK until you rebind
+them. 0.31.0's new fields are edited where their weapon, vehicle or stratagem already is: wind-up (firing charge) on heat weapons and spin
+times on the Patriot and Maelstrom, beam pulse fields, the missile flight of the W.A.S.P., Spear, Commando, P-33 and P-92, the team-reload
+weapons' own spares and their backpacks' deposits, mounted spread, and Orbital Railcannon / Laser targeting. Beam swaps, the Eagle Rearm
+pool and the fire-mode selector on single-mode weapons are shown read-only for now; beam conversion and status effect stats are custom Lua.
 0.30.2 resolves seven weapons that were read-only as duplicate identities
 (GP-31 Grenade Pistol, P-72 Crisper, LAS-5 Scythe, LAS-7 Dagger, CQC-42 Machete, CQC-73 Entrenchment Tool, SMG-37 Defender): their fields
 are editable, and an edit on one of them requires HD2Runtime 0.30.2. Sentry and emplacement projectile swaps are authored (below).

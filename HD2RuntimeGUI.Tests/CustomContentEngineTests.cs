@@ -39,9 +39,9 @@ public sealed class CustomContentEngineTests
     [Fact] public void The_bundled_schema_is_HD2Runtime_0_30_dev_and_reads_every_family_refusal_and_catalogue()
     {
         var schema = Target.Schema;
-        // HD2Runtime 0.30.3's schema (0.30.2 changed its sound catalogue since 0.30.0, 0.30.3 its uses range); the custom stratagem API it
+        // HD2Runtime 0.31.0's schema (0.30.2 changed its sound catalogue since 0.30.0, 0.30.3 its uses range); the custom stratagem API it
         // describes is 0.30.0's.
-        Assert.Equal("0.30.3", schema.RuntimeVersion); Assert.Equal(RuntimeRequirement.Release030, Target.MinimumRuntime); Assert.Equal("hd2runtime-custom-stratagems/1", schema.Format); Assert.Equal(1, schema.SchemaVersion);
+        Assert.Equal("0.31.0", schema.RuntimeVersion); Assert.Equal(RuntimeRequirement.Release030, Target.MinimumRuntime); Assert.Equal("hd2runtime-custom-stratagems/1", schema.Format); Assert.Equal(1, schema.SchemaVersion);
         Assert.Equal("hd2.custom_stratagem.register", schema.Api); Assert.Equal("bundled", schema.Source);
         Assert.Equal(["script", "support", "expendable", "sentry", "eagle", "orbital", "pelican", "silo", "pod", "weapon"], schema.Families.Select(f => f.Family));
         Assert.Equal(["support", "expendable", "sentry", "eagle", "orbital", "pelican", "silo", "pod", "weapon"], schema.Families.Where(f => f.Builder).Select(f => f.Family));

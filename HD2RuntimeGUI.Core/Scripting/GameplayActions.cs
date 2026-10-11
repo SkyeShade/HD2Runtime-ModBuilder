@@ -141,7 +141,7 @@ public sealed record WeaponSound(string Name, string Label, string Family, strin
 /// 0.30.3.json). It is offered only for an SDK whose stub publishes hd2.sounds; the names are Runtime's, never translated.</summary>
 public static class WeaponSounds
 {
-    public const string Resource = "HD2RuntimeGUI.Core.Scripting.Bundled.WeaponSoundCatalogue-0.30.3.json";
+    public const string Resource = "HD2RuntimeGUI.Core.Scripting.Bundled.WeaponSoundCatalogue-0.31.0.json";
     private static readonly Lazy<byte[]> BundledBytes = new(() =>
     {
         using var stream = typeof(WeaponSounds).Assembly.GetManifestResourceStream(Resource) ?? throw new InvalidDataException("Weapon sound catalogue missing.");

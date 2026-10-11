@@ -1,13 +1,16 @@
 [CmdletBinding()]
 param(
     # An extracted, read-only HD2Runtime tree for export validation (created from ..\HD2Runtime at $RuntimeCommit if missing).
-    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.30.3-7da218b'),
+    [string]$RuntimeTree = (Join-Path ([IO.Path]::GetTempPath()) 'hd2runtime-0.31.0-2c38305'),
     # The HD2Runtime checkout (default ..\HD2Runtime beside this repository; resolved below, since Windows PowerShell 5.1 leaves $PSScriptRoot
     # empty in the default of a parameter that follows another computed default).
     [string]$RuntimeRepo,
-    # The HD2Runtime 0.30.3 release candidate commit whose SDK ModBuilder bundles (SdkPin.RuntimeCommit; tag v0.30.3 adds only migration records).
-    [string]$RuntimeCommit = '7da218b53d20ab74c70cd77deb521397b7854e2d',
-    [string]$RuntimeVersion = '0.30.3',
+    # A clone of HD2Runtime's research submodule that has the commit $RuntimeCommit pins (default: $RuntimeRepo\research). Since 0.31.0 the
+    # Runtime's test support (custom stratagem registration) reads research/entity-component-table-pointers-*.json.
+    [string]$ResearchRepo,
+    # The HD2Runtime 0.31.0 release candidate 2 commit whose SDK ModBuilder bundles (SdkPin.RuntimeCommit; tag v0.31.0 adds only migration records).
+    [string]$RuntimeCommit = '2c38305a5bbb202748ac606ebfcafa0333f2d423',
+    [string]$RuntimeVersion = '0.31.0',
     # Local test builds only: allow uncommitted changes (the build report marks them).
     [switch]$AllowDirty,
     # Reuse an existing artifacts\release package instead of publishing again.
@@ -74,10 +77,9 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
     $counters = $trx.TestRun.ResultSummary.Counters
 
     # 3. Export validation against the frozen HD2Runtime tree of the pinned SDK (extracted read-only with git archive). git archive leaves the
-    #    research submodule (research/, since 0.30.0) empty: the validators ModBuilder runs (scripts/validate_examples.py through
-    #    tools/validate-exports.py, and tests/support.py with the stratagem test modules through tools/custom-content/validate-runtime.py)
-    #    read nothing under research/ (checked at 893d31f, dd32795 and 7da218b), so the tree needs only the superproject. Only the Runtime's own snapshot
-    #    validators and unit tests read research/.
+    #    research submodule (research/, since 0.30.0) empty. Up to 0.30.3 the validators ModBuilder runs read nothing under research/; since
+    #    0.31.0 tests/support.py (custom stratagem registration, tools/custom-content/validate-runtime.py) reads its component table pointers,
+    #    so the submodule's pinned commit is archived into research/ too.
     if (-not (Test-Path (Join-Path $RuntimeTree 'VERSION'))) {
         New-Item -ItemType Directory -Path $RuntimeTree -Force | Out-Null
         # Through a file: Windows PowerShell pipes native output as text, which corrupts a tar stream.
@@ -86,6 +88,18 @@ start "" "%~dp0HD2Runtime-ModBuilder-$version\HD2RuntimeModBuilder.exe"
         if ($LASTEXITCODE -ne 0) { throw 'Could not archive the HD2Runtime release tree.' }
         & tar -x -f $tar -C $RuntimeTree; $extracted = $LASTEXITCODE; Remove-Item -LiteralPath $tar -Force
         if ($extracted -ne 0) { Remove-Item -LiteralPath $RuntimeTree -Recurse -Force; throw 'Could not extract the HD2Runtime release tree.' }
+    }
+    if (-not (Get-ChildItem -LiteralPath (Join-Path $RuntimeTree 'research') -Filter 'entity-component-table-pointers-*.json' -ErrorAction SilentlyContinue)) {
+        if (-not $ResearchRepo) { $ResearchRepo = Join-Path $RuntimeRepo 'research' }
+        $researchCommit = ((& git -C $RuntimeRepo ls-tree $RuntimeCommit research) -split '\s+')[2]
+        & git -C $ResearchRepo cat-file -e "$researchCommit^{commit}" 2>$null
+        if ($LASTEXITCODE -ne 0) { throw "The research commit $researchCommit is not in $ResearchRepo (fetch it, or pass -ResearchRepo)." }
+        $tar = Join-Path ([IO.Path]::GetTempPath()) ('hd2runtime-research-' + [Guid]::NewGuid().ToString('N') + '.tar')
+        & git -C $ResearchRepo archive --format=tar -o $tar $researchCommit
+        if ($LASTEXITCODE -ne 0) { throw 'Could not archive the HD2Runtime research submodule.' }
+        New-Item -ItemType Directory -Path (Join-Path $RuntimeTree 'research') -Force | Out-Null
+        & tar -x -f $tar -C (Join-Path $RuntimeTree 'research'); $extracted = $LASTEXITCODE; Remove-Item -LiteralPath $tar -Force
+        if ($extracted -ne 0) { throw 'Could not extract the HD2Runtime research submodule.' }
     }
     & py -3 -B (Join-Path $repoRoot 'tools\validate-exports.py') --isolation --runtime $RuntimeTree --output (Join-Path $rc 'export-validation.json') (Join-Path $rc 'export-fixtures\*.zip')
     $exportExit = $LASTEXITCODE

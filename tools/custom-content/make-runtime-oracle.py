@@ -1,6 +1,6 @@
 """Write the conformance oracle of ModBuilder's custom stratagem engine: what HD2Runtime's own SDK tools say about a corpus of projects.
 
-    py -3 -B tools/custom-content/make-runtime-oracle.py --sdk <extracted HD2Runtime-0.30.3-sdk.zip>
+    py -3 -B tools/custom-content/make-runtime-oracle.py --sdk <extracted HD2Runtime-0.31.0-sdk.zip>
 
 The SDK is used read-only (Python writes no bytecode). For every Runtime example project (sdk/fixtures/custom_stratagems) and for a corpus of
 mutations of them that break one rule each, it records sdk/tools/custom_stratagem_project.py's validate() problems, and for every valid one

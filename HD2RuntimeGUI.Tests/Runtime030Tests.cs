@@ -17,7 +17,7 @@ public sealed class Runtime030Tests
 {
     // The bundled pin (0.30.3 since 1.7.1), 0.30.2 (the 1.7.x SDK move), the 0.30.0 release 1.7.0 bundled, and the 0.30.0-dev test SDK earlier
     // 1.7.0 builds bundled.
-    public const string Version = "0.30.3", Fixture = "sdk-0.30.3.zip", Previous = "0.30.2", PreviousFixture = "sdk-0.30.2.zip", Release = "0.30.0", ReleaseFixture = "sdk-0.30.0.zip", DevVersion = "0.30.0-dev", DevFixture = "sdk-0.30.0-dev.zip";
+    public const string Version = "0.31.0", Fixture = "sdk-0.31.0.zip", Previous = "0.30.2", PreviousFixture = "sdk-0.30.2.zip", Release = "0.30.0", ReleaseFixture = "sdk-0.30.0.zip", DevVersion = "0.30.0-dev", DevFixture = "sdk-0.30.0-dev.zip";
     public static string FixturePath => Path.Combine(AppContext.BaseDirectory, "Fixtures", Fixture);
     private static async Task<SdkMetadata> Local(TestEnvironment e) => await new SdkCache(e.Paths, e.Reader, e.GitHub) { LocalSdkPath = FixturePath }.GetCurrentAsync();
 
@@ -28,7 +28,7 @@ public sealed class Runtime030Tests
         Assert.True(sdk.IsPinnedBuild); Assert.Equal(SdkPin.ContentFingerprint, sdk.ContentFingerprint);
         Assert.NotNull(sdk.Stratagems); Assert.NotNull(sdk.SupportAuthoring); Assert.NotNull(sdk.Entities!.Enemies); Assert.NotNull(sdk.Entities.VehicleWeapons);
         Assert.NotNull(sdk.Assets); Assert.NotNull(sdk.AttackOutputs); Assert.NotNull(sdk.Events); Assert.NotNull(sdk.LiveEvidence); Assert.NotNull(sdk.LuaApi);
-        Assert.Equal(2406, sdk.Stratagems!.FieldInstances.Length);
+        Assert.Equal(2508, sdk.Stratagems!.FieldInstances.Length);
         var bundled = await SdkFixtures.Install(e, Version);
         Assert.Equal(sdk.ContentFingerprint, bundled.ContentFingerprint); Assert.True(bundled.IsPinnedBuild);
         // The 0.28.1 SDK and the 0.30.0 release still load unchanged next to it, and so does the 0.30.0-dev test SDK (local or cached), as a
@@ -58,7 +58,7 @@ public sealed class Runtime030Tests
         Assert.Empty(GitHubReleaseClient.ParseReleases(releases));
         Assert.True(SdkCompatibility.IsSupported(Version)); Assert.True(SdkCompatibility.IsSupported(DevVersion)); Assert.True(SdkCompatibility.IsSupported("0.28.1"));
         Assert.True(SdkCompatibility.IsSupported(Release)); Assert.True(SdkCompatibility.IsSupported("0.30.1"));
-        Assert.True(SdkCompatibility.IsSupported(Previous)); Assert.False(SdkCompatibility.IsSupported("0.30.4"));
+        Assert.True(SdkCompatibility.IsSupported(Previous)); Assert.True(SdkCompatibility.IsSupported("0.30.3")); Assert.False(SdkCompatibility.IsSupported("0.31.1"));
     }
 
     [Fact] public async Task New_value_types_and_targets_are_modelled_and_read_only_until_they_are_authored()

@@ -45,6 +45,7 @@ public sealed class PlayerWeaponHeatCatalogReader : IPlayerWeaponHeatCatalogRead
 {
     public const string FileName = "PlayerWeaponHeatCapabilities.json";
     public const int MaxBytes = 2 * 1024 * 1024;
+    private static readonly HashSet<string> WindUpFields = new(StringComparer.Ordinal) { "heat.firing_charge", "heat.charge_gain_per_second", "heat.charge_loss_per_second", "heat.reset_charge_after_shot" };
     public PlayerWeaponHeatCatalog Read(byte[] bytes, PlayerWeaponCatalog authoring)
     {
         try
@@ -68,7 +69,8 @@ public sealed class PlayerWeaponHeatCatalogReader : IPlayerWeaponHeatCatalogRead
             {
                 var weapon = authoring.Weapon(w.Weapon);
                 // 0.28.0 publishes heat levels (thresholds, self statuses) and the overheat lock in the authoring catalog only.
-                var fields = weapon.Fields.Where(f => f.Domain is "heat" or "heatsink" && f.HeatLevel == null && f.SemanticFieldId != "heat.overheat_lock").ToArray();
+                // 0.31.0 publishes the wind-up (firing charge) fields in the authoring catalog only, too.
+                var fields = weapon.Fields.Where(f => f.Domain is "heat" or "heatsink" && f.HeatLevel == null && f.SemanticFieldId != "heat.overheat_lock" && !WindUpFields.Contains(f.SemanticFieldId)).ToArray();
                 if (!w.Resources.Order().SequenceEqual(weapon.Resources.Order()) || fields.Length != w.Fields.Count
                     || w.Fields.Select(f => f.Id).Distinct().Count() != w.Fields.Count
                     || w.HeatMechanismPresent != fields.Any(f => f.Domain == "heat")

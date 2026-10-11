@@ -16,7 +16,7 @@ public sealed record CustomLuaSnippet(string Key, string Label, string Code, IRe
 /// Runtime's own LuaLS stub (the bound SDK may be older and know nothing of hd2.custom_stratagem), and snippets.</summary>
 public static class CustomScripting
 {
-    public const string StubResource = "HD2RuntimeGUI.Core.CustomContent.Targets.hd2runtime-stubs-0.30.3.lua";
+    public const string StubResource = "HD2RuntimeGUI.Core.CustomContent.Targets.hd2runtime-stubs-0.31.0.lua";
     public const string CallClass = "HD2CustomStratagemCall";
 
     public static readonly IReadOnlyList<CustomLuaSlot> Slots =

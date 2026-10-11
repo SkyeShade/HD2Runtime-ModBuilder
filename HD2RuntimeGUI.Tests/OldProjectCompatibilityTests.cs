@@ -99,21 +99,21 @@ public sealed class OldProjectCompatibilityTests
         Assert.Equal(Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview), wrapper); Assert.DoesNotContain("required_runtime", wrapper);
     }
 
-    // ---- SDK 0.30.0 (ModBuilder 1.7.0), 0.30.2 (the 1.7.x SDK move) and 0.30.3 (1.7.1) ----------------------------------------------------
-    // The bundled SDK is HD2Runtime 0.30.3. New projects bind it; from 0.30 on their wrapper checks the installed Runtime by SemVer (the plain
+    // ---- SDK 0.30.0 (ModBuilder 1.7.0), 0.30.2 (the 1.7.x SDK move), 0.30.3 (1.7.1) and 0.31.0 (1.8.0) ------------------------------------
+    // The bundled SDK is HD2Runtime 0.31.0. New projects bind it; from 0.30 on their wrapper checks the installed Runtime by SemVer (the plain
     // wrapper's pattern refuses the '0.30.0-dev' of the test SDKs) and still declares the bound SDK as local x,y,z, which Runtime's
     // core/sdk_compatibility.lua reads (only the MAJOR.MINOR.PATCH core).
-    [Fact] public async Task A_new_project_binds_the_0_30_3_SDK_with_the_SemVer_wrapper()
+    [Fact] public async Task A_new_project_binds_the_pinned_SDK_with_the_SemVer_wrapper()
     {
         using var e = new TestEnvironment(); var w = Upgraded(e); await w.InitializeAsync();
-        Assert.Equal("0.30.3", SdkPin.Version); Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
+        Assert.Equal("0.31.0", SdkPin.Version); Assert.Equal(SdkPin.Version, w.SdkStatus!.Installed.Version); Assert.True(w.SdkStatus.Installed.IsPinnedBuild);
         await w.CreateAsync(new("Purifier 0.30", "Tests", "mods/tests/purifier_030", "0.1.0"), w.SdkStatus.Installed);
         Assert.Equal(SdkPin.Version, w.Project!.SdkVersion);
         await w.SetObjectScalarAsync(Purifier, "primary", "explosion", "impact", PurifierDamage, "900", true);
         Assert.Null(w.BuildError); Assert.Equal(1, Count(w.LuaPreview, "allow_unverified_effect=true"));
         var (min, addon, wrapper) = await Export(w);
         Assert.Equal(SdkPin.Version, min); Assert.Equal(w.LuaPreview, addon);
-        Assert.Contains("local x,y,z=version('0.30.3')", wrapper); Assert.Contains("local required_runtime='0.30.3'", wrapper);
+        Assert.Contains("local x,y,z=version('0.31.0')", wrapper); Assert.Contains("local required_runtime='0.31.0'", wrapper);
         Assert.Contains("local function at_least(have,need)", wrapper); Assert.Contains("local key='HD2RuntimeMod:mods/tests/purifier_030'", wrapper);
         Assert.Equal(Core.Generation.ModExporter.Wrap(w.Project!, w.LuaPreview, SdkPin.Version), wrapper);
     }
@@ -217,9 +217,9 @@ public sealed class OldProjectCompatibilityTests
         (min, _, wrapper) = await Export(w);
         Assert.Equal(SdkPin.Version, min); Assert.Contains("local x,y,z=version('" + SdkPin.Version + "')", wrapper);
     }
-    // A project bound to 0.30.2 (the SDK of the 1.7.x SDK move, before 1.7.1 pinned 0.30.3): the upgraded ModBuilder makes the bundled 0.30.3
-    // current, opens the project untouched on its 0.30.2 (fixture sdk-0.30.2.zip), exports it declaring 0.30.2, and rebinding to 0.30.3 keeps
-    // every edit and operation and declares 0.30.3.
+    // A project bound to 0.30.2 (the SDK of the 1.7.x SDK move, before 1.7.1 pinned 0.30.3): the upgraded ModBuilder makes the bundled pin
+    // current, opens the project untouched on its 0.30.2 (fixture sdk-0.30.2.zip), exports it declaring 0.30.2, and rebinding to the pin keeps
+    // every edit and operation and declares the pin.
     [Fact] public async Task A_project_bound_to_0_30_2_opens_exports_and_rebinds_to_the_pin()
     {
         using var e = new TestEnvironment(); var v0302 = await SdkFixtures.Install(e, Runtime030Tests.Previous); var w0 = e.Workspace();
@@ -237,7 +237,7 @@ public sealed class OldProjectCompatibilityTests
         await w.RebindToInstalledSdkAsync();
         Assert.Equal(SdkPin.Version, w.Project!.SdkVersion); Assert.Null(w.BuildError); Assert.Equal(lua0302, w.LuaPreview);
         (min, _, wrapper) = await Export(w);
-        Assert.Equal("0.30.3", min); Assert.Contains("local x,y,z=version('0.30.3')", wrapper);
+        Assert.Equal(SdkPin.Version, min); Assert.Contains("local x,y,z=version('" + SdkPin.Version + "')", wrapper);
         Assert.Equal(SdkPin.Version, (await e.Store.LoadAsync(id)).SdkVersion);
     }
     // The generated operation (pcall-isolated block) that names a weapon.

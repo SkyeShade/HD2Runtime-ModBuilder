@@ -34,7 +34,10 @@ public sealed record VehicleWeaponBlock(string Field, string Reason, string? Att
 public sealed record VehicleWeaponOwnership(string[] WeaponLocal, string[] AlsoMountedAt, int? SharedProjectileConsumers, int? SharedDamageConsumers);
 public sealed record VehicleMountedWeapon(string Key, string SemanticId, string? NativePath, string[] Attacks, Dictionary<string, string[]> FieldGroups,
     JsonElement Values, VehicleWeaponOwnership Ownership, VehicleWeaponBlock[] Blocked);
-public sealed record VehicleWeaponMount(int Slot, string Label, VehicleMountedWeapon? Weapon, string? Reason = null)
+// 0.31.0: a mount that is a physical shield (the EXO-55 Breakthrough's left arm: hd2.vehicle(name):shield()) instead of a weapon. Its fields
+// are counted in the summary but not shown: this build does not author shields yet.
+public sealed record VehicleShieldMount(string Key, string? Api = null);
+public sealed record VehicleWeaponMount(int Slot, string Label, VehicleMountedWeapon? Weapon, string? Reason = null, VehicleShieldMount? Shield = null)
 {
     [JsonIgnore] public string Title => Label switch { "left_gun" => "Left arm", "right_gun" => "Right arm", "attach_tank_gun" => "Main cannon", "attach_tank_gun_mg" => "Coaxial machine gun", _ => Label.Replace('_', ' ') };
 }
@@ -157,8 +160,10 @@ public static class VehicleWeaponReader
                 }
             }
             var published = new Dictionary<string, VehicleWeaponFieldInstance>(StringComparer.Ordinal);
+            var shields = c.Vehicles.SelectMany(v => v.Mounts).Where(m => m.Shield != null).Select(m => m.Shield!.Key).ToHashSet(StringComparer.Ordinal);
             foreach (var f in c.FieldInstances)
             {
+                if (shields.Contains(f.Weapon) && !weapons.ContainsKey(f.Weapon)) continue;
                 Check(published.TryAdd(f.InstanceKey, f) && f.InstanceKey.StartsWith("vehicle-field/v1/", StringComparison.Ordinal) && f.InstanceKey.Length <= 512
                     && weapons.TryGetValue(f.Weapon, out var w) && w!.SemanticId == f.WeaponSemanticId
                     && f.Target.Resource == "vehicle_weapon" && f.Target.Weapon == f.Weapon && Paths.Contains(f.Target.Path)
@@ -171,12 +176,14 @@ public static class VehicleWeaponReader
                         // 0.28.0 mounted projectile hosts: the attack's own projectile, fired directly ({weapon, attack} baseline).
                         : f.Type == "projectile_reference" && f.Target.Path == "attack" && f.SemanticFieldId == "attack." + f.Target.Attack + ".projectile"
                             && f.Baseline.ValueKind == JsonValueKind.Object && f.ProjectileReference is { ReferenceKind: "projectile" } r && r.ReferenceRole == f.Target.Attack
-                            && r.ProjectileSource.Status == WeaponProjectileSource.ActiveDirect && !string.IsNullOrWhiteSpace(r.CompatibilityClass))
+                            && r.ProjectileSource.Status == WeaponProjectileSource.ActiveDirect && !string.IsNullOrWhiteSpace(r.CompatibilityClass)
+                        // 0.31.0 beam swaps: the mount's own beam ({weapon, beamType}); shown, never authored by this build (AuthoredTypes.MountedWeapon).
+                        || f.Type == WeaponCapability.BeamReference && f.Target.Path == "weapon" && f.Baseline.ValueKind == JsonValueKind.Object)
                     && (f.LiveProvenValues == null || f.LiveEvidence?.Values is { } proven && f.LiveProvenValues.SequenceEqual(proven))
                     && Scopes.Contains(f.Scope) && f.AllowSharedRequired == (f.Scope != "weapon_local")
                     && (f.Scope == "weapon_local" ? f.OtherConsumers.Length == 0 : f.Scope != "shared_mounted_weapon" || f.OtherConsumers.All(weapons.ContainsKey))
                     && f.Acknowledgement is null or "allow_unverified_effect" && (f.Acknowledgement == null) == (f.GameplayEvidence != null)
-                    && !string.IsNullOrWhiteSpace(f.BackingComponent) && f.Writable);
+                    && !string.IsNullOrWhiteSpace(f.BackingComponent) && (f.Writable || f.Type == WeaponCapability.BeamReference));
             }
             foreach (var w in weapons.Values)
                 Check(w.FieldGroups.Values.SelectMany(k => k).All(k => published.TryGetValue(k, out var f) && f.Weapon == w.Key)

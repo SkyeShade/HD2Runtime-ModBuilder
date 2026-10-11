@@ -78,7 +78,13 @@ public sealed record SupportField(string InstanceKey, string SupportWeapon, Supp
 public sealed record SupportNoEffect(string Reason);
 public sealed record SupportAmmoBackpackBaseline(int Capacity, int StartAmount, int RefillAmount);
 public sealed record SupportAmmoBackpack(string Backpack, string SemanticId, string Accessor, string Owner, bool WeaponOwnsMagazine,
-    string[] Fields, SupportAmmoBackpackBaseline Baseline, string Catalog);
+    string[] Fields, SupportAmmoBackpackBaseline Baseline, string Catalog, string? Relationship = null)
+{
+    // 0.31.0 team-reload weapons (GR-8, RL-77, FAF-14, StA-X3, AC-8): the weapon keeps its own spares and reloads from them first; the
+    // backpack's deposit is used only at 0.
+    public const string TeamReload = "team_reload";
+    [JsonIgnore] public bool IsTeamReload => Relationship == TeamReload;
+}
 public sealed record SupportBlock(string Field, string Reason);
 // Forward call-in link. 0.22.0 publishes only known/kind; 0.22.1+ adds state, the linked stratagem semantic ID, relationship ID and blocker.
 public sealed record SupportLinkedStratagem(bool Known, string? Kind = null, string? State = null, string? SemanticId = null, string? RelationshipId = null,
@@ -224,6 +230,8 @@ public sealed class SupportAuthoringReader : ISupportAuthoringReader
             ("reference", WeaponCapability.FunctionProjectileReference) => f.SemanticFieldId == "function_ammo.projectile" && f.FunctionAmmo != null
                 && baseline.ValueKind == JsonValueKind.String,
             ("scalar", "number" or "integer" or "boolean" or WeaponCapability.FireModeSet) => true,
+            // 0.31.0 beam swaps: the weapon's own beam ({weapon, beamType}). Read-only until authored (AuthoredTypes).
+            ("reference", WeaponCapability.BeamReference) => f.SemanticFieldId == "attack.beam" && baseline.ValueKind == JsonValueKind.Object,
             // 0.30.0 development (b3f42ec): the weapon's own firing sound, a catalogue sound name. Read-only until authored (AuthoredTypes).
             ("scalar", WeaponCapability.WeaponSound) => f.SemanticFieldId == "weapon.sound" && baseline.ValueKind == JsonValueKind.String,
             ("scalar", WeaponCapability.FireRateSet) => f.FireRate is { MaxModes: 3, SlotNames.Count: 3, NativeSlots.Count: 3 } fr && fr.SlotNames.Contains(fr.DefaultSlot)

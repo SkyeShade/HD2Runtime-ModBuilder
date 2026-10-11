@@ -16,7 +16,7 @@ public static class SupportScalar
         if (f.Value.Type == WeaponCapability.FireModeSet)
         {
             if (f.FireMode is not { AllowedModes: { } allowed, MaxModes: int max }) throw new InvalidDataException(CoreText.Get("Messages.Build.Weapon.FireModesReadOnly"));
-            FireModes.ValidateValue(v, allowed, max);
+            FireModes.ValidateValue(v, allowed, FireModes.EffectiveMaxModes(f.FireMode.FireModeState, max));
             return JsonSerializer.SerializeToElement(FireModes.Modes(v));
         }
         // 1.4.0 composition types. The checks that need the SDK beyond the field (trait IDs, status keys, donor outputs) are in

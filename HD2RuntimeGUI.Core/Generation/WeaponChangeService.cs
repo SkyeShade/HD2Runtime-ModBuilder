@@ -84,7 +84,7 @@ public sealed class WeaponChangeService : IWeaponChangeService
         if (f.Type == WeaponCapability.FireModeSet)
         {
             if (f.AllowedModes is not { } allowed || f.MaxModes is not int maxModes) throw new InvalidDataException(f.Reason ?? CoreText.Get("Messages.Build.Weapon.FireModesReadOnly"));
-            FireModes.ValidateValue(value, allowed, maxModes); return;
+            FireModes.ValidateValue(value, allowed, FireModes.EffectiveMaxModes(f.FireModeState, maxModes)); return;
         }
         // 1.4.0 composition types: each validated against what the field publishes (a function projectile's donor is checked with the SDK
         // in CheckComposition; its saved expect is the published baseline object).

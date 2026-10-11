@@ -1,5 +1,5 @@
 {
- "sdk_schema_sha256": "aa898c243f82b3d90237871b505e022c1018247b15a56e3b77c84060f339d74e",
+ "sdk_schema_sha256": "35ed413bd66f67252b642702ed1699042f06fc431ffae2e0d06d222db4dd78cb",
  "examples": [
   {
    "name": "EagleStunRocketPodsExample",

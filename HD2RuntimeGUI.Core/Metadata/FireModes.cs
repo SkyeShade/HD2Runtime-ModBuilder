@@ -11,7 +11,13 @@ public static class FireModes
 {
     public const string ModesField = "fire_mode.modes", BurstField = "fire_mode.burst_rounds", ReticleField = "weapon.third_person_reticle";
     public static readonly IReadOnlyDictionary<string, int> Native = new Dictionary<string, int> { ["automatic"] = 1, ["single"] = 2, ["burst"] = 3 };
-    public static readonly string[] States = ["selectable", "single_mode", "blocked", "absent"];
+    // 0.31.0 "addable": a single-mode weapon with a free input; two or three modes need its fire_mode binding in the same transaction.
+    public const string Addable = "addable";
+    public static readonly string[] States = ["selectable", "single_mode", Addable, "blocked", "absent"];
+    // This build does not add the selector (Runtime needs the binding in the same transaction as the modes, which support weapons publish
+    // in separate operation groups), so an addable weapon is edited as the single-mode weapon it is: one mode.
+    public static string EffectiveState(string? state) => state == Addable ? "single_mode" : state ?? "blocked";
+    public static int EffectiveMaxModes(string? state, int maxModes) => state == Addable ? 1 : maxModes;
     // Label is language-neutral: WeaponCapability.Format uses it, and that text is compared and re-parsed. DisplayLabel is the same
     // name in the UI language, for display only; an unnamed mode token shows as published.
     public static string Label(string mode) => mode switch { "automatic" => "Automatic", "single" => "Single", "burst" => "Burst", _ => mode.Replace('_', ' ') };
@@ -32,7 +38,7 @@ public static class FireModes
         if (state is not null && !States.Contains(state)) throw new InvalidDataException("Unknown fire-mode state.");
         if (!editable && baseline.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined) return;
         if (allowed is not { Count: > 0 } || values == null || allowed.Any(m => !Native.TryGetValue(m, out var n) || values.GetValueOrDefault(m) != n)
-            || maxModes is not (>= 1 and <= 4) || slots is not { Count: 4 } || state is not ("selectable" or "single_mode") || (state == "single_mode") != (maxModes == 1))
+            || maxModes is not (>= 1 and <= 4) || slots is not { Count: 4 } || state is not ("selectable" or "single_mode" or Addable) || (state == "single_mode") != (maxModes == 1))
             throw new InvalidDataException("Inconsistent fire-mode capability.");
         var modes = Modes(baseline);
         if (modes.Count < 1 || modes.Count > maxModes || modes.Distinct().Count() != modes.Count || modes.Any(m => !allowed.Contains(m))
@@ -89,7 +95,7 @@ public static class WeaponFireModeReader
             foreach (var w in c.Weapons)
             {
                 Check(w.Kind is "player" or "support" && FireModes.States.Contains(w.State) && (w.Modes ?? []).All(m => w.Writable ? m.ValueKind == JsonValueKind.String && FireModes.Native.ContainsKey(m.GetString()!) : m.ValueKind is JsonValueKind.String or JsonValueKind.Number)
-                    && (w.Writable ? w.State is "selectable" or "single_mode" && w.Reason == null : !string.IsNullOrWhiteSpace(w.Reason)));
+                    && (w.Writable ? w.State is "selectable" or "single_mode" or FireModes.Addable && w.Reason == null : !string.IsNullOrWhiteSpace(w.Reason)));
                 // The field catalogs publish the same decision: writable here exactly where fire_mode.modes is editable there.
                 var editable = w.Kind == "player"
                     ? players.Weapons.FirstOrDefault(p => p.Name == w.Weapon)?.Fields.FirstOrDefault(f => f.SemanticFieldId == FireModes.ModesField) is { Editable: true } pf

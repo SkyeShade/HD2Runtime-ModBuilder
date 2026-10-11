@@ -4,17 +4,17 @@ using System.Text;
 namespace HD2RuntimeGUI.Core.Metadata;
 
 /// <summary>
-/// The exact HD2Runtime SDK this ModBuilder release is built and validated against: the HD2Runtime 0.30.3 release. ModBuilder bundles these files; every
+/// The exact HD2Runtime SDK this ModBuilder release is built and validated against: the HD2Runtime 0.31.0 release. ModBuilder bundles these files; every
 /// file it reads is byte-identical in the public release asset (ContentFingerprint), and any SDK with the pinned version whose content differs
 /// (a later development build, a local sdk/ folder) is reported as a different build, never silently used as the pin.
 /// </summary>
 public static class SdkPin
 {
-    // 0.30.3 (ModBuilder 1.7.0 bundled 0.30.0; 0.30.1 changed no SDK content; 0.30.2 was bundled by the 1.7.x SDK move, and 0.30.3 changed only
-    // version strings and the custom stratagem uses range), built at its release candidate commit; the v0.30.3 tag adds only migration
-    // records. Its SDK ZIP is the published release asset, so GitHubReleaseClient finds the same version that is already installed.
-    // Projects bound to 0.30.0, 0.30.1, 0.30.2 or the 0.30.0-dev test SDKs (SemVer prereleases, never downloaded) keep their SDK until rebound.
-    // 0.30.2 regenerated the eight player-weapon graphs and labelled them 0.30.2; 0.30.3 labels the same graphs 0.30.3 (PublishedArtifactVersion).
+    // 0.31.0 (ModBuilder 1.7.1 bundled 0.30.3, 1.7.0 0.30.0; 0.30.4 was never released on its own and became 0.31.0), built at its release
+    // candidate 2 commit; the v0.31.0 tag adds only migration records. Its SDK ZIP is the published release asset, so GitHubReleaseClient finds the same version that is already installed.
+    // Projects bound to 0.30.0 to 0.30.3 or the 0.30.0-dev test SDKs (SemVer prereleases, never downloaded) keep their SDK until rebound.
+    // 0.30.2 regenerated the eight player-weapon graphs and labelled them 0.30.2; 0.30.3 labels the same graphs 0.30.3 and 0.31.0 regenerates and labels them
+    // 0.31.0 (PublishedArtifactVersion).
     //
     // Swapping in another SDK (docs/runtime030-integration-plan.md, "Swapping the bundled SDK"; tools/swap-bundled-sdk.py):
     //  1. copy the archive to HD2RuntimeGUI.Tests/Fixtures/sdk-<version>.zip and replace every file in Metadata/Bundled with the archive's
@@ -22,16 +22,16 @@ public static class SdkPin
     //  2. set Version (and SdkCompatibility.NewestSupportedVersion), the commits, ArchiveName, ArchiveSha256 and ContentFingerprint (SdkPinTests
     //     prints the fingerprint it computes when it differs);
     //  3. for a new version also: PublishedArtifactVersion, Runtime030Tests.Version / Fixture, and the custom content target's files.
-    public const string Version = "0.30.3";
-    // The Runtime commit the SDK was generated at (the 0.30.3 release candidate; built with scripts/build_release.py).
-    public const string SdkCommit = "7da218b53d20ab74c70cd77deb521397b7854e2d";
-    public const string RuntimeCommit = "7da218b53d20ab74c70cd77deb521397b7854e2d";
+    public const string Version = "0.31.0";
+    // The Runtime commit the SDK was generated at (the 0.31.0 release candidate 2; built with scripts/build_release.py).
+    public const string SdkCommit = "2c38305a5bbb202748ac606ebfcafa0333f2d423";
+    public const string RuntimeCommit = "2c38305a5bbb202748ac606ebfcafa0333f2d423";
     public const int ApiVersion = 1, SchemaVersion = 1;
-    // HD2Runtime-0.30.3-sdk.zip of that build, the published release asset (the test fixture sdk-0.30.3.zip).
-    public const string ArchiveName = "HD2Runtime-0.30.3-sdk.zip";
-    public const string ArchiveSha256 = "f1f53735470328968fab658427188b93ba8f49d925f0a6e469b30e2ae997af9d";
+    // HD2Runtime-0.31.0-sdk.zip of that build, the published release asset (the test fixture sdk-0.31.0.zip).
+    public const string ArchiveName = "HD2Runtime-0.31.0-sdk.zip";
+    public const string ArchiveSha256 = "fbbb88d9111be92c50fc5038d495e3e065ae4ba187e50ac6fea53ff3eb4a9cb7";
     // Fingerprint (below) of every SDK file ModBuilder reads, as bundled.
-    public const string ContentFingerprint = "491a89a90717841ecbba19cfcea213f6e3b90d11eb01afffab0d018027d72ede";
+    public const string ContentFingerprint = "2715d5845ef00578523254d7333411dea350e8686f019cf34b2d7caa0d06fd32";
 
     /// <summary>SHA-256 over "name:sha256" lines of the consumed files, sorted by name (independent of archive layout and timestamps).</summary>
     public static string Fingerprint(IReadOnlyDictionary<string, byte[]> files)

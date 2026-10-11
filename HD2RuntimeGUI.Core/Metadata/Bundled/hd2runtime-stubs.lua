@@ -1,6 +1,6 @@
 ---@meta
 -- Generated authoring definitions. Never package or execute this file.
--- Schema SHA256 5cc452e205ccae42ff5e116f321bb29783eddee2d7c9aab679af676bb7c2ee4f
+-- Schema SHA256 b368f721bbf8b96b82c982008cfbd7659b9b13a99548c8a7227c341ac66f7adb
 
 ---@alias HD2Resource "0x16474112801385B6"|"0x59C5CA839449B379"|"0x80F1A156D9FA1E36"|"0x89C5493E08CA4207"|"0xB0C9FAF4AF8903F9"|"0xEC3575E7A93793BB"|"0xED13DDC480EC6910"|"amr"|"bastion"|"jar5"|"jump_pack"|"maelstrom"|"orbital_laser"|"shield_relay"
 ---@alias HD2PatchField "armor_penetration"
@@ -86,6 +86,7 @@
 ---@field allow_shared? boolean
 ---@field allow_unverified_effect? boolean Required only where the capability catalog names it (magazine attachments).
 ---@field allow_unverified_reference? boolean Required only where the capability catalog names it (vehicle mount swaps).
+---@field allow_component_swap? boolean Required by beam conversions (weapon:beam_conversion()): the component set of the weapon changes in this game only.
 
 ---@class HD2TransactionChange
 ---@field field string
@@ -100,6 +101,7 @@
 ---@field allow_shared? boolean
 ---@field allow_unverified_effect? boolean Required only where the capability catalog names it (magazine attachments).
 ---@field allow_unverified_reference? boolean Required only where the capability catalog names it (vehicle mount swaps).
+---@field allow_component_swap? boolean Required by beam conversions (weapon:beam_conversion()): the component set of the weapon changes in this game only.
 
 ---@class HD2PlanTargetFrom
 ---@field operation string
@@ -116,6 +118,7 @@
 ---@field allow_shared? boolean
 ---@field allow_unverified_effect? boolean Required only where the capability catalog names it (magazine attachments).
 ---@field allow_unverified_reference? boolean Required only where the capability catalog names it (vehicle mount swaps).
+---@field allow_component_swap? boolean Required by beam conversions (weapon:beam_conversion()): the component set of the weapon changes in this game only.
 
 ---@class HD2PlanPhase
 ---@field id? string
@@ -200,6 +203,11 @@
 ---@field id string
 ---@field target? table
 ---@field targets? table[]
+
+---@class HD2InspectRequest
+---@field target table
+---@field fields (string|table)[]
+---@field on_result? fun(result: table)
 
 ---@class HD2AssetDependency
 ---@field known boolean
@@ -407,6 +415,53 @@ function HD2PlayerAttack:projectile_source() end
 ---@field acknowledgements string[]|nil
 local HD2ProjectileSource = {}
 
+---Where a beam weapon's fired beam lives (0.31.0 beam swaps, docs/attack-outputs.md "Beam swaps"):
+---component (its own BeamWeapon +0) or attachment (its default muzzle's delta row, shared: allow_shared).
+---A weapon without a BeamWeapon component has none (writable=false): Runtime never adds one.
+---@class HD2BeamSource
+---@field weapon string
+---@field status "ACTIVE_DIRECT"|"INDIRECT"|"AMBIGUOUS"|"BLOCKED"|nil
+---@field mechanism "component"|"attachment"|nil
+---@field member string|nil
+---@field reason string
+---@field beamClass "continuous"|"charged"|"pulsed"|nil
+---@field fires string|nil Output id of the beam it fires
+---@field writable boolean
+---@field target table|nil Write hd2.fields.attack.beam on it
+---@field field "attack.beam"|nil
+---@field expect HD2BeamReference|nil The host's own beam (also the restore value)
+---@field acknowledgements string[]|nil
+---@field sharedWithWeapons string[]|nil
+local HD2BeamSource = {}
+
+---A beam weapon's own beam: the expect of hd2.fields.attack.beam, the value that restores it, or a donor.
+---@class HD2BeamReference
+---@field resource "player_weapon"|"support_weapon"|"vehicle_weapon"
+---@field path "beam_reference"
+---@field weapon string
+local HD2BeamReference = {}
+---@return table
+function HD2BeamReference:describe() end
+
+---A beam conversion (docs/beam-conversion.md, sdk/BeamConversionCapabilities.json): a projectile weapon made to
+---fire LAS-13 Trident pulses in this game only. Add layout (the default where supported): ProjectileWeapon kept
+---(type 0), BeamWeapon added; with other players only when every member holds the identical conversion. Swap
+---layout (the rest): solo only. The target of hd2.fields.beam_conversion.enabled and of the converted weapon
+---(its own record): hd2.fields.beam.fire_rate / pulse_beams / pulse_seconds; every request needs
+---allow_component_swap and allow_unverified_effect. Written only with zero live instances of the weapon.
+---@class HD2BeamConversion
+---@field resource "beam_conversion"
+---@field weapon string
+local HD2BeamConversion = {}
+---{weapon, kind, supported, layout, verdict, reasonCode, reason, caveats, add, swap, liveProven, roots, record,
+---fields, acknowledgements, lifecycle, multiplayer, pulse, donor}
+---@return table
+function HD2BeamConversion:describe() end
+---The live state: {ok, state = "vanilla"|"converted"|"orphaned"|"foreign", layout = "add"|"swap", multiplayer,
+---settings, live, path, lobby, restart_required}, or {ok = false, reason}.
+---@return table
+function HD2BeamConversion:status() end
+
 ---@class HD2WeaponAmmunition
 ---@field resource "player_weapon"
 ---@field path "ammunition"
@@ -507,6 +562,17 @@ function HD2Weapon:ammunition() end
 ---@param role? HD2AttackRole Defaults to "primary".
 ---@return HD2ProjectileSource
 function HD2Weapon:projectile_source(role) end
+---The beam this weapon fires (beam weapons only: the LAS-5 Scythe, LAS-7 Dagger and LAS-13 Trident).
+---@return HD2BeamReference
+function HD2Weapon:beam() end
+---Where its beam lives and the target, field and expect that swap it (hd2.attack_output(donor) of family
+---beam; allow_unverified_reference and allow_unverified_effect).
+---@return HD2BeamSource
+function HD2Weapon:beam_source() end
+---This weapon made to fire LAS-13 Trident pulses (beam conversion, docs/beam-conversion.md; add layout: with other
+---players only when every member holds the identical conversion; swap layout: solo only).
+---@return HD2BeamConversion
+function HD2Weapon:beam_conversion() end
 ---@return HD2PlayerAttack[]
 function HD2Weapon:attacks() end
 ---@return table
@@ -604,7 +670,7 @@ local HD2Subweapon = {}
 ---@return table
 function HD2Subweapon:describe() end
 ---@alias HD2SupportWeaponName "40-K Meltagun"|"AC-8 Autocannon"|"APW-1 Anti-Materiel Rifle"|"ARC-3 Arc Thrower"|"B/FLAM-80 Cremator"|"B/MD C4 Pack"|"CQC-1 One True Flag"|"CQC-20 Breaching Hammer"|"CQC-72 Entrenchment Tool"|"CQC-9 Defoliation Tool"|"EAT-17 Expendable Anti-Tank"|"EAT-411 Leveller"|"EAT-700 Expendable Napalm"|"FAF-14 Spear"|"FLAM-40 Flamethrower"|"GL-21 Grenade Launcher"|"GL-28 Belt-Fed Grenade Launcher"|"GL-52 De-Escalator"|"GR-8 Recoilless Rifle"|"LAS-98 Laser Cannon"|"LAS-99 Quasar Cannon"|"M-1000 Maxigun"|"M-105 Stalwart"|"MG-206 Heavy Machine Gun"|"MG-43 Machine Gun"|"MGX-42 Bullet Storm"|"MLS-4X Commando"|"MS-11 Solo Silo"|"PLAS-45 Epoch"|"RL-77 Airburst Rocket Launcher"|"RS-422 Railgun"|"S-11 Speargun"|"SG-88 Break-Action Shotgun"|"StA-X3 W.A.S.P. Launcher"|"TX-41 Sterilizer"
----@alias HD2SupportAttackName "40-K MELTAGUN B"|"AC-8 P"|"AC-8 P IE"|"AC-8 P1"|"AC-8 P1 IE"|"AC-8 P2"|"APW-1 P"|"AR-23 P"|"ARC-3 ARC THROWER A"|"B/FLAM-80 CREMATOR S"|"B/MD C4 PACK E"|"BurningHeavy"|"CQC-1 ONE TRUE FLAG_dm"|"CQC-20 BREACHING HAMMER IE"|"CQC-20 BREACHING HAMMER_dm"|"CQC-72 ENTRENCHMENT TOOL_dm"|"CQC-9 DEFOLIATION TOOL_dm"|"EAT-17 BACKBLAST E"|"EAT-17 P"|"EAT-17 P IE"|"EAT-411 P"|"EAT-411 P IE"|"EAT-700 P"|"EAT-700 P IE"|"EAT-700 P1"|"EAT-700 P1 IE"|"FAF-14 P"|"FAF-14 P IE"|"FLAM-40 FLAMETHROWER S"|"Fire"|"Fire Panic"|"FlamerSlowed"|"GL-21 P"|"GL-21 P IE"|"GL-28 P"|"GL-28 P IE"|"GL-52 P"|"GL-52 P IE"|"GL-52 P IE A"|"GR-8 BACKBLAST E"|"GR-8 P"|"GR-8 P IE"|"GR-8 P1"|"GR-8 P1 IE"|"Gas"|"Gas Confusion"|"Gas Confusion Var2"|"Gas Var2"|"LAS-98 LASER CANNON B"|"LAS-99 P"|"LAS-99 P IE"|"M-1000 P"|"MG-206 P"|"MG-43 P"|"MGX-42 P"|"MLS-4X BACKBLAST E"|"MLS-4X P"|"MLS-4X P IE"|"P3"|"P3 IE"|"PLAS-45 EPOCH Overcharge E"|"PLAS-45 P"|"PLAS-45 P IE"|"RL-77 P"|"RL-77 P IE"|"RL-77 P1"|"RL-77 P1 IE"|"RL-77 P2"|"RL-77 P2 IE"|"RL-77 P3"|"RS-422 P"|"RS-422 RAILGUN Overcharge E"|"Railgun Max Charge"|"S-11 P"|"S-11 P E"|"SG-88 P"|"SWP SOLO SILO E"|"SWP SOLO SILO EImpact"|"StA-X3 P"|"StA-X3 P IE"|"StA-X3 P1"|"StA-X3 P1 IE"|"Stun Small"|"TX-41 STERILIZER S"|"detonation"|"feed_primary"|"full_charge"|"full_charge_impact"|"impact"|"overcharge_explosion"|"primary"|"primary_expiry"|"primary_impact"|"primary_impact_status_32"|"primary_impact_status_5"|"primary_status_37"|"primary_status_42"|"primary_status_43"|"primary_status_44"|"primary_status_45"|"primary_status_5"|"primary_status_6"|"primary_status_67"
+---@alias HD2SupportAttackName "40-K MELTAGUN B"|"AC-8 P"|"AC-8 P IE"|"AC-8 P1"|"AC-8 P1 IE"|"AC-8 P2"|"APW-1 P"|"AR-23 P"|"ARC-3 ARC THROWER A"|"B/FLAM-80 CREMATOR S"|"B/MD C4 PACK E"|"BurningHeavy"|"CQC-1 ONE TRUE FLAG_dm"|"CQC-20 BREACHING HAMMER IE"|"CQC-20 BREACHING HAMMER_dm"|"CQC-72 ENTRENCHMENT TOOL_dm"|"CQC-9 DEFOLIATION TOOL_dm"|"EAT-17 BACKBLAST E"|"EAT-17 P"|"EAT-17 P IE"|"EAT-411 P"|"EAT-411 P IE"|"EAT-700 P"|"EAT-700 P IE"|"EAT-700 P1"|"EAT-700 P1 IE"|"FAF-14 P"|"FAF-14 P IE"|"FLAM-40 FLAMETHROWER S"|"Fire"|"Fire Panic"|"FlamerSlowed"|"GL-21 P"|"GL-21 P IE"|"GL-28 P"|"GL-28 P IE"|"GL-52 P"|"GL-52 P IE"|"GL-52 P IE A"|"GR-8 BACKBLAST E"|"GR-8 P"|"GR-8 P IE"|"GR-8 P1"|"GR-8 P1 IE"|"Gas"|"Gas Confusion"|"Gas Confusion Var2"|"Gas Var2"|"LAS-98 LASER CANNON B"|"LAS-99 P"|"LAS-99 P IE"|"M-1000 P"|"MG-206 P"|"MG-43 P"|"MGX-42 P"|"MLS-4X BACKBLAST E"|"MLS-4X P"|"MLS-4X P IE"|"P3"|"P3 IE"|"PLAS-45 EPOCH Overcharge E"|"PLAS-45 P"|"PLAS-45 P IE"|"RL-77 P"|"RL-77 P IE"|"RL-77 P1"|"RL-77 P1 IE"|"RL-77 P2"|"RL-77 P2 IE"|"RL-77 P3"|"RS-422 P"|"RS-422 RAILGUN Overcharge E"|"Railgun Max Charge"|"S-11 P"|"S-11 P E"|"SG-88 P"|"SWP SOLO SILO E"|"SWP SOLO SILO EImpact"|"StA-X3 P"|"StA-X3 P IE"|"StA-X3 P1"|"StA-X3 P1 IE"|"Stun Small"|"TX-41 STERILIZER S"|"ability"|"detonation"|"feed_primary"|"full_charge"|"full_charge_impact"|"impact"|"overcharge_explosion"|"primary"|"primary_expiry"|"primary_impact"|"primary_impact_status_32"|"primary_impact_status_5"|"primary_status_37"|"primary_status_42"|"primary_status_43"|"primary_status_44"|"primary_status_45"|"primary_status_5"|"primary_status_6"|"primary_status_67"
 
 ---@class HD2SupportAttack
 ---@field resource "support_weapon"
@@ -689,6 +755,14 @@ function HD2SupportWeapon:presentation() end
 ---@param role? string Defaults to "primary".
 ---@return HD2ProjectileSource
 function HD2SupportWeapon:projectile_source(role) end
+---@return HD2BeamReference
+function HD2SupportWeapon:beam() end
+---@return HD2BeamSource
+function HD2SupportWeapon:beam_source() end
+---This weapon made to fire LAS-13 Trident pulses (beam conversion, docs/beam-conversion.md; add layout: with other
+---players only when every member holds the identical conversion; swap layout: solo only).
+---@return HD2BeamConversion
+function HD2SupportWeapon:beam_conversion() end
 ---The projectile builder for this weapon's ProgrammableAmmo mode (weapon:feed("programmable")).
 ---@return HD2ProjectileBuilder
 function HD2SupportWeapon:programmable_ammo() end
@@ -752,6 +826,9 @@ function HD2StratagemAttack:status() end
 function HD2StratagemAttack:arc() end
 ---@return HD2StratagemAttack
 function HD2StratagemAttack:beam() end
+---Where a sentry's beam lives (the A/LAS-98 Laser Sentry): its deployed entity's own BeamWeapon record.
+---@return HD2BeamSource
+function HD2StratagemAttack:beam_source() end
 
 ---@class HD2MountedWeapon
 ---@field resource "stratagem"
@@ -869,7 +946,7 @@ function HD2DeployedEntity:damage_zones() end
 ---@return HD2DeployedZone
 function HD2DeployedEntity:damage_zone(zone) end
 ---@alias HD2VehicleAuthoringName "EXO-45 Patriot Exosuit"|"EXO-49 Emancipator Exosuit"|"EXO-51 Lumberer Exosuit"|"EXO-55 Breakthrough Exosuit"|"FRV (Super Earth variant)"|"GATER Oil Rig"|"M-102 Gunner FRV"|"M-103 Supply FRV"|"M-104 Incinerator FRV"|"TD-110 Maelstrom"|"TD-220 Bastion MK XVI"
----@alias HD2BackpackName "AX/AR-23 Guard Dog"|"AX/ARC-3 K-9"|"AX/FLAM-75 Hot Dog"|"AX/LAS-5 Rover"|"AX/TX-13 Dog Breath"|"B-1 Supply Pack"|"B-100 Portable Hellbomb"|"B/FLAM-80 Cremator Backpack"|"GL-28 Belt-Fed Grenade Launcher Backpack"|"LIFT-182 Warp Pack"|"LIFT-850 Jump Pack"|"LIFT-860 Hover Pack"|"M-1000 Maxigun Backpack"|"SH-20 Ballistic Shield Backpack"|"SH-32 Shield Generator Pack"|"SH-51 Directional Shield"
+---@alias HD2BackpackName "AC-8 Autocannon Backpack"|"AX/AR-23 Guard Dog"|"AX/ARC-3 K-9"|"AX/FLAM-75 Hot Dog"|"AX/LAS-5 Rover"|"AX/TX-13 Dog Breath"|"B-1 Supply Pack"|"B-100 Portable Hellbomb"|"B/FLAM-80 Cremator Backpack"|"FAF-14 Spear Backpack"|"GL-28 Belt-Fed Grenade Launcher Backpack"|"GR-8 Recoilless Rifle Backpack"|"LIFT-182 Warp Pack"|"LIFT-850 Jump Pack"|"LIFT-860 Hover Pack"|"M-1000 Maxigun Backpack"|"RL-77 Airburst Rocket Launcher Backpack"|"SH-20 Ballistic Shield Backpack"|"SH-32 Shield Generator Pack"|"SH-51 Directional Shield"|"StA-X3 W.A.S.P. Launcher Backpack"
 ---@alias HD2BoosterName "Armed Resupply Pods"|"Concealed Insertion"|"Dead Sprint"|"Experimental Infusion"|"Expert Extraction Pilot"|"Firebomb Hellpods"|"Flexible Reinforcement Budget"|"Hellpod Space Optimization"|"Increased Reinforcement Budget"|"Integrated Extinguishers"|"Localization Confusion"|"Motivational Shocks"|"Muscle Enhancement"|"Sample Extricator"|"Sample Scanner"|"Stamina Enhancement"|"Stun Pods"|"Surplus EAT Allocation"|"UAV Recon Booster"|"Vitality Enhancement"|"booster/v1/armed-resupply-pods/83bb1f9c4b71e1f6"|"booster/v1/concealed-insertion/b5b751b967a5f98c"|"booster/v1/dead-sprint/4a6e9cedb6925630"|"booster/v1/experimental-infusion/35cf8142ae307311"|"booster/v1/expert-extraction-pilot/80eb5837348c63f3"|"booster/v1/firebomb-hellpods/7ee24ab5cca7028c"|"booster/v1/flexible-reinforcement-budget/61cabf5da1dabd59"|"booster/v1/hellpod-space-optimization/7d9f3f69c2e34c24"|"booster/v1/increased-reinforcement-budget/984d134f8ced7a96"|"booster/v1/integrated-extinguishers/e28b068e7da39f57"|"booster/v1/localization-confusion/6c8fbcaca31db83b"|"booster/v1/motivational-shocks/3d33317675dd9dc6"|"booster/v1/muscle-enhancement/132b26ad07a898d8"|"booster/v1/sample-extricator/e569d43463c9676f"|"booster/v1/sample-scanner/00954fb7a554d95e"|"booster/v1/stamina-enhancement/15f9ce6b6f1cdbae"|"booster/v1/stun-pods/728b06c223c7690f"|"booster/v1/surplus-eat-allocation/cb1271359bd85dbd"|"booster/v1/uav-recon-booster/a6a3f1f6d437ba4d"|"booster/v1/vitality-enhancement/caec9d2589e2a235"
 ---@alias HD2MountedWeaponId "mounted-weapon/v1/assault-rifle/1e4767cc1bb3f867"|"mounted-weapon/v1/combat-walker-anti-tank-cannon/7b5046ba53f31e10"|"mounted-weapon/v1/combat-walker-autocannon-left/cb15fea8423aa2f6"|"mounted-weapon/v1/combat-walker-autocannon-right/54728c643193e559"|"mounted-weapon/v1/combat-walker-flak-cannon/84989fb7944d6bba"|"mounted-weapon/v1/combat-walker-flamethrower/61d1fb4e55fd37dd"|"mounted-weapon/v1/combat-walker-missle-launcher/b69f79ed51aeb683"|"mounted-weapon/v1/combat-walker-turret/ec85bacd57e03497"|"mounted-weapon/v1/cyborg-big-walker-turret-cannon/283e3d22cc22ef01"|"mounted-weapon/v1/cyborg-tank-turret-autocannons/c35429998ba92cea"|"mounted-weapon/v1/cyborg-tank-turret-heavycannon/68a52c55b8083bd1"|"mounted-weapon/v1/cyborg-tank-turret-rocketlauncher/bbb3a8a3de937acb"|"mounted-weapon/v1/cyborg-turret-command-bunker-hmg/c31affd2be6199f5"|"mounted-weapon/v1/drone-flamethrower-mount/4eef657729c544ac"|"mounted-weapon/v1/drone-gas-projector-mount/fa183017e162b3a1"|"mounted-weapon/v1/drone-laser-rifle-mount/d24c7f3b6e85858c"|"mounted-weapon/v1/drone-mg-weapon/473e6c3f3ecb9759"|"mounted-weapon/v1/drone-stun-gun-mount/7f06093280ceb95e"|"mounted-weapon/v1/eagle-gunpod/111e7291542a80cd"|"mounted-weapon/v1/frv-flamethrower/52eb6d862f0c81ce"|"mounted-weapon/v1/frv-mg/87956cec45a21b90"|"mounted-weapon/v1/gater-oil-rig-turret-weapon/3aba6f3418fada66"|"mounted-weapon/v1/illuminate-turret-wm-cannon-head-l/d7ec908c4f54021f"|"mounted-weapon/v1/illuminate-turret-wm-cannon-head-r/60d5f153deb23159"|"mounted-weapon/v1/laser-rifle/9c4d326f378d8900"|"mounted-weapon/v1/m-103-supply-frv-gun-weapon/34d73fd6e0ab1d96"|"mounted-weapon/v1/shuttle-gunship-turret-hmg/d6d6cd9052e6709e"|"mounted-weapon/v1/soldier-flamer/45e032b636439337"|"mounted-weapon/v1/soldier-machinegun-flm/892c5a848f371242"|"mounted-weapon/v1/soldier-machinegun/97d452fb6ecd1f68"|"mounted-weapon/v1/soldier-standard-rifle/e8e838b975071d1b"|"mounted-weapon/v1/td-110-maelstrom-attach-tank-gun-weapon/dd2241a292c7330b"|"mounted-weapon/v1/td-110-maelstrom-slot-2-weapon/3a06c77a110e70c2"|"mounted-weapon/v1/td-110-maelstrom-slot-3-weapon/605fcfcd1be790c4"|"mounted-weapon/v1/td-220-bastion-mk-xvi-attach-tank-gun-mg-weapon/10e4809cf1704447"|"mounted-weapon/v1/td-220-bastion-mk-xvi-attach-tank-gun-weapon/e90a7fd19ec0d437"|"mounted-weapon/v1/unnamed-mounted-weapon/07d8504a50bdc316"|"mounted-weapon/v1/unnamed-mounted-weapon/0d330840f4f578e9"|"mounted-weapon/v1/unnamed-mounted-weapon/101f9dd2c0400653"|"mounted-weapon/v1/unnamed-mounted-weapon/1169bac0a5ba767a"|"mounted-weapon/v1/unnamed-mounted-weapon/11f435e5587ccdd1"|"mounted-weapon/v1/unnamed-mounted-weapon/137397eea95c1013"|"mounted-weapon/v1/unnamed-mounted-weapon/1688ac3e4dad0ae9"|"mounted-weapon/v1/unnamed-mounted-weapon/1c84b8fd4f07a463"|"mounted-weapon/v1/unnamed-mounted-weapon/203c50ce98a78d3a"|"mounted-weapon/v1/unnamed-mounted-weapon/205d3f18e6c4c986"|"mounted-weapon/v1/unnamed-mounted-weapon/250541fac04090c7"|"mounted-weapon/v1/unnamed-mounted-weapon/3b994e7172991b78"|"mounted-weapon/v1/unnamed-mounted-weapon/42aa69216544be42"|"mounted-weapon/v1/unnamed-mounted-weapon/4ec9af0a2bec8e85"|"mounted-weapon/v1/unnamed-mounted-weapon/51938480ad36da5a"|"mounted-weapon/v1/unnamed-mounted-weapon/51f18fa3cecd841f"|"mounted-weapon/v1/unnamed-mounted-weapon/58ecc827279959df"|"mounted-weapon/v1/unnamed-mounted-weapon/6c4babe49fc6677f"|"mounted-weapon/v1/unnamed-mounted-weapon/6ec61849439ad1e0"|"mounted-weapon/v1/unnamed-mounted-weapon/9197edf2fc0997c2"|"mounted-weapon/v1/unnamed-mounted-weapon/94761fd626e821fd"|"mounted-weapon/v1/unnamed-mounted-weapon/978ff8e750babd67"|"mounted-weapon/v1/unnamed-mounted-weapon/988019ef8dd87d56"|"mounted-weapon/v1/unnamed-mounted-weapon/9a0b2f30b8af9705"|"mounted-weapon/v1/unnamed-mounted-weapon/9b99e436c4807091"|"mounted-weapon/v1/unnamed-mounted-weapon/a0b9d41eb561ceb4"|"mounted-weapon/v1/unnamed-mounted-weapon/a48528dbc8a9a31a"|"mounted-weapon/v1/unnamed-mounted-weapon/a983210c172b417e"|"mounted-weapon/v1/unnamed-mounted-weapon/ad0f14d262d210b8"|"mounted-weapon/v1/unnamed-mounted-weapon/ad69246a4db149f3"|"mounted-weapon/v1/unnamed-mounted-weapon/b24ebb6af42c6794"|"mounted-weapon/v1/unnamed-mounted-weapon/b587cf80343bb0d6"|"mounted-weapon/v1/unnamed-mounted-weapon/c1555e52a30c4192"|"mounted-weapon/v1/unnamed-mounted-weapon/c4c4e526a882e2b1"|"mounted-weapon/v1/unnamed-mounted-weapon/c662ee639ea4ee58"|"mounted-weapon/v1/unnamed-mounted-weapon/ceb424b0c26962b0"|"mounted-weapon/v1/unnamed-mounted-weapon/d4c0d4ac30387388"|"mounted-weapon/v1/unnamed-mounted-weapon/d6880a93a0aeef03"|"mounted-weapon/v1/unnamed-mounted-weapon/db0385a87b4a86ca"|"mounted-weapon/v1/unnamed-mounted-weapon/e20b6a72f9714d83"|"mounted-weapon/v1/unnamed-mounted-weapon/ef60119f83d4cf57"|"mounted-weapon/v1/unnamed-mounted-weapon/facc00a32715cba1"|"mounted-weapon/v1/unnamed-mounted-weapon/ffd507e9cb88f3b7"
 
@@ -943,6 +1020,10 @@ function HD2VehicleWeapon:projectile() end
 ---@param role? string Defaults to "primary".
 ---@return HD2ProjectileSource
 function HD2VehicleWeapon:projectile_source(role) end
+---@return HD2BeamReference
+function HD2VehicleWeapon:beam() end
+---@return HD2BeamSource
+function HD2VehicleWeapon:beam_source() end
 ---@param phase? "impact"
 ---@return HD2VehicleWeaponAttack
 function HD2VehicleWeapon:explosion(phase) end
@@ -962,6 +1043,10 @@ function HD2Vehicle:weapons() end
 ---@param identity integer|string mount slot, mount label, weapon key or semanticId
 ---@return HD2VehicleWeapon
 function HD2Vehicle:weapon(identity) end
+---The shield arm of the EXO-55 Breakthrough (its left mount, no weapon component): entity.health (the arm),
+---zone.health / zone.armor (the plate). Errors for a vehicle without a reviewed shield mount.
+---@return HD2VehicleWeapon
+function HD2Vehicle:shield() end
 ---@return HD2VehicleWeapon
 function HD2VehicleMount:weapon() end
 
@@ -1254,7 +1339,7 @@ function HD2Helldiver:damage_zone(identity) end
 ---{status="unavailable", reason}.
 ---@return table
 function HD2Helldiver:private_copies() end
----@alias HD2AttackOutputId "40-K Meltagun"|"A/GM-17 Gas Mortar Sentry"|"A/M-12 Mortar Sentry"|"A/M-23 EMS Mortar Sentry"|"A/MLS-4X Rocket Sentry"|"AC-8 Autocannon"|"APW-1 Anti-Materiel Rifle"|"AR-11 Arbitrator"|"AR-2 Coyote"|"AR-23 Liberator"|"AR-23A Liberator Carbine"|"AR-23C Liberator Concussive"|"AR-23P Liberator Penetrator"|"AR-32 Pacifier"|"AR-59 Suppressor"|"AR-61 Tenderizer"|"AR/GL-21 One-Two"|"ARC-12 Blitzer"|"ARC-3 Arc Thrower"|"AX/AR-23 Guard Dog / gun"|"AX/ARC-3 K-9 / gun"|"AX/FLAM-75 Hot Dog / gun"|"AX/LAS-5 Rover / gun"|"AX/TX-13 Dog Breath / gun"|"B/FLAM-80 Cremator"|"BR-14 Adjudicator"|"CB-9 Exploding Crossbow"|"CQC-1 One True Flag"|"CQC-19 Stun Lance"|"CQC-2 Saber"|"CQC-20 Breaching Hammer"|"CQC-30 Stun Baton"|"CQC-5 Combat Hatchet"|"CQC-9 Defoliation Tool"|"DBS-2 Double Freedom"|"E/MG-101 HMG Emplacement"|"EAT-17 Expendable Anti-Tank"|"EAT-411 Leveller"|"EAT-700 Expendable Napalm"|"EXO-45 Patriot Exosuit / left_gun"|"EXO-45 Patriot Exosuit / right_gun"|"EXO-49 Emancipator Exosuit / left_gun"|"EXO-49 Emancipator Exosuit / right_gun"|"EXO-51 Lumberer Exosuit / left_gun"|"EXO-51 Lumberer Exosuit / right_gun"|"EXO-55 Breakthrough Exosuit / right_gun"|"Eagle 110mm Rocket Pods"|"Eagle 500kg Bomb"|"Eagle Airstrike"|"Eagle Cluster Bomb"|"Eagle Gas Airstrike"|"Eagle Napalm Airstrike"|"Eagle Smoke Strike"|"FAF-14 Spear"|"FLAM-40 Flamethrower"|"FLAM-66 Torcher"|"FRV (Super Earth variant) / gun"|"GATER Oil Rig / turret"|"GL-15 Evictor"|"GL-21 Grenade Launcher"|"GL-28 Belt-Fed Grenade Launcher"|"GL-52 De-Escalator"|"GP-20 Ultimatum"|"GP-31 Grenade Pistol"|"GR-8 Recoilless Rifle"|"JAR-5 Dominator"|"LAS-12 Sai"|"LAS-13 Trident"|"LAS-16 Sickle"|"LAS-17 Double-Edge Sickle"|"LAS-58 Talon"|"LAS-98 Laser Cannon"|"LAS-99 Quasar Cannon"|"M-1000 Maxigun"|"M-102 Gunner FRV / gun"|"M-103 Supply FRV / gun"|"M-104 Incinerator FRV / gun"|"M-105 Stalwart"|"M6C/SOCOM Pistol"|"M7S SMG"|"M90A Shotgun"|"MA5C Assault Rifle"|"MG-206 Heavy Machine Gun"|"MG-43 Machine Gun"|"MGX-42 Bullet Storm"|"MLS-4X Commando"|"MP-98 Knight"|"Orbital 120mm HE Barrage"|"Orbital Airburst Strike"|"Orbital EMS Strike"|"Orbital Gas Strike"|"Orbital Gatling Barrage"|"Orbital Napalm Barrage"|"Orbital Precision Strike"|"Orbital Railcannon Strike"|"Orbital Smoke Strike"|"Orbital Walking Barrage"|"P-11 Stim Pistol"|"P-113 Verdict"|"P-19 Redeemer"|"P-2 Peacemaker"|"P-33 Missile Pistol"|"P-34 Breacher"|"P-35 Re-Educator"|"P-4 Senator"|"P-69 Veto"|"P-92 Warrant"|"P/40-K Bolt Pistol"|"PLAS-1 Scorcher"|"PLAS-101 Purifier"|"PLAS-15 Loyalist"|"PLAS-39 Accelerator Rifle"|"PLAS-45 Epoch"|"R-2 Amendment"|"R-2124 Constitution"|"R-36 Eruptor"|"R-4 Hyena"|"R-6 Deadeye"|"R-63 Diligence"|"R-63CS Diligence Counter Sniper"|"R-72 Censor"|"R/40-K Hot-Shot Marksman Rifle"|"RL-77 Airburst Rocket Launcher"|"RS-422 Railgun"|"S-11 Speargun"|"S-11 Speargun (spare twin)"|"SG-20 Halt"|"SG-22 Bushwhacker"|"SG-225 Breaker"|"SG-225IE Breaker Incendiary"|"SG-225SP Breaker Spray&Pray"|"SG-451 Cookout"|"SG-8 Punisher"|"SG-88 Break-Action Shotgun"|"SG-8P Punisher Plasma"|"SG-8S Slugger"|"SG-97 Sweeper"|"SMG-203 Gallant"|"SMG-32 Reprimand"|"SMG-37 Defender"|"SMG-72 Pummeler"|"SMG/FLAM-34 Stoker"|"StA-11 SMG"|"StA-52 Assault Rifle"|"StA-X3 W.A.S.P. Launcher"|"TD-110 Maelstrom / attach_tank_gun"|"TD-110 Maelstrom / slot_2"|"TD-110 Maelstrom / slot_3"|"TD-110 Maelstrom / slot_4"|"TD-220 Bastion MK XVI"|"TD-220 Bastion MK XVI / attach_tank_gun"|"TD-220 Bastion MK XVI / attach_tank_gun_mg"|"TX-41 Sterilizer"|"VG-70 Variable"|"output/v1/arc/arc-12-blitzer"|"output/v1/arc/arc-3-arc-thrower"|"output/v1/arc/ax-arc-3-k-9-gun"|"output/v1/beam/40-k-meltagun"|"output/v1/beam/ax-las-5-rover-gun"|"output/v1/beam/las-13-trident"|"output/v1/beam/las-98-laser-cannon"|"output/v1/melee/cqc-1-one-true-flag"|"output/v1/melee/cqc-19-stun-lance"|"output/v1/melee/cqc-2-saber"|"output/v1/melee/cqc-20-breaching-hammer"|"output/v1/melee/cqc-30-stun-baton"|"output/v1/melee/cqc-5-combat-hatchet"|"output/v1/melee/cqc-9-defoliation-tool"|"output/v1/projectile/a-gm-17-gas-mortar-sentry-projectile-342"|"output/v1/projectile/a-m-12-mortar-sentry-projectile-346"|"output/v1/projectile/a-m-23-ems-mortar-sentry"|"output/v1/projectile/a-mls-4x-rocket-sentry-projectile-320"|"output/v1/projectile/ac-8-autocannon"|"output/v1/projectile/ac-8-autocannon-projectile-284"|"output/v1/projectile/apw-1-anti-materiel-rifle"|"output/v1/projectile/ar-11-arbitrator"|"output/v1/projectile/ar-2-coyote"|"output/v1/projectile/ar-23-liberator"|"output/v1/projectile/ar-23a-liberator-carbine"|"output/v1/projectile/ar-23c-liberator-concussive"|"output/v1/projectile/ar-23p-liberator-penetrator"|"output/v1/projectile/ar-32-pacifier"|"output/v1/projectile/ar-59-suppressor"|"output/v1/projectile/ar-61-tenderizer"|"output/v1/projectile/ar-gl-21-one-two"|"output/v1/projectile/ax-ar-23-guard-dog-gun"|"output/v1/projectile/br-14-adjudicator"|"output/v1/projectile/cb-9-exploding-crossbow"|"output/v1/projectile/dbs-2-double-freedom"|"output/v1/projectile/e-mg-101-hmg-emplacement-projectile-83"|"output/v1/projectile/eagle-110mm-rocket-pods-projectile-82"|"output/v1/projectile/eagle-500kg-bomb-projectile-239"|"output/v1/projectile/eagle-airstrike-projectile-170"|"output/v1/projectile/eagle-cluster-bomb-projectile-286"|"output/v1/projectile/eagle-gas-airstrike-projectile-188"|"output/v1/projectile/eagle-napalm-airstrike-projectile-141"|"output/v1/projectile/eagle-smoke-strike-projectile-130"|"output/v1/projectile/eagle-smoke-strike-projectile-16"|"output/v1/projectile/eat-17-expendable-anti-tank"|"output/v1/projectile/eat-411-leveller"|"output/v1/projectile/eat-700-expendable-napalm"|"output/v1/projectile/exo-45-patriot-exosuit-left-gun"|"output/v1/projectile/exo-45-patriot-exosuit-right-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-left-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-right-gun"|"output/v1/projectile/exo-51-lumberer-exosuit-right-gun"|"output/v1/projectile/exo-55-breakthrough-exosuit-right-gun"|"output/v1/projectile/faf-14-spear"|"output/v1/projectile/frv-super-earth-variant-gun"|"output/v1/projectile/gater-oil-rig-turret"|"output/v1/projectile/gl-15-evictor"|"output/v1/projectile/gl-21-grenade-launcher"|"output/v1/projectile/gl-28-belt-fed-grenade-launcher"|"output/v1/projectile/gl-52-de-escalator"|"output/v1/projectile/gp-20-ultimatum"|"output/v1/projectile/gp-31-grenade-pistol-projectile-263"|"output/v1/projectile/gr-8-recoilless-rifle"|"output/v1/projectile/jar-5-dominator"|"output/v1/projectile/las-12-sai"|"output/v1/projectile/las-16-sickle"|"output/v1/projectile/las-17-double-edge-sickle"|"output/v1/projectile/las-58-talon"|"output/v1/projectile/las-99-quasar-cannon"|"output/v1/projectile/m-1000-maxigun"|"output/v1/projectile/m-102-gunner-frv-gun"|"output/v1/projectile/m-103-supply-frv-gun"|"output/v1/projectile/m-105-stalwart"|"output/v1/projectile/m6c-socom-pistol"|"output/v1/projectile/m7s-smg"|"output/v1/projectile/m90a-shotgun"|"output/v1/projectile/ma5c-assault-rifle"|"output/v1/projectile/mg-206-heavy-machine-gun"|"output/v1/projectile/mg-43-machine-gun"|"output/v1/projectile/mg-43-machine-gun-projectile-49"|"output/v1/projectile/mgx-42-bullet-storm"|"output/v1/projectile/mls-4x-commando"|"output/v1/projectile/mp-98-knight"|"output/v1/projectile/orbital-120mm-he-barrage-projectile-194"|"output/v1/projectile/orbital-airburst-strike-projectile-158"|"output/v1/projectile/orbital-ems-strike-projectile-74"|"output/v1/projectile/orbital-gas-strike-projectile-197"|"output/v1/projectile/orbital-gatling-barrage-projectile-77"|"output/v1/projectile/orbital-napalm-barrage-projectile-234"|"output/v1/projectile/orbital-precision-strike-projectile-100"|"output/v1/projectile/orbital-railcannon-strike-projectile-277"|"output/v1/projectile/orbital-smoke-strike-projectile-247"|"output/v1/projectile/orbital-walking-barrage-projectile-80"|"output/v1/projectile/p-11-stim-pistol"|"output/v1/projectile/p-113-verdict"|"output/v1/projectile/p-19-redeemer"|"output/v1/projectile/p-2-peacemaker"|"output/v1/projectile/p-33-missile-pistol"|"output/v1/projectile/p-33-missile-pistol-projectile-127"|"output/v1/projectile/p-34-breacher"|"output/v1/projectile/p-35-re-educator"|"output/v1/projectile/p-4-senator"|"output/v1/projectile/p-40-k-bolt-pistol"|"output/v1/projectile/p-69-veto"|"output/v1/projectile/p-92-warrant"|"output/v1/projectile/p-92-warrant-projectile-319"|"output/v1/projectile/plas-1-scorcher"|"output/v1/projectile/plas-101-purifier"|"output/v1/projectile/plas-15-loyalist"|"output/v1/projectile/plas-39-accelerator-rifle"|"output/v1/projectile/plas-45-epoch"|"output/v1/projectile/r-2-amendment"|"output/v1/projectile/r-2124-constitution"|"output/v1/projectile/r-36-eruptor"|"output/v1/projectile/r-4-hyena"|"output/v1/projectile/r-40-k-hot-shot-marksman-rifle"|"output/v1/projectile/r-6-deadeye"|"output/v1/projectile/r-63-diligence"|"output/v1/projectile/r-63cs-diligence-counter-sniper"|"output/v1/projectile/r-72-censor"|"output/v1/projectile/rl-77-airburst-rocket-launcher"|"output/v1/projectile/rl-77-airburst-rocket-launcher-projectile-96"|"output/v1/projectile/rs-422-railgun"|"output/v1/projectile/s-11-speargun"|"output/v1/projectile/s-11-speargun-spare-twin"|"output/v1/projectile/sg-20-halt"|"output/v1/projectile/sg-22-bushwhacker"|"output/v1/projectile/sg-225-breaker"|"output/v1/projectile/sg-225ie-breaker-incendiary"|"output/v1/projectile/sg-225sp-breaker-spray-pray"|"output/v1/projectile/sg-451-cookout"|"output/v1/projectile/sg-8-punisher"|"output/v1/projectile/sg-88-break-action-shotgun"|"output/v1/projectile/sg-8p-punisher-plasma"|"output/v1/projectile/sg-8s-slugger"|"output/v1/projectile/sg-97-sweeper"|"output/v1/projectile/smg-203-gallant"|"output/v1/projectile/smg-32-reprimand"|"output/v1/projectile/smg-37-defender-projectile-3"|"output/v1/projectile/smg-72-pummeler"|"output/v1/projectile/smg-flam-34-stoker"|"output/v1/projectile/sta-11-smg"|"output/v1/projectile/sta-52-assault-rifle"|"output/v1/projectile/sta-x3-w-a-s-p-launcher"|"output/v1/projectile/sta-x3-w-a-s-p-launcher-projectile-330"|"output/v1/projectile/td-110-maelstrom-attach-tank-gun"|"output/v1/projectile/td-110-maelstrom-slot-2"|"output/v1/projectile/td-110-maelstrom-slot-3"|"output/v1/projectile/td-110-maelstrom-slot-4"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun-mg"|"output/v1/projectile/td-220-bastion-mk-xvi-projectile-36"|"output/v1/projectile/vg-70-variable"|"output/v1/spray/ax-flam-75-hot-dog-gun"|"output/v1/spray/ax-tx-13-dog-breath-gun"|"output/v1/spray/b-flam-80-cremator"|"output/v1/spray/exo-51-lumberer-exosuit-left-gun"|"output/v1/spray/flam-40-flamethrower"|"output/v1/spray/flam-66-torcher"|"output/v1/spray/m-104-incinerator-frv-gun"|"output/v1/spray/tx-41-sterilizer"
+---@alias HD2AttackOutputId "40-K Meltagun"|"A/GM-17 Gas Mortar Sentry"|"A/LAS-98 Laser Sentry"|"A/M-12 Mortar Sentry"|"A/M-23 EMS Mortar Sentry"|"A/MLS-4X Rocket Sentry"|"AC-8 Autocannon"|"APW-1 Anti-Materiel Rifle"|"AR-11 Arbitrator"|"AR-2 Coyote"|"AR-23 Liberator"|"AR-23A Liberator Carbine"|"AR-23C Liberator Concussive"|"AR-23P Liberator Penetrator"|"AR-32 Pacifier"|"AR-59 Suppressor"|"AR-61 Tenderizer"|"AR/GL-21 One-Two"|"ARC-12 Blitzer"|"ARC-3 Arc Thrower"|"AX/AR-23 Guard Dog / gun"|"AX/ARC-3 K-9 / gun"|"AX/FLAM-75 Hot Dog / gun"|"AX/LAS-5 Rover / gun"|"AX/TX-13 Dog Breath / gun"|"B/FLAM-80 Cremator"|"BR-14 Adjudicator"|"CB-9 Exploding Crossbow"|"CQC-1 One True Flag"|"CQC-19 Stun Lance"|"CQC-2 Saber"|"CQC-20 Breaching Hammer"|"CQC-30 Stun Baton"|"CQC-5 Combat Hatchet"|"CQC-9 Defoliation Tool"|"DBS-2 Double Freedom"|"E/MG-101 HMG Emplacement"|"EAT-17 Expendable Anti-Tank"|"EAT-411 Leveller"|"EAT-700 Expendable Napalm"|"EXO-45 Patriot Exosuit / left_gun"|"EXO-45 Patriot Exosuit / right_gun"|"EXO-49 Emancipator Exosuit / left_gun"|"EXO-49 Emancipator Exosuit / right_gun"|"EXO-51 Lumberer Exosuit / left_gun"|"EXO-51 Lumberer Exosuit / right_gun"|"EXO-55 Breakthrough Exosuit / right_gun"|"Eagle 110mm Rocket Pods"|"Eagle 500kg Bomb"|"Eagle Airstrike"|"Eagle Cluster Bomb"|"Eagle Gas Airstrike"|"Eagle Napalm Airstrike"|"Eagle Smoke Strike"|"FAF-14 Spear"|"FLAM-40 Flamethrower"|"FLAM-66 Torcher"|"FRV (Super Earth variant) / gun"|"GATER Oil Rig / turret"|"GL-15 Evictor"|"GL-21 Grenade Launcher"|"GL-28 Belt-Fed Grenade Launcher"|"GL-52 De-Escalator"|"GP-20 Ultimatum"|"GP-31 Grenade Pistol"|"GR-8 Recoilless Rifle"|"Illuminate objective turret beam"|"Illuminate tripod beam"|"Illuminate tripod second beam"|"Illuminate turret beam"|"Illuminate war machine cannon beam"|"JAR-5 Dominator"|"LAS-12 Sai"|"LAS-13 Trident"|"LAS-16 Sickle"|"LAS-17 Double-Edge Sickle"|"LAS-5 Scythe"|"LAS-58 Talon"|"LAS-7 Dagger"|"LAS-98 Laser Cannon"|"LAS-99 Quasar Cannon"|"M-1000 Maxigun"|"M-102 Gunner FRV / gun"|"M-103 Supply FRV / gun"|"M-104 Incinerator FRV / gun"|"M-105 Stalwart"|"M6C/SOCOM Pistol"|"M7S SMG"|"M90A Shotgun"|"MA5C Assault Rifle"|"MG-206 Heavy Machine Gun"|"MG-43 Machine Gun"|"MGX-42 Bullet Storm"|"MLS-4X Commando"|"MP-98 Knight"|"Orbital 120mm HE Barrage"|"Orbital Airburst Strike"|"Orbital EMS Strike"|"Orbital Gas Strike"|"Orbital Gatling Barrage"|"Orbital Napalm Barrage"|"Orbital Precision Strike"|"Orbital Railcannon Strike"|"Orbital Smoke Strike"|"Orbital Walking Barrage"|"P-11 Stim Pistol"|"P-113 Verdict"|"P-19 Redeemer"|"P-2 Peacemaker"|"P-33 Missile Pistol"|"P-34 Breacher"|"P-35 Re-Educator"|"P-4 Senator"|"P-69 Veto"|"P-92 Warrant"|"P/40-K Bolt Pistol"|"PLAS-1 Scorcher"|"PLAS-101 Purifier"|"PLAS-15 Loyalist"|"PLAS-39 Accelerator Rifle"|"PLAS-45 Epoch"|"R-2 Amendment"|"R-2124 Constitution"|"R-36 Eruptor"|"R-4 Hyena"|"R-6 Deadeye"|"R-63 Diligence"|"R-63CS Diligence Counter Sniper"|"R-72 Censor"|"R/40-K Hot-Shot Marksman Rifle"|"RL-77 Airburst Rocket Launcher"|"RS-422 Railgun"|"S-11 Speargun"|"S-11 Speargun (spare twin)"|"SG-20 Halt"|"SG-22 Bushwhacker"|"SG-225 Breaker"|"SG-225IE Breaker Incendiary"|"SG-225SP Breaker Spray&Pray"|"SG-451 Cookout"|"SG-8 Punisher"|"SG-88 Break-Action Shotgun"|"SG-8P Punisher Plasma"|"SG-8S Slugger"|"SG-97 Sweeper"|"SMG-203 Gallant"|"SMG-32 Reprimand"|"SMG-37 Defender"|"SMG-72 Pummeler"|"SMG/FLAM-34 Stoker"|"StA-11 SMG"|"StA-52 Assault Rifle"|"StA-X3 W.A.S.P. Launcher"|"TD-110 Maelstrom / attach_tank_gun"|"TD-110 Maelstrom / slot_2"|"TD-110 Maelstrom / slot_3"|"TD-110 Maelstrom / slot_4"|"TD-220 Bastion MK XVI"|"TD-220 Bastion MK XVI / attach_tank_gun"|"TD-220 Bastion MK XVI / attach_tank_gun_mg"|"TX-41 Sterilizer"|"VG-70 Variable"|"output/v1/arc/arc-12-blitzer"|"output/v1/arc/arc-3-arc-thrower"|"output/v1/arc/ax-arc-3-k-9-gun"|"output/v1/beam/40-k-meltagun"|"output/v1/beam/a-las-98-laser-sentry"|"output/v1/beam/ax-las-5-rover-gun"|"output/v1/beam/illuminate-objective-turret-beam"|"output/v1/beam/illuminate-tripod-beam"|"output/v1/beam/illuminate-tripod-second-beam"|"output/v1/beam/illuminate-turret-beam"|"output/v1/beam/illuminate-war-machine-cannon-beam"|"output/v1/beam/las-13-trident"|"output/v1/beam/las-5-scythe"|"output/v1/beam/las-7-dagger"|"output/v1/beam/las-98-laser-cannon"|"output/v1/melee/cqc-1-one-true-flag"|"output/v1/melee/cqc-19-stun-lance"|"output/v1/melee/cqc-2-saber"|"output/v1/melee/cqc-20-breaching-hammer"|"output/v1/melee/cqc-30-stun-baton"|"output/v1/melee/cqc-5-combat-hatchet"|"output/v1/melee/cqc-9-defoliation-tool"|"output/v1/projectile/a-gm-17-gas-mortar-sentry-projectile-342"|"output/v1/projectile/a-m-12-mortar-sentry-projectile-346"|"output/v1/projectile/a-m-23-ems-mortar-sentry"|"output/v1/projectile/a-mls-4x-rocket-sentry-projectile-320"|"output/v1/projectile/ac-8-autocannon"|"output/v1/projectile/ac-8-autocannon-projectile-284"|"output/v1/projectile/apw-1-anti-materiel-rifle"|"output/v1/projectile/ar-11-arbitrator"|"output/v1/projectile/ar-2-coyote"|"output/v1/projectile/ar-23-liberator"|"output/v1/projectile/ar-23a-liberator-carbine"|"output/v1/projectile/ar-23c-liberator-concussive"|"output/v1/projectile/ar-23p-liberator-penetrator"|"output/v1/projectile/ar-32-pacifier"|"output/v1/projectile/ar-59-suppressor"|"output/v1/projectile/ar-61-tenderizer"|"output/v1/projectile/ar-gl-21-one-two"|"output/v1/projectile/ax-ar-23-guard-dog-gun"|"output/v1/projectile/br-14-adjudicator"|"output/v1/projectile/cb-9-exploding-crossbow"|"output/v1/projectile/dbs-2-double-freedom"|"output/v1/projectile/e-mg-101-hmg-emplacement-projectile-83"|"output/v1/projectile/eagle-110mm-rocket-pods-projectile-82"|"output/v1/projectile/eagle-500kg-bomb-projectile-239"|"output/v1/projectile/eagle-airstrike-projectile-170"|"output/v1/projectile/eagle-cluster-bomb-projectile-286"|"output/v1/projectile/eagle-gas-airstrike-projectile-188"|"output/v1/projectile/eagle-napalm-airstrike-projectile-141"|"output/v1/projectile/eagle-smoke-strike-projectile-130"|"output/v1/projectile/eagle-smoke-strike-projectile-16"|"output/v1/projectile/eat-17-expendable-anti-tank"|"output/v1/projectile/eat-411-leveller"|"output/v1/projectile/eat-700-expendable-napalm"|"output/v1/projectile/exo-45-patriot-exosuit-left-gun"|"output/v1/projectile/exo-45-patriot-exosuit-right-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-left-gun"|"output/v1/projectile/exo-49-emancipator-exosuit-right-gun"|"output/v1/projectile/exo-51-lumberer-exosuit-right-gun"|"output/v1/projectile/exo-55-breakthrough-exosuit-right-gun"|"output/v1/projectile/faf-14-spear"|"output/v1/projectile/frv-super-earth-variant-gun"|"output/v1/projectile/gater-oil-rig-turret"|"output/v1/projectile/gl-15-evictor"|"output/v1/projectile/gl-21-grenade-launcher"|"output/v1/projectile/gl-28-belt-fed-grenade-launcher"|"output/v1/projectile/gl-52-de-escalator"|"output/v1/projectile/gp-20-ultimatum"|"output/v1/projectile/gp-31-grenade-pistol-projectile-263"|"output/v1/projectile/gr-8-recoilless-rifle"|"output/v1/projectile/jar-5-dominator"|"output/v1/projectile/las-12-sai"|"output/v1/projectile/las-16-sickle"|"output/v1/projectile/las-17-double-edge-sickle"|"output/v1/projectile/las-58-talon"|"output/v1/projectile/las-99-quasar-cannon"|"output/v1/projectile/m-1000-maxigun"|"output/v1/projectile/m-102-gunner-frv-gun"|"output/v1/projectile/m-103-supply-frv-gun"|"output/v1/projectile/m-105-stalwart"|"output/v1/projectile/m6c-socom-pistol"|"output/v1/projectile/m7s-smg"|"output/v1/projectile/m90a-shotgun"|"output/v1/projectile/ma5c-assault-rifle"|"output/v1/projectile/mg-206-heavy-machine-gun"|"output/v1/projectile/mg-43-machine-gun"|"output/v1/projectile/mg-43-machine-gun-projectile-49"|"output/v1/projectile/mgx-42-bullet-storm"|"output/v1/projectile/mls-4x-commando"|"output/v1/projectile/mp-98-knight"|"output/v1/projectile/orbital-120mm-he-barrage-projectile-194"|"output/v1/projectile/orbital-airburst-strike-projectile-158"|"output/v1/projectile/orbital-ems-strike-projectile-74"|"output/v1/projectile/orbital-gas-strike-projectile-197"|"output/v1/projectile/orbital-gatling-barrage-projectile-77"|"output/v1/projectile/orbital-napalm-barrage-projectile-234"|"output/v1/projectile/orbital-precision-strike-projectile-100"|"output/v1/projectile/orbital-railcannon-strike-projectile-277"|"output/v1/projectile/orbital-smoke-strike-projectile-247"|"output/v1/projectile/orbital-walking-barrage-projectile-80"|"output/v1/projectile/p-11-stim-pistol"|"output/v1/projectile/p-113-verdict"|"output/v1/projectile/p-19-redeemer"|"output/v1/projectile/p-2-peacemaker"|"output/v1/projectile/p-33-missile-pistol"|"output/v1/projectile/p-33-missile-pistol-projectile-127"|"output/v1/projectile/p-34-breacher"|"output/v1/projectile/p-35-re-educator"|"output/v1/projectile/p-4-senator"|"output/v1/projectile/p-40-k-bolt-pistol"|"output/v1/projectile/p-69-veto"|"output/v1/projectile/p-92-warrant"|"output/v1/projectile/p-92-warrant-projectile-319"|"output/v1/projectile/plas-1-scorcher"|"output/v1/projectile/plas-101-purifier"|"output/v1/projectile/plas-15-loyalist"|"output/v1/projectile/plas-39-accelerator-rifle"|"output/v1/projectile/plas-45-epoch"|"output/v1/projectile/r-2-amendment"|"output/v1/projectile/r-2124-constitution"|"output/v1/projectile/r-36-eruptor"|"output/v1/projectile/r-4-hyena"|"output/v1/projectile/r-40-k-hot-shot-marksman-rifle"|"output/v1/projectile/r-6-deadeye"|"output/v1/projectile/r-63-diligence"|"output/v1/projectile/r-63cs-diligence-counter-sniper"|"output/v1/projectile/r-72-censor"|"output/v1/projectile/rl-77-airburst-rocket-launcher"|"output/v1/projectile/rl-77-airburst-rocket-launcher-projectile-96"|"output/v1/projectile/rs-422-railgun"|"output/v1/projectile/s-11-speargun"|"output/v1/projectile/s-11-speargun-spare-twin"|"output/v1/projectile/sg-20-halt"|"output/v1/projectile/sg-22-bushwhacker"|"output/v1/projectile/sg-225-breaker"|"output/v1/projectile/sg-225ie-breaker-incendiary"|"output/v1/projectile/sg-225sp-breaker-spray-pray"|"output/v1/projectile/sg-451-cookout"|"output/v1/projectile/sg-8-punisher"|"output/v1/projectile/sg-88-break-action-shotgun"|"output/v1/projectile/sg-8p-punisher-plasma"|"output/v1/projectile/sg-8s-slugger"|"output/v1/projectile/sg-97-sweeper"|"output/v1/projectile/smg-203-gallant"|"output/v1/projectile/smg-32-reprimand"|"output/v1/projectile/smg-37-defender-projectile-3"|"output/v1/projectile/smg-72-pummeler"|"output/v1/projectile/smg-flam-34-stoker"|"output/v1/projectile/sta-11-smg"|"output/v1/projectile/sta-52-assault-rifle"|"output/v1/projectile/sta-x3-w-a-s-p-launcher"|"output/v1/projectile/sta-x3-w-a-s-p-launcher-projectile-330"|"output/v1/projectile/td-110-maelstrom-attach-tank-gun"|"output/v1/projectile/td-110-maelstrom-slot-2"|"output/v1/projectile/td-110-maelstrom-slot-3"|"output/v1/projectile/td-110-maelstrom-slot-4"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun"|"output/v1/projectile/td-220-bastion-mk-xvi-attach-tank-gun-mg"|"output/v1/projectile/td-220-bastion-mk-xvi-projectile-36"|"output/v1/projectile/vg-70-variable"|"output/v1/spray/ax-flam-75-hot-dog-gun"|"output/v1/spray/ax-tx-13-dog-breath-gun"|"output/v1/spray/b-flam-80-cremator"|"output/v1/spray/exo-51-lumberer-exosuit-left-gun"|"output/v1/spray/flam-40-flamethrower"|"output/v1/spray/flam-66-torcher"|"output/v1/spray/m-104-incinerator-frv-gun"|"output/v1/spray/tx-41-sterilizer"
 
 ---@class HD2AttackOutput
 ---@field resource "attack_output"
@@ -1496,6 +1581,7 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field definition_cooldown "stratagem.cooldown"
 ---@field max_uses "stratagem.max_uses"
 ---@field call_in_time "stratagem.call_in_time"
+---@field rearm_pool "stratagem.rearm_pool"
 ---@field calldown_code "stratagem.calldown_code"
 ---@field presentation_name "stratagem.presentation.name"
 ---@field presentation_name_cased "stratagem.presentation.name_cased"
@@ -1534,6 +1620,8 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field movement_speed "orbital.movement_speed"
 ---@field search_radius "orbital.search_radius"
 ---@field tick_interval "orbital.tick_interval"
+---@field fire_delay "orbital.fire_delay"
+---@field retarget_interval "orbital.retarget_interval"
 ---@field salvos "orbital.salvos"
 ---@field shells_per_salvo "orbital.shells_per_salvo"
 ---@field shell_interval "orbital.shell_interval"
@@ -1554,14 +1642,18 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field velocity "arc.velocity"
 
 ---@class HD2Fields_attack
+---@field beam "attack.beam"
 ---@field feed_alternate_projectile "attack.feed_alternate.projectile"
 ---@field feed_primary_projectile "attack.feed_primary.projectile"
 ---@field primary_projectile "attack.primary.projectile"
 ---@field projectile "attack.projectile"
 
 ---@class HD2Fields_beam
+---@field fire_mode "beam.fire_mode"
 ---@field fire_rate "beam.fire_rate"
 ---@field length "beam.length"
+---@field pulse_beams "beam.pulse_beams"
+---@field pulse_seconds "beam.pulse_seconds"
 ---@field radius "beam.radius"
 
 ---@class HD2Fields_charge
@@ -1634,11 +1726,25 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@class HD2Fields_function_ammo
 ---@field projectile "function_ammo.projectile"
 
+---@class HD2Fields_function_missile
+---@field acceleration "function_missile.acceleration"
+---@field guidance_delay "function_missile.guidance_delay"
+---@field max_angle_to_target "function_missile.max_angle_to_target"
+---@field max_lifetime "function_missile.max_lifetime"
+---@field minimum_speed "function_missile.minimum_speed"
+---@field preferred_speed "function_missile.preferred_speed"
+---@field starting_speed "function_missile.starting_speed"
+---@field turn_rate_aligned "function_missile.turn_rate_aligned"
+---@field turn_rate_at_max_angle "function_missile.turn_rate_at_max_angle"
+
 ---@class HD2Fields_heat
 ---@field capacity "heat.capacity"
+---@field charge_gain_per_second "heat.charge_gain_per_second"
+---@field charge_loss_per_second "heat.charge_loss_per_second"
 ---@field cool_per_second "heat.cool_per_second"
 ---@field cool_per_second_cold "heat.cool_per_second_cold"
 ---@field cool_per_second_hot "heat.cool_per_second_hot"
+---@field firing_charge "heat.firing_charge"
 ---@field heat_per_second "heat.heat_per_second"
 ---@field heat_per_shot "heat.heat_per_shot"
 ---@field level_1_self_status "heat.level_1_self_status"
@@ -1649,6 +1755,7 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field level_3_threshold "heat.level_3_threshold"
 ---@field overheat_cooldown "heat.overheat_cooldown"
 ---@field overheat_lock "heat.overheat_lock"
+---@field reset_charge_after_shot "heat.reset_charge_after_shot"
 ---@field warmup "heat.warmup"
 
 ---@class HD2Fields_heatsink
@@ -1663,6 +1770,17 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field magazines_from_supply "magazine.magazines_from_supply"
 ---@field spare_magazines "magazine.spare_magazines"
 ---@field starting_magazines "magazine.starting_magazines"
+
+---@class HD2Fields_missile
+---@field acceleration "missile.acceleration"
+---@field guidance_delay "missile.guidance_delay"
+---@field max_angle_to_target "missile.max_angle_to_target"
+---@field max_lifetime "missile.max_lifetime"
+---@field minimum_speed "missile.minimum_speed"
+---@field preferred_speed "missile.preferred_speed"
+---@field starting_speed "missile.starting_speed"
+---@field turn_rate_aligned "missile.turn_rate_aligned"
+---@field turn_rate_at_max_angle "missile.turn_rate_at_max_angle"
 
 ---@class HD2Fields_presentation
 ---@field armor_penetration "presentation.armor_penetration"
@@ -1891,6 +2009,9 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field count_from_supply "throwable.count_from_supply"
 ---@field explosion_delay "throwable.explosion_delay"
 
+---@class HD2Fields_beam_conversion
+---@field enabled "beam_conversion.enabled"
+
 ---@class HD2Fields_ammunition
 ---@field projectile "ammunition.projectile"
 
@@ -1915,9 +2036,11 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field fire_mode HD2Fields_fire_mode
 ---@field fire_rate HD2Fields_fire_rate
 ---@field function_ammo HD2Fields_function_ammo
+---@field function_missile HD2Fields_function_missile
 ---@field heat HD2Fields_heat
 ---@field heatsink HD2Fields_heatsink
 ---@field magazine HD2Fields_magazine
+---@field missile HD2Fields_missile
 ---@field presentation HD2Fields_presentation
 ---@field reload HD2Fields_reload
 ---@field rounds HD2Fields_rounds
@@ -1945,6 +2068,7 @@ function HD2Weapon:attachment_definition(slot, identity) end
 ---@field armor_class HD2Fields_armor_class
 ---@field armor_damage_curve HD2Fields_armor_damage_curve
 ---@field throwable HD2Fields_throwable
+---@field beam_conversion HD2Fields_beam_conversion
 ---@field ammunition HD2Fields_ammunition
 
 ---@class HD2Enum_projectile_type
@@ -3134,6 +3258,19 @@ function HD2UI:colour(c) end
 ---The cursor capture's state: holders, disabled, the game's saved values and what the engine reports now.
 ---@return table
 function HD2UI:cursor() end
+---Whether every character of text can be drawn now in overlays (the font role's own font or one of the game's language fonts loaded now; docs/ui-overlay.md, Other scripts): true, or false, the number of distinct characters that would show as '?' and up to three of them.
+---@param text string
+---@param font? "body"|"title"|"mono"
+---@return boolean, integer|nil, string[]|nil
+function HD2UI:can_draw(text, font) end
+---HD2Runtime 0.31.0+: the characters of text no font can ever draw (neither the font role's own font nor any game language font; the Runtime loads the font a text needs in any game language): the number of distinct characters that always show as '?' and up to three of them. 0: everything draws once its font is loaded (can_draw says when).
+---@param text string
+---@param font? "body"|"title"|"mono"
+---@return integer, string[]
+function HD2UI:unsupported(text, font) end
+---The game's language fonts overlays draw with: {key, label, languages (the game language codes that load it), glyphs, resident, reason}. The game loads only the selected language's; the Runtime loads the one a text needs.
+---@return table[]
+function HD2UI:game_fonts() end
 
 ---@class HD2OverlayOptions
 ---@field id string|nil 1 to 48 letters, digits, _ . - (default 'main').
@@ -3196,7 +3333,7 @@ local HD2OverlayFrame = {}
 ---@param z? integer
 ---@return nil
 function HD2OverlayFrame:rect(x, y, w, h, colour, z) end
----A line of text (1-160 printable bytes); (x, y) its top-left corner (or top-centre / top-right with align).
+---A line of text (1-512 printable bytes, UTF-8); (x, y) its top-left corner (or top-centre / top-right with align). A character the font lacks is drawn in the game's own language font when that font is loaded (docs/ui-overlay.md, Other scripts), else as '?'.
 ---@param text string|number
 ---@param x number
 ---@param y number
@@ -3217,6 +3354,17 @@ function HD2OverlayFrame:image(image, x, y, w, h, opts) end
 ---@param font? "body"|"title"|"mono"
 ---@return number
 function HD2OverlayFrame:text_width(text, size, font) end
+---Whether every character of text can be drawn this frame (the font role's own font or a loaded game language font): true, or false, the number of distinct characters that would show as '?' and up to three of them.
+---@param text string
+---@param font? "body"|"title"|"mono"
+---@return boolean, integer|nil, string[]|nil
+function HD2OverlayFrame:can_draw(text, font) end
+---Lines no wider than width pixels, measured as d:text draws them: broken at spaces and between CJK characters, never inside a character; at most opts.lines lines (the last ends with '...').
+---@param text string
+---@param width number
+---@param opts? {size: number|nil, font: string|nil, lines: integer|nil}
+---@return string[]
+function HD2OverlayFrame:wrap(text, width, opts) end
 
 ---@class HD2OverlayTextOptions
 ---@field size number|nil Pixels (4-256, default 18).
@@ -4136,6 +4284,16 @@ function hd2.attack_output(identity) end
 ---@param name HD2CatalogueExplosionName|string
 ---@return HD2CatalogueExplosion
 function hd2.explosion(name) end
+---The definition of a status effect (HD2Runtime 0.31.0+; docs/status-effects.md "Status effect stats") by its id
+---(sdk/StatusEffectCatalog.json: "fire", "gas", "stun_medium", ...): the target of status.duration; :damage() is
+---the DamageInfo row the status deals while active (damage.*). Both rows are global: every write needs
+---allow_shared, the tick damage also allow_unverified_effect (sdk/StatusEffectAuthoringCapabilities.json).
+---@param id string
+---@return HD2StatusEffect
+function hd2.status_effect(id) end
+---Every status effect id, sorted.
+---@return string[]
+function hd2.status_effects() end
 ---Mods that need a newer HD2Runtime (HD2Runtime 0.28.0+). The SDK wrapper of every mod reports here before its
 ---own version check fails closed; HD2Runtime logs each mod and shows one update warning per session on the ship.
 hd2.compatibility = {}
@@ -4157,10 +4315,29 @@ function hd2.compatibility.incompatible() end
 function hd2.compatibility.highest() end
 ---@return table {incompatible, highest, shown, dialog}
 function hd2.compatibility.status() end
+---The beam conversion of a weapon by its catalogue name (the same target as weapon:beam_conversion()).
+---@param name string
+---@return HD2BeamConversion
+function hd2.beam_conversion(name) end
+---The beam conversion target of every catalogued weapon (supported, with caveats or refused: describe() says).
+---@return HD2BeamConversion[]
+function hd2.beam_conversions() end
 ---Catalogued attack output IDs, optionally filtered.
 ---@param filter? {family?: "projectile"|"beam"|"arc"|"spray"|"melee", selectable?: boolean}
 ---@return string[]
 function hd2.attack_outputs(filter) end
+
+---@class HD2StatusEffect
+---@field resource "status_effect"
+---@field status string
+---@field path "status"|"damage"
+local HD2StatusEffect = {}
+---{id, name, family, path, fields, tickDamage, sharedWithStatuses, otherUsers}
+---@return table
+function HD2StatusEffect:describe() end
+---The DamageInfo row this status deals while active (statuses without tick damage raise).
+---@return HD2StatusEffect
+function HD2StatusEffect:damage() end
 
 ---@class HD2Diagnostics
 local HD2Diagnostics = {}
@@ -4186,6 +4363,11 @@ function HD2Diagnostics.operations() end
 ---max_label, last_window}[]}, the most time first. A slow call or a high share is logged as PERFORMANCE.
 ---@return table
 function HD2Diagnostics.performance() end
+---Values owned by an unknown mod (HD2Runtime 0.31.0+): game values that are neither the reviewed value of HD2Runtime
+---nor bytes an HD2Runtime operation applied, found by a refused write or by hd2.inspect. HD2Runtime never writes
+---them. {target, field, observed, expected, owner = "unknown", seen}[], in the order found (docs/diagnostics.md).
+---@return table[]
+function HD2Diagnostics.foreign_values() end
 ---@type HD2Diagnostics
 hd2.diagnostics = {}
 ---Run once after a delay in game seconds (fractions work; 0 = the next update tick; math.random(1, 10) gives a random delay). The timer belongs to the calling mod; scope=mission cancels it when the mission ends.
@@ -4296,6 +4478,10 @@ function hd2.require_assets(request) end
 ---@param target table
 ---@return HD2AssetDependency
 function hd2.asset_dependency(target) end
+---Read only (HD2Runtime 0.31.0+): who owns the live value of one to 64 fields of a typed target, through the same guarded resolution a patch runs; nothing is written. request = {target, fields = {id | {field, expect}}, on_result?}. When complete, result.fields (request order) and result.by_field[id] hold {field, state, owner, operation, value, vanilla, bytes, reason}: state 'vanilla' (the reviewed value), 'runtime' (an HD2Runtime operation applied it; owner = its mod), 'foreign' (owned by an unknown mod outside HD2Runtime, owner 'unknown': writes to it are refused, show it read-only), 'changed' (a link or slot it depends on is not as reviewed), 'unavailable' or 'invalid' (reason). docs/diagnostics.md.
+---@param request HD2InspectRequest
+---@return HD2Watch
+function hd2.inspect(request) end
 
 if rawget(_G,'CowboyBingusModLoader') then
     error("HD2Runtime SDK stubs are authoring-only; install the runtime package in-game")

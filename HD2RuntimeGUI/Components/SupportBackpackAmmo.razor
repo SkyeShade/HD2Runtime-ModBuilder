@@ -15,7 +15,7 @@
             <span class="badge" data-ammo-owner>@T.Format("Support.BackpackAmmo.StoredIn", backpack.Name)</span>
             <span class="badge amber" data-flag="allow_unverified_effect" title="@fields.FirstOrDefault()?.AcknowledgementReason">@T["Support.BackpackAmmo.EffectUnverified"]</span>
             @if (edited && Workspace.Project != null) { <button class="reset-action small" @onclick='() => Run(() => Workspace.ResetEntityAsync("backpack", backpack.Name))'>@T["Support.BackpackAmmo.Reset"]</button> }</div>
-        <p class="subtle" data-ammo-ownership>@T.Format("Support.BackpackAmmo.Ownership", Weapon)</p>
+        <p class="subtle" data-ammo-ownership>@T.Format(link.IsTeamReload ? "Support.BackpackAmmo.TeamReload" : "Support.BackpackAmmo.Ownership", Weapon)</p>
         <div class="stat-grid">@foreach (var f in fields) { <EntityFieldEditor @key="f.InstanceKey" Field="f" Tiers="entities.Backpacks.EvidenceTiers" Changed="Refresh" /> }</div>
         @if (backpack.Ammo?.FromAmmoBox is { } box && !ModifiedOnly)
         { <p class="subtle" data-ammo-box>@T.Format("Support.BackpackAmmo.AmmoBox", box.Value.GetRawText() + (box.Writable ? "" : " · " + box.Reason))</p> }

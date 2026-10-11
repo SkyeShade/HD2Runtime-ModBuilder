@@ -321,7 +321,8 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             && f.CurrentDefault.ValueKind == JsonValueKind.Array && f.CurrentDefault.GetArrayLength() is var n && n >= min && n <= max
             && f.CurrentDefault.EnumerateArray().All(x => x.ValueKind == JsonValueKind.String && d.Contains(x.GetString())),
         StratagemField.Presentation => f.Target.Path == "stratagem" && f.CurrentDefault.ValueKind == JsonValueKind.String && f.ResourceType is "localization" or "image",
-        "enum" => !f.Editable,
+        // 0.31.0: stratagem.rearm_pool, an editable enum with its published values (read-only until authored: AuthoredTypes).
+        "enum" => !f.Editable || f.AllowedValues is { Length: > 0 },
         _ => false,
     };
     // 0.30.0 cross-checks: the per-stratagem capabilities name their own fields, the presentation sources are catalogued stratagems, an
@@ -347,7 +348,7 @@ public sealed class StratagemCatalogReader : IStratagemCatalogReader
             if (s.SentryFields is { } sentry) Check(sentry.Fields.All(sentry.Constants.ContainsKey) && sentry.Deferred.All(d => !string.IsNullOrWhiteSpace(d.Reason)));
         }
         if (c.EagleAirstrikePatterns is { } patterns)
-            Check(patterns.Values.Length > 0 && c.FieldInstances.Where(f => f.AllowedValues != null).All(f => f.ApiFieldConstant == patterns.Field
+            Check(patterns.Values.Length > 0 && c.FieldInstances.Where(f => f.AllowedValues != null && f.Type != "enum").All(f => f.ApiFieldConstant == patterns.Field
                 && f.AllowedValues!.Select(v => v.Value.GetRawText()).SequenceEqual(patterns.Values.Select(v => v.Value.GetRawText()))));
         if (c.Summary.CalldownWritable is int calldown) Check(calldown == c.FieldInstances.Count(f => f.Editable && f.Type == StratagemField.CalldownCode));
         if (c.Summary.PresentationWritable is int shown) Check(shown == c.Stratagems.Count(s => s.PresentationCapability is { Writable: true }));

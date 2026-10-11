@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- HD2Runtime ModBuilder application version (the property keeps its historical name). -->
-    <Hd2RuntimeGuiVersion>1.7.1</Hd2RuntimeGuiVersion>
+    <Hd2RuntimeGuiVersion>1.8.0</Hd2RuntimeGuiVersion>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(Hd2RuntimeGuiVersion)</VersionPrefix>
     <Version Condition="'$(Version)' == ''">$(Hd2RuntimeGuiVersion)</Version>
     <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">$(Hd2RuntimeGuiVersion).0</AssemblyVersion>

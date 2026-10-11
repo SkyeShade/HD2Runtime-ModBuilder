@@ -20,6 +20,8 @@ public static class FieldGroups
         if (head == "presentation") return "Presentation";
         // The attack's own projectile (a projectile host swap) sits with the projectile it fires.
         if (head == "attack") return "Projectile";
+        // 0.31.0: the flight of the missile a launcher spawns per shot (its own SeekingMissile record).
+        if (head is "missile" or "function_missile") return "Projectile";
         if (head == "weapon" && (id.Contains("ergonomic") || id.Contains("recoil") || id.Contains("sway") || id.Contains("spread") || id.Contains("drift"))) return "Handling";
         if (head is "weapon" or "windup" or "charge" or "heat" or "heatsink") return "Firing";
         return head switch

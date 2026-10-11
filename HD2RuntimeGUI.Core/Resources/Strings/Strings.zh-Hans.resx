@@ -12389,6 +12389,10 @@
     <value>存储于 {0}</value>
     <comment>issue #1 (adapted)</comment>
   </data>
+  <data name="Support.BackpackAmmo.TeamReload" xml:space="preserve">
+    <value>{0} 自带备用弹药并优先使用；只有备用弹药耗尽后才会使用背包中的弹药。队友也可以用背包为其装填。</value>
+    <comment>new: needs native review</comment>
+  </data>
   <data name="Support.BackpackAmmo.Title" xml:space="preserve">
     <value>背包弹药</value>
     <comment>issue #1</comment>

@@ -10917,6 +10917,10 @@
     <value>Stored in {0}</value>
     <comment>{0}: backpack name (not translated)</comment>
   </data>
+  <data name="Support.BackpackAmmo.TeamReload" xml:space="preserve">
+    <value>{0} keeps spares of its own and reloads from them first; the backpack's deposit is used only once they run out. A teammate can also reload it from the backpack.</value>
+    <comment>{0}: support weapon name (not translated)</comment>
+  </data>
   <data name="Support.BackpackAmmo.Title" xml:space="preserve">
     <value>Backpack ammo</value>
   </data>

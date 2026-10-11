@@ -25,10 +25,12 @@ public sealed class NoEffectTests
         .. Weapons.Skip(1).SelectMany(w => new[] { w.Weapon + "|magazine.spare_magazines", w.Weapon + "|magazine.starting_magazines" }),
     ];
     private const string Autocannon = "AC-8 Autocannon", SpareRounds = "rounds.spare_rounds";
+    // 0.30.2 and 0.30.3 publish the notice; 0.31.0 made these rows the weapons' own spares (real fields with allow_unverified_effect).
+    private const string Sdk = "0.30.3";
 
     private static async Task<BuilderWorkspace> Fresh(TestEnvironment e)
     {
-        var sdk = await SdkFixtures.Install(e, Runtime030Tests.Version); var w = e.Workspace();
+        var sdk = await SdkFixtures.Install(e, Sdk); var w = e.Workspace();
         await w.CreateAsync(new("NoEffect", "Tests", "mods/tests/noeffect", "0.1.0"), sdk); return w;
     }
     private static SupportField Field(BuilderWorkspace w, string weapon, string id) => w.Metadata!.SupportAuthoring!.FieldInstances
@@ -65,7 +67,7 @@ public sealed class NoEffectTests
         await w.SetSupportAsync(capacity.InstanceKey, "12");
         Assert.Equal(capacity.InstanceKey, Assert.Single(w.Project.SupportChanges).InstanceKey);
         // The capability audit counts the notice as shown.
-        var entry = CapabilityAudit.Run(w.Metadata, CapabilityAuditTests.Files(Runtime030Tests.Version)).Entries.Single(x => x.Area == "support_weapon_notice" && x.Capability == "noEffect");
+        var entry = CapabilityAudit.Run(w.Metadata, CapabilityAuditTests.Files(Sdk)).Entries.Single(x => x.Area == "support_weapon_notice" && x.Capability == "noEffect");
         Assert.Equal((CapabilityClass.SUPPORTED_UI, 11), (entry.Class, entry.Instances)); Assert.False(string.IsNullOrWhiteSpace(entry.Surface));
     }
 
@@ -105,7 +107,7 @@ public sealed class NoEffectTests
 
     [Fact] public async Task The_backpack_link_resolves_for_each_of_the_five_weapons()
     {
-        using var e = new TestEnvironment(); var sdk = await SdkFixtures.Install(e, Runtime030Tests.Version);
+        using var e = new TestEnvironment(); var sdk = await SdkFixtures.Install(e, Sdk);
         foreach (var (weapon, backpack) in Weapons)
         {
             var home = NoEffectRows.Home(sdk, weapon);

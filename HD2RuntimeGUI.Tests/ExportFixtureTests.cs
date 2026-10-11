@@ -170,6 +170,23 @@ public sealed class ExportFixtureTests
         Assert.Contains("allow_unverified_reference=true,", lua); Assert.Contains(":attack('full_charge_impact'):explosion()", lua);
     }
 
+    // HD2Runtime 0.31.0 fields ModBuilder edits through its existing editors: wind-up, missile flight, team-reload spares, sentry wind-up,
+    // Orbital Railcannon targeting and mounted spread (each needs allow_unverified_effect).
+    [Fact] public async Task F11_runtime031_fields()
+    {
+        using var e = new TestEnvironment(); var (w, sdk) = await Fresh(e, "F11 Runtime031 Fields");
+        string Support(string weapon, string field) => sdk.SupportAuthoring!.FieldInstances.Single(f => f.SupportWeapon == weapon && f.SemanticFieldId == field && f.Target.AttackRole == null).InstanceKey;
+        string Stratagem(string stratagem, string field) => sdk.Stratagems!.FieldInstances.Single(f => f.Target.Stratagem == stratagem && f.SemanticFieldId == field).InstanceKey;
+        await w.SetWeaponChangeAsync("LAS-16 Sickle", "heat.firing_charge", "50", false);
+        await w.SetSupportAsync(Support("StA-X3 W.A.S.P. Launcher", "missile.max_lifetime"), "20");
+        await w.SetSupportAsync(Support("StA-X3 W.A.S.P. Launcher", "magazine.spare_magazines"), "2");
+        await w.SetStratagemAsync(Stratagem("A/G-16 Gatling Sentry", "windup.wind_up_seconds"), "0.1");
+        await w.SetStratagemAsync(Stratagem("Orbital Railcannon Strike", "orbital.search_radius"), "60");
+        await w.SetEntityAsync(sdk.Entities!.VehicleWeapons!.Published.Values.Single(f => f.Weapon == "M-103 Supply FRV / gun" && f.SemanticFieldId == "weapon.horizontal_spread").InstanceKey, "5");
+        var (manifest, lua) = await Export(w, "F11-runtime031-fields");
+        RequiresPinned(manifest); Assert.Contains("field=hd2.fields.missile.max_lifetime,", lua); Assert.Contains("field=hd2.fields.orbital.search_radius,", lua);
+    }
+
     [Theory]
     [InlineData("H0-control-no-halt")] [InlineData("H1-halt-all")] [InlineData("H2-halt-damage-only")] [InlineData("H3-halt-sway-only")]
     public async Task Halt_issue_variants(string variant)

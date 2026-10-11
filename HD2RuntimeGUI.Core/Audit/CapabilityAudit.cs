@@ -113,11 +113,19 @@ public static class CapabilityExemptions
         ["player_weapon|weapon.sound|weapon_sound"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Firing sound (weapon.sound): shown read-only until its editor lands with the next SDK binding."),
         ["support_weapon|weapon.sound|scalar/weapon_sound"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Firing sound (weapon.sound): shown read-only until its editor lands with the next SDK binding."),
         // HD2Runtime 0.30.2 additions, read and kept read-only (AuthoredTypes) until their editors land (artifacts/survey/sdk-0.30.2-new-capabilities.md).
+        // HD2Runtime 0.31.0 additions, read and kept read-only until their editors land: beam swaps and the Eagle Rearm pool.
+        ["player_weapon|attack.beam|beam_reference"] = Deferred031("a beam swap (attack.beam)", "the beam swap picker"),
+        ["support_weapon|attack.beam|reference/beam_reference"] = Deferred031("a beam swap (attack.beam)", "the beam swap picker"),
+        ["vehicle_weapon|attack.beam|beam_reference"] = Deferred031("a beam swap (attack.beam)", "the beam swap picker"),
+        ["vehicle_weapon|attack.beam [drone]|beam_reference"] = Deferred031("a beam swap (attack.beam)", "the beam swap picker"),
+        ["stratagem|stratagem.rearm_pool|enum"] = Deferred031("the Eagle Rearm pool (stratagem.rearm_pool)", "its selector"),
     };
     // The audit's name for the 0.30.2 sentry and emplacement hosts (published as mounted-weapon sources, reached through their stratagem).
     public const string StratagemHostKind = "stratagem_weapon";
     private static (CapabilityClass, string) Deferred0302(string what, string editor) =>
         (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "HD2Runtime 0.30.2: " + what + " is shown read-only until " + editor + " lands.");
+    private static (CapabilityClass, string) Deferred031(string what, string editor) =>
+        (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "HD2Runtime 0.31.0: " + what + " is shown read-only until " + editor + " lands.");
     private static (CapabilityClass, string) Deferred030(string phase, string editor) =>
         (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "HD2Runtime 0.30.0: shown read-only until its editor (" + editor + ") lands, docs/runtime030-integration-plan.md Phase " + phase + ".");
     public static (CapabilityClass Class, string Reason)? Find(string area, string capability, string type) =>
@@ -151,6 +159,9 @@ public static class CapabilityAudit
         ["WeaponAttachmentModifierCapabilities.json"] = (CapabilityClass.SUPPORTED_UI, "Muzzle, optics and underbarrel stat modifiers: read, validated and edited in Player Weapons › muzzle, optics and underbarrel"),
         ["ExplosionCatalogue.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "The catalogued explosions (edits, payloads, spawns): not read yet; their editor is planned with the next SDK binding"),
         ["SoundEventCatalogue.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Every game sound event for hd2.sounds scripting; the sound pickers use WeaponSoundCatalogue"),
+        // 0.31.0.
+        ["BeamConversionCapabilities.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Beam conversion (hd2.weapon(name):beam_conversion(), experimental, solo or identical lobbies): not read; custom Lua can call it"),
+        ["StatusEffectAuthoringCapabilities.json"] = (CapabilityClass.INTENTIONALLY_NOT_EXPOSED, "Status effect definitions (hd2.status_effect(id): duration and tick damage, global): not read yet; custom Lua can write them"),
     };
 
     /// <param name="sdkFiles">Every entry of the SDK archive (name → bytes); the audit classifies each file and reads the raw event actions.</param>

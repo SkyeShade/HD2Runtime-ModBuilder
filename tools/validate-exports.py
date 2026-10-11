@@ -3,9 +3,9 @@
 The Runtime tree is used read-only: extract the release commit first, never point this at a working checkout with
 uncommitted changes, e.g.
 
-    git -C ..\\HD2Runtime archive -o %TEMP%\\hd2runtime-0.30.3-7da218b.tar 7da218b
-    tar -x -f %TEMP%\\hd2runtime-0.30.3-7da218b.tar -C %TEMP%\\hd2runtime-0.30.3-7da218b
-    py -3 -B tools\\validate-exports.py --runtime %TEMP%\\hd2runtime-0.30.3-7da218b build\\export-fixtures\\*.zip
+    git -C ..\\HD2Runtime archive -o %TEMP%\\hd2runtime-0.31.0-2c38305.tar 2c38305
+    tar -x -f %TEMP%\\hd2runtime-0.31.0-2c38305.tar -C %TEMP%\\hd2runtime-0.31.0-2c38305
+    py -3 -B tools\\validate-exports.py --runtime %TEMP%\\hd2runtime-0.31.0-2c38305 build\\export-fixtures\\*.zip
 
 The tree is the one of the SDK ModBuilder pins (SdkPin.RuntimeCommit); exports of projects bound to an older SDK validate against that
 release's tree (for example v0.28.1).

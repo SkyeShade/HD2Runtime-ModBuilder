@@ -45,7 +45,9 @@ public sealed record FieldBacking(string Kind, string? Component, int Offset, st
     int? RecordIndex, int? IndexRow, int? OwnerCount, bool? UniqueOwner, string? Settings,
     int? Group, int? Row, int? RecordType, string? SettingsType, string? Branch, int? ConsumerCount, string? Phase = null,
     // Unreleased Runtime (0.28.0 development): a DamageInfo status slot and the enum a status reference is written as.
-    int? StatusSlot = null, string? Enum = null);
+    int? StatusSlot = null, string? Enum = null,
+    // 0.31.0: a spawned record's link (a missile's SeekingMissile row through its weapon) and the resource that owns it. Read only.
+    JsonElement? Link = null, string? Resource = null);
 // A published live test of a field family (Runtime's LiveEvidenceCatalog), for example the enemy main-health test.
 public sealed record FieldLiveEvidence(string Status, string Family, string[] Tests, string Date, string[]? AppliesToKinds = null, string? Target = null, string? Field = null,
     // 0.28.0: the exact values a live test proved (their writes drop the acknowledgement; allow_shared never drops).
@@ -88,7 +90,12 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     IReadOnlyList<string>? LiveProvenValues = null, JsonElement? HeatLevel = null, string? StatusScope = null, IReadOnlyList<string>? AllowedNames = null,
     // 0.30.0 development (b3f42ec) weapon.sound: the native shot/loop event block, its MIDI byte and companion members, and the catalogue a
     // value comes from. Read; the value type is authored only once the firing sound editor exists (AuthoredTypes).
-    JsonElement? NativeSound = null, int? MidiOffset = null, JsonElement? CompanionMembers = null, JsonElement? Sound = null)
+    JsonElement? NativeSound = null, int? MidiOffset = null, JsonElement? CompanionMembers = null, JsonElement? Sound = null,
+    // 0.31.0: the fire-mode selector a single-mode weapon gains in the same transaction as its weapon_function binding (FireModes.Addable),
+    // and the beam fields' class, pulse arithmetic and active beam source (read; a beam reference is not authored by this build).
+    FireModeBinding? Binding = null, string? BeamClass = null, JsonElement? BeamPulse = null, JsonElement? BeamSource = null,
+    // 0.31.0 missiles and team-reload spares: why the range is what it is, the multiplayer note, and the spawned record a missile field writes.
+    string? RangeReason = null, JsonElement? Multiplayer = null, JsonElement? SpawnedEntity = null)
 {
     public const string FireRateSet = "fire_rate_set", WeaponFunction = "weapon_function", FunctionProjectileReference = "function_projectile_reference",
         TraitSet = "trait_set", ArmorPenetrationLabel = "armor_penetration_label",
@@ -100,6 +107,7 @@ public sealed record WeaponCapability(string DisplayName, string SemanticFieldId
     // A typed status reference (Runtime 0.28.0): a status key from AllowedReferences, or 'none' where AllowNone. Authored since 1.4.0;
     // the reason is what a value type this build does not author would show.
     public const string StatusReference = "status_reference";
+    public const string BeamReference = "beam_reference";
     public const string StatusReferenceReason = AuthoredTypes.NotAuthoredReason;
     // The operation group Runtime writes in one transaction per weapon: rate-of-fire slots, weapon-function bindings, function projectile.
     public const string WeaponSelectorGroup = "weapon_selector";
@@ -132,6 +140,9 @@ public sealed record WeaponProjectileSource(string Status, string? Mechanism, st
 public sealed record WeaponFieldEvidence(string? NativeOwner, string? Source, bool? GameplayProven, string? GameplaySource = null,
     string? Selector = null, string? Reader = null, bool? DerivedFromGameplay = null);
 // Input bindings: a published WeaponFunctionType name ("Firemode", "None"…) or an unnamed native value.
+// 0.31.0: binding one of Fields to Value (weapon_function.left / .right = 'fire_mode') adds a selector to a single-mode weapon; Runtime takes
+// two or three modes only together with it, and the binding only together with two or more modes.
+public sealed record FireModeBinding(IReadOnlyList<string> Fields, string Value, string? Rule = null);
 public sealed record FireModeSelector(JsonElement Left, JsonElement Right)
 {
     public bool Bound => IsFiremode(Left) || IsFiremode(Right);
@@ -255,7 +266,7 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
         if (!Regex.IsMatch(f.SemanticFieldId, "\\A[a-z][a-z_0-9]*(?:\\.[a-z][a-z_0-9]*)+\\z") || f.SemanticFieldId.Length > 128 || string.IsNullOrWhiteSpace(f.DisplayName)
             || f.Type is not ("number" or "integer" or "boolean" or "enum" or "projectile_reference" or "explosion_reference" or WeaponCapability.FireModeSet or WeaponCapability.StatusReference
                 or WeaponCapability.FireRateSet or WeaponCapability.WeaponFunction or WeaponCapability.FunctionProjectileReference or WeaponCapability.TraitSet or WeaponCapability.ArmorPenetrationLabel
-                or WeaponCapability.WeaponSound))
+                or WeaponCapability.WeaponSound or WeaponCapability.BeamReference))
             throw new InvalidDataException("Invalid semantic field.");
         if (f.Type == WeaponCapability.StatusReference && (f.CurrentDefault.ValueKind != JsonValueKind.String || f.AllowedReferences is not { Count: > 0 } || f.StatusSlot is not (null or (>= 1 and <= 4))))
             throw new InvalidDataException("Invalid status reference.");
@@ -267,6 +278,11 @@ public sealed class PlayerWeaponCatalogReader : IPlayerWeaponCatalogReader
         else if (f.Type is WeaponCapability.FunctionProjectileReference)
         {
             if (f.CurrentDefault.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Expected a function projectile baseline.");
+        }
+        // 0.31.0 beam swaps: the weapon's own beam (weapon and BeamType) on its active beam source.
+        else if (f.Type == WeaponCapability.BeamReference)
+        {
+            if (f.CurrentDefault.ValueKind != JsonValueKind.Object || f.ReferenceKind != "beam") throw new InvalidDataException("Invalid beam reference.");
         }
         else if (f.Type is not ("projectile_reference" or "explosion_reference") && f.CurrentDefault.ValueKind is (JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new InvalidDataException("Expected a scalar baseline.");
         if (f.SemanticFieldId == FireModes.ReticleField && (f.Type != "boolean" || f.Editable && (f.Encoding == null || f.NativeValue == null))) throw new InvalidDataException("Invalid third-person reticle field.");

@@ -1,0 +1,8 @@
+[
+ {
+  "key": "Support.BackpackAmmo.TeamReload",
+  "en": "{0} keeps spares of its own and reloads from them first; the backpack's deposit is used only once they run out. A teammate can also reload it from the backpack.",
+  "zh": "{0} 自带备用弹药并优先使用；只有备用弹药耗尽后才会使用背包中的弹药。队友也可以用背包为其装填。",
+  "comment": "{0}: support weapon name (not translated)"
+ }
+]

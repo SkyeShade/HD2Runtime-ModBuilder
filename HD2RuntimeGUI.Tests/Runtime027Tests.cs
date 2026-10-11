@@ -206,17 +206,17 @@ public sealed class Runtime027Tests
     [Fact] public async Task A_newer_sdk_release_is_reported_but_never_downloaded_or_offered()
     {
         using var e = new TestEnvironment(); await SdkFixtures.Install(e, "0.26.0");
-        var r29 = FakeGitHub.MakeRelease("0.31.0", Encoding.UTF8.GetBytes("future"));
+        var r29 = FakeGitHub.MakeRelease("0.31.1", Encoding.UTF8.GetBytes("future"));
         var r28 = FakeGitHub.MakeRelease("0.28.0", SdkFixtures.Archive("0.28.0"));
         e.GitHub.Candidates = [r29, r28]; e.GitHub.CandidateArchives["0.28.0"] = SdkFixtures.Archive("0.28.0");
         var w = e.Workspace(); await w.CheckUpdatesAsync(); var status = w.SdkStatus!;
-        Assert.Equal("0.28.0", status.Latest!.Version); Assert.True(status.UpdateAvailable); Assert.Equal("0.31.0", status.NewerUnsupported);
-        Assert.Contains("needs a newer HD2Runtime ModBuilder", status.Message); Assert.DoesNotContain("0.31.0", e.GitHub.Downloads);
-        Assert.Equal(SdkCompatibility.NewestSupportedVersion, SdkPin.Version); Assert.False(SdkCompatibility.IsSupported("0.31.0")); Assert.True(SdkCompatibility.IsSupported("0.5.1"));
-        // The bundled pin is 0.30.3: 0.30.0, 0.30.1, 0.30.2 and the 0.30.0-dev test SDKs sort below it and stay supported; 0.30.4 needs the ModBuilder that pins it.
+        Assert.Equal("0.28.0", status.Latest!.Version); Assert.True(status.UpdateAvailable); Assert.Equal("0.31.1", status.NewerUnsupported);
+        Assert.Contains("needs a newer HD2Runtime ModBuilder", status.Message); Assert.DoesNotContain("0.31.1", e.GitHub.Downloads);
+        Assert.Equal(SdkCompatibility.NewestSupportedVersion, SdkPin.Version); Assert.False(SdkCompatibility.IsSupported("0.31.1")); Assert.True(SdkCompatibility.IsSupported("0.5.1"));
+        // The bundled pin is 0.31.0: 0.30.0 to 0.30.3 and the 0.30.0-dev test SDKs sort below it and stay supported; 0.31.1 needs the ModBuilder that pins it.
         Assert.True(SdkCompatibility.IsSupported("0.28.1")); Assert.True(SdkCompatibility.IsSupported("0.30.0-dev")); Assert.True(SdkCompatibility.IsSupported("0.30.0"));
         Assert.True(SdkCompatibility.IsSupported("0.30.1")); Assert.True(SdkCompatibility.IsSupported("0.30.2"));
-        Assert.True(SdkCompatibility.IsSupported("0.30.3")); Assert.False(SdkCompatibility.IsSupported("0.30.4"));
+        Assert.True(SdkCompatibility.IsSupported("0.30.3")); Assert.True(SdkCompatibility.IsSupported("0.31.0")); Assert.False(SdkCompatibility.IsSupported("0.31.1"));
     }
     [Fact] public async Task A_release_this_version_cannot_read_is_skipped_instead_of_breaking_the_check()
     {
